@@ -50,6 +50,13 @@ RESERVED = {ERRORS, DONE, WORK}
 # formats audio reconnus mais non gérés : l'élément part dans _erreurs
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
+# annexes qui suivent l'album dans la bibliothèque ; les autres (.txt, .nfo,
+# .log…) restent avec l'original dans _traités/
+ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
+# pochettes renommées en folder.jpg (le nom de la bibliothèque, et celui que
+# cherche embed_covers.py), sauf si le dossier en a déjà un
+COVER = "folder.jpg"
+COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
 MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
 OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
 
@@ -266,9 +273,9 @@ def ranger(args, paths, apply, quiet=False):
 
 
 def classify(item):
-    """(flac, autres audio acceptés, annexes, parasites). Lève Reject pour
-    un format non géré."""
-    flacs, audio, annexes, junk = [], [], [], []
+    """(flac, autres audio acceptés, annexes, laissés, parasites). Lève Reject
+    pour un format non géré."""
+    flacs, audio, annexes, left, junk = [], [], [], [], []
     for p in item.files():
         ext = p.suffix.lower()
         if is_junk(p):
@@ -283,11 +290,26 @@ def classify(item):
             audio.append(p)
         elif ext in OTHER_AUDIO:
             raise Reject(f"{p.name} : format {ext} non géré")
-        else:
+        elif ext in ANNEX_EXT:
             annexes.append(p)
+        else:
+            left.append(p)
     if not flacs and not audio:
         raise Reject("aucun fichier audio")
-    return flacs, audio, annexes, junk
+    return flacs, audio, annexes, left, junk
+
+
+def annex_names(item, annexes):
+    """Nom relatif de chaque annexe dans la bibliothèque : cover.jpg → folder.jpg."""
+    has_cover = {item.rel(p).parent for p in annexes if p.name.lower() == COVER}
+    out = {}
+    for p in annexes:
+        rel = item.rel(p)
+        if p.name.lower() in COVER_NAMES and rel.parent not in has_cover:
+            has_cover.add(rel.parent)
+            rel = rel.with_name(COVER)
+        out[p] = rel
+    return out
 
 
 def link_or_copy(src: Path, dst: Path):
@@ -309,13 +331,19 @@ def to_errors(args, item, reason, log):
 def process(args, item, log):
     """Renvoie (OK | FAILED | STOPPED, dossiers cibles)."""
     try:
-        flacs, audio, annexes, junk = classify(item)
+        flacs, audio, annexes, left, junk = classify(item)
     except (Reject, subprocess.CalledProcessError, ValueError) as e:
         to_errors(args, item, e, log)
         return FAILED, set()
 
     log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
         f"{len(annexes)} annexe(s))")
+    names = annex_names(item, annexes)
+    for p, rel in names.items():
+        if rel.name != p.name:
+            log(f"POCHETTE {item.rel(p)} → {rel.name}")
+    for p in left:
+        log(f"LAISSÉ   {item.rel(p)} : gardé avec l'original dans {DONE}/")
 
     if not args.apply:
         for p in flacs:
@@ -326,8 +354,12 @@ def process(args, item, log):
             log(f"ERREUR   {item.name} : irait dans {ERRORS}/ (voir ci-dessus)")
             return FAILED, set()
         for src, dst in report["moves"]:
+            if src in left:
+                continue
             if src.suffix.lower() == ".flac":
                 dst = dst.with_suffix(".m4a")
+            elif src in names:
+                dst = dst.with_name(names[src].name)
             log(f"RANGER   {item.rel(src)}\n         → {dst}")
         return OK, set()
 
@@ -344,8 +376,10 @@ def process(args, item, log):
                 raise Stopped
             log(f"CONVERTIR {item.rel(p)}")
             convert(p, work / item.rel(p).with_suffix(".m4a"))
-        for p in audio + annexes:
+        for p in audio:
             link_or_copy(p, work / item.rel(p))
+        for p, rel in names.items():
+            link_or_copy(p, work / rel)
         code, report = ranger(args, [work], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())

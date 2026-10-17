@@ -79,6 +79,36 @@ def test_flac_album_imported(env, make_track):
     assert env.calls.read_text().split() == [str(env.lib / "A/B")]
 
 
+def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
+    # cas réel : Salut C'est Cool - Mon premier EP
+    d = flac_album(env, make_track)
+    (d / "folder.jpg").rename(d / "cover.jpg")
+    (d / "info.txt").write_text("source")
+    (d / "Booklet.pdf").write_bytes(b"pdf")
+    (d / "1.lrc").write_text("[00:01]la")
+
+    assert env.run() == 0                           # dry-run : même résultat annoncé
+    out = capsys.readouterr().out
+    assert "POCHETTE cover.jpg → folder.jpg" in out and "LAISSÉ   info.txt" in out
+    assert "A/B/folder.jpg" in out and "A/B/info.txt" not in out
+
+    assert env.run("--apply") == 0
+    assert files(env.lib) == ["A/B/01 Un.m4a", "A/B/02 Deux.m4a", "A/B/1.lrc",
+                              "A/B/Booklet.pdf", "A/B/folder.jpg"]
+    assert (env.lib / "A/B/folder.jpg").read_bytes() == JPEG
+    # l'original reste entier dans _traités/, info.txt compris
+    assert f"_traités/{TODAY}/Album/info.txt" in files(env.inbox)
+    assert f"_traités/{TODAY}/Album/cover.jpg" in files(env.inbox)
+
+
+def test_existing_folder_jpg_wins_over_cover(env, make_track):
+    d = flac_album(env, make_track)
+    (d / "cover.jpg").write_bytes(b"autre")
+    assert env.run("--apply") == 0
+    assert (env.lib / "A/B/folder.jpg").read_bytes() == JPEG
+    assert (env.lib / "A/B/cover.jpg").read_bytes() == b"autre"
+
+
 def test_24bit_flac_stays_24bit(env, tmp_path):
     src = env.inbox / "hd.flac"
     subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=440:r=96000",
