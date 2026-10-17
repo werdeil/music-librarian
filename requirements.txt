@@ -1,2 +1,2 @@
-mutagen==1.47.0
-pytest==8.4.2
+# dépendances d'exécution (alignées sur lyrion-dashboard/requirements-cli.txt)
+mutagen==1.48.1

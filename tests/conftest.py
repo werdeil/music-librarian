@@ -15,6 +15,13 @@ CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-
 
 
 @pytest.fixture(autouse=True)
+def clean_env(monkeypatch):
+    """Les tests ne doivent pas hériter des chemins de l'image Docker ou de l'hôte."""
+    for var in ("MUSIC_RANGER_ROOT", "MUSIC_RANGER_INBOX", "MUSIC_RANGER_STATE"):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def no_stop():
     """L'arrêt demandé est global au processus : remis à zéro entre les tests."""
     import music_ranger
