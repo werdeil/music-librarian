@@ -14,12 +14,23 @@ Exemples :
   # Importer un album déposé dans l'Inbox
   music_ranger.py --root /media/werdeil/internal_drive/Musique /chemin/Inbox/MonAlbum --apply
 
-Codes retour : 0 = OK, 2 = conflits ou fichiers ignorés (voir sortie).
+  # Ne traiter que les dossiers modifiés depuis le dernier passage
+  music_ranger.py --root /media/werdeil/internal_drive/Musique --since --apply
+
+  # Annuler un passage (dry-run, puis --apply)
+  music_ranger.py --root /media/werdeil/internal_drive/Musique --undo state/journal/<date>.jsonl
+
+État (journaux des déplacements, date du dernier passage) : --state-dir, sinon
+$MUSIC_RANGER_STATE, sinon le dossier state/ à côté du script.
+
+Codes retour : 0 = OK, 2 = conflits, fichiers ignorés ou annulations refusées.
 """
 import argparse
+import json
 import os
 import shutil
 import sys
+import time
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -32,6 +43,7 @@ from mutagen.mp4 import MP4
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 MIN_TRUNC = 20  # longueur mini pour tolérer un nom tronqué par Apple Music
+LAST_RUN = "last_run"  # fichier d'état de --since
 
 
 # ---------- utilitaires ----------
@@ -68,6 +80,82 @@ def parse_pair(s):
         return None, None
     parts = str(s).split("/")
     return to_int(parts[0]), (to_int(parts[1]) if len(parts) > 1 else None)
+
+
+class Log:
+    """stdout, et en plus journald (tag music-ranger) avec --syslog."""
+
+    def __init__(self, use_syslog=False):
+        self.syslog = None
+        if use_syslog:
+            import syslog
+            syslog.openlog("music-ranger")
+            self.syslog = syslog
+
+    def __call__(self, msg=""):
+        # caractères de contrôle invisibles (ex. U+0092) affichés en clair
+        msg = "".join(f"\\x{ord(c):02x}" if unicodedata.category(c) == "Cc" and c != "\n"
+                      else c for c in msg)
+        print(msg)
+        if self.syslog and msg.strip():
+            line = " ".join(part.strip() for part in msg.splitlines() if part.strip())
+            # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter le log
+            self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())
+
+
+class Journal:
+    """Une ligne JSON par déplacement réussi, écrite juste après : un passage
+    interrompu reste annulable. Le fichier n'est créé qu'au premier déplacement."""
+
+    def __init__(self, state_dir: Path, meta):
+        self.state_dir = state_dir
+        self.meta = meta
+        self.path = None
+        self.f = None
+
+    def move(self, src, dst):
+        if self.f is None:
+            d = self.state_dir / "journal"
+            d.mkdir(parents=True, exist_ok=True)
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            for i in range(100):
+                self.path = d / (f"{stamp}.jsonl" if i == 0 else f"{stamp}-{i}.jsonl")
+                try:
+                    self.f = open(self.path, "x", encoding="utf-8")
+                    break
+                except FileExistsError:
+                    continue
+            self._write(dict(type="meta", **self.meta))
+        self._write(dict(type="move", src=str(src), dst=str(dst)))
+
+    def _write(self, rec):
+        # ensure_ascii : un nom non UTF-8 est gardé tel quel (\udcXX) et relu à l'identique
+        self.f.write(json.dumps(rec) + "\n")
+        self.f.flush()
+
+    def close(self):
+        if self.f:
+            self.f.close()
+
+
+def move_file(src: Path, dst: Path, journal: Journal):
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    journal.move(src, dst)
+
+
+def prune_empty(d: Path, stops):
+    """Supprime d et ses parents tant qu'ils sont vides, sans jamais remonter
+    jusqu'aux dossiers de `stops` (racine, dossiers passés en argument)."""
+    n = 0
+    while d not in stops and any(d.is_relative_to(s) for s in stops):
+        try:
+            d.rmdir()
+        except OSError:
+            break
+        n += 1
+        d = d.parent
+    return n
 
 
 # ---------- lecture des tags ----------
@@ -120,7 +208,7 @@ def read_tags(path: Path):
 def clean(s, is_dir=False):
     # caractères remplacés par Apple Music
     # constatés : / : ? " | ’ ´   — par analogie : ‘ “ ” * < > \
-    for ch in '/:?"|*<>\\\u2019\u2018\u201c\u201d\u00b4':
+    for ch in '/:?"|*<>\\’‘“”´':
         s = s.replace(ch, "_")
     s = nfc(s).strip()
     if s.startswith("."):
@@ -168,9 +256,76 @@ def is_in_place(cur_rel: Path, tgt_rel: Path, strict_case):
     return same_component(cur_rel.stem, tgt_rel.stem, strict_case)
 
 
+# ---------- parcours ----------
+
+def changed_since(p: Path, since):
+    try:
+        return os.lstat(p).st_ctime > since
+    except OSError:
+        return False
+
+
+def collect(scan, since=None):
+    """Fichiers à examiner. Avec `since`, seulement les dossiers dont au moins un
+    fichier a changé depuis (ctime : un tag réécrit ou un renommage la met à
+    jour), mais alors le dossier entier, pour que les annexes ne partent pas
+    avec une partie seulement des pistes."""
+    for base in scan:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+            paths = [Path(dirpath) / n for n in sorted(filenames)]
+            if since is not None and not any(changed_since(p, since) for p in paths):
+                continue
+            yield from paths
+
+
+# ---------- annulation ----------
+
+def undo(args, root, state_dir, log):
+    jpath = Path(args.undo)
+    recs = [json.loads(line) for line in jpath.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    moves = [(Path(r["dst"]), Path(r["src"])) for r in reversed(recs)
+             if r.get("type") == "move"]
+    mode = "APPLY" if args.apply else "DRY-RUN"
+    log(f"[{mode}] annulation de {jpath} ({len(moves)} déplacements)")
+
+    todo, refused = [], 0
+    for cur, orig in moves:
+        if not cur.exists():
+            log(f"REFUSÉ   (fichier absent)  {cur}")
+            refused += 1
+        elif orig.exists():
+            log(f"REFUSÉ   (place d'origine prise)  {orig}")
+            refused += 1
+        else:
+            log(f"RESTAURER {cur}\n          → {orig}")
+            todo.append((cur, orig))
+
+    journal = Journal(state_dir, dict(root=str(root), undo_of=str(jpath),
+                                      started=time.time()))
+    pruned = 0
+    if args.apply:
+        for cur, orig in todo:
+            move_file(cur, orig, journal)
+        for d in sorted({cur.parent for cur, _ in todo}, key=lambda d: -len(d.parts)):
+            pruned += prune_empty(d, {root})
+    journal.close()
+
+    log("\n--- Résumé ---")
+    log(f"{'à restaurer':>20} : {len(todo)}")
+    if refused:
+        log(f"{'refusés':>20} : {refused}")
+    if pruned:
+        log(f"{'dossiers supprimés':>20} : {pruned}")
+    if journal.path:
+        log(f"{'journal':>20} : {journal.path}")
+    return 2 if refused else 0
+
+
 # ---------- programme principal ----------
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
     ap.add_argument("--root", required=True, help="racine de la bibliothèque")
     ap.add_argument("paths", nargs="*", help="dossiers à traiter (défaut : --root)")
@@ -178,114 +333,174 @@ def main():
     ap.add_argument("--compilations-dir", default="Compilations")
     ap.add_argument("--strict-case", action="store_true",
                     help="renommer aussi les différences de casse seules")
-    args = ap.parse_args()
+    ap.add_argument("--since", action="store_true",
+                    help="ne traiter que les dossiers modifiés depuis le dernier passage")
+    ap.add_argument("--undo", metavar="JOURNAL", help="annuler les déplacements d'un journal")
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"),
+                    help="dossier d'état (journaux, dernier passage)")
+    ap.add_argument("--syslog", action="store_true",
+                    help="envoyer aussi les lignes dans syslog/journald (tag music-ranger)")
+    args = ap.parse_args(argv)
 
+    # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter l'affichage
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
+    log = Log(args.syslog)
     root = Path(args.root).resolve()
+    state_dir = Path(args.state_dir or Path(__file__).resolve().parent / "state")
+
+    if args.undo:
+        return undo(args, root, state_dir, log)
+
+    started = time.time()
     scan = [Path(p).resolve() for p in args.paths] or [root]
     mode = "APPLY" if args.apply else "DRY-RUN"
-    print(f"[{mode}] racine : {root}")
+    log(f"[{mode}] racine : {root}")
+
+    since = None
+    if args.since:
+        try:
+            since = float((state_dir / LAST_RUN).read_text().strip())
+            log(f"depuis le {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
+        except (OSError, ValueError):
+            log("pas de dernier passage connu : tout est traité")
+
+    entries = []                  # (fichier, tags, chemin cible relatif)
+    stats = defaultdict(int)
+    junk = []
+    blocked = set()               # dossiers dont les annexes ne doivent pas bouger
+
+    for p in collect(scan, since):
+        if is_junk(p):
+            junk.append(p)
+            continue
+        if p.suffix.lower() not in AUDIO_EXT:
+            continue
+        stats["analysés"] += 1
+        try:
+            tags = read_tags(p)
+        except Exception as e:
+            log(f"IGNORÉ   (lecture impossible : {e})  {p}")
+            stats["ignorés"] += 1
+            blocked.add(p.parent)
+            continue
+        tgt = target_rel(tags, p.suffix, args.compilations_dir) if tags else None
+        if tgt is None:
+            log(f"IGNORÉ   (tags insuffisants)  {p}")
+            stats["ignorés"] += 1
+            blocked.add(p.parent)
+            continue
+        entries.append((p, tags, tgt))
+
+    # Garde-fou compilation : un album (même dossier, même tag album) dont le
+    # flag cpil n'est pas le même partout serait éclaté entre Compilations/ et
+    # un dossier d'artiste. On ne le touche pas.
+    groups = defaultdict(list)
+    for e in entries:
+        groups[(e[0].parent, nfc(e[1]["album"] or "").casefold())].append(e)
+    mixed = set()
+    for (d, _), grp in groups.items():
+        n = sum(e[1]["compilation"] for e in grp)
+        if 0 < n < len(grp):
+            log(f"CONFLIT  (cpil incohérent : {n}/{len(grp)} pistes en compilation)"
+                f"  {d}  [{grp[0][1]['album']}]")
+            stats["conflits"] += len(grp)
+            mixed.update(e[0] for e in grp)
+            blocked.add(d)
 
     moves = []                    # (src, dst)
     seen_targets = {}             # dst -> src
     dir_targets = defaultdict(set)  # dossier source -> dossiers cibles
-    stats = defaultdict(int)
-    junk = []
 
-    for base in scan:
-        for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-            for name in filenames:
-                p = Path(dirpath) / name
-                if is_junk(p):
-                    junk.append(p)
-                    continue
-                if p.suffix.lower() not in AUDIO_EXT:
-                    continue
-                stats["analysés"] += 1
-                try:
-                    tags = read_tags(p)
-                except Exception as e:
-                    print(f"IGNORÉ   (lecture impossible : {e})  {p}")
-                    stats["ignorés"] += 1
-                    continue
-                tgt = target_rel(tags, p.suffix, args.compilations_dir) if tags else None
-                if tgt is None:
-                    print(f"IGNORÉ   (tags insuffisants)  {p}")
-                    stats["ignorés"] += 1
-                    continue
+    for p, tags, tgt in entries:
+        if p in mixed:
+            continue
+        try:
+            cur_rel = p.relative_to(root)
+        except ValueError:
+            cur_rel = None  # fichier hors bibliothèque (Inbox)
 
-                try:
-                    cur_rel = p.relative_to(root)
-                except ValueError:
-                    cur_rel = None  # fichier hors bibliothèque (Inbox)
+        if cur_rel is not None and is_in_place(cur_rel, tgt, args.strict_case):
+            stats["en place"] += 1
+            dir_targets[p.parent].add(p.parent)
+            continue
 
-                if cur_rel is not None and is_in_place(cur_rel, tgt, args.strict_case):
-                    stats["en place"] += 1
-                    dir_targets[p.parent].add(p.parent)
-                    continue
-
-                dst = root / tgt
-                key = nfc(str(dst)).casefold()
-                if key in seen_targets or (dst.exists() and not dst.samefile(p)):
-                    other = seen_targets.get(key, dst)
-                    print(f"CONFLIT  {p}\n         → {dst}\n         (déjà pris par {other})")
-                    stats["conflits"] += 1
-                    continue
-                seen_targets[key] = p
-                moves.append((p, dst))
-                dir_targets[p.parent].add(dst.parent)
+        dst = root / tgt
+        key = nfc(str(dst)).casefold()
+        if key in seen_targets or (dst.exists() and not dst.samefile(p)):
+            other = seen_targets.get(key, dst)
+            log(f"CONFLIT  {p}\n         → {dst}\n         (déjà pris par {other})")
+            stats["conflits"] += 1
+            blocked.add(p.parent)
+            continue
+        seen_targets[key] = p
+        moves.append((p, dst))
+        dir_targets[p.parent].add(dst.parent)
 
     # Fichiers annexes (folder.jpg, .lrc…) : suivent l'album si toutes les
-    # pistes du dossier partent vers le même dossier cible.
+    # pistes du dossier partent vers le même dossier cible, et qu'aucune n'est
+    # restée en arrière (conflit, tags insuffisants).
     extra = []
     for src_dir, tdirs in dir_targets.items():
-        if len(tdirs) != 1:
+        if len(tdirs) != 1 or src_dir in blocked:
             continue
         tdir = next(iter(tdirs))
         if tdir == src_dir:
             continue
-        for p in src_dir.iterdir():
+        for p in sorted(src_dir.iterdir()):
             if p.is_file() and not is_junk(p) and p.suffix.lower() not in AUDIO_EXT:
                 dst = tdir / p.name
                 if dst.exists():
-                    print(f"CONFLIT  (annexe déjà présente)  {dst}")
+                    log(f"CONFLIT  (annexe déjà présente)  {dst}")
                     stats["conflits"] += 1
                 else:
                     extra.append((p, dst))
 
     for src, dst in moves + extra:
-        print(f"DÉPLACER {src}\n         → {dst}")
+        log(f"DÉPLACER {src}\n         → {dst}")
 
+    journal = Journal(state_dir, dict(root=str(root), started=started,
+                                      argv=sys.argv[1:] if argv is None else argv))
     if args.apply:
+        touched = set()
         for src, dst in moves + extra:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
+            if dst.exists() and not dst.samefile(src):
+                log(f"CONFLIT  (apparu pendant le passage)  {dst}")
+                stats["conflits"] += 1
+                continue
+            move_file(src, dst, journal)
+            stats["déplacés"] += 1
+            touched.add(src.parent)
         for j in junk:
             j.unlink(missing_ok=True)
-        # nettoyage des dossiers vidés (jamais la racine ni les dossiers passés en argument)
+            touched.add(j.parent)
+        # dossiers vidés (jamais la racine ni les dossiers passés en argument)
         protected = {root, *scan}
-        for base in scan:
-            for dirpath, _, _ in sorted(os.walk(base), key=lambda x: -len(x[0])):
-                d = Path(dirpath)
-                if d in protected:
-                    continue
-                try:
-                    d.rmdir()
-                    stats["dossiers supprimés"] += 1
-                except OSError:
-                    pass
+        for d in sorted(touched, key=lambda d: -len(d.parts)):
+            stats["dossiers supprimés"] += prune_empty(d, protected)
+        # Le dernier passage n'avance qu'après un passage sur toute la racine.
+        # Les conflits restants ne le bloquent pas : ils réapparaîtront au
+        # prochain passage complet, ou dès que leur dossier sera retouché.
+        if scan == [root]:
+            state_dir.mkdir(parents=True, exist_ok=True)
+            (state_dir / LAST_RUN).write_text(f"{started}\n")
+    journal.close()
 
     stats["à déplacer"] = len(moves)
     stats["annexes à déplacer"] = len(extra)
     stats["fichiers parasites"] = len(junk)
-    print("\n--- Résumé ---")
-    for k in ("analysés", "en place", "à déplacer", "annexes à déplacer",
+    log("\n--- Résumé ---")
+    for k in ("analysés", "en place", "à déplacer", "annexes à déplacer", "déplacés",
               "ignorés", "conflits", "fichiers parasites", "dossiers supprimés"):
         if stats[k]:
-            print(f"{k:>20} : {stats[k]}")
+            log(f"{k:>20} : {stats[k]}")
+    if journal.path:
+        log(f"{'journal':>20} : {journal.path}")
+        log(f"{'annuler':>20} : {Path(sys.argv[0]).name} --root '{root}' "
+            f"--undo '{journal.path}' --apply")
 
-    sys.exit(2 if stats["conflits"] or stats["ignorés"] else 0)
+    return 2 if stats["conflits"] or stats["ignorés"] else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
