@@ -20,6 +20,9 @@ Exemples :
   # Annuler un passage (dry-run, puis --apply)
   music_ranger.py --root /media/werdeil/internal_drive/Musique --undo state/journal/<date>.jsonl
 
+Avec --lms-db, l'historique LMS (lectures, notes) suit les fichiers déplacés
+(voir lms.py). --lms-replay JOURNAL le reporte après coup pour un passage.
+
 État (journaux des déplacements, date du dernier passage) : --state-dir, sinon
 $MUSIC_RANGER_STATE, sinon le dossier state/ à côté du script.
 
@@ -30,7 +33,7 @@ Ctrl-C, le déplacement en cours se termine, les suivants sont laissés pour le
 prochain passage (deuxième Ctrl-C : arrêt immédiat).
 
 Codes retour : 0 = OK, 2 = conflits, fichiers ignorés ou annulations refusées,
-3 = un autre passage est en cours, 4 = arrêté avant la fin.
+3 = un autre passage est en cours, 4 = arrêté avant la fin, 5 = report LMS en échec.
 """
 import argparse
 import contextlib
@@ -52,12 +55,14 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
+import lms
+
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 MIN_TRUNC = 20  # longueur mini pour tolérer un nom tronqué par Apple Music
 LAST_RUN = "last_run"  # fichier d'état de --since
 LOCK = "lock"
-EXIT_LOCKED, EXIT_STOPPED = 3, 4
+EXIT_LOCKED, EXIT_STOPPED, EXIT_LMS = 3, 4, 5
 STOP = threading.Event()  # arrêt demandé (SIGTERM, Ctrl-C)
 _lock_held = False
 
@@ -160,6 +165,37 @@ def move_file(src: Path, dst: Path, journal: Journal):
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(src), str(dst))
     journal.move(src, dst)
+
+
+def lms_sync(db, moves, apply, log):
+    """Reporte l'historique LMS des fichiers déplacés ; False en cas d'échec."""
+    if db is None:
+        return True
+    pairs = db.pairs(moves, AUDIO_EXT)
+    if not pairs:
+        return True
+    try:
+        stats = db.sync(pairs, apply)
+    except Exception as e:
+        log(f"ERREUR   report LMS : {e}")
+        return False
+    for k, v in stats.items():
+        if v:
+            log(f"{'LMS ' + k:>20} : {v}")
+    return True
+
+
+def lms_replay(args, db, log):
+    """--lms-replay : reporte l'historique LMS des déplacements d'un journal."""
+    if db is None:
+        log("ERREUR   --lms-replay demande --lms-db")
+        return 2
+    recs = [json.loads(line) for line in Path(args.lms_replay).read_text(
+        encoding="utf-8").splitlines() if line.strip()]
+    moves = [(r["src"], r["dst"]) for r in recs if r.get("type") == "move"]
+    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] report LMS de {args.lms_replay}"
+        f" ({len(moves)} déplacements)")
+    return 0 if lms_sync(db, moves, args.apply, log) else EXIT_LMS
 
 
 def prune_empty(d: Path, stops):
@@ -349,7 +385,7 @@ def collect(scan, since=None):
 
 # ---------- annulation ----------
 
-def undo(args, root, state_dir, log):
+def undo(args, root, state_dir, log, db=None):
     jpath = Path(args.undo)
     recs = [json.loads(line) for line in jpath.read_text(encoding="utf-8").splitlines()
             if line.strip()]
@@ -374,6 +410,7 @@ def undo(args, root, state_dir, log):
     journal = Journal(state_dir, dict(root=str(root), undo_of=str(jpath),
                                       started=time.time()))
     pruned = 0
+    done = []
     if args.apply:
         for i, (cur, orig) in enumerate(todo):
             if STOP.is_set():
@@ -381,6 +418,7 @@ def undo(args, root, state_dir, log):
                 stopped = True
                 break
             move_file(cur, orig, journal)
+            done.append((cur, orig))
         for d in sorted({cur.parent for cur, _ in todo}, key=lambda d: -len(d.parts)):
             pruned += prune_empty(d, {root})
     journal.close()
@@ -393,7 +431,11 @@ def undo(args, root, state_dir, log):
         log(f"{'dossiers supprimés':>20} : {pruned}")
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-    return EXIT_STOPPED if stopped else 2 if refused else 0
+    lms_ok = lms_sync(db, done if args.apply else todo, args.apply, log)
+    if not lms_ok and journal.path:
+        log(f"{'reprise LMS':>20} : music-ranger range --lms-replay "
+            f"{shlex.quote(str(journal.path))} --apply")
+    return EXIT_STOPPED if stopped else 2 if refused else 0 if lms_ok else EXIT_LMS
 
 
 # ---------- programme principal ----------
@@ -419,6 +461,9 @@ def run(argv=None, interruptible=True):
     ap.add_argument("--since", action="store_true",
                     help="ne traiter que les dossiers modifiés depuis le dernier passage")
     ap.add_argument("--undo", metavar="JOURNAL", help="annuler les déplacements d'un journal")
+    ap.add_argument("--lms-replay", metavar="JOURNAL",
+                    help="reporter dans LMS l'historique des déplacements d'un journal")
+    lms.add_arguments(ap)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"),
                     help="dossier d'état (journaux, dernier passage)")
     ap.add_argument("--syslog", action="store_true",
@@ -431,18 +476,21 @@ def run(argv=None, interruptible=True):
     log = Log(args.syslog)
     root = Path(args.root).resolve()
     state_dir = state_path(args.state_dir)
+    db = lms.from_args(args, root, state_dir)
 
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
+            if args.lms_replay:
+                return lms_replay(args, db, log), {}
             if args.undo:
-                return undo(args, root, state_dir, log), {}
-            return rank(args, argv, root, state_dir, log, interruptible)
+                return undo(args, root, state_dir, log, db), {}
+            return rank(args, argv, root, state_dir, log, interruptible, db)
     except Locked as e:
         log(f"VERROU   un autre passage est en cours ({e}), abandon")
         return EXIT_LOCKED, {}
 
 
-def rank(args, argv, root, state_dir, log, interruptible):
+def rank(args, argv, root, state_dir, log, interruptible, db=None):
     started = time.time()
     scan = [Path(p).resolve() for p in args.paths] or [root]
     mode = "APPLY" if args.apply else "DRY-RUN"
@@ -593,12 +641,18 @@ def rank(args, argv, root, state_dir, log, interruptible):
               "ignorés", "conflits", "fichiers parasites", "dossiers supprimés"):
         if stats[k]:
             log(f"{k:>20} : {stats[k]}")
+    lms_ok = lms_sync(db, done if args.apply else moves, args.apply, log)
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
         log(f"{'annuler':>20} : music-ranger undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
+        if not lms_ok:
+            log(f"{'reprise LMS':>20} : music-ranger range --lms-replay "
+                f"{shlex.quote(str(journal.path))} --apply")
 
     code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
+    if code == 0 and not lms_ok:
+        code = EXIT_LMS
     return code, dict(moves=moves + extra, done=done, journal=journal.path)
 
 
