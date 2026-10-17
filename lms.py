@@ -145,7 +145,7 @@ class Lms:
                                     default=None)
             if "dynPSval" in cols:
                 # la note dynamique du plugin : celle de l'entrée qui a le plus d'événements
-                ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)  # noqa: E731
+                ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)
                 vals["dynPSval"] = (cur if ev(cur) >= ev(row) else row)["dynPSval"]
             sets = ", ".join(f"{c} = ?" for c in vals)
             con.execute(f"UPDATE {table} SET {sets} WHERE urlmd5 = ?", (*vals.values(), md5_new))

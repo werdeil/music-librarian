@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
 import os
 import shutil
 import subprocess
@@ -25,10 +26,33 @@ def clean_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_stop():
     """L'arrêt demandé est global au processus : remis à zéro entre les tests."""
-    import music_ranger
+    import music_ranger  # pylint: disable=import-outside-toplevel  # après le sys.path
     music_ranger.STOP.clear()
     yield
     music_ranger.STOP.clear()
+
+
+@pytest.fixture
+def ticks(monkeypatch):
+    """Fait tourner la boucle de watch : chaque attente exécute l'action suivante,
+    puis arrête."""
+    # pylint: disable-next=import-outside-toplevel  # après le sys.path
+    import watch
+    from music_ranger import STOP  # pylint: disable=import-outside-toplevel
+
+    def run(inbox, actions, *argv):
+        todo = list(actions)
+
+        def wait(timeout=None):
+            if todo:
+                todo.pop(0)()
+            else:
+                STOP.set()
+            return STOP.is_set()
+
+        monkeypatch.setattr(STOP, "wait", wait)
+        return watch.main(["--inbox", str(inbox), "--interval", "0", *argv])
+    return run
 
 
 @pytest.fixture(scope="session")
@@ -51,6 +75,7 @@ def templates(tmp_path_factory):
 def make_track(templates):
     """Crée un fichier audio taggé. `path` peut être un str ou des bytes (nom non UTF-8)."""
 
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def make(path, title=None, artist=None, albumartist=None, album=None,
              track=None, disc=None, disctotal=None, compilation=False, extra=None,
              cover=None):

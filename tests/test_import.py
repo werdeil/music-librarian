@@ -1,4 +1,6 @@
 """Import depuis l'Inbox, sur de vrais fichiers créés par ffmpeg."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
 import subprocess
 import sys
 from datetime import date

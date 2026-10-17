@@ -95,7 +95,7 @@ def enrich_all(args, root, state_dir, log):
                     f"repris au prochain passage")
                 return EXIT_STOPPED
             try:
-                r = subprocess.run([*cmd, *map(str, batch)])
+                r = subprocess.run([*cmd, *map(str, batch)], check=False)
                 ok = r.returncode == 0
             except OSError as e:
                 log(f"         {e}")

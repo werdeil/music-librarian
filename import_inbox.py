@@ -199,7 +199,7 @@ def convert(src: Path, dst: Path):
     r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
                         "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
                         "-fflags", "+bitexact", str(dst)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, check=False)
     if r.returncode:
         raise Reject(f"ffmpeg a échoué sur {src.name} : {r.stderr.strip()[-300:]}")
 
@@ -243,7 +243,7 @@ def enrich(args, dirs, log):
     for name, cmd in enrichers(args):
         log(f"ENRICHIR ({name})  {len(dirs)} dossier(s)")
         try:
-            r = subprocess.run([*cmd, *map(str, dirs)])
+            r = subprocess.run([*cmd, *map(str, dirs)], check=False)
             failed = r.returncode != 0
         except OSError as e:
             failed = True

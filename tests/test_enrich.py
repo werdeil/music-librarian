@@ -1,4 +1,6 @@
 """Enrichissement hebdomadaire (enrich.py) et son créneau dans watch."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
 import fcntl
 import sys
 from datetime import datetime, time
@@ -87,7 +89,7 @@ def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
     real = enrich.subprocess.run
 
     def run_then_stop(cmd, **kw):
-        r = real(cmd, **kw)
+        r = real(cmd, **kw)  # pylint: disable=subprocess-run-check  # check passé par enrich
         STOP.set()          # docker stop pendant le premier lot
         return r
 
@@ -100,7 +102,7 @@ def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
 def test_refused_while_locked(lib, tools, tmp_path):
     state = tmp_path / "state"
     state.mkdir()
-    with open(state / music_ranger.LOCK, "a") as f:
+    with open(state / music_ranger.LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert run(lib, state, "--apply") == EXIT_LOCKED
     assert tools.calls() == []
@@ -125,7 +127,7 @@ def test_enrich_at_format(s):
 
 
 @pytest.fixture
-def weekly(tmp_path, monkeypatch):
+def weekly(tmp_path, monkeypatch, ticks):
     inbox, state = tmp_path / "Inbox", tmp_path / "state"
     inbox.mkdir()
     state.mkdir()
@@ -136,22 +138,15 @@ def weekly(tmp_path, monkeypatch):
         calls = []
         codes = []
 
-        def at(self, *a):
-            return lambda: self.clock.__setitem__(0, datetime(*a))
+        def at(self, year, month, day, hour, minute):
+            return lambda: self.clock.__setitem__(0, datetime(year, month, day, hour, minute))
 
         def stamp(self, t):
             (state / enrich.LAST_RUN).write_text(f"{t.timestamp()}\n")
 
         def run(self, actions, *argv):
-            todo = list(actions)
-
-            def wait(timeout=None):
-                todo.pop(0)() if todo else STOP.set()
-                return STOP.is_set()
-
-            monkeypatch.setattr(STOP, "wait", wait)
-            return watch.main(["--inbox", str(inbox), "--interval", "0", "--state-dir",
-                               str(state), "--enrich-at", "dim 03:00", *argv])
+            return ticks(inbox, actions, "--state-dir", str(state),
+                         "--enrich-at", "dim 03:00", *argv)
 
     w = W()
 

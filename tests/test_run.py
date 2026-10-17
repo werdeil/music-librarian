@@ -1,4 +1,5 @@
 """Passages complets sur une mini-bibliothèque : dry-run, apply, undo, --since."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
 import json
 import os
 import time
@@ -159,7 +160,7 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys):
 
     time.sleep(0.05)
     # tag modifié dans A/B (comme depuis le Mac) : l'album change
-    from mutagen.mp4 import MP4
+    from mutagen.mp4 import MP4  # pylint: disable=import-outside-toplevel
     f = MP4(lib / "A/B/01 Un.m4a")
     f["\xa9alb"] = ["Nouveau"]
     f.save()
