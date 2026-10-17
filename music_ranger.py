@@ -61,6 +61,11 @@ AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 MIN_TRUNC = 20  # longueur mini pour tolérer un nom tronqué par Apple Music
 LAST_RUN = "last_run"  # fichier d'état de --since
+# Marge retirée à l'heure de début notée dans last_run : le noyau pose les ctime
+# avec une horloge plus grossière que time.time(), en retard de quelques ms. Un
+# fichier modifié juste après le début du passage aurait sinon une ctime
+# antérieure, et le --since suivant le raterait. Au pire, on relit ces dossiers.
+SINCE_MARGIN = 2.0
 LOCK = "lock"
 EXIT_LOCKED, EXIT_STOPPED, EXIT_LMS = 3, 4, 5
 STOP = threading.Event()  # arrêt demandé (SIGTERM, Ctrl-C)
@@ -631,7 +636,7 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
         # prochain passage complet, ou dès que leur dossier sera retouché.
         if scan == [root] and not stopped:
             state_dir.mkdir(parents=True, exist_ok=True)
-            (state_dir / LAST_RUN).write_text(f"{started}\n")
+            (state_dir / LAST_RUN).write_text(f"{started - SINCE_MARGIN}\n")
     journal.close()
 
     stats["à déplacer"] = len(moves)
