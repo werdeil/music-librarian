@@ -1,7 +1,8 @@
 # Construction (les tests tournent au build) :
 #   docker buildx bake -f docker-compose.yml --allow network.host
 #
-# En continu, le conteneur surveille l'Inbox et importe (music-ranger watch) :
+# En continu, le conteneur surveille l'Inbox et importe, et range chaque nuit
+# les dossiers modifiés (music-ranger watch) :
 #   docker compose up -d
 #   journalctl -t music-ranger -f         # logs
 #   docker compose down                   # arrêt (finit l'opération en cours)
@@ -24,7 +25,9 @@ services:
       args:
         LYRION_DASHBOARD_REF: b2400c72f1f6d59abd955ac1cef3e3cde4c6be2c
     image: music-ranger:local
-    command: [watch, --apply]
+    # import à chaque dépôt, et chaque nuit le rangement des dossiers modifiés
+    # (tags édités depuis le Mac) ; avant les crons d'enrichissement de l'hôte
+    command: [watch, --apply, --range-at, "02:00"]
     restart: unless-stopped
     user: "1000:1000"           # fichiers à werdeil, modifiables via Samba
     environment:
