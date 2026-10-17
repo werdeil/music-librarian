@@ -85,20 +85,22 @@ def parse_pair(s):
 class Log:
     """stdout, et en plus journald (tag music-ranger) avec --syslog."""
 
-    def __init__(self, use_syslog=False):
+    def __init__(self, use_syslog=False, ident="music-ranger"):
         self.syslog = None
+        self.ident = ident
         if use_syslog:
             import syslog
-            syslog.openlog("music-ranger")
             self.syslog = syslog
 
     def __call__(self, msg=""):
         # caractères de contrôle invisibles (ex. U+0092) affichés en clair
         msg = "".join(f"\\x{ord(c):02x}" if unicodedata.category(c) == "Cc" and c != "\n"
                       else c for c in msg)
-        print(msg)
+        print(msg, flush=True)   # dans l'ordre avec la sortie des sous-commandes
         if self.syslog and msg.strip():
             line = " ".join(part.strip() for part in msg.splitlines() if part.strip())
+            # rouvert à chaque ligne : l'import et le rangement ont chacun leur tag
+            self.syslog.openlog(self.ident)
             # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter le log
             self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())
 
@@ -271,6 +273,9 @@ def collect(scan, since=None):
     jour), mais alors le dossier entier, pour que les annexes ne partent pas
     avec une partie seulement des pistes."""
     for base in scan:
+        if base.is_file():           # fichier isolé passé en argument
+            yield base
+            continue
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
             paths = [Path(dirpath) / n for n in sorted(filenames)]
@@ -326,6 +331,12 @@ def undo(args, root, state_dir, log):
 # ---------- programme principal ----------
 
 def main(argv=None):
+    return run(argv)[0]
+
+
+def run(argv=None):
+    """Comme main, mais renvoie aussi (code, rapport) : rapport["moves"] liste
+    les déplacements prévus, rapport["done"] ceux effectués."""
     ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
     ap.add_argument("--root", required=True, help="racine de la bibliothèque")
     ap.add_argument("paths", nargs="*", help="dossiers à traiter (défaut : --root)")
@@ -350,7 +361,7 @@ def main(argv=None):
     state_dir = Path(args.state_dir or Path(__file__).resolve().parent / "state")
 
     if args.undo:
-        return undo(args, root, state_dir, log)
+        return undo(args, root, state_dir, log), {}
 
     started = time.time()
     scan = [Path(p).resolve() for p in args.paths] or [root]
@@ -461,6 +472,7 @@ def main(argv=None):
 
     journal = Journal(state_dir, dict(root=str(root), started=started,
                                       argv=sys.argv[1:] if argv is None else argv))
+    done = []
     if args.apply:
         touched = set()
         for src, dst in moves + extra:
@@ -469,6 +481,7 @@ def main(argv=None):
                 stats["conflits"] += 1
                 continue
             move_file(src, dst, journal)
+            done.append((src, dst))
             stats["déplacés"] += 1
             touched.add(src.parent)
         for j in junk:
@@ -496,10 +509,11 @@ def main(argv=None):
             log(f"{k:>20} : {stats[k]}")
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-        log(f"{'annuler':>20} : {Path(sys.argv[0]).name} --root '{root}' "
+        log(f"{'annuler':>20} : {Path(__file__).name} --root '{root}' "
             f"--undo '{journal.path}' --apply")
 
-    return 2 if stats["conflits"] or stats["ignorés"] else 0
+    code = 2 if stats["conflits"] or stats["ignorés"] else 0
+    return code, dict(moves=moves + extra, done=done, journal=journal.path)
 
 
 if __name__ == "__main__":
