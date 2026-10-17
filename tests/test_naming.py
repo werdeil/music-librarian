@@ -74,6 +74,17 @@ def test_target_multidisc(disc, disctotal, prefix):
     assert target_rel(t, ".mp3", "Compilations").name == f"{prefix}C.mp3"
 
 
+@pytest.mark.parametrize("track, disc, name", [
+    (1, None, "01 ...And The Gods Made Love.m4a"),  # cas réel : Electric Ladyland
+    (1, 2, "2-01 ...And The Gods Made Love.m4a"),
+    (None, None, "_..And The Gods Made Love.m4a"),  # sans numéro : pas de fichier caché
+])
+def test_target_title_leading_dot(track, disc, name):
+    t = tags(artist="A", album="...Hits", title="...And The Gods Made Love", track=track,
+             disc=disc)
+    assert target_rel(t, ".m4a", "C") == Path("A/_..Hits") / name
+
+
 def test_target_missing_tags():
     assert target_rel(tags(artist="A", album="B", track=1), ".m4a", "C") is None
     assert target_rel(tags(title="T"), ".m4a", "C") == Path("Unknown Artist/Unknown Album/T.m4a")
