@@ -32,7 +32,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
         -r /opt/lyrion-dashboard/requirements-cli.txt r128gain==1.0.7
 
-COPY music-ranger music_ranger.py import_inbox.py watch.py lms.py ./
+COPY music-ranger music_ranger.py import_inbox.py watch.py lms.py enrich.py ./
 RUN ln -s /app/music-ranger /usr/local/bin/music-ranger \
  && useradd --create-home --uid 1000 ranger
 
