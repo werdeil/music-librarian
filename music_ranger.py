@@ -37,6 +37,7 @@ import contextlib
 import fcntl
 import json
 import os
+import shlex
 import shutil
 import signal
 import sys
@@ -591,8 +592,8 @@ def rank(args, argv, root, state_dir, log, interruptible):
             log(f"{k:>20} : {stats[k]}")
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-        log(f"{'annuler':>20} : {Path(__file__).name} --root '{root}' "
-            f"--undo '{journal.path}' --apply")
+        log(f"{'annuler':>20} : music-ranger undo {shlex.quote(str(journal.path))} "
+            f"--root {shlex.quote(str(root))} --apply")
 
     code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
     return code, dict(moves=moves + extra, done=done, journal=journal.path)

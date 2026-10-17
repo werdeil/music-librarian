@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim AS base
+# Debian 12 : r128gain 1.0.7 fait planter le ffmpeg 7.1 de Debian 13
+# (assertion sur le anullsink de son graphe de filtres). Vérifié au build.
+FROM python:3.12-slim-bookworm AS base
 
 # Scripts d'enrichissement de lyrion-dashboard (embed_lyrics.py, embed_covers.py),
 # figés sur un commit en attendant leur migration dans ce dépôt. Son image ne
@@ -44,7 +46,8 @@ RUN python -m pytest -q -p no:cacheprovider tests \
  && music-ranger --help > /dev/null \
  && python /opt/lyrion-dashboard/scripts/embed_lyrics.py --help > /dev/null \
  && python /opt/lyrion-dashboard/scripts/embed_covers.py --help > /dev/null \
- && r128gain --help > /dev/null \
+ && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine.m4a \
+ && r128gain --dry-run /tmp/sine.m4a 2>&1 | grep -q 'loudness = -' \
  && touch /tmp/tests-ok
 
 FROM base

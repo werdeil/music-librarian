@@ -44,7 +44,7 @@ def test_dry_run_changes_nothing(lib, run, make_track, capsys):
     assert "DÉPLACER" in capsys.readouterr().out
 
 
-def test_apply_then_undo(lib, run, make_track):
+def test_apply_then_undo(lib, run, make_track, capsys):
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     make_track(lib / "vrac/2.m4a", title="Deux", artist="A", album="B", track=2)
     (lib / "vrac/folder.jpg").write_bytes(b"jpg")
@@ -56,6 +56,8 @@ def test_apply_then_undo(lib, run, make_track):
     assert not (lib / "vrac").exists()
 
     [j] = journals(run)
+    # commande d'annulation prête à copier, valable dans le conteneur
+    assert f"music-ranger undo {j} --root {lib} --apply" in capsys.readouterr().out
     recs = [json.loads(line) for line in j.read_text().splitlines()]
     assert recs[0]["type"] == "meta"
     assert len([r for r in recs if r["type"] == "move"]) == 3
