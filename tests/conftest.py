@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from mutagen.flac import FLAC
+from mutagen.flac import FLAC, Picture
 from mutagen.id3 import ID3, TALB, TCMP, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4
 
@@ -35,7 +35,9 @@ def make_track(templates):
     """Crée un fichier audio taggé. `path` peut être un str ou des bytes (nom non UTF-8)."""
 
     def make(path, title=None, artist=None, albumartist=None, album=None,
-             track=None, disc=None, disctotal=None, compilation=False):
+             track=None, disc=None, disctotal=None, compilation=False, extra=None,
+             cover=None):
+        """extra : tags FLAC supplémentaires ; cover : octets d'une pochette JPEG (FLAC)."""
         p = os.fsdecode(path)
         ext = os.path.splitext(p)[1].lower()
         os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -79,6 +81,12 @@ def make_track(templates):
                 f["disctotal"] = str(disctotal)
             if compilation:
                 f["compilation"] = "1"
+            for k, v in (extra or {}).items():
+                f[k] = v
+            if cover:
+                pic = Picture()
+                pic.type, pic.mime, pic.data = 3, "image/jpeg", cover
+                f.add_picture(pic)
             f.save()
         return Path(p)
 
