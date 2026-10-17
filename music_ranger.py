@@ -23,13 +23,24 @@ Exemples :
 État (journaux des déplacements, date du dernier passage) : --state-dir, sinon
 $MUSIC_RANGER_STATE, sinon le dossier state/ à côté du script.
 
-Codes retour : 0 = OK, 2 = conflits, fichiers ignorés ou annulations refusées.
+--root peut aussi venir de $MUSIC_RANGER_ROOT.
+
+Un seul passage en --apply à la fois (verrou state/lock). Sur SIGTERM ou
+Ctrl-C, le déplacement en cours se termine, les suivants sont laissés pour le
+prochain passage (deuxième Ctrl-C : arrêt immédiat).
+
+Codes retour : 0 = OK, 2 = conflits, fichiers ignorés ou annulations refusées,
+3 = un autre passage est en cours, 4 = arrêté avant la fin.
 """
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import shutil
+import signal
 import sys
+import threading
 import time
 import unicodedata
 from collections import defaultdict
@@ -44,6 +55,10 @@ AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 MIN_TRUNC = 20  # longueur mini pour tolérer un nom tronqué par Apple Music
 LAST_RUN = "last_run"  # fichier d'état de --since
+LOCK = "lock"
+EXIT_LOCKED, EXIT_STOPPED = 3, 4
+STOP = threading.Event()  # arrêt demandé (SIGTERM, Ctrl-C)
+_lock_held = False
 
 
 # ---------- utilitaires ----------
@@ -158,6 +173,50 @@ def prune_empty(d: Path, stops):
         n += 1
         d = d.parent
     return n
+
+
+def state_path(arg=None):
+    return Path(arg or os.environ.get("MUSIC_RANGER_STATE")
+                or Path(__file__).resolve().parent / "state")
+
+
+class Locked(Exception):
+    pass
+
+
+@contextlib.contextmanager
+def locked(state_dir: Path):
+    """Verrou exclusif sur state/lock : un seul passage en --apply à la fois
+    (rangement, import, annulation). Réentrant dans un même processus : l'import
+    appelle le rangement sans se bloquer lui-même."""
+    global _lock_held
+    if _lock_held:
+        yield
+        return
+    state_dir.mkdir(parents=True, exist_ok=True)
+    with open(state_dir / LOCK, "a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Locked(state_dir / LOCK) from None
+        _lock_held = True
+        try:
+            yield
+        finally:
+            _lock_held = False
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def handle_stop_signals():
+    """SIGTERM (docker stop) et Ctrl-C : finir l'opération en cours, puis s'arrêter."""
+    def stop(signum, frame):
+        if STOP.is_set():
+            raise KeyboardInterrupt  # deuxième demande : arrêt immédiat
+        STOP.set()
+        print("arrêt demandé : fin de l'opération en cours…", flush=True)
+
+    for s in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(s, stop)
 
 
 # ---------- lecture des tags ----------
@@ -294,6 +353,7 @@ def undo(args, root, state_dir, log):
              if r.get("type") == "move"]
     mode = "APPLY" if args.apply else "DRY-RUN"
     log(f"[{mode}] annulation de {jpath} ({len(moves)} déplacements)")
+    stopped = False
 
     todo, refused = [], 0
     for cur, orig in moves:
@@ -311,7 +371,11 @@ def undo(args, root, state_dir, log):
                                       started=time.time()))
     pruned = 0
     if args.apply:
-        for cur, orig in todo:
+        for i, (cur, orig) in enumerate(todo):
+            if STOP.is_set():
+                log(f"ARRÊT    demandé : {len(todo) - i} restauration(s) non faite(s)")
+                stopped = True
+                break
             move_file(cur, orig, journal)
         for d in sorted({cur.parent for cur, _ in todo}, key=lambda d: -len(d.parts)):
             pruned += prune_empty(d, {root})
@@ -325,7 +389,7 @@ def undo(args, root, state_dir, log):
         log(f"{'dossiers supprimés':>20} : {pruned}")
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-    return 2 if refused else 0
+    return EXIT_STOPPED if stopped else 2 if refused else 0
 
 
 # ---------- programme principal ----------
@@ -334,11 +398,15 @@ def main(argv=None):
     return run(argv)[0]
 
 
-def run(argv=None):
+def run(argv=None, interruptible=True):
     """Comme main, mais renvoie aussi (code, rapport) : rapport["moves"] liste
-    les déplacements prévus, rapport["done"] ceux effectués."""
+    les déplacements prévus, rapport["done"] ceux effectués.
+    interruptible=False : un arrêt demandé n'interrompt pas les déplacements
+    (l'import range un élément en entier ou pas du tout)."""
     ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
-    ap.add_argument("--root", required=True, help="racine de la bibliothèque")
+    root_env = os.environ.get("MUSIC_RANGER_ROOT")
+    ap.add_argument("--root", default=root_env, required=not root_env,
+                    help="racine de la bibliothèque (défaut : $MUSIC_RANGER_ROOT)")
     ap.add_argument("paths", nargs="*", help="dossiers à traiter (défaut : --root)")
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--compilations-dir", default="Compilations")
@@ -358,11 +426,19 @@ def run(argv=None):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog)
     root = Path(args.root).resolve()
-    state_dir = Path(args.state_dir or Path(__file__).resolve().parent / "state")
+    state_dir = state_path(args.state_dir)
 
-    if args.undo:
-        return undo(args, root, state_dir, log), {}
+    try:
+        with locked(state_dir) if args.apply else contextlib.nullcontext():
+            if args.undo:
+                return undo(args, root, state_dir, log), {}
+            return rank(args, argv, root, state_dir, log, interruptible)
+    except Locked as e:
+        log(f"VERROU   un autre passage est en cours ({e}), abandon")
+        return EXIT_LOCKED, {}
 
+
+def rank(args, argv, root, state_dir, log, interruptible):
     started = time.time()
     scan = [Path(p).resolve() for p in args.paths] or [root]
     mode = "APPLY" if args.apply else "DRY-RUN"
@@ -473,9 +549,15 @@ def run(argv=None):
     journal = Journal(state_dir, dict(root=str(root), started=started,
                                       argv=sys.argv[1:] if argv is None else argv))
     done = []
+    stopped = False
     if args.apply:
         touched = set()
-        for src, dst in moves + extra:
+        for i, (src, dst) in enumerate(moves + extra):
+            if interruptible and STOP.is_set():
+                log(f"ARRÊT    demandé : {len(moves) + len(extra) - i} déplacement(s) non faits,"
+                    " repris au prochain passage")
+                stopped = True
+                break
             if dst.exists() and not dst.samefile(src):
                 log(f"CONFLIT  (apparu pendant le passage)  {dst}")
                 stats["conflits"] += 1
@@ -494,7 +576,7 @@ def run(argv=None):
         # Le dernier passage n'avance qu'après un passage sur toute la racine.
         # Les conflits restants ne le bloquent pas : ils réapparaîtront au
         # prochain passage complet, ou dès que leur dossier sera retouché.
-        if scan == [root]:
+        if scan == [root] and not stopped:
             state_dir.mkdir(parents=True, exist_ok=True)
             (state_dir / LAST_RUN).write_text(f"{started}\n")
     journal.close()
@@ -512,9 +594,10 @@ def run(argv=None):
         log(f"{'annuler':>20} : {Path(__file__).name} --root '{root}' "
             f"--undo '{journal.path}' --apply")
 
-    code = 2 if stats["conflits"] or stats["ignorés"] else 0
+    code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
     return code, dict(moves=moves + extra, done=done, journal=journal.path)
 
 
 if __name__ == "__main__":
+    handle_stop_signals()
     sys.exit(main())

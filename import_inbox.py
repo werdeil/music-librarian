@@ -17,7 +17,12 @@ Dry-run par défaut. --apply pour exécuter réellement.
   import_inbox.py --apply         # importer
 
 Chemins : --inbox / $MUSIC_RANGER_INBOX, --root / $MUSIC_RANGER_ROOT.
-Codes retour : 0 = OK, 2 = au moins un élément en erreur ou un enrichissement raté.
+Un seul passage en --apply à la fois (verrou partagé avec music_ranger). Sur
+SIGTERM ou Ctrl-C, l'élément en cours de rangement est terminé ; celui en cours
+de conversion et les suivants restent dans l'Inbox pour le prochain passage.
+
+Codes retour : 0 = OK, 2 = au moins un élément en erreur ou un enrichissement raté,
+3 = un autre passage est en cours, 4 = arrêté avant la fin.
 """
 import argparse
 import contextlib
@@ -28,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -35,7 +41,8 @@ from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
 import music_ranger
-from music_ranger import AUDIO_EXT, Log, is_junk, read_tags
+from music_ranger import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
+                          locked, read_tags)
 
 HERE = Path(__file__).resolve().parent
 ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
@@ -44,10 +51,15 @@ RESERVED = {ERRORS, DONE, WORK}
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
 MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
+OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
 
 
 class Reject(Exception):
     """Problème sur un élément : il part dans _erreurs."""
+
+
+class Stopped(Exception):
+    """Arrêt demandé pendant la préparation d'un élément : il reste dans l'Inbox."""
 
 
 # ---------- éléments de l'Inbox ----------
@@ -243,11 +255,12 @@ def ranger(args, paths, apply, quiet=False):
         argv += ["--state-dir", args.state_dir]
     if args.syslog and not quiet:
         argv.append("--syslog")
+    # interruptible=False : un élément est rangé en entier ou pas du tout
     if not quiet:
-        return music_ranger.run(argv)
+        return music_ranger.run(argv, interruptible=False)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code, report = music_ranger.run(argv)
+        code, report = music_ranger.run(argv, interruptible=False)
     report["output"] = buf.getvalue()
     return code, report
 
@@ -294,12 +307,12 @@ def to_errors(args, item, reason, log):
 
 
 def process(args, item, log):
-    """Renvoie (ok, dossiers cibles)."""
+    """Renvoie (OK | FAILED | STOPPED, dossiers cibles)."""
     try:
         flacs, audio, annexes, junk = classify(item)
     except (Reject, subprocess.CalledProcessError, ValueError) as e:
         to_errors(args, item, e, log)
-        return False, set()
+        return FAILED, set()
 
     log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
         f"{len(annexes)} annexe(s))")
@@ -311,22 +324,24 @@ def process(args, item, log):
         if code:
             log(report["output"].rstrip())
             log(f"ERREUR   {item.name} : irait dans {ERRORS}/ (voir ci-dessus)")
-            return False, set()
+            return FAILED, set()
         for src, dst in report["moves"]:
             if src.suffix.lower() == ".flac":
                 dst = dst.with_suffix(".m4a")
             log(f"RANGER   {item.rel(src)}\n         → {dst}")
-        return True, set()
+        return OK, set()
 
     work = args.inbox / WORK / item.name
     if work.exists():
         log(f"ERREUR   {item.name} : {work} existe déjà (passage interrompu ?), "
             f"élément laissé en place")
-        return False, set()
+        return FAILED, set()
 
     # 1. Dossier de travail : FLAC convertis, ALAC/MP3 et annexes liés.
     try:
         for p in flacs:
+            if STOP.is_set():
+                raise Stopped
             log(f"CONVERTIR {item.rel(p)}")
             convert(p, work / item.rel(p).with_suffix(".m4a"))
         for p in audio + annexes:
@@ -335,19 +350,22 @@ def process(args, item, log):
         if code:
             log(report["output"].rstrip())
             raise Reject("refusé par music_ranger (voir ci-dessus)")
-    except (Reject, OSError, subprocess.CalledProcessError, ValueError) as e:
+    except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
         with contextlib.suppress(OSError):
             work.parent.rmdir()
+        if isinstance(e, Stopped):
+            log(f"ARRÊT    {item.name} : laissé dans l'Inbox pour le prochain passage")
+            return STOPPED, set()
         to_errors(args, item, e, log)
-        return False, set()
+        return FAILED, set()
 
     # 2. Rangement réel.
     code, report = ranger(args, [work], apply=True)
     if code:
         log(f"ERREUR   {item.name} : rangement incomplet, élément et {work} laissés "
             f"en place (journal : {report.get('journal')})")
-        return False, set()
+        return FAILED, set()
     targets = {dst.parent for src, dst in report["done"] if dst.suffix.lower() in AUDIO_EXT}
 
     # 3. L'original part dans _traités/ ; ce qui reste dans le dossier de travail
@@ -368,7 +386,7 @@ def process(args, item, log):
     with contextlib.suppress(OSError):
         work.parent.rmdir()
     log(f"TRAITÉ   {item.name} → {kept}")
-    return True, targets
+    return OK, targets
 
 
 def purge(args, log):
@@ -414,7 +432,16 @@ def main(argv=None):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog, ident="music-import")
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox : {args.inbox}")
+    state_dir = music_ranger.state_path(args.state_dir)
+    try:
+        with locked(state_dir) if args.apply else contextlib.nullcontext():
+            return import_all(args, log)
+    except Locked as e:
+        log(f"VERROU   un autre passage est en cours ({e}), abandon")
+        return EXIT_LOCKED
 
+
+def import_all(args, log):
     if not args.root.is_dir():
         log(f"ERREUR   bibliothèque introuvable : {args.root}")
         return 2
@@ -440,25 +467,35 @@ def main(argv=None):
     for it in busy:
         log(f"ATTENTE  {it.name} : copie en cours, traité au prochain passage")
 
-    ok_count, err_count, targets = 0, 0, set()
-    for it in items:
-        ok, t = process(args, it, log)
-        ok_count += ok
-        err_count += not ok
+    counts, targets = defaultdict(int), set()
+    for i, it in enumerate(items):
+        if STOP.is_set():
+            counts["laissés (arrêt)"] += len(items) - i
+            log(f"ARRÊT    demandé : {len(items) - i} élément(s) laissés pour le prochain passage")
+            break
+        status, t = process(args, it, log)
+        counts[status] += 1
         targets |= t
 
     enrich_ok = True
     if targets and not args.no_enrich:
         log("")
-        enrich_ok = enrich(args, sorted(targets), log)
+        if STOP.is_set():
+            log("ARRÊT    enrichissement sauté : rattrapé par le passage hebdomadaire")
+        else:
+            enrich_ok = enrich(args, sorted(targets), log)
 
     log("\n--- Résumé import ---")
-    for k, v in (("importés", ok_count), ("en erreur", err_count),
+    for k, v in (("importés", counts[OK]), ("en erreur", counts[FAILED]),
+                 ("laissés (arrêt)", counts[STOPPED] + counts["laissés (arrêt)"]),
                  ("en attente", len(busy)), ("dossiers cibles", len(targets))):
         if v:
             log(f"{k:>20} : {v}")
-    return 2 if err_count or not enrich_ok else 0
+    if STOP.is_set():
+        return EXIT_STOPPED
+    return 2 if counts[FAILED] or not enrich_ok else 0
 
 
 if __name__ == "__main__":
+    music_ranger.handle_stop_signals()
     sys.exit(main())
