@@ -33,8 +33,9 @@ services:
       # LMS voit la bibliothèque sous un autre chemin (/opt/stacks/lyrion)
       - LMS_PERSIST_DB=/lms-prefs/persist.db
       - LMS_MUSIC_ROOT=/media/internal_drive/Musique
-      # paroles : mêmes réglages que lyrion-dashboard (docs/configuration.md)
-      - LYRICS_PROVIDERS=netease
+      # paroles : fournisseurs essayés dans l'ordre (lyrion-dashboard,
+      # docs/configuration.md)
+      - LYRICS_PROVIDERS=lrclib,musixmatch,netease
       # - MUSIXMATCH_TOKEN=
       # - LRCLIB_TIMEOUT=15
     volumes:
