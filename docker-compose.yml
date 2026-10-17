@@ -29,6 +29,10 @@ services:
     user: "1000:1000"           # fichiers à werdeil, modifiables via Samba
     environment:
       - TZ=Europe/Paris         # date des dossiers _traités/AAAA-MM-JJ
+      # historique LMS (lectures, notes) reporté sur les fichiers déplacés ;
+      # LMS voit la bibliothèque sous un autre chemin (/opt/stacks/lyrion)
+      - LMS_PERSIST_DB=/lms-prefs/persist.db
+      - LMS_MUSIC_ROOT=/media/internal_drive/Musique
       # paroles : mêmes réglages que lyrion-dashboard (docs/configuration.md)
       - LYRICS_PROVIDERS=netease
       # - MUSIXMATCH_TOKEN=
@@ -41,6 +45,8 @@ services:
       - /media/werdeil/internal_drive:/media/werdeil/internal_drive
       # journaux, last_run et verrou, partagés avec les lancements sur l'hôte
       - ./state:/state
+      # le dossier entier : SQLite y écrit aussi persist.db-wal et -shm
+      - /opt/stacks/lyrion/data/prefs:/lms-prefs
     # docker stop envoie SIGTERM : laisser le temps de finir la conversion ou
     # le rangement en cours (10 s par défaut)
     stop_grace_period: 2m

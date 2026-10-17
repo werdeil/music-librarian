@@ -17,7 +17,8 @@ CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     """Les tests ne doivent pas hériter des chemins de l'image Docker ou de l'hôte."""
-    for var in ("MUSIC_RANGER_ROOT", "MUSIC_RANGER_INBOX", "MUSIC_RANGER_STATE"):
+    for var in ("MUSIC_RANGER_ROOT", "MUSIC_RANGER_INBOX", "MUSIC_RANGER_STATE",
+                "LMS_PERSIST_DB", "LMS_MUSIC_ROOT"):
         monkeypatch.delenv(var, raising=False)
 
 
