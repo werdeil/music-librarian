@@ -160,8 +160,7 @@ def test_busy_item_waits(env, make_track, monkeypatch):
     p = make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     # la copie continue pendant l'attente
     monkeypatch.setattr(import_inbox.time, "sleep", lambda s: p.open("ab").write(b"x"))
-    assert import_inbox.main(["--inbox", str(env.inbox), "--root", str(env.lib),
-                              "--settle", "1", "--apply"]) == 0
+    assert env.run("--settle", "1", "--apply") == 0
     assert p.exists() and files(env.lib) == []
 
 

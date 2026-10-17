@@ -1,0 +1,41 @@
+# Pour l'instant, lancement à la main uniquement (dry-run sans --apply) :
+#   docker buildx bake -f docker-compose.yml --allow network.host
+#   docker compose run --rm music-ranger import
+#   docker compose run --rm music-ranger range --since
+#   docker compose run --rm music-ranger undo /state/journal/<date>.jsonl
+#
+# Créer ./state AVANT le premier lancement (mkdir state) : sinon Docker le crée
+# en root et le conteneur (uid 1000) ne peut pas y écrire.
+services:
+  music-ranger:
+    build:
+      context: .
+      # le DNS de mimosa est le Pi-hole sur 127.0.0.1, injoignable depuis le
+      # réseau de build par défaut. Compose v5 ne sait pas accorder ce
+      # privilège (« docker compose build » échoue) : construire avec bake.
+      network: host
+      args:
+        LYRION_DASHBOARD_REF: b2400c72f1f6d59abd955ac1cef3e3cde4c6be2c
+    image: music-ranger:local
+    user: "1000:1000"           # fichiers à werdeil, modifiables via Samba
+    environment:
+      - TZ=Europe/Paris         # date des dossiers _traités/AAAA-MM-JJ
+      # paroles : mêmes réglages que lyrion-dashboard (docs/configuration.md)
+      - LYRICS_PROVIDERS=netease
+      # - MUSIXMATCH_TOKEN=
+      # - LRCLIB_TIMEOUT=15
+    volumes:
+      # Un seul montage pour l'Inbox et la bibliothèque, au même chemin que sur
+      # l'hôte : les déplacements restent des renommages (pas de copie), les
+      # liens physiques marchent, et les chemins des journaux sont valables
+      # dans le conteneur comme sur l'hôte.
+      - /media/werdeil/internal_drive:/media/werdeil/internal_drive
+      # journaux, last_run et verrou, partagés avec les lancements sur l'hôte
+      - ./state:/state
+    # docker stop envoie SIGTERM : laisser le temps de finir la conversion ou
+    # le rangement en cours (10 s par défaut)
+    stop_grace_period: 2m
+    logging:
+      driver: journald
+      options:
+        tag: music-ranger
