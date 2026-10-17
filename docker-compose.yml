@@ -10,6 +10,7 @@
 # Lancements à la main, en dry-run sans --apply :
 #   docker compose run --rm music-ranger import
 #   docker compose run --rm music-ranger range --since
+#   docker compose run --rm music-ranger enrich
 #   docker compose run --rm music-ranger undo /state/journal/<date>.jsonl
 #
 # Créer ./state AVANT le premier lancement (mkdir state) : sinon Docker le crée
@@ -25,9 +26,10 @@ services:
       args:
         LYRION_DASHBOARD_REF: b2400c72f1f6d59abd955ac1cef3e3cde4c6be2c
     image: music-ranger:local
-    # import à chaque dépôt, et chaque nuit le rangement des dossiers modifiés
-    # (tags édités depuis le Mac) ; avant les crons d'enrichissement de l'hôte
-    command: [watch, --apply, --range-at, "02:00"]
+    # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés
+    # (tags édités depuis le Mac), chaque dimanche l'enrichissement de ce qui
+    # manque (gain, pochettes, paroles publiées depuis l'import)
+    command: [watch, --apply, --range-at, "02:00", --enrich-at, "dim 03:00"]
     restart: unless-stopped
     user: "1000:1000"           # fichiers à werdeil, modifiables via Samba
     environment:

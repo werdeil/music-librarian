@@ -57,6 +57,8 @@ ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # cherche embed_covers.py), sauf si le dossier en a déjà un
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
+LYRION_DIR = os.environ.get("LYRION_DASHBOARD_DIR", "/home/werdeil/workspace/git/lyrion-dashboard")
+R128GAIN = os.environ.get("R128GAIN", "/opt/venvs/r128gain/bin/r128gain")
 MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
 OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
 
@@ -452,10 +454,8 @@ def main(argv=None):
                     help="secondes sans changement avant de traiter un élément")
     ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
     ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
-    ap.add_argument("--lyrion-dir", default=os.environ.get(
-        "LYRION_DASHBOARD_DIR", "/home/werdeil/workspace/git/lyrion-dashboard"))
-    ap.add_argument("--r128gain", default=os.environ.get(
-        "R128GAIN", "/opt/venvs/r128gain/bin/r128gain"))
+    ap.add_argument("--lyrion-dir", default=LYRION_DIR)
+    ap.add_argument("--r128gain", default=R128GAIN)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="envoyer aussi les lignes dans syslog/journald (tag music-import)")

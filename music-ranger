@@ -6,6 +6,7 @@ music-ranger — point d'entrée unique.
   music-ranger import [options]            import de l'Inbox (import_inbox.py)
   music-ranger undo JOURNAL [options]      annulation d'un passage
   music-ranger watch  [options]            surveillance de l'Inbox (watch.py)
+  music-ranger enrich [options]            gain, pochettes, paroles manquants (enrich.py)
 
 Tout est en dry-run sans --apply. `music-ranger <commande> --help` pour les options.
 """
@@ -14,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import enrich  # noqa: E402
 import import_inbox  # noqa: E402
 import music_ranger  # noqa: E402
 import watch  # noqa: E402
@@ -36,6 +38,8 @@ def main(argv=None):
         return music_ranger.main(["--undo", rest[0], *rest[1:]])
     if cmd == "watch":
         return watch.main(rest)
+    if cmd == "enrich":
+        return enrich.main(rest)
     print(f"commande inconnue : {cmd}\n\n{__doc__.strip()}", file=sys.stderr)
     return 2
 
