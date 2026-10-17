@@ -14,6 +14,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-c:a", "flac"]}
 
 
+@pytest.fixture(autouse=True)
+def no_stop():
+    """L'arrêt demandé est global au processus : remis à zéro entre les tests."""
+    import music_ranger
+    music_ranger.STOP.clear()
+    yield
+    music_ranger.STOP.clear()
+
+
 @pytest.fixture(scope="session")
 def templates(tmp_path_factory):
     """Un fichier audio vide (0,1 s de silence) par format, créé une fois avec ffmpeg."""
