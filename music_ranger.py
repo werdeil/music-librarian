@@ -267,13 +267,15 @@ def read_tags(path: Path):
 
 # ---------- calcul du chemin cible ----------
 
-def clean(s, is_dir=False):
+def clean(s, is_dir=False, lead=True):
+    """`lead=False` : le `.` initial est gardé, pour un titre précédé du numéro de
+    piste (Apple Music ne le remplace qu'en tête du nom complet)."""
     # caractères remplacés par Apple Music
     # constatés : / : ? " | ’ ´   — par analogie : ‘ “ ” * < > \
     for ch in '/:?"|*<>\\’‘“”´':
         s = s.replace(ch, "_")
     s = nfc(s).strip()
-    if s.startswith("."):
+    if lead and s.startswith("."):
         s = "_" + s[1:]
     if is_dir and s.endswith("."):
         s = s[:-1] + "_"
@@ -294,7 +296,8 @@ def target_rel(tags, ext, comp_dir):
         prefix = f"{tags['track']:02d} "
         if (tags["disctotal"] or 0) > 1 or (tags["disc"] or 0) > 1:
             prefix = f"{tags['disc'] or 1}-{tags['track']:02d} "
-    return Path(top) / album / f"{prefix}{clean(tags['title'])}{ext.lower()}"
+    title = clean(tags["title"], lead=not prefix)
+    return Path(top) / album / f"{prefix}{title}{ext.lower()}"
 
 
 def same_component(cur, tgt, strict_case):
