@@ -150,9 +150,11 @@ def test_target_conflict(lib, run, make_track):
     assert (lib / "vrac/autre.m4a").exists()
 
 
-def test_since_only_rescans_changed_folders(lib, run, make_track, capsys):
+def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkeypatch):
+    monkeypatch.setattr(music_ranger, "SINCE_MARGIN", 0.05)  # passages rapprochés
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
     make_track(lib / "A/C/01 Deux.m4a", title="Deux", artist="A", album="C", track=1)
+    time.sleep(0.2)  # plus anciens que la marge de last_run
     # premier passage : pas d'état, tout est traité
     assert run("--since", "--apply") == 0
     assert "pas de dernier passage" in capsys.readouterr().out
@@ -171,12 +173,24 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys):
     assert files(lib) == ["A/C/01 Deux.m4a", "A/Nouveau/01 Un.m4a"]
 
     # le déplacement a mis à jour la ctime : le fichier est relu une fois, en place
+    # (même si la ctime, posée par une horloge plus grossière, précède de quelques
+    # ms le début noté du passage : cas vu sur la CI)
     assert run("--since", "--apply") == 0
     assert "en place : 1" in capsys.readouterr().out
 
     # rien n'a changé depuis : rien n'est relu
+    time.sleep(0.2)
+    assert run("--since", "--apply") == 0
+    capsys.readouterr()
     assert run("--since") == 0
     assert "analysés" not in capsys.readouterr().out
+
+
+def test_last_run_keeps_a_margin(lib, run, make_track, monkeypatch):
+    make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
+    monkeypatch.setattr(music_ranger.time, "time", lambda: 1000.0)
+    assert run("--apply") == 0
+    assert float((run.state / "last_run").read_text()) == 1000.0 - music_ranger.SINCE_MARGIN
 
 
 def test_since_dry_run_does_not_advance(lib, run, make_track):
