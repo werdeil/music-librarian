@@ -1,4 +1,5 @@
 """Surveillance de l'Inbox (watch.py) : quand l'import est lancé, et arrêt."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
 from datetime import date, datetime, timedelta
 from datetime import time as dtime
 
@@ -33,24 +34,6 @@ def calls(monkeypatch):
 
     monkeypatch.setattr(import_inbox, "main", fake)
     return out
-
-
-@pytest.fixture
-def ticks(monkeypatch):
-    """Fait tourner la boucle : chaque attente exécute l'action suivante, puis arrête."""
-    def run(inbox, actions, *argv):
-        todo = list(actions)
-
-        def wait(timeout=None):
-            if todo:
-                todo.pop(0)()
-            else:
-                STOP.set()
-            return STOP.is_set()
-
-        monkeypatch.setattr(STOP, "wait", wait)
-        return watch.main(["--inbox", str(inbox), "--interval", "0", *argv])
-    return run
 
 
 def nothing():

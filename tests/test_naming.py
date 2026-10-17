@@ -1,4 +1,5 @@
 """Règles de nommage, à partir des cas réels de la bibliothèque."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
 import os
 import unicodedata
 from pathlib import Path

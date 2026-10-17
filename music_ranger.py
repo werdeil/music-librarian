@@ -64,7 +64,7 @@ LAST_RUN = "last_run"  # fichier d'état de --since
 LOCK = "lock"
 EXIT_LOCKED, EXIT_STOPPED, EXIT_LMS = 3, 4, 5
 STOP = threading.Event()  # arrêt demandé (SIGTERM, Ctrl-C)
-_lock_held = False
+_lock_held = False  # pylint: disable=invalid-name  # état du processus
 
 
 # ---------- utilitaires ----------
@@ -110,7 +110,7 @@ class Log:
         self.syslog = None
         self.ident = ident
         if use_syslog:
-            import syslog
+            import syslog  # pylint: disable=import-outside-toplevel  # avec --syslog seulement
             self.syslog = syslog
 
     def __call__(self, msg=""):
@@ -144,7 +144,8 @@ class Journal:
             for i in range(100):
                 self.path = d / (f"{stamp}.jsonl" if i == 0 else f"{stamp}-{i}.jsonl")
                 try:
-                    self.f = open(self.path, "x", encoding="utf-8")
+                    # reste ouvert tout le passage, fermé par close()
+                    self.f = open(self.path, "x", encoding="utf-8")  # pylint: disable=consider-using-with
                     break
                 except FileExistsError:
                     continue
@@ -226,12 +227,12 @@ def locked(state_dir: Path):
     """Verrou exclusif sur state/lock : un seul passage en --apply à la fois
     (rangement, import, annulation). Réentrant dans un même processus : l'import
     appelle le rangement sans se bloquer lui-même."""
-    global _lock_held
+    global _lock_held  # pylint: disable=global-statement
     if _lock_held:
         yield
         return
     state_dir.mkdir(parents=True, exist_ok=True)
-    with open(state_dir / LOCK, "a") as f:
+    with open(state_dir / LOCK, "a", encoding="utf-8") as f:
         try:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -246,7 +247,7 @@ def locked(state_dir: Path):
 
 def handle_stop_signals():
     """SIGTERM (docker stop) et Ctrl-C : finir l'opération en cours, puis s'arrêter."""
-    def stop(signum, frame):
+    def stop(_signum, _frame):
         if STOP.is_set():
             raise KeyboardInterrupt  # deuxième demande : arrêt immédiat
         STOP.set()

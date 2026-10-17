@@ -1,9 +1,9 @@
 """Verrou entre passages, arrêt propre (SIGTERM / Ctrl-C) et point d'entrée unique."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
 import fcntl
 import importlib.machinery
 import importlib.util
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -35,10 +35,9 @@ def held_lock(dirs):
     """Le verrou tenu par un « autre passage » (autre descripteur, comme un autre processus)."""
     state = dirs[2]
     state.mkdir()
-    f = open(state / music_ranger.LOCK, "a")
-    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    yield
-    f.close()
+    with open(state / music_ranger.LOCK, "a", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
 
 
 def files(root):
@@ -48,7 +47,7 @@ def files(root):
 # ---------- verrou ----------
 
 def test_apply_refused_while_locked(dirs, held_lock, make_track, capsys):
-    lib, inbox, state = dirs
+    lib, _, state = dirs
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     assert ranger(lib, state, "--apply") == music_ranger.EXIT_LOCKED
     assert files(lib) == ["vrac/1.m4a"]
@@ -66,11 +65,11 @@ def test_import_refused_while_locked(dirs, held_lock, make_track):
 
 
 def test_undo_refused_while_locked(dirs, make_track):
-    lib, inbox, state = dirs
+    lib, _, state = dirs
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     assert ranger(lib, state, "--apply") == 0
     [j] = (state / "journal").glob("*.jsonl")
-    with open(state / music_ranger.LOCK, "a") as f:
+    with open(state / music_ranger.LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert ranger(lib, state, "--undo", str(j), "--apply") == music_ranger.EXIT_LOCKED
     assert files(lib) == ["A/B/01 Un.m4a"]
@@ -80,7 +79,7 @@ def test_lock_released_after_run(dirs, make_track):
     lib, inbox, state = dirs
     make_track(inbox / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
     assert importer(lib, inbox, state, "--apply") == 0   # l'import appelle le rangement
-    with open(state / music_ranger.LOCK, "a") as f:
+    with open(state / music_ranger.LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)      # ne lève pas : verrou libéré
 
 
@@ -99,7 +98,7 @@ def stop_after(n, real):
 
 
 def test_range_stops_after_current_move(dirs, make_track, monkeypatch):
-    lib, inbox, state = dirs
+    lib, _, state = dirs
     for i in range(1, 4):
         make_track(lib / f"vrac/{i}.m4a", title=f"T{i}", artist="A", album="B", track=i)
     monkeypatch.setattr(music_ranger, "move_file", stop_after(1, music_ranger.move_file))
@@ -111,7 +110,7 @@ def test_range_stops_after_current_move(dirs, make_track, monkeypatch):
 
 
 def test_undo_stops_after_current_move(dirs, make_track, monkeypatch):
-    lib, inbox, state = dirs
+    lib, _, state = dirs
     for i in range(1, 3):
         make_track(lib / f"vrac/{i}.m4a", title=f"T{i}", artist="A", album="B", track=i)
     assert ranger(lib, state, "--apply") == 0

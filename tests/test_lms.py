@@ -1,4 +1,6 @@
 """Report de l'historique LMS (persist.db) des fichiers déplacés (lms.py)."""
+# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
 import hashlib
 import json
 import sqlite3
@@ -46,6 +48,7 @@ def env(tmp_path):
             return music_ranger.main(["--root", str(lib), "--state-dir", str(state),
                                       "--lms-db", str(db), "--lms-root", LMS_ROOT, *a])
 
+        # pylint: disable-next=too-many-arguments,too-many-positional-arguments
         def add(self, rel, play=0, rating=None, skip=0, dps=0, added=100, last=0, alt=True):
             u = url(rel)
             with sqlite3.connect(db) as c:
