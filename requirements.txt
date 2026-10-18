@@ -1,2 +1,4 @@
-# dépendances d'exécution (alignées sur lyrion-dashboard/requirements-cli.txt)
+# dépendances d'exécution
 mutagen==1.48.1
+requests==2.34.2
+beautifulsoup4==4.15.0   # fournisseur Genius seulement
