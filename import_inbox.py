@@ -233,7 +233,7 @@ def enrichers(args):
                if p.exists()), "python3")
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
-        ("pochettes", [py, str(lyr / "scripts/embed_covers.py")]),
+        ("pochettes", [sys.executable, str(HERE / "embed_covers.py")]),
         ("paroles", [py, str(lyr / "scripts/embed_lyrics.py")]),
     ]
 

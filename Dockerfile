@@ -3,9 +3,9 @@
 # (assertion sur le anullsink de son graphe de filtres). Vérifié au build.
 FROM python:3.12-slim-bookworm AS base
 
-# Scripts d'enrichissement de lyrion-dashboard (embed_lyrics.py, embed_covers.py),
-# figés sur un commit en attendant leur migration dans ce dépôt. Son image ne
-# les contient pas (exclus par son .dockerignore).
+# Script de paroles de lyrion-dashboard (embed_lyrics.py), figé sur un commit
+# en attendant sa migration dans ce dépôt. Son image ne le contient pas (exclu
+# par son .dockerignore).
 ARG LYRION_DASHBOARD_REF=d0ec7904b8a8d5cdc24188a0ae836943cc267e0a
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -23,7 +23,7 @@ RUN apt-get update \
 ADD https://github.com/werdeil/lyrion-dashboard/archive/${LYRION_DASHBOARD_REF}.tar.gz /tmp/lyrion-dashboard.tar.gz
 RUN mkdir -p /opt/lyrion-dashboard \
  && tar -xzf /tmp/lyrion-dashboard.tar.gz -C /opt/lyrion-dashboard --strip-components=1 \
-        --wildcards '*/scripts/embed_*.py' '*/services/*' '*/requirements-cli.txt' \
+        --wildcards '*/scripts/embed_lyrics.py' '*/services/*' '*/requirements-cli.txt' \
  && rm /tmp/lyrion-dashboard.tar.gz
 
 WORKDIR /app
@@ -32,7 +32,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
         -r /opt/lyrion-dashboard/requirements-cli.txt r128gain==1.0.7
 
-COPY music-ranger music_ranger.py import_inbox.py watch.py lms.py enrich.py ./
+COPY music-ranger music_ranger.py import_inbox.py watch.py lms.py enrich.py \
+     embed_covers.py tags.py artwork.py ./
 RUN ln -s /app/music-ranger /usr/local/bin/music-ranger \
  && useradd --create-home --uid 1000 ranger
 
@@ -45,7 +46,7 @@ USER ranger
 RUN python -m pytest -q -p no:cacheprovider tests \
  && music-ranger --help > /dev/null \
  && python /opt/lyrion-dashboard/scripts/embed_lyrics.py --help > /dev/null \
- && python /opt/lyrion-dashboard/scripts/embed_covers.py --help > /dev/null \
+ && python embed_covers.py --help > /dev/null \
  && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine.m4a \
  && r128gain --dry-run /tmp/sine.m4a 2>&1 | grep -q 'loudness = -' \
  && touch /tmp/tests-ok
