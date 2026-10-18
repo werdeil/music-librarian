@@ -89,9 +89,9 @@ class NeteaseTest(unittest.TestCase):
             with self.assertRaises(L.ProviderUnavailable):
                 L._provider_netease("Muse", "Space Debris", None, "247")
 
-    def test_registered_before_genius(self):
-        order = L.DEFAULT_PROVIDER_ORDER.split(",")
-        self.assertLess(order.index("netease"), order.index("genius"))
+    def test_default_order(self):
+        self.assertEqual(L.DEFAULT_PROVIDER_ORDER, "lrclib,musixmatch,netease")
+        self.assertEqual(set(L.PROVIDERS), {"lrclib", "musixmatch", "netease"})
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import unittest
 
 import lyrics as L
 
-META = {"artist": "Muse", "title": "Space Debris", "album": None, "duration": None}
+META = {"artist": "Muse", "title": "Space Debris", "album": None, "duration": 247}
 PLAIN = {"lyrics": "la la la", "synced": None, "meta": META}
 SYNCED = {"lyrics": "la la la", "synced": "[00:01.00]la la la", "meta": META}
 
@@ -56,16 +56,6 @@ class ProviderChainTest(unittest.TestCase):
         self._use(("lrclib", _answers(PLAIN)), ("musixmatch", _answers(L.ProviderUnavailable("musixmatch"))))
         self.assertEqual(L.fetch_lyrics(None, "Muse", "Space Debris")["source"], "lrclib")
 
-    def test_a_plain_only_provider_is_skipped_once_plain_lyrics_are_held(self):
-        genius = _answers(PLAIN)
-        self._use(("lrclib", _answers(PLAIN)), ("musixmatch", _answers(None)), ("genius", genius))
-        self.assertEqual(L.fetch_lyrics(None, "Muse", "Space Debris")["source"], "lrclib")
-        self.assertEqual(genius.calls, 0)
-
-    def test_a_plain_only_provider_still_answers_when_nothing_was_found(self):
-        self._use(("lrclib", _answers(None)), ("genius", _answers(PLAIN)))
-        self.assertEqual(L.fetch_lyrics(None, "Muse", "Space Debris")["source"], "genius")
-
     def test_netease_is_still_asked_once_plain_lyrics_are_held(self):
         synced_only = {"lyrics": None, "synced": "[00:01.00]la la la", "meta": META}
         self._use(("lrclib", _answers(PLAIN)), ("musixmatch", _answers(None)),
@@ -77,7 +67,7 @@ class ProviderChainTest(unittest.TestCase):
     def test_verify_keeps_the_first_plain_result(self):
         second = _answers(SYNCED)
         self._use(("lrclib", _answers(PLAIN)), ("musixmatch", second))
-        res = L.fetch_lyrics(None, "Muse", "Space Debris", verify=True)
+        res = L.fetch_lyrics(None, "Muse", "Space Debris", duration="247", verify=True)
         self.assertEqual(res["source"], "lrclib")
         self.assertEqual(second.calls, 0)
 

@@ -73,19 +73,18 @@ class MatchesRequestTest(unittest.TestCase):
         self.assertFalse(L._matches_request(self._meta(artist="Radiohead"), "Muse", "Space Debris", "247"))
 
     def test_title_in_another_script_is_compared(self):
-        meta = {"artist": "李荣浩", "title": "山川", "duration": None}
-        self.assertFalse(L._matches_request(meta, "李荣浩", "山", None))
-        self.assertTrue(L._matches_request(dict(meta, title="山"), "李荣浩", "山", None))
+        meta = {"artist": "李荣浩", "title": "山川", "duration": 247}
+        self.assertFalse(L._matches_request(meta, "李荣浩", "山", "247"))
+        self.assertTrue(L._matches_request(dict(meta, title="山"), "李荣浩", "山", "247"))
 
     def test_no_meta_is_reject(self):
         self.assertFalse(L._matches_request(None, "Muse", "Space Debris", "247"))
 
-    def test_missing_candidate_duration_accepts_on_title_artist(self):
-        # Genius-style hit: no duration to compare, so title+artist must carry it.
-        self.assertTrue(L._matches_request(self._meta(duration=None), "Muse", "Space Debris", "247"))
+    def test_missing_candidate_duration_is_reject(self):
+        self.assertFalse(L._matches_request(self._meta(duration=None), "Muse", "Space Debris", "247"))
 
-    def test_missing_requested_duration_accepts_on_title_artist(self):
-        self.assertTrue(L._matches_request(self._meta(duration=248), "Muse", "Space Debris", None))
+    def test_missing_requested_duration_is_reject(self):
+        self.assertFalse(L._matches_request(self._meta(duration=248), "Muse", "Space Debris", None))
 
     def test_artist_tagged_without_its_article_still_matches(self):
         meta = self._meta(artist="Les Fatals Picards", title="Chez Tom")

@@ -17,18 +17,13 @@ import requests
 
 log = logging.getLogger(__name__)
 
-try:
-    from bs4 import BeautifulSoup
-except ImportError:  # Genius scraping is skipped if bs4 isn't installed.
-    BeautifulSoup = None
-
 LRCLIB_SITE = "https://lrclib.net"
 LRCLIB_BASE = f"{LRCLIB_SITE}/api"
 MXM_BASE = "https://apic-desktop.musixmatch.com/ws/1.1"
 NETEASE_BASE = "https://music.163.com/api"
 USER_AGENT = "lyrion-custom-data (https://github.com/werdeil)"
-# A browser-like UA avoids being blocked when scraping Genius / talking to the
-# Musixmatch desktop endpoint or NetEase.
+# A browser-like UA avoids being blocked by the Musixmatch desktop endpoint or
+# NetEase.
 BROWSER_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -563,90 +558,12 @@ def _provider_netease(artist, title, _album, duration):
     return {"lyrics": text, "synced": None, "meta": meta}
 
 
-def _parse_genius_html(html):
-    if BeautifulSoup is None:
-        return None
-    soup = BeautifulSoup(html, "html.parser")
-    containers = soup.select('[data-lyrics-container="true"]')
-    if not containers:
-        return None
-    # Genius wraps non-lyrics noise (contributor counts, translation links,
-    # the song description) in elements flagged for exclusion — drop them.
-    for noise in soup.select('[data-exclude-from-selection="true"]'):
-        noise.decompose()
-    text = "\n".join(c.get_text(separator="\n") for c in containers).strip()
-    return text or None
-
-
-def _provider_genius(artist, title, album, _duration):
-    if BeautifulSoup is None:
-        log.warning("genius: beautifulsoup4 is not installed, provider skipped")
-        return None
-
-    # Genius search is free-text only, so the album joins the query to tell
-    # re-recordings apart.
-    query = f"{artist} {title} {album}" if album else f"{artist} {title}"
-    try:
-        r = requests.get(
-            "https://genius.com/api/search/multi",
-            params={"q": query},
-            headers={"User-Agent": BROWSER_UA},
-            timeout=6,
-        )
-        sections = r.json().get("response", {}).get("sections", [])
-    except requests.RequestException as exc:
-        raise ProviderUnavailable("genius") from exc
-    except (ValueError, AttributeError) as exc:
-        log.debug("genius: unreadable search response (%s)", exc)
-        return None
-
-    url = None
-    hit_meta = None
-    for section in sections:
-        if section.get("type") != "song":
-            continue
-        for hit in section.get("hits", []):
-            result = hit.get("result", {})
-            url = result.get("url")
-            if url:
-                # Genius exposes no reliable duration/album on a search hit, so
-                # verification can only lean on title + primary artist.
-                hit_meta = {
-                    "artist": (result.get("primary_artist") or {}).get("name"),
-                    "title": result.get("title"),
-                    "album": None,
-                    "duration": None,
-                }
-                break
-        if url:
-            break
-    if not url:
-        log.debug("genius: no song hit for %r", query)
-        return None
-
-    try:
-        page = requests.get(url, headers={"User-Agent": BROWSER_UA}, timeout=6)
-    except requests.RequestException as exc:
-        raise ProviderUnavailable("genius") from exc
-    if page.status_code != 200:
-        log.info("genius: song page %s returned HTTP %s", url, page.status_code)
-        return None
-
-    text = _parse_genius_html(page.text)
-    if text:
-        return {"lyrics": text, "synced": None, "meta": hit_meta}
-    log.info("genius: no lyrics container found on %s (page layout changed or bot-blocked)", url)
-    return None
-
-
 PROVIDERS = {
     "lrclib": _provider_lrclib,
     "musixmatch": _provider_musixmatch,
     "netease": _provider_netease,
-    "genius": _provider_genius,
 }
-DEFAULT_PROVIDER_ORDER = "lrclib,musixmatch,netease,genius"
-PLAIN_ONLY_PROVIDERS = {"genius"}
+DEFAULT_PROVIDER_ORDER = "lrclib,musixmatch,netease"
 
 
 def _enabled_providers():
@@ -696,9 +613,9 @@ def _fold_name(text):
 def _matches_request(meta, artist, title, duration):
     """True if a provider's matched candidate lines up with the requested track.
 
-    Title and artist must be equal once folded (see _fold_name). When both
-    durations are known they must fall within VERIFY_DURATION_TOLERANCE seconds;
-    a candidate with no duration (e.g. Genius) is accepted on title and artist.
+    Title and artist must be equal once folded (see _fold_name), and both
+    durations must be known and within VERIFY_DURATION_TOLERANCE seconds: a
+    match never rests on title and artist alone.
     """
     if not meta:
         return False
@@ -706,7 +623,8 @@ def _matches_request(meta, artist, title, duration):
         return False
     if _fold_name(meta.get("artist")) != _fold_name(artist):
         return False
-    return _duration_close(meta, _float_duration(duration))
+    delta = _duration_delta(meta, _float_duration(duration))
+    return delta is not None and delta <= VERIFY_DURATION_TOLERANCE
 
 
 def _log_rejected(name, meta, artist, title, duration):
@@ -736,8 +654,6 @@ def _search_providers(artist, title, album, duration, verify):
         log.info("lyrics: web search disabled, LYRICS_PROVIDERS=%r resolves to no provider",
                  os.getenv("LYRICS_PROVIDERS"))
     for name, provider in providers:
-        if plain and name in PLAIN_ONLY_PROVIDERS:
-            continue
         started = time.monotonic()
         try:
             found = provider(artist, title, album, duration)
