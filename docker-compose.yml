@@ -24,7 +24,7 @@ services:
       # privilège (« docker compose build » échoue) : construire avec bake.
       network: host
       args:
-        LYRION_DASHBOARD_REF: b2400c72f1f6d59abd955ac1cef3e3cde4c6be2c
+        LYRION_DASHBOARD_REF: d0ec7904b8a8d5cdc24188a0ae836943cc267e0a
     image: music-ranger:local
     # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés
     # (tags édités depuis le Mac), chaque dimanche l'enrichissement de ce qui

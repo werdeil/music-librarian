@@ -6,7 +6,7 @@ FROM python:3.12-slim-bookworm AS base
 # Scripts d'enrichissement de lyrion-dashboard (embed_lyrics.py, embed_covers.py),
 # figés sur un commit en attendant leur migration dans ce dépôt. Son image ne
 # les contient pas (exclus par son .dockerignore).
-ARG LYRION_DASHBOARD_REF=b2400c72f1f6d59abd955ac1cef3e3cde4c6be2c
+ARG LYRION_DASHBOARD_REF=d0ec7904b8a8d5cdc24188a0ae836943cc267e0a
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
