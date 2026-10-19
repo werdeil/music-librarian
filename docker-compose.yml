@@ -23,8 +23,6 @@ services:
       # réseau de build par défaut. Compose v5 ne sait pas accorder ce
       # privilège (« docker compose build » échoue) : construire avec bake.
       network: host
-      args:
-        LYRION_DASHBOARD_REF: d0ec7904b8a8d5cdc24188a0ae836943cc267e0a
     image: music-ranger:local
     # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés
     # (tags édités depuis le Mac), chaque dimanche l'enrichissement de ce qui
@@ -38,8 +36,7 @@ services:
       # LMS voit la bibliothèque sous un autre chemin (/opt/stacks/lyrion)
       - LMS_PERSIST_DB=/lms-prefs/persist.db
       - LMS_MUSIC_ROOT=/media/internal_drive/Musique
-      # paroles : fournisseurs essayés dans l'ordre (lyrion-dashboard,
-      # docs/configuration.md)
+      # paroles : fournisseurs essayés dans l'ordre (lyrics.py)
       - LYRICS_PROVIDERS=lrclib,musixmatch,netease
       # - MUSIXMATCH_TOKEN=
       # - LRCLIB_TIMEOUT=15
