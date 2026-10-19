@@ -2,8 +2,7 @@
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import pytest
 
-import embed_lyrics
-import tags
+from music_librarian import embed_lyrics, tags
 
 SYNCED = "[00:01.00] la la\n[00:02.00] lo lo"
 

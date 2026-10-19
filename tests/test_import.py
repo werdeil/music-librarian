@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from mutagen.mp4 import MP4
 
-import inbox
+from music_librarian import inbox
 
 TODAY = date.today().isoformat()
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"

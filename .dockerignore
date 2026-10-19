@@ -5,3 +5,5 @@ __pycache__
 state
 .env
 docker-compose.yml
+*.egg-info
+build

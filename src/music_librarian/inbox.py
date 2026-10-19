@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 inbox — imports what is dropped in the Inbox into the library.
 
@@ -13,8 +12,8 @@ For each Inbox item (an album folder, or a loose file):
 
 Dry run by default. --apply to actually do it.
 
-  inbox.py                 # see what would be done
-  inbox.py --apply         # import
+  music-librarian import            # see what would be done
+  music-librarian import --apply    # import
 
 Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
 One --apply pass at a time (lock shared with librarian). On SIGTERM or
@@ -40,11 +39,10 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
-import librarian
-from librarian import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
-                          locked, read_tags)
+from . import librarian
+from .librarian import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
+                         locked, read_tags)
 
-HERE = Path(__file__).resolve().parent
 ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
 RESERVED = {ERRORS, DONE, WORK}
 # audio formats recognized but not handled: the item goes to _erreurs
@@ -228,8 +226,8 @@ def enrichers(args):
     """(name, command) called with the target folders as arguments."""
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
-        ("pochettes", [sys.executable, str(HERE / "embed_covers.py")]),
-        ("paroles", [sys.executable, str(HERE / "embed_lyrics.py")]),
+        ("pochettes", [sys.executable, "-m", f"{__package__}.embed_covers"]),
+        ("paroles", [sys.executable, "-m", f"{__package__}.embed_lyrics"]),
     ]
 
 

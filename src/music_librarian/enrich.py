@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 enrich — enrichment pass over the whole library (weekly).
 
@@ -14,8 +13,8 @@ current batch completes (no tag write is cut short) and the rest is done on
 the next pass. With --apply the lock is held: no range or import while tags
 are being rewritten.
 
-  enrich.py                       # dry run: what each tool would do
-  enrich.py --apply
+  music-librarian enrich          # dry run: what each tool would do
+  music-librarian enrich --apply
 
 The end of a full --apply pass is recorded in state/enrich_last_run.
 
@@ -30,9 +29,8 @@ import sys
 import time
 from pathlib import Path
 
-import inbox
-import librarian
-from librarian import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
+from . import inbox, librarian
+from .librarian import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes

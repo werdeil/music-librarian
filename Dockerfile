@@ -16,9 +16,11 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt r128gain==1.0.7
 
-COPY music-librarian librarian.py inbox.py watch.py lyrion.py enrich.py \
-     embed_covers.py embed_lyrics.py tags.py artwork.py lyrics.py ./
-RUN ln -s /app/music-librarian /usr/local/bin/music-librarian \
+# Dependencies come pinned from requirements.txt, hence --no-deps
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-cache-dir --no-deps . \
+ && rm -rf src build \
  && useradd --create-home --uid 1000 librarian
 
 # The tests run at build time: a failing image is never produced.
@@ -29,8 +31,8 @@ COPY tests ./tests
 USER librarian
 RUN python -m pytest -q -p no:cacheprovider tests \
  && music-librarian --help > /dev/null \
- && python embed_lyrics.py --help > /dev/null \
- && python embed_covers.py --help > /dev/null \
+ && python -m music_librarian.embed_lyrics --help > /dev/null \
+ && python -m music_librarian.embed_covers --help > /dev/null \
  && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine.m4a \
  && r128gain --dry-run /tmp/sine.m4a 2>&1 | grep -q 'loudness = -' \
  && touch /tmp/tests-ok

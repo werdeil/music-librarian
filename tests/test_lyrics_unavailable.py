@@ -11,7 +11,7 @@ provider answered at all.
 import unittest
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 FOUND = {"lyrics": "la la la", "synced": None, "meta": None}
 

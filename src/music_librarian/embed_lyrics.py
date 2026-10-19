@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Batch-embed lyrics into the tags of every music file in a folder.
 
 Walks a directory, reads each track's metadata, fetches plain-text lyrics from
@@ -7,9 +6,9 @@ lyrics tag (tags.py). Lyrion is never involved: run it whenever, then let
 Lyrion pick the changes up on its next scan.
 
 Usage:
-    python embed_lyrics.py /path/to/music [--dry-run] [--force]
-                           [--clear] [--no-verify] [--delay 0.5]
-                           [--verbose]
+    python -m music_librarian.embed_lyrics /path/to/music [--dry-run] [--force]
+                                           [--clear] [--no-verify] [--delay 0.5]
+                                           [--verbose]
 
 Because tags are written permanently (and then propagate to Lyrion, other
 players and backups), a result is only accepted when the provider's own
@@ -28,8 +27,8 @@ is left untouched instead: that says nothing about what the providers carry.
 
 Several targets are accepted, and shell-style wildcards work even when quoted
 (or when the shell finds no match and passes the pattern through literally):
-    python embed_lyrics.py /path/to/music/A*
-    python embed_lyrics.py "/path/to/music/A*" /path/to/music/B*
+    python -m music_librarian.embed_lyrics /path/to/music/A*
+    python -m music_librarian.embed_lyrics "/path/to/music/A*" /path/to/music/B*
 Each target may be a directory (scanned recursively) or a single music file.
 
 Config comes from the environment. Provider order comes from LYRICS_PROVIDERS
@@ -43,8 +42,8 @@ import os
 import sys
 import time
 
-import tags
-from lyrics import fetch_lyrics
+from . import tags
+from .lyrics import fetch_lyrics
 
 
 def resolve_targets(patterns):

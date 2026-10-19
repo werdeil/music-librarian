@@ -1,15 +1,11 @@
 """Lock between passes, clean stop (SIGTERM / Ctrl-C) and single entry point."""
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import fcntl
-import importlib.machinery
-import importlib.util
 import json
-from pathlib import Path
 
 import pytest
 
-import inbox
-import librarian
+from music_librarian import cli, inbox, librarian
 
 
 @pytest.fixture
@@ -144,16 +140,7 @@ def test_import_finishes_current_item_then_stops(dirs, make_track, monkeypatch):
 
 # ---------- entry point ----------
 
-@pytest.fixture(scope="module")
-def cli():
-    path = str(Path(__file__).resolve().parent.parent / "music-librarian")
-    loader = importlib.machinery.SourceFileLoader("music_librarian_cli", path)
-    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
-    loader.exec_module(mod)
-    return mod
-
-
-def test_cli_dispatch(cli, dirs, make_track, monkeypatch):
+def test_cli_dispatch(dirs, make_track, monkeypatch):
     lib, inbox_dir, state = dirs
     monkeypatch.setenv("MUSIC_LIBRARIAN_ROOT", str(lib))
     monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(state))
@@ -169,5 +156,5 @@ def test_cli_dispatch(cli, dirs, make_track, monkeypatch):
 
 
 @pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["oups"], 2), (["undo"], 2)])
-def test_cli_usage(cli, argv, code):
+def test_cli_usage(argv, code):
     assert cli.main(argv) == code

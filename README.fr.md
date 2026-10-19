@@ -13,7 +13,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain (r128gain), la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB, Musixmatch et NetEase. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `range --since` chaque nuit et `enrich` chaque semaine.
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
-- En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir `lyrion.py`).
+- En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [`lyrion.py`](src/music_librarian/lyrion.py)).
 
 ## Lancement
 
@@ -38,7 +38,7 @@ docker compose run --rm music-librarian enrich
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
-Sans Docker : Python 3.12, ffmpeg, `pip install -r requirements.txt` et r128gain 1.0.7 dans le `PATH` (ou dans `R128GAIN`), puis `./music-librarian {commande} --help`.
+Sans Docker : Python 3.12, ffmpeg, r128gain 1.0.7 dans le `PATH` (ou dans `R128GAIN`) et `pip install .` (`pip install -r requirements.txt .` pour les versions testées), puis `music-librarian {commande} --help`.
 
 ## Configuration
 
@@ -46,7 +46,7 @@ Sans Docker : Python 3.12, ffmpeg, `pip install -r requirements.txt` et r128gain
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Racine de la bibliothèque (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image) |
+| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,musixmatch,netease`) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
@@ -57,9 +57,9 @@ Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les do
 ## Développement
 
 ```bash
-pip install -r requirements-dev.txt
-python -m pytest -q tests     # demande ffmpeg
-pylint *.py music-librarian tests
+pip install -r requirements-dev.txt -e .
+python -m pytest -q    # demande ffmpeg
+pylint src tests
 ```
 
 ## Licence

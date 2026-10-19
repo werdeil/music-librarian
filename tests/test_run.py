@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-import librarian
+from music_librarian import librarian
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ import struct
 import unittest
 import zlib
 
-from artwork import image_size
+from music_librarian.artwork import image_size
 
 
 def jpeg(width, height, marker=0xC0, before=b""):
