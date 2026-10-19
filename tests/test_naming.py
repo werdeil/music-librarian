@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from librarian import clean, is_in_place, read_tags, target_rel
+from music_librarian.librarian import clean, is_in_place, read_tags, target_rel
 
 
 def tags(**kw):

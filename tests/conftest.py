@@ -2,7 +2,6 @@
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,8 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import ID3, TALB, TCMP, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from music_librarian import watch
+from music_librarian.librarian import STOP
 
 CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-c:a", "flac"]}
 
@@ -26,18 +26,14 @@ def clean_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_stop():
     """The stop request is process-wide: reset between tests."""
-    import librarian  # pylint: disable=import-outside-toplevel  # after sys.path
-    librarian.STOP.clear()
+    STOP.clear()
     yield
-    librarian.STOP.clear()
+    STOP.clear()
 
 
 @pytest.fixture
 def ticks(monkeypatch):
     """Drive the watch loop: each wait runs the next action, then stops."""
-    # pylint: disable-next=import-outside-toplevel  # after sys.path
-    import watch
-    from librarian import STOP  # pylint: disable=import-outside-toplevel
 
     def run(inbox_dir, actions, *argv):
         todo = list(actions)

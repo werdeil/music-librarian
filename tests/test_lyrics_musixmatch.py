@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 
 def _macro(track=None, lyrics=None, subtitles=None):

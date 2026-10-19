@@ -8,9 +8,8 @@ from pathlib import Path
 
 import pytest
 
-import lyrion
-import librarian
-from librarian import EXIT_LYRION
+from music_librarian import librarian, lyrion
+from music_librarian.librarian import EXIT_LYRION
 
 LYRION_ROOT = "/music/Musique"
 SCHEMA = """

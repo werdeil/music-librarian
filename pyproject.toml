@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-librarian"
+description = "Files a music library the way Apple Music does, imports new music and enriches its tags"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+# Exact pins for the image and CI are in requirements.txt
+dependencies = [
+    "mutagen>=1.47",
+    "requests>=2.31",
+]
+dynamic = ["version"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+
+[project.urls]
+Homepage = "https://github.com/werdeil/music-librarian"
+
+[project.scripts]
+music-librarian = "music_librarian.cli:run"
+
+[tool.setuptools.dynamic]
+version = { attr = "music_librarian.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# pylint src tests, with the package installed (pip install -e .)
+[tool.pylint."messages control"]
+# Documented through module docstrings and comments where they add
+# something; systematic docstrings are not enforced.
+# Broad `except Exception` is deliberate resilience: one unreadable file, an
+# import or a Lyrion write failing must not stop the loop or a whole pass.
+# dict(...) is used throughout for journal records and tag dicts, and
+# one-line lambdas as tag getters in read_tags/copy_tags.
+# The passes (rank, process, watch's loop) are linear pipelines read top to
+# bottom sharing local state; splitting them into helpers to satisfy the
+# size counters would scatter that state without making them clearer.
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "broad-exception-caught",
+    "use-dict-literal",
+    "unnecessary-lambda-assignment",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+]
+
+[tool.pylint.format]
+max-line-length = 110
+
+[tool.pylint.design]
+# rank() receives the parsed arguments plus the run context (root, state,
+# log, Lyrion, interruptible); the test fixtures build tracks from tag kwargs.
+max-args = 7
+max-positional-arguments = 7
+# music-librarian dispatches each subcommand with its own return.
+max-returns = 8

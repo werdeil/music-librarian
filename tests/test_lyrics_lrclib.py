@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 
 def _record(rec_id, synced=None, plain="la la la", album="Will Of The People", duration=302):
@@ -59,7 +59,7 @@ class _Lrclib:
 
 class LrclibSyncedPreferenceTest(unittest.TestCase):
     def _fetch(self, fake):
-        with patch("lyrics.requests.get", side_effect=fake):
+        with patch("music_librarian.lyrics.requests.get", side_effect=fake):
             return L._provider_lrclib("Muse", "Will Of The People", "Will Of The People", "302")
 
     def test_plain_get_hit_is_upgraded_by_a_synced_search_result(self):
@@ -104,7 +104,7 @@ class LrclibSyncedPreferenceTest(unittest.TestCase):
     def test_the_artist_name_is_retried_without_its_leading_article(self):
         fake = _Lrclib(get=None, searches=[
             [], [], [], [_record(5, synced="[00:12.00] la", album="Pamplemousse", duration=180)]])
-        with patch("lyrics.requests.get", side_effect=fake):
+        with patch("music_librarian.lyrics.requests.get", side_effect=fake):
             result = L._provider_lrclib("Les Fatals Picards", "Chez Tom", "Pamplemousse", "180")
         self.assertEqual(result["synced"], "[00:12.00] la")
         self.assertEqual(
@@ -123,7 +123,7 @@ class LrclibSyncedPreferenceTest(unittest.TestCase):
             searches=[[_record(2, synced=None)],
                       [_record(3, synced=None), _record(4, synced="[00:12.00] la")]],
         )
-        with self.assertLogs("lyrics", level="INFO") as captured:
+        with self.assertLogs("music_librarian.lyrics", level="INFO") as captured:
             self._fetch(fake)
         counts = [line for line in captured.output if "candidate(s)" in line]
         self.assertEqual(len(counts), 2)
@@ -132,7 +132,7 @@ class LrclibSyncedPreferenceTest(unittest.TestCase):
 
     def test_a_miss_logs_a_search_url_to_replay_by_hand(self):
         fake = _Lrclib(get=None, searches=[[], []])
-        with self.assertLogs("lyrics", level="INFO") as captured:
+        with self.assertLogs("music_librarian.lyrics", level="INFO") as captured:
             self._fetch(fake)
         urls = [line for line in captured.output if "catalogue search" in line]
         self.assertEqual(len(urls), 1)
@@ -144,7 +144,7 @@ class LrclibDurationMatchTest(unittest.TestCase):
     extended upload of the same song scrolls against the wrong timeline."""
 
     def _fetch(self, fake, duration="302"):
-        with patch("lyrics.requests.get", side_effect=fake):
+        with patch("music_librarian.lyrics.requests.get", side_effect=fake):
             return L._provider_lrclib("Muse", "Will Of The People", "Will Of The People", duration)
 
     def test_synced_record_of_another_length_loses_to_a_plain_one_that_fits(self):
@@ -206,7 +206,7 @@ class LrclibDurationMatchTest(unittest.TestCase):
             _record(2, synced="[01:55.54] la", duration=419),
             _record(3, synced=None),
         ]])
-        with self.assertLogs("lyrics", level="INFO") as captured:
+        with self.assertLogs("music_librarian.lyrics", level="INFO") as captured:
             self._fetch(fake)
         self.assertIn("returned 2 candidate(s), 1 of this length, 0 of those synced", captured.output[0])
 
@@ -227,7 +227,7 @@ class LrclibDurationMatchTest(unittest.TestCase):
 
     def test_dropping_the_timings_logs_both_lengths_and_the_record(self):
         fake = _Lrclib(get=None, searches=[[_record(22439347, synced="[01:55.54] la", duration=419)]])
-        with self.assertLogs("lyrics", level="INFO") as captured:
+        with self.assertLogs("music_librarian.lyrics", level="INFO") as captured:
             self._fetch(fake)
         dropped = [line for line in captured.output if "timings dropped" in line]
         self.assertEqual(len(dropped), 1)
@@ -243,7 +243,7 @@ class LrclibVersionsTest(unittest.TestCase):
     """The other uploads of the same song, which the page cycles through."""
 
     def _fetch(self, fake, duration="302"):
-        with patch("lyrics.requests.get", side_effect=fake):
+        with patch("music_librarian.lyrics.requests.get", side_effect=fake):
             return L._provider_lrclib("Muse", "Will Of The People", "Will Of The People", duration)
 
     def test_every_synced_upload_of_this_length_is_offered(self):
@@ -298,7 +298,7 @@ class LrclibVersionOrderTest(unittest.TestCase):
     """Synced uploads lead, plain ones fill in behind them."""
 
     def _fetch(self, fake, duration="302"):
-        with patch("lyrics.requests.get", side_effect=fake):
+        with patch("music_librarian.lyrics.requests.get", side_effect=fake):
             return L._provider_lrclib("Muse", "Will Of The People", "Will Of The People", duration)
 
     def test_plain_uploads_follow_the_synced_ones(self):

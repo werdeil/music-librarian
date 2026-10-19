@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# pylint: disable=invalid-name  # command name, not an imported module
 """
 music-librarian — point d'entrée unique.
 
@@ -12,17 +10,8 @@ music-librarian — point d'entrée unique.
 Tout est en dry-run sans --apply. `music-librarian <commande> --help` pour les options.
 """
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-# after sys.path: the /usr/local/bin/music-librarian link is run from anywhere
-# pylint: disable=wrong-import-position
-import enrich  # noqa: E402
-import inbox  # noqa: E402
-import librarian  # noqa: E402
-import watch  # noqa: E402
-# pylint: enable=wrong-import-position
+from . import enrich, inbox, librarian, watch
 
 
 def main(argv=None):
@@ -48,6 +37,7 @@ def main(argv=None):
     return 2
 
 
-if __name__ == "__main__":
+def run():
+    """Console entry point (`music-librarian`, `python -m music_librarian`)."""
     librarian.handle_stop_signals()
-    sys.exit(main())
+    return main()

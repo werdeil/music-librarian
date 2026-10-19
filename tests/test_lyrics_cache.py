@@ -12,7 +12,7 @@ White-box tests: they reach into lyrics.py's private helpers on purpose.
 import unittest
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 
 class CacheBoundsTest(unittest.TestCase):

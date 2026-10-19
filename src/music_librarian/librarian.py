@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 librarian — files a music library the way Apple Music does:
     <Album Artist>/<Album>/<NN Title>.ext
@@ -9,22 +8,23 @@ Dry run by default. --apply to actually do it.
 
 Examples:
   # Check the whole library (nothing is changed)
-  librarian.py --root /srv/music
+  music-librarian range --root /srv/music
 
   # File an album dropped in the Inbox
-  librarian.py --root /srv/music /srv/inbox/MyAlbum --apply
+  music-librarian range --root /srv/music /srv/inbox/MyAlbum --apply
 
   # Only process the folders changed since the last pass
-  librarian.py --root /srv/music --since --apply
+  music-librarian range --root /srv/music --since --apply
 
   # Undo a pass (dry run, then --apply)
-  librarian.py --root /srv/music --undo state/journal/<date>.jsonl
+  music-librarian undo state/journal/<date>.jsonl --root /srv/music
 
 With --lyrion-db, the Lyrion history (play counts, ratings) follows moved files
 (see lyrion.py). --lyrion-replay JOURNAL carries it over afterwards for one pass.
 
 State (move journals, last pass date): --state-dir, else
-$MUSIC_LIBRARIAN_STATE, else the state/ folder next to the script.
+$MUSIC_LIBRARIAN_STATE, else $XDG_STATE_HOME/music-librarian
+(~/.local/state/music-librarian).
 
 --root can also come from $MUSIC_LIBRARIAN_ROOT.
 
@@ -55,7 +55,7 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
-import lyrion
+from . import lyrion
 
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
@@ -219,8 +219,8 @@ def prune_empty(d: Path, stops):
 
 
 def state_path(arg=None):
-    return Path(arg or os.environ.get("MUSIC_LIBRARIAN_STATE")
-                or Path(__file__).resolve().parent / "state")
+    xdg = os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state"
+    return Path(arg or os.environ.get("MUSIC_LIBRARIAN_STATE") or Path(xdg) / "music-librarian")
 
 
 class Locked(Exception):

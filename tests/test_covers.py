@@ -4,8 +4,7 @@ import struct
 
 import pytest
 
-import embed_covers
-import tags
+from music_librarian import embed_covers, tags
 
 
 def jpeg(width, height):
