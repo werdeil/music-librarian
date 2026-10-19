@@ -24,9 +24,9 @@ Avec --lms-db, l'historique LMS (lectures, notes) suit les fichiers déplacés
 (voir lms.py). --lms-replay JOURNAL le reporte après coup pour un passage.
 
 État (journaux des déplacements, date du dernier passage) : --state-dir, sinon
-$MUSIC_RANGER_STATE, sinon le dossier state/ à côté du script.
+$MUSIC_LIBRARIAN_STATE, sinon le dossier state/ à côté du script.
 
---root peut aussi venir de $MUSIC_RANGER_ROOT.
+--root peut aussi venir de $MUSIC_LIBRARIAN_ROOT.
 
 Un seul passage en --apply à la fois (verrou state/lock). Sur SIGTERM ou
 Ctrl-C, le déplacement en cours se termine, les suivants sont laissés pour le
@@ -109,9 +109,9 @@ def parse_pair(s):
 
 
 class Log:
-    """stdout, et en plus journald (tag music-ranger) avec --syslog."""
+    """stdout, et en plus journald (tag music-librarian) avec --syslog."""
 
-    def __init__(self, use_syslog=False, ident="music-ranger"):
+    def __init__(self, use_syslog=False, ident="music-librarian"):
         self.syslog = None
         self.ident = ident
         if use_syslog:
@@ -219,7 +219,7 @@ def prune_empty(d: Path, stops):
 
 
 def state_path(arg=None):
-    return Path(arg or os.environ.get("MUSIC_RANGER_STATE")
+    return Path(arg or os.environ.get("MUSIC_LIBRARIAN_STATE")
                 or Path(__file__).resolve().parent / "state")
 
 
@@ -439,7 +439,7 @@ def undo(args, root, state_dir, log, db=None):
         log(f"{'journal':>20} : {journal.path}")
     lms_ok = lms_sync(db, done if args.apply else todo, args.apply, log)
     if not lms_ok and journal.path:
-        log(f"{'reprise LMS':>20} : music-ranger range --lms-replay "
+        log(f"{'reprise LMS':>20} : music-librarian range --lms-replay "
             f"{shlex.quote(str(journal.path))} --apply")
     return EXIT_STOPPED if stopped else 2 if refused else 0 if lms_ok else EXIT_LMS
 
@@ -456,9 +456,9 @@ def run(argv=None, interruptible=True):
     interruptible=False : un arrêt demandé n'interrompt pas les déplacements
     (l'import range un élément en entier ou pas du tout)."""
     ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
-    root_env = os.environ.get("MUSIC_RANGER_ROOT")
+    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env,
-                    help="racine de la bibliothèque (défaut : $MUSIC_RANGER_ROOT)")
+                    help="racine de la bibliothèque (défaut : $MUSIC_LIBRARIAN_ROOT)")
     ap.add_argument("paths", nargs="*", help="dossiers à traiter (défaut : --root)")
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--compilations-dir", default="Compilations")
@@ -470,10 +470,10 @@ def run(argv=None, interruptible=True):
     ap.add_argument("--lms-replay", metavar="JOURNAL",
                     help="reporter dans LMS l'historique des déplacements d'un journal")
     lms.add_arguments(ap)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"),
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"),
                     help="dossier d'état (journaux, dernier passage)")
     ap.add_argument("--syslog", action="store_true",
-                    help="envoyer aussi les lignes dans syslog/journald (tag music-ranger)")
+                    help="envoyer aussi les lignes dans syslog/journald (tag music-librarian)")
     args = ap.parse_args(argv)
 
     # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter l'affichage
@@ -650,10 +650,10 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
     lms_ok = lms_sync(db, done if args.apply else moves, args.apply, log)
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-        log(f"{'annuler':>20} : music-ranger undo {shlex.quote(str(journal.path))} "
+        log(f"{'annuler':>20} : music-librarian undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
         if not lms_ok:
-            log(f"{'reprise LMS':>20} : music-ranger range --lms-replay "
+            log(f"{'reprise LMS':>20} : music-librarian range --lms-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
 
     code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0

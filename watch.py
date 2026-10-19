@@ -98,9 +98,9 @@ def safe(fn, argv, log, what):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Surveille l'Inbox et lance l'import.")
-    inbox_env = os.environ.get("MUSIC_RANGER_INBOX")
+    inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
-                    help="dossier de dépôt (défaut : $MUSIC_RANGER_INBOX)")
+                    help="dossier de dépôt (défaut : $MUSIC_LIBRARIAN_INBOX)")
     ap.add_argument("--interval", type=float, default=30,
                     help="secondes entre deux lectures de l'Inbox")
     ap.add_argument("--apply", action="store_true", help="importer et ranger (sinon dry-run)")

@@ -146,8 +146,8 @@ def test_import_finishes_current_item_then_stops(dirs, make_track, monkeypatch):
 
 @pytest.fixture(scope="module")
 def cli():
-    path = str(Path(__file__).resolve().parent.parent / "music-ranger")
-    loader = importlib.machinery.SourceFileLoader("music_ranger_cli", path)
+    path = str(Path(__file__).resolve().parent.parent / "music-librarian")
+    loader = importlib.machinery.SourceFileLoader("music_librarian_cli", path)
     mod = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
     loader.exec_module(mod)
     return mod
@@ -155,8 +155,8 @@ def cli():
 
 def test_cli_dispatch(cli, dirs, make_track, monkeypatch):
     lib, inbox, state = dirs
-    monkeypatch.setenv("MUSIC_RANGER_ROOT", str(lib))
-    monkeypatch.setenv("MUSIC_RANGER_STATE", str(state))
+    monkeypatch.setenv("MUSIC_LIBRARIAN_ROOT", str(lib))
+    monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(state))
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
 
     assert cli.main(["range"]) == 0                     # --root et state depuis l'environnement

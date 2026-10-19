@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # pylint: disable=invalid-name  # nom de la commande, pas un module importé
 """
-music-ranger — point d'entrée unique.
+music-librarian — point d'entrée unique.
 
-  music-ranger range  [options]            rangement (music_ranger.py)
-  music-ranger import [options]            import de l'Inbox (import_inbox.py)
-  music-ranger undo JOURNAL [options]      annulation d'un passage
-  music-ranger watch  [options]            surveillance de l'Inbox (watch.py)
-  music-ranger enrich [options]            gain, pochettes, paroles manquants (enrich.py)
+  music-librarian range  [options]            rangement (music_ranger.py)
+  music-librarian import [options]            import de l'Inbox (import_inbox.py)
+  music-librarian undo JOURNAL [options]      annulation d'un passage
+  music-librarian watch  [options]            surveillance de l'Inbox (watch.py)
+  music-librarian enrich [options]            gain, pochettes, paroles manquants (enrich.py)
 
-Tout est en dry-run sans --apply. `music-ranger <commande> --help` pour les options.
+Tout est en dry-run sans --apply. `music-librarian <commande> --help` pour les options.
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# après le sys.path : le lien /usr/local/bin/music-ranger est lancé de n'importe où
+# après le sys.path : le lien /usr/local/bin/music-librarian est lancé de n'importe où
 # pylint: disable=wrong-import-position
 import enrich  # noqa: E402
 import import_inbox  # noqa: E402
@@ -37,7 +37,7 @@ def main(argv=None):
         return import_inbox.main(rest)
     if cmd == "undo":
         if not rest or rest[0].startswith("-"):
-            print("usage : music-ranger undo JOURNAL [--apply] [options]", file=sys.stderr)
+            print("usage : music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
             return 2
         return music_ranger.main(["--undo", rest[0], *rest[1:]])
     if cmd == "watch":

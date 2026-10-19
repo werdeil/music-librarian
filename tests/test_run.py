@@ -58,7 +58,7 @@ def test_apply_then_undo(lib, run, make_track, capsys):
 
     [j] = journals(run)
     # commande d'annulation prête à copier, valable dans le conteneur
-    assert f"music-ranger undo {j} --root {lib} --apply" in capsys.readouterr().out
+    assert f"music-librarian undo {j} --root {lib} --apply" in capsys.readouterr().out
     recs = [json.loads(line) for line in j.read_text().splitlines()]
     assert recs[0]["type"] == "meta"
     assert len([r for r in recs if r["type"] == "move"]) == 3

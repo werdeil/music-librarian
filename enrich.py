@@ -59,10 +59,10 @@ def last_run(state_dir: Path):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Enrichit toute la bibliothèque.")
-    root_env = os.environ.get("MUSIC_RANGER_ROOT")
+    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env)
     ap.add_argument("--apply", action="store_true", help="écrire les tags (sinon dry-run)")
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="dossiers par appel d'outil")
     ap.add_argument("--r128gain", default=import_inbox.R128GAIN)
     args = ap.parse_args(argv)

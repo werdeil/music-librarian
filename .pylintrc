@@ -34,5 +34,5 @@ max-line-length=110
 # log, LMS, interruptible); the test fixtures build tracks from tag kwargs.
 max-args=7
 max-positional-arguments=7
-# music-ranger dispatches each subcommand with its own return.
+# music-librarian dispatches each subcommand with its own return.
 max-returns=8

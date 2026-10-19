@@ -21,7 +21,7 @@ LRCLIB_SITE = "https://lrclib.net"
 LRCLIB_BASE = f"{LRCLIB_SITE}/api"
 MXM_BASE = "https://apic-desktop.musixmatch.com/ws/1.1"
 NETEASE_BASE = "https://music.163.com/api"
-USER_AGENT = "music_ranger (https://github.com/werdeil/music_ranger)"
+USER_AGENT = "music-librarian (https://github.com/werdeil/music-librarian)"
 # A browser-like UA avoids being blocked by the Musixmatch desktop endpoint or
 # NetEase.
 BROWSER_UA = (

@@ -16,7 +16,7 @@ Dry-run par défaut. --apply pour exécuter réellement.
   import_inbox.py                 # voir ce qui serait fait
   import_inbox.py --apply         # importer
 
-Chemins : --inbox / $MUSIC_RANGER_INBOX, --root / $MUSIC_RANGER_ROOT.
+Chemins : --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
 Un seul passage en --apply à la fois (verrou partagé avec music_ranger). Sur
 SIGTERM ou Ctrl-C, l'élément en cours de rangement est terminé ; celui en cours
 de conversion et les suivants restent dans l'Inbox pour le prochain passage.
@@ -440,18 +440,18 @@ def purge(args, log):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Importe l'Inbox dans la bibliothèque.")
-    inbox_env, root_env = os.environ.get("MUSIC_RANGER_INBOX"), os.environ.get("MUSIC_RANGER_ROOT")
+    inbox_env, root_env = os.environ.get("MUSIC_LIBRARIAN_INBOX"), os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
-                    help="dossier de dépôt (défaut : $MUSIC_RANGER_INBOX)")
+                    help="dossier de dépôt (défaut : $MUSIC_LIBRARIAN_INBOX)")
     ap.add_argument("--root", type=Path, default=root_env, required=not root_env,
-                    help="racine de la bibliothèque (défaut : $MUSIC_RANGER_ROOT)")
+                    help="racine de la bibliothèque (défaut : $MUSIC_LIBRARIAN_ROOT)")
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--settle", type=float, default=10,
                     help="secondes sans changement avant de traiter un élément")
     ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
     ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
     ap.add_argument("--r128gain", default=R128GAIN)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="envoyer aussi les lignes dans syslog/journald (tag music-import)")
     args = ap.parse_args(argv)

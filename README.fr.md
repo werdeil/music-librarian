@@ -1,8 +1,8 @@
-# music_ranger
+# music-librarian
 
 [English](README.md) · **Français**
 
-Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque [Lyrion Music Server](https://github.com/LMS-Community/slimserver) (ALAC `.m4a` et quelques MP3), il tourne dans un seul conteneur qui surveille le dossier d'arrivée, range ce qui y arrive et enrichit les tags : ReplayGain, pochette et paroles.
+Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque en ALAC `.m4a` avec quelques MP3, il tourne dans un seul conteneur qui surveille le dossier d'arrivée, range ce qui y arrive et enrichit les tags : ReplayGain, pochette et paroles.
 
 Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour pouvoir annuler un passage.
 
@@ -13,41 +13,41 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain (r128gain), la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB, Musixmatch et NetEase. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `range --since` chaque nuit et `enrich` chaque semaine.
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
-- Avec accès au `persist.db` de Lyrion, les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines (voir `lms.py`).
+- En option, les lectures et notes enregistrées dans le `persist.db` d'un Logitech Media Server suivent les fichiers déplacés au lieu de rester orphelines (voir `lms.py`).
 
 ## Lancement
 
 Docker est la voie prévue. ffmpeg et r128gain sont dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
 
 ```bash
-cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
+cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de LMS
 mkdir state               # journaux, dernier passage et verrou ; à créer avant le premier lancement
 docker compose build
 docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00
-journalctl -t music-ranger -f
+journalctl -t music-librarian -f
 ```
 
-La bibliothèque et l'Inbox doivent se trouver sous le dossier unique de `MUSIC_RANGER_VOLUME`, monté au même chemin que sur l'hôte : les déplacements restent des renommages et les chemins des journaux valent des deux côtés.
+La bibliothèque et l'Inbox doivent se trouver sous le dossier unique de `MUSIC_LIBRARIAN_VOLUME`, monté au même chemin que sur l'hôte : les déplacements restent des renommages et les chemins des journaux valent des deux côtés.
 
 Lancements ponctuels, en dry-run sans `--apply` :
 
 ```bash
-docker compose run --rm music-ranger range --since
-docker compose run --rm music-ranger import
-docker compose run --rm music-ranger enrich
-docker compose run --rm music-ranger undo /state/journal/{date}.jsonl --apply
+docker compose run --rm music-librarian range --since
+docker compose run --rm music-librarian import
+docker compose run --rm music-librarian enrich
+docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
-Sans Docker : Python 3.12, ffmpeg, `pip install -r requirements.txt` et r128gain 1.0.7 dans le `PATH` (ou dans `R128GAIN`), puis `./music-ranger {commande} --help`.
+Sans Docker : Python 3.12, ffmpeg, `pip install -r requirements.txt` et r128gain 1.0.7 dans le `PATH` (ou dans `R128GAIN`), puis `./music-librarian {commande} --help`.
 
 ## Configuration
 
 | Variable | Rôle |
 |---|---|
-| `MUSIC_RANGER_ROOT` | Racine de la bibliothèque (`--root`) |
-| `MUSIC_RANGER_INBOX` | Dossier de dépôt, hors de la bibliothèque pour que Lyrion ne l'indexe pas (`--inbox`) |
-| `MUSIC_RANGER_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image) |
-| `LMS_PERSIST_DB`, `LMS_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
+| `MUSIC_LIBRARIAN_ROOT` | Racine de la bibliothèque (`--root`) |
+| `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
+| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image) |
+| `LMS_PERSIST_DB`, `LMS_MUSIC_ROOT` | `persist.db` de LMS et racine de la bibliothèque vue par LMS ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,musixmatch,netease`) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `R128GAIN` | Exécutable r128gain |
@@ -59,7 +59,7 @@ Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les do
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest -q tests     # demande ffmpeg
-pylint *.py music-ranger tests
+pylint *.py music-librarian tests
 ```
 
 ## Licence

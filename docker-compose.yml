@@ -5,27 +5,27 @@
 #   (avec BUILD_NETWORK=host : docker buildx bake -f docker-compose.yml --allow network.host)
 #
 # En continu, le conteneur surveille l'Inbox et importe, et range chaque nuit
-# les dossiers modifiés (music-ranger watch) :
+# les dossiers modifiés (music-librarian watch) :
 #   docker compose up -d
-#   journalctl -t music-ranger -f         # logs
-#   docker compose down                   # arrêt (finit l'opération en cours)
+#   journalctl -t music-librarian -f     # logs
+#   docker compose down                  # arrêt (finit l'opération en cours)
 #
 # Lancements à la main, en dry-run sans --apply :
-#   docker compose run --rm music-ranger import
-#   docker compose run --rm music-ranger range --since
-#   docker compose run --rm music-ranger enrich
-#   docker compose run --rm music-ranger undo /state/journal/<date>.jsonl
+#   docker compose run --rm music-librarian import
+#   docker compose run --rm music-librarian range --since
+#   docker compose run --rm music-librarian enrich
+#   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
 # Créer ./state AVANT le premier lancement (mkdir state) : sinon Docker le crée
 # en root et le conteneur ne peut pas y écrire.
 services:
-  music-ranger:
+  music-librarian:
     build:
       context: .
       # Compose ne sait pas accorder le réseau host au build : avec host,
       # construire avec bake (voir plus haut)
       network: ${BUILD_NETWORK:-default}
-    image: music-ranger:local
+    image: music-librarian:local
     # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés,
     # chaque dimanche l'enrichissement de ce qui manque
     command: [watch, --apply, --range-at, "02:00", --enrich-at, "dim 03:00"]
@@ -33,8 +33,8 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       - TZ=${TZ:-Europe/Paris}  # date des dossiers _traités/AAAA-MM-JJ
-      - MUSIC_RANGER_ROOT=${MUSIC_RANGER_ROOT:?à définir dans .env}
-      - MUSIC_RANGER_INBOX=${MUSIC_RANGER_INBOX:?à définir dans .env}
+      - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?à définir dans .env}
+      - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?à définir dans .env}
       # historique LMS reporté sur les fichiers déplacés, désactivé sans LMS_PREFS_DIR
       - LMS_PERSIST_DB=${LMS_PREFS_DIR:+/lms-prefs/persist.db}
       - LMS_MUSIC_ROOT=${LMS_MUSIC_ROOT:-}
@@ -43,7 +43,7 @@ services:
     volumes:
       # Inbox et bibliothèque sous ce seul montage, au même chemin que sur
       # l'hôte : les déplacements restent des renommages et les journaux valent des deux côtés.
-      - ${MUSIC_RANGER_VOLUME:?à définir dans .env}:${MUSIC_RANGER_VOLUME}
+      - ${MUSIC_LIBRARIAN_VOLUME:?à définir dans .env}:${MUSIC_LIBRARIAN_VOLUME}
       - ./state:/state
       # le dossier entier : SQLite y écrit aussi persist.db-wal et -shm ;
       # sans LMS, ./state est monté à la place et reste inutilisé
@@ -54,4 +54,4 @@ services:
     logging:
       driver: journald
       options:
-        tag: music-ranger
+        tag: music-librarian
