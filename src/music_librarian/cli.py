@@ -1,13 +1,14 @@
 """
-music-librarian — point d'entrée unique.
+music-librarian — single entry point.
 
-  music-librarian range  [options]            rangement (organize/)
-  music-librarian import [options]            import de l'Inbox (importer.py)
-  music-librarian undo JOURNAL [options]      annulation d'un passage
-  music-librarian watch  [options]            surveillance de l'Inbox (watch.py)
-  music-librarian enrich [options]            gain, pochettes, paroles manquants (enrich/)
+  music-librarian organize [options]          file the library (organize/)
+  music-librarian import [options]            import the Inbox (importer.py)
+  music-librarian undo JOURNAL [options]      undo a pass
+  music-librarian watch [options]             watch the Inbox (watch.py)
+  music-librarian enrich [options]            add missing gain, covers, lyrics (enrich/)
 
-Tout est en dry-run sans --apply. `music-librarian <commande> --help` pour les options.
+Everything is a dry run without --apply. `music-librarian <command> --help` for the options.
+`range` is the former name of `organize`.
 """
 import sys
 
@@ -22,19 +23,23 @@ def main(argv=None):
         return 0 if argv else 2
     cmd, rest = argv[0], argv[1:]
     if cmd == "range":
+        print("music-librarian: 'range' is now 'organize', the old name will be removed",
+              file=sys.stderr)
+        cmd = "organize"
+    if cmd == "organize":
         return organize.main(rest)
     if cmd == "import":
         return importer.main(rest)
     if cmd == "undo":
         if not rest or rest[0].startswith("-"):
-            print("usage : music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
+            print("usage: music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
             return 2
         return organize.main(["--undo", rest[0], *rest[1:]])
     if cmd == "watch":
         return watch.main(rest)
     if cmd == "enrich":
         return enrich.main(rest)
-    print(f"commande inconnue : {cmd}\n\n{__doc__.strip()}", file=sys.stderr)
+    print(f"unknown command: {cmd}\n\n{__doc__.strip()}", file=sys.stderr)
     return 2
 
 

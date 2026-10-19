@@ -258,7 +258,7 @@ def enrich(args, dirs, log):
 
 # ---------- item processing ----------
 
-def ranger(args, paths, apply, quiet=False):
+def organize_paths(args, paths, apply, quiet=False):
     argv = ["--root", str(args.root), *map(str, paths)]
     if apply:
         argv.append("--apply")
@@ -352,7 +352,7 @@ def process(args, item, log):
     if not args.apply:
         for p in flacs:
             log(f"CONVERTIR {item.rel(p)}  → .m4a")
-        code, report = ranger(args, [item.path], apply=False, quiet=True)
+        code, report = organize_paths(args, [item.path], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
             log(f"ERREUR   {item.name} : irait dans {ERRORS}/ (voir ci-dessus)")
@@ -384,7 +384,7 @@ def process(args, item, log):
             link_or_copy(p, work / item.rel(p))
         for p, rel in names.items():
             link_or_copy(p, work / rel)
-        code, report = ranger(args, [work], apply=False, quiet=True)
+        code, report = organize_paths(args, [work], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
             raise Reject("refusé par le rangement (voir ci-dessus)")
@@ -399,7 +399,7 @@ def process(args, item, log):
         return FAILED, set()
 
     # 2. Actual filing.
-    code, report = ranger(args, [work], apply=True)
+    code, report = organize_paths(args, [work], apply=True)
     if code:
         log(f"ERREUR   {item.name} : rangement incomplet, élément et {work} laissés "
             f"en place (journal : {report.get('journal')})")

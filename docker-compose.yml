@@ -12,7 +12,7 @@
 #
 # Manual runs, dry run without --apply:
 #   docker compose run --rm music-librarian import
-#   docker compose run --rm music-librarian range --since
+#   docker compose run --rm music-librarian organize --since
 #   docker compose run --rm music-librarian enrich
 #   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
@@ -26,9 +26,9 @@ services:
       # with bake (see above)
       network: ${BUILD_NETWORK:-default}
     image: music-librarian:local
-    # import on every drop, nightly range of the changed folders, Sunday
-    # enrichment of what is missing ("dim" is Sunday in French)
-    command: [watch, --apply, --range-at, "02:00", --enrich-at, "dim 03:00"]
+    # import on every drop, nightly filing of the changed folders, Sunday
+    # enrichment of what is missing
+    command: [watch, --apply, --organize-at, "02:00", --enrich-at, "sun 03:00"]
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:

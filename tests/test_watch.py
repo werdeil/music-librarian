@@ -99,7 +99,7 @@ def test_import_crash_logged_and_loop_goes_on(inbox_dir, ticks, monkeypatch, cap
     assert ticks(inbox_dir, [nothing, nothing]) == 0
     assert len(n) == 1
     out = capsys.readouterr().out
-    assert "ERREUR" in out and "RuntimeError: oups" in out
+    assert "ERROR" in out and "RuntimeError: oups" in out
 
 
 def test_options_passed_to_import(inbox_dir, calls, ticks):
@@ -144,84 +144,84 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
     assert list((inbox_dir / importer.DONE).glob("*/Album/1.flac"))
 
 
-# ---------- rangement de nuit (--range-at) ----------
+# ---------- nightly organize (--organize-at) ----------
 
 @pytest.fixture
 def nightly(tmp_path, inbox_dir, calls, ticks, monkeypatch):
-    """Simulated clock, range replaced by a recorder."""
+    """Simulated clock, organize replaced by a recorder."""
     state = tmp_path / "state"
     state.mkdir()
 
     class N:
         clock = [datetime(2026, 10, 18, 1, 0)]
-        ranges = Calls()
+        passes = Calls()
 
         def last_run(self, t):
             (state / organize.LAST_RUN).write_text(f"{t.timestamp()}\n")
 
         def run(self, actions, *argv):
-            return ticks(inbox_dir, actions, "--range-at", "02:00", "--state-dir", str(state),
+            return ticks(inbox_dir, actions, "--organize-at", "02:00", "--state-dir", str(state),
                          *argv)
 
         def at(self, *hm):
             return lambda: self.clock.__setitem__(0, datetime(2026, 10, 18, *hm))
 
     n = N()
-    n.ranges.codes = []
+    n.passes.codes = []
 
-    def fake_range(argv):
-        n.ranges.append(argv)
-        return n.ranges.codes.pop(0) if n.ranges.codes else 0
+    def fake_organize(argv):
+        n.passes.append(argv)
+        return n.passes.codes.pop(0) if n.passes.codes else 0
 
-    monkeypatch.setattr(organize, "main", fake_range)
+    monkeypatch.setattr(organize, "main", fake_organize)
     monkeypatch.setattr(watch, "now", lambda: n.clock[0])
     return n
 
 
-def test_range_once_after_slot(nightly):
+def test_organize_once_after_slot(nightly):
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
     nightly.run([nothing, nightly.at(2, 0), nothing, nightly.at(3, 0), nothing], "--apply")
     # not before 02:00, then only once
-    assert nightly.ranges == [["--since", "--state-dir", nightly.ranges[0][2], "--apply"]]
+    assert nightly.passes == [["--since", "--state-dir", nightly.passes[0][2], "--apply"]]
 
 
-def test_range_catches_up_at_startup(nightly):
+def test_organize_catches_up_at_startup(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 10, 0)  # container restarted in the morning
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
     nightly.run([nothing])
-    assert len(nightly.ranges) == 1
+    assert len(nightly.passes) == 1
 
 
-def test_range_skipped_after_manual_full_run(nightly):
+def test_organize_skipped_after_manual_full_run(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 10, 0)
     nightly.last_run(datetime(2026, 10, 18, 9, 0))    # full pass run by hand this morning
     nightly.run([nothing, nothing])
-    assert nightly.ranges == []
+    assert nightly.passes == []
 
 
-def test_range_never_without_last_run(nightly, capsys):
+def test_organize_never_without_last_run(nightly, capsys):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.run([nothing, nothing, nothing])
-    assert nightly.ranges == []
-    assert capsys.readouterr().out.count("rangement de nuit sauté") == 1
+    assert nightly.passes == []
+    assert capsys.readouterr().out.count("nightly organize skipped") == 1
 
 
-def test_range_retried_while_locked(nightly):
+def test_organize_retried_while_locked(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
-    nightly.ranges.codes += [EXIT_LOCKED]
+    nightly.passes.codes += [EXIT_LOCKED]
     nightly.run([nothing, nothing, nothing])
-    assert len(nightly.ranges) == 2
+    assert len(nightly.passes) == 2
 
 
-def test_range_dry_run_once_a_day(nightly):
+def test_organize_dry_run_once_a_day(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.last_run(datetime(2026, 10, 17, 2, 0))    # a dry run does not move last_run forward
     nightly.run([nothing, nothing, nothing])
-    assert nightly.ranges == [["--since", "--state-dir", nightly.ranges[0][2]]]
+    assert nightly.passes == [["--since", "--state-dir", nightly.passes[0][2]]]
 
 
-def test_range_crash_logged(nightly, monkeypatch, capsys):
+def test_organize_crash_logged(nightly, monkeypatch, capsys):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
 
@@ -230,15 +230,15 @@ def test_range_crash_logged(nightly, monkeypatch, capsys):
 
     monkeypatch.setattr(organize, "main", boom)
     assert nightly.run([nothing, nothing]) == 0
-    assert "ERREUR   rangement interrompu" in capsys.readouterr().out
+    assert "ERROR    organize interrupted" in capsys.readouterr().out
 
 
-def test_range_at_format():
+def test_organize_at_format():
     with pytest.raises(SystemExit):
-        watch.main(["--inbox", "inbox", "--range-at", "2h"])
+        watch.main(["--inbox", "inbox", "--organize-at", "2h"])
 
 
-def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
+def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     inbox_dir.mkdir()
     make_track(lib / "C/D/01 Rien.m4a", title="Rien", artist="C", album="D", track=1)
@@ -250,6 +250,7 @@ def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
     next_day = datetime.fromtimestamp(before).date() + timedelta(days=1)
     monkeypatch.setattr(watch, "now", lambda: datetime.combine(next_day, dtime(3, 0)))
     monkeypatch.setattr(importer, "main", lambda argv: 0)
+    # --range-at, the former name of --organize-at, still works
     ticks(inbox_dir, [nothing], "--root", str(lib), "--state-dir", str(state), "--apply",
           "--range-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()

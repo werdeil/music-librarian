@@ -117,7 +117,13 @@ def test_last_slot(t, slot):
     assert watch.last_slot(t, 6, time(3, 0)) == slot
 
 
-@pytest.mark.parametrize("s", ["dim", "dimanche 3h", "xyz 03:00"])
+@pytest.mark.parametrize("s, slot", [("sun 03:00", (6, time(3, 0))), ("Monday 8:30", (0, time(8, 30))),
+                                     ("dim 03:00", (6, time(3, 0)))])   # French names accepted
+def test_enrich_at_days(s, slot):
+    assert watch.weekly(s) == slot
+
+
+@pytest.mark.parametrize("s", ["sun", "sunday 3h", "xyz 03:00"])
 def test_enrich_at_format(s):
     with pytest.raises(SystemExit):
         watch.main(["--inbox", "inbox", "--enrich-at", s])
@@ -131,7 +137,7 @@ def weekly(tmp_path, monkeypatch, ticks):
     monkeypatch.setattr(importer, "main", lambda argv: 0)
 
     class W:
-        clock = [datetime(2026, 10, 17, 12, 0)]     # samedi
+        clock = [datetime(2026, 10, 17, 12, 0)]     # Saturday
         calls = []
         codes = []
 
@@ -143,7 +149,7 @@ def weekly(tmp_path, monkeypatch, ticks):
 
         def run(self, actions, *argv):
             return ticks(inbox_dir, actions, "--state-dir", str(state),
-                         "--enrich-at", "dim 03:00", *argv)
+                         "--enrich-at", "sun 03:00", *argv)
 
     w = W()
 

@@ -17,8 +17,8 @@ class Locked(Exception):
 
 @contextlib.contextmanager
 def locked(state_dir: Path):
-    """Exclusive lock on state/lock: one --apply pass at a time (range, import,
-    undo). Reentrant within a process: import calls range without blocking
+    """Exclusive lock on state/lock: one --apply pass at a time (organize, import,
+    undo). Reentrant within a process: import calls organize without blocking
     itself."""
     global _lock_held  # pylint: disable=global-statement
     if _lock_held:

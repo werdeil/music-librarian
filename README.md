@@ -8,10 +8,10 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 
 ## What it does
 
-- **`range`** files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass.
+- **`organize`** (formerly `range`, still accepted) files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass.
 - **`import`** takes album folders or loose files dropped in the Inbox (FLAC, ALAC, MP3), converts FLAC to ALAC with ffmpeg (tags and artwork kept, duration checked with ffprobe), files them all-or-nothing, and enriches only the target folders. Originals go to `_done/YYYY-MM-DD/` and are purged after 7 days; items that cannot be filed go to `_failed/`. The folders of earlier versions (`_traités/`, `_erreurs/`) are renamed on the first `--apply` pass.
 - **`enrich`** runs over the whole library and only fills what is missing: ReplayGain (r128gain), the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB, Musixmatch and NetEase. Lyrics are only written when the provider's title, artist and duration match the file.
-- **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `range --since` nightly and `enrich` weekly.
+- **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich` weekly (`--enrich-at "sun 03:00"`).
 - **`undo JOURNAL`** replays a run's journal in reverse.
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [`lyrion.py`](src/music_librarian/integrations/lyrion.py)).
 
@@ -23,7 +23,7 @@ Docker is the intended way. ffmpeg and r128gain come with the image, and the tes
 cp .env.example .env      # set the library, Inbox and (optionally) Lyrion paths
 mkdir state               # journals, last run and lock; must exist before the first start
 docker compose build
-docker compose up -d      # watch --apply, range nightly at 02:00, enrich on Sundays at 03:00
+docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on Sundays at 03:00
 journalctl -t music-librarian -f
 ```
 
@@ -32,7 +32,7 @@ The library and the Inbox must sit under the single folder set in `MUSIC_LIBRARI
 One-off runs, dry-run unless `--apply` is added:
 
 ```bash
-docker compose run --rm music-librarian range --since
+docker compose run --rm music-librarian organize --since
 docker compose run --rm music-librarian import
 docker compose run --rm music-librarian enrich
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply

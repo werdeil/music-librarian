@@ -58,6 +58,6 @@ def undo(args, root, state_dir, log, db=None):
         log(f"{'journal':>20} : {journal.path}")
     lyrion_ok = lyrion.carry_over(db, done if args.apply else todo, args.apply, log)
     if not lyrion_ok and journal.path:
-        log(f"{'reprise Lyrion':>20} : music-librarian range --lyrion-replay "
+        log(f"{'reprise Lyrion':>20} : music-librarian organize --lyrion-replay "
             f"{shlex.quote(str(journal.path))} --apply")
     return EXIT_STOPPED if stopped else 2 if refused else 0 if lyrion_ok else lyrion.EXIT_LYRION

@@ -10,7 +10,7 @@ Each tool only handles what is missing:
 
 Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
 current batch completes (no tag write is cut short) and the rest is done on
-the next pass. With --apply the lock is held: no range or import while tags
+the next pass. With --apply the lock is held: no organize or import while tags
 are being rewritten.
 
   music-librarian enrich          # dry run: what each tool would do

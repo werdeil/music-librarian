@@ -8,13 +8,13 @@ Dry run by default. --apply to actually do it.
 
 Examples:
   # Check the whole library (nothing is changed)
-  music-librarian range --root /srv/music
+  music-librarian organize --root /srv/music
 
   # File an album dropped in the Inbox
-  music-librarian range --root /srv/music /srv/inbox/MyAlbum --apply
+  music-librarian organize --root /srv/music /srv/inbox/MyAlbum --apply
 
   # Only process the folders changed since the last pass
-  music-librarian range --root /srv/music --since --apply
+  music-librarian organize --root /srv/music --since --apply
 
   # Undo a pass (dry run, then --apply)
   music-librarian undo state/journal/<date>.jsonl --root /srv/music
@@ -269,7 +269,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         log(f"{'annuler':>20} : music-librarian undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
         if not lyrion_ok:
-            log(f"{'reprise Lyrion':>20} : music-librarian range --lyrion-replay "
+            log(f"{'reprise Lyrion':>20} : music-librarian organize --lyrion-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
 
     code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
