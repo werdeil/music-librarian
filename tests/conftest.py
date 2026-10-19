@@ -10,7 +10,7 @@ from mutagen.id3 import ID3, TALB, TCMP, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4
 
 from music_librarian import watch
-from music_librarian.librarian import STOP
+from music_librarian.core.lock import STOP
 
 CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-c:a", "flac"]}
 

@@ -18,7 +18,7 @@ hand).
   music-librarian watch --apply --range-at 02:00 --enrich-at "dim 03:00"
 
 With --enrich-at "DAY HH:MM" (French day names), the enrichment of the whole
-library (enrich.py: missing gain, covers, lyrics) runs every week from that
+library (enrich: missing gain, covers, lyrics) runs every week from that
 slot, unless it already ran since (state/enrich_last_run). Without a known
 pass, the first one runs at the next slot, not at startup.
 
@@ -33,14 +33,17 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from . import enrich, inbox, librarian
-from .librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
+from . import enrich, importer, organize
+from .core.lock import EXIT_LOCKED, STOP, handle_stop_signals
+from .core.log import Log
+from .core.state import state_path
+from .organize import LAST_RUN
 
 
 def signature(inbox_dir: Path):
     """Inbox content (names, sizes, dates); None if it is empty or missing."""
     try:
-        items = inbox.list_items(inbox_dir)
+        items = importer.list_items(inbox_dir)
     except FileNotFoundError:
         return None
     return tuple((it.name, tuple(it.snapshot())) for it in items) or None
@@ -114,7 +117,7 @@ def main(argv=None):
     import_argv = ["--inbox", str(args.inbox), *rest, *common]
     range_argv = ["--since", *common]
     enrich_argv = list(common)
-    state_dir = librarian.state_path(args.state_dir)
+    state_dir = state_path(args.state_dir)
     started = now().timestamp()
 
     log = Log()
@@ -129,7 +132,7 @@ def main(argv=None):
         current = signature(args.inbox)
         if date.today() != last_day or (current is not None and current == previous
                                         and current != handled):
-            code = safe(inbox.main, import_argv, log, "import")
+            code = safe(importer.main, import_argv, log, "import")
             if code != EXIT_LOCKED:
                 # an item left in place is only retried once it changes
                 handled, last_day = signature(args.inbox), date.today()
@@ -152,7 +155,7 @@ def main(argv=None):
             else:
                 log(f"RANGEMENT de nuit (dossiers modifiés depuis le "
                     f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-                code = safe(librarian.main, range_argv, log, "rangement")
+                code = safe(organize.main, range_argv, log, "rangement")
                 if code != EXIT_LOCKED:   # lock held by an import: next tick
                     range_day = t.date()
                 log("")
@@ -173,5 +176,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    librarian.handle_stop_signals()
+    handle_stop_signals()
     sys.exit(main())

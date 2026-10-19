@@ -5,8 +5,8 @@ from datetime import time as dtime
 
 import pytest
 
-from music_librarian import inbox, librarian, watch
-from music_librarian.librarian import EXIT_LOCKED, STOP
+from music_librarian import importer, organize, watch
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def calls(monkeypatch):
         out.append(argv)
         return out.codes.pop(0) if out.codes else 0
 
-    monkeypatch.setattr(inbox, "main", fake)
+    monkeypatch.setattr(importer, "main", fake)
     return out
 
 
@@ -94,7 +94,7 @@ def test_import_crash_logged_and_loop_goes_on(inbox_dir, ticks, monkeypatch, cap
         n.append(argv)
         raise RuntimeError("oups")
 
-    monkeypatch.setattr(inbox, "main", boom)
+    monkeypatch.setattr(importer, "main", boom)
     (inbox_dir / "1.flac").write_bytes(b"x")
     assert ticks(inbox_dir, [nothing, nothing]) == 0
     assert len(n) == 1
@@ -119,9 +119,9 @@ def test_missing_inbox(tmp_path, calls, ticks):
 def test_stop_during_import_ends_loop(inbox_dir, ticks, monkeypatch):
     def stopping(argv):
         STOP.set()
-        return librarian.EXIT_STOPPED
+        return EXIT_STOPPED
 
-    monkeypatch.setattr(inbox, "main", stopping)
+    monkeypatch.setattr(importer, "main", stopping)
     waits = []
     monkeypatch.setattr(STOP, "wait", lambda timeout=None: waits.append(1) or True)
     assert watch.main(["--inbox", str(inbox_dir), "--interval", "0"]) == 0
@@ -132,7 +132,7 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     lib.mkdir()
     inbox_dir.mkdir()
-    monkeypatch.setattr(inbox, "enrichers", lambda args: [])
+    monkeypatch.setattr(importer, "enrichers", lambda args: [])
 
     def deposit():
         make_track(inbox_dir / "Album/1.flac", title="Un", artist="A", album="B", track=1)
@@ -141,7 +141,7 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
           "--settle", "0", "--apply")
     assert [str(p.relative_to(lib)) for p in lib.rglob("*.m4a")] == ["A/B/01 Un.m4a"]
     assert not (inbox_dir / "Album").exists()
-    assert list((inbox_dir / inbox.DONE).glob("*/Album/1.flac"))
+    assert list((inbox_dir / importer.DONE).glob("*/Album/1.flac"))
 
 
 # ---------- rangement de nuit (--range-at) ----------
@@ -157,7 +157,7 @@ def nightly(tmp_path, inbox_dir, calls, ticks, monkeypatch):
         ranges = Calls()
 
         def last_run(self, t):
-            (state / librarian.LAST_RUN).write_text(f"{t.timestamp()}\n")
+            (state / organize.LAST_RUN).write_text(f"{t.timestamp()}\n")
 
         def run(self, actions, *argv):
             return ticks(inbox_dir, actions, "--range-at", "02:00", "--state-dir", str(state),
@@ -173,7 +173,7 @@ def nightly(tmp_path, inbox_dir, calls, ticks, monkeypatch):
         n.ranges.append(argv)
         return n.ranges.codes.pop(0) if n.ranges.codes else 0
 
-    monkeypatch.setattr(librarian, "main", fake_range)
+    monkeypatch.setattr(organize, "main", fake_range)
     monkeypatch.setattr(watch, "now", lambda: n.clock[0])
     return n
 
@@ -228,7 +228,7 @@ def test_range_crash_logged(nightly, monkeypatch, capsys):
     def boom(argv):
         raise RuntimeError("oups")
 
-    monkeypatch.setattr(librarian, "main", boom)
+    monkeypatch.setattr(organize, "main", boom)
     assert nightly.run([nothing, nothing]) == 0
     assert "ERREUR   rangement interrompu" in capsys.readouterr().out
 
@@ -242,15 +242,15 @@ def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     inbox_dir.mkdir()
     make_track(lib / "C/D/01 Rien.m4a", title="Rien", artist="C", album="D", track=1)
-    assert librarian.main(["--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
-    before = float((state / librarian.LAST_RUN).read_text())
+    assert organize.main(["--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
+    before = float((state / organize.LAST_RUN).read_text())
     # tag edited from the Mac during the day
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     # the next day at 03:00 (whatever time the test runs at)
     next_day = datetime.fromtimestamp(before).date() + timedelta(days=1)
     monkeypatch.setattr(watch, "now", lambda: datetime.combine(next_day, dtime(3, 0)))
-    monkeypatch.setattr(inbox, "main", lambda argv: 0)
+    monkeypatch.setattr(importer, "main", lambda argv: 0)
     ticks(inbox_dir, [nothing], "--root", str(lib), "--state-dir", str(state), "--apply",
           "--range-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()
-    assert float((state / librarian.LAST_RUN).read_text()) > before
+    assert float((state / organize.LAST_RUN).read_text()) > before
