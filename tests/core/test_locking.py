@@ -49,7 +49,7 @@ def test_apply_refused_while_locked(dirs, held_lock, make_track, capsys):
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     assert run_organize(lib, state, "--apply") == EXIT_LOCKED
     assert files(lib) == ["vrac/1.m4a"]
-    assert "VERROU" in capsys.readouterr().out
+    assert "LOCKED" in capsys.readouterr().out
     # a dry run does not take the lock
     assert run_organize(lib, state) == 0
 

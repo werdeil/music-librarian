@@ -40,10 +40,10 @@ TABLES = {
 
 def add_arguments(ap):
     ap.add_argument("--lyrion-db", default=os.environ.get("LYRION_PERSIST_DB"),
-                    help="persist.db de Lyrion, pour y reporter l'historique des fichiers "
-                         "déplacés (défaut : $LYRION_PERSIST_DB, sinon désactivé)")
+                    help="Lyrion's persist.db, to carry the history of moved files over "
+                         "(default: $LYRION_PERSIST_DB, otherwise off)")
     ap.add_argument("--lyrion-root", default=os.environ.get("LYRION_MUSIC_ROOT"),
-                    help="racine de la bibliothèque vue par Lyrion (défaut : $LYRION_MUSIC_ROOT)")
+                    help="library root as Lyrion sees it (default: $LYRION_MUSIC_ROOT)")
 
 
 def from_args(args, root: Path, state_dir: Path):
@@ -99,13 +99,13 @@ class Lyrion:
         return dest
 
     def sync(self, pairs, apply):
-        """Carry the history over; returns {"renommées": n, "fusionnées": n, ...}.
+        """Carry the history over; returns {"renamed": n, "merged": n, ...}.
         In a dry run nothing is written (the database is opened read-only)."""
-        stats = dict.fromkeys(("renommées", "fusionnées", "sans historique"), 0)
+        stats = dict.fromkeys(("renamed", "merged", "no history"), 0)
         if not pairs:
             return stats
         if apply:
-            stats["sauvegarde"] = self.backup()
+            stats["backup"] = self.backup()
         con = self._connect(readonly=not apply)
         try:
             if apply:
@@ -113,8 +113,8 @@ class Lyrion:
             for old, new in pairs:
                 kinds = {self._move(con, t, old, new, apply) for t in TABLES}
                 kinds.discard(None)
-                key = ("fusionnées" if "fusion" in kinds else
-                       "renommées" if kinds else "sans historique")
+                key = ("merged" if "merge" in kinds else
+                       "renamed" if kinds else "no history")
                 stats[key] += 1
             if apply:
                 con.execute("COMMIT")
@@ -137,7 +137,7 @@ class Lyrion:
             if apply:
                 con.execute(f"UPDATE {table} SET url = ?, urlmd5 = ? WHERE urlmd5 = ?",
                             (new, md5_new, md5_old))
-            return "renommage"
+            return "rename"
         if apply:
             summed, latest, kept = TABLES[table]
             cols = row.keys()
@@ -154,7 +154,7 @@ class Lyrion:
             sets = ", ".join(f"{c} = ?" for c in vals)
             con.execute(f"UPDATE {table} SET {sets} WHERE urlmd5 = ?", (*vals.values(), md5_new))
             con.execute(f"DELETE FROM {table} WHERE urlmd5 = ?", (md5_old,))
-        return "fusion"
+        return "merge"
 
 
 def md5(url):
@@ -171,22 +171,22 @@ def carry_over(db, moves, apply, log):
     try:
         stats = db.sync(pairs, apply)
     except Exception as e:
-        log(f"ERREUR   report Lyrion : {e}")
+        log(f"ERROR    Lyrion carry-over: {e}")
         return False
     for k, v in stats.items():
         if v:
-            log(f"{'Lyrion ' + k:>20} : {v}")
+            log(f"{'Lyrion ' + k:>20}: {v}")
     return True
 
 
 def replay(args, db, log):
     """--lyrion-replay: carry the Lyrion history over for the moves of a journal."""
     if db is None:
-        log("ERREUR   --lyrion-replay demande --lyrion-db")
+        log("ERROR    --lyrion-replay needs --lyrion-db")
         return 2
     recs = [json.loads(line) for line in Path(args.lyrion_replay).read_text(
         encoding="utf-8").splitlines() if line.strip()]
     moves = [(r["src"], r["dst"]) for r in recs if r.get("type") == "move"]
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] report Lyrion de {args.lyrion_replay}"
-        f" ({len(moves)} déplacements)")
+    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] Lyrion carry-over of {args.lyrion_replay}"
+        f" ({len(moves)} moves)")
     return 0 if carry_over(db, moves, args.apply, log) else EXIT_LYRION

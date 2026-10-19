@@ -22,7 +22,7 @@ def env(tmp_path, monkeypatch):
     calls = tmp_path / "enrich.log"
     script = f"import sys; open({str(calls)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')"
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("faux", [sys.executable, "-c", script])])
+                        lambda args: [("fake", [sys.executable, "-c", script])])
 
     class Env:
         pass
@@ -56,7 +56,7 @@ def test_dry_run_changes_nothing(env, make_track, capsys):
     assert env.run() == 0
     out = capsys.readouterr().out
     assert files(env.inbox) == before and files(env.lib) == []
-    assert "CONVERTIR x1.flac" in out
+    assert "CONVERT  x1.flac" in out
     assert "A/B/01 Un.m4a" in out
     assert not env.calls.exists()
 
@@ -91,7 +91,7 @@ def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
 
     assert env.run() == 0                           # dry run: same result announced
     out = capsys.readouterr().out
-    assert "POCHETTE cover.jpg → folder.jpg" in out and "LAISSÉ   info.txt" in out
+    assert "COVER    cover.jpg → folder.jpg" in out and "KEPT     info.txt" in out
     assert "A/B/folder.jpg" in out and "A/B/info.txt" not in out
 
     assert env.run("--apply") == 0
@@ -209,7 +209,7 @@ def test_purge_old_done(env, capsys):
 
 def test_enrich_failure_reported(env, make_track, monkeypatch):
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("raté", [sys.executable, "-c", "raise SystemExit(1)"])])
+                        lambda args: [("broken", [sys.executable, "-c", "raise SystemExit(1)"])])
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 2
     assert files(env.lib) == ["A/B/01 Un.m4a"]

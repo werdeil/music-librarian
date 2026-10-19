@@ -71,25 +71,25 @@ def run(argv=None, interruptible=True):
     moves, report["done"] the ones carried out.
     interruptible=False: a stop request does not interrupt the moves (import
     files an item entirely or not at all)."""
-    ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
+    ap = argparse.ArgumentParser(description="File the music library the way Apple Music does.")
     root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env,
-                    help="racine de la bibliothèque (défaut : $MUSIC_LIBRARIAN_ROOT)")
-    ap.add_argument("paths", nargs="*", help="dossiers à traiter (défaut : --root)")
-    ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
+                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
+    ap.add_argument("paths", nargs="*", help="folders to process (default: --root)")
+    ap.add_argument("--apply", action="store_true", help="do it (otherwise dry run)")
     ap.add_argument("--compilations-dir", default="Compilations")
     ap.add_argument("--strict-case", action="store_true",
-                    help="renommer aussi les différences de casse seules")
+                    help="also rename case-only differences")
     ap.add_argument("--since", action="store_true",
-                    help="ne traiter que les dossiers modifiés depuis le dernier passage")
-    ap.add_argument("--undo", metavar="JOURNAL", help="annuler les déplacements d'un journal")
+                    help="only process the folders changed since the last pass")
+    ap.add_argument("--undo", metavar="JOURNAL", help="undo the moves of a journal")
     ap.add_argument("--lyrion-replay", metavar="JOURNAL",
-                    help="reporter dans Lyrion l'historique des déplacements d'un journal")
+                    help="carry the Lyrion history over for the moves of a journal")
     lyrion.add_arguments(ap)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"),
-                    help="dossier d'état (journaux, dernier passage)")
+                    help="state folder (journals, last pass)")
     ap.add_argument("--syslog", action="store_true",
-                    help="envoyer aussi les lignes dans syslog/journald (tag music-librarian)")
+                    help="also send the lines to syslog/journald (tag music-librarian)")
     args = ap.parse_args(argv)
 
     # a non-UTF-8 file name (e.g. \x92) must not crash the output
@@ -108,7 +108,7 @@ def run(argv=None, interruptible=True):
                 return undo(args, root, state_dir, log, db), {}
             return organize_pass(args, argv, root, state_dir, log, interruptible, db)
     except Locked as e:
-        log(f"VERROU   un autre passage est en cours ({e}), abandon")
+        log(f"LOCKED   another pass is running ({e}), giving up")
         return EXIT_LOCKED, {}
 
 
@@ -116,15 +116,15 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
     started = time.time()
     scan = [Path(p).resolve() for p in args.paths] or [root]
     mode = "APPLY" if args.apply else "DRY-RUN"
-    log(f"[{mode}] racine : {root}")
+    log(f"[{mode}] root: {root}")
 
     since = None
     if args.since:
         try:
             since = float((state_dir / LAST_RUN).read_text().strip())
-            log(f"depuis le {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
+            log(f"since {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
         except (OSError, ValueError):
-            log("pas de dernier passage connu : tout est traité")
+            log("no known last pass: everything is processed")
 
     entries = []                  # (file, tags, relative target path)
     stats = defaultdict(int)
@@ -137,18 +137,18 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
             continue
         if p.suffix.lower() not in AUDIO_EXT:
             continue
-        stats["analysés"] += 1
+        stats["scanned"] += 1
         try:
             tags = read_tags(p)
         except Exception as e:
-            log(f"IGNORÉ   (lecture impossible : {e})  {p}")
-            stats["ignorés"] += 1
+            log(f"SKIPPED  (unreadable: {e})  {p}")
+            stats["skipped"] += 1
             blocked.add(p.parent)
             continue
         tgt = target_rel(tags, p.suffix, args.compilations_dir) if tags else None
         if tgt is None:
-            log(f"IGNORÉ   (tags insuffisants)  {p}")
-            stats["ignorés"] += 1
+            log(f"SKIPPED  (not enough tags)  {p}")
+            stats["skipped"] += 1
             blocked.add(p.parent)
             continue
         entries.append((p, tags, tgt))
@@ -163,9 +163,9 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
     for (d, _), grp in groups.items():
         n = sum(e[1]["compilation"] for e in grp)
         if 0 < n < len(grp):
-            log(f"CONFLIT  (cpil incohérent : {n}/{len(grp)} pistes en compilation)"
+            log(f"CONFLICT (inconsistent cpil: {n}/{len(grp)} tracks flagged compilation)"
                 f"  {d}  [{grp[0][1]['album']}]")
-            stats["conflits"] += len(grp)
+            stats["conflicts"] += len(grp)
             mixed.update(e[0] for e in grp)
             blocked.add(d)
 
@@ -182,7 +182,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
             cur_rel = None  # file outside the library (Inbox)
 
         if cur_rel is not None and is_in_place(cur_rel, tgt, args.strict_case):
-            stats["en place"] += 1
+            stats["in place"] += 1
             dir_targets[p.parent].add(p.parent)
             continue
 
@@ -190,8 +190,8 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         key = nfc(str(dst)).casefold()
         if key in seen_targets or (dst.exists() and not dst.samefile(p)):
             other = seen_targets.get(key, dst)
-            log(f"CONFLIT  {p}\n         → {dst}\n         (déjà pris par {other})")
-            stats["conflits"] += 1
+            log(f"CONFLICT {p}\n         → {dst}\n         (already taken by {other})")
+            stats["conflicts"] += 1
             blocked.add(p.parent)
             continue
         seen_targets[key] = p
@@ -212,13 +212,13 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
             if p.is_file() and not is_junk(p) and p.suffix.lower() not in AUDIO_EXT:
                 dst = tdir / p.name
                 if dst.exists():
-                    log(f"CONFLIT  (annexe déjà présente)  {dst}")
-                    stats["conflits"] += 1
+                    log(f"CONFLICT (side file already there)  {dst}")
+                    stats["conflicts"] += 1
                 else:
                     extra.append((p, dst))
 
     for src, dst in moves + extra:
-        log(f"DÉPLACER {src}\n         → {dst}")
+        log(f"MOVE     {src}\n         → {dst}")
 
     journal = Journal(state_dir, dict(root=str(root), started=started,
                                       argv=sys.argv[1:] if argv is None else argv))
@@ -228,17 +228,17 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         touched = set()
         for i, (src, dst) in enumerate(moves + extra):
             if interruptible and STOP.is_set():
-                log(f"ARRÊT    demandé : {len(moves) + len(extra) - i} déplacement(s) non faits,"
-                    " repris au prochain passage")
+                log(f"STOP     requested: {len(moves) + len(extra) - i} move(s) not done,"
+                    " left for the next pass")
                 stopped = True
                 break
             if dst.exists() and not dst.samefile(src):
-                log(f"CONFLIT  (apparu pendant le passage)  {dst}")
-                stats["conflits"] += 1
+                log(f"CONFLICT (appeared during the pass)  {dst}")
+                stats["conflicts"] += 1
                 continue
             move_file(src, dst, journal)
             done.append((src, dst))
-            stats["déplacés"] += 1
+            stats["moved"] += 1
             touched.add(src.parent)
         for j in junk:
             j.unlink(missing_ok=True)
@@ -246,7 +246,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         # emptied folders (never the root nor the folders passed as arguments)
         protected = {root, *scan}
         for d in sorted(touched, key=lambda d: -len(d.parts)):
-            stats["dossiers supprimés"] += prune_empty(d, protected)
+            stats["folders removed"] += prune_empty(d, protected)
         # The last pass only moves forward after a pass over the whole root.
         # Remaining conflicts do not hold it back: they show up again on the
         # next full pass, or as soon as their folder is touched.
@@ -255,24 +255,24 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
             (state_dir / LAST_RUN).write_text(f"{started - SINCE_MARGIN}\n")
     journal.close()
 
-    stats["à déplacer"] = len(moves)
-    stats["annexes à déplacer"] = len(extra)
-    stats["fichiers parasites"] = len(junk)
-    log("\n--- Résumé ---")
-    for k in ("analysés", "en place", "à déplacer", "annexes à déplacer", "déplacés",
-              "ignorés", "conflits", "fichiers parasites", "dossiers supprimés"):
+    stats["to move"] = len(moves)
+    stats["side files to move"] = len(extra)
+    stats["junk files"] = len(junk)
+    log("\n--- Summary ---")
+    for k in ("scanned", "in place", "to move", "side files to move", "moved",
+              "skipped", "conflicts", "junk files", "folders removed"):
         if stats[k]:
-            log(f"{k:>20} : {stats[k]}")
+            log(f"{k:>20}: {stats[k]}")
     lyrion_ok = lyrion.carry_over(db, done if args.apply else moves, args.apply, log)
     if journal.path:
-        log(f"{'journal':>20} : {journal.path}")
-        log(f"{'annuler':>20} : music-librarian undo {shlex.quote(str(journal.path))} "
+        log(f"{'journal':>20}: {journal.path}")
+        log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
         if not lyrion_ok:
-            log(f"{'reprise Lyrion':>20} : music-librarian organize --lyrion-replay "
+            log(f"{'Lyrion retry':>20}: music-librarian organize --lyrion-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
 
-    code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
+    code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] else 0
     if code == 0 and not lyrion_ok:
         code = lyrion.EXIT_LYRION
     return code, dict(moves=moves + extra, done=done, journal=journal.path)

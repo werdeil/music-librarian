@@ -17,19 +17,19 @@ def undo(args, root, state_dir, log, db=None):
     moves = [(Path(r["dst"]), Path(r["src"])) for r in reversed(recs)
              if r.get("type") == "move"]
     mode = "APPLY" if args.apply else "DRY-RUN"
-    log(f"[{mode}] annulation de {jpath} ({len(moves)} déplacements)")
+    log(f"[{mode}] undoing {jpath} ({len(moves)} moves)")
     stopped = False
 
     todo, refused = [], 0
     for cur, orig in moves:
         if not cur.exists():
-            log(f"REFUSÉ   (fichier absent)  {cur}")
+            log(f"REFUSED  (file missing)  {cur}")
             refused += 1
         elif orig.exists():
-            log(f"REFUSÉ   (place d'origine prise)  {orig}")
+            log(f"REFUSED  (original place taken)  {orig}")
             refused += 1
         else:
-            log(f"RESTAURER {cur}\n          → {orig}")
+            log(f"RESTORE  {cur}\n         → {orig}")
             todo.append((cur, orig))
 
     journal = Journal(state_dir, dict(root=str(root), undo_of=str(jpath),
@@ -39,7 +39,7 @@ def undo(args, root, state_dir, log, db=None):
     if args.apply:
         for i, (cur, orig) in enumerate(todo):
             if STOP.is_set():
-                log(f"ARRÊT    demandé : {len(todo) - i} restauration(s) non faite(s)")
+                log(f"STOP     requested: {len(todo) - i} restore(s) not done")
                 stopped = True
                 break
             move_file(cur, orig, journal)
@@ -48,16 +48,16 @@ def undo(args, root, state_dir, log, db=None):
             pruned += prune_empty(d, {root})
     journal.close()
 
-    log("\n--- Résumé ---")
-    log(f"{'à restaurer':>20} : {len(todo)}")
+    log("\n--- Summary ---")
+    log(f"{'to restore':>20}: {len(todo)}")
     if refused:
-        log(f"{'refusés':>20} : {refused}")
+        log(f"{'refused':>20}: {refused}")
     if pruned:
-        log(f"{'dossiers supprimés':>20} : {pruned}")
+        log(f"{'folders removed':>20}: {pruned}")
     if journal.path:
-        log(f"{'journal':>20} : {journal.path}")
+        log(f"{'journal':>20}: {journal.path}")
     lyrion_ok = lyrion.carry_over(db, done if args.apply else todo, args.apply, log)
     if not lyrion_ok and journal.path:
-        log(f"{'reprise Lyrion':>20} : music-librarian organize --lyrion-replay "
+        log(f"{'Lyrion retry':>20}: music-librarian organize --lyrion-replay "
             f"{shlex.quote(str(journal.path))} --apply")
     return EXIT_STOPPED if stopped else 2 if refused else 0 if lyrion_ok else lyrion.EXIT_LYRION
