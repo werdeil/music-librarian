@@ -4,8 +4,6 @@
 #   image : construction de l'image Docker, qui rejoue les tests dans le
 #           conteneur et vérifie les outils (r128gain analyse vraiment un
 #           fichier, --help des scripts de pochettes et de paroles).
-# Sur mimosa, le build passe par « docker buildx bake --allow network.host »
-# à cause du DNS (Pi-hole sur 127.0.0.1) ; ici le réseau par défaut suffit.
 name: CI
 
 on:

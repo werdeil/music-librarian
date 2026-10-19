@@ -12,7 +12,7 @@ import lms
 import music_ranger
 from music_ranger import EXIT_LMS
 
-LMS_ROOT = "/media/internal_drive/Musique"
+LMS_ROOT = "/music/Musique"
 SCHEMA = """
 CREATE TABLE tracks_persistent (
   id INTEGER PRIMARY KEY AUTOINCREMENT, url text NOT NULL, musicbrainz_id varchar(40),

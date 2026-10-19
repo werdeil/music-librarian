@@ -98,8 +98,9 @@ def safe(fn, argv, log, what):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Surveille l'Inbox et lance l'import.")
-    ap.add_argument("--inbox", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_INBOX", "/media/werdeil/internal_drive/Inbox_Musique"))
+    inbox_env = os.environ.get("MUSIC_RANGER_INBOX")
+    ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
+                    help="dossier de dépôt (défaut : $MUSIC_RANGER_INBOX)")
     ap.add_argument("--interval", type=float, default=30,
                     help="secondes entre deux lectures de l'Inbox")
     ap.add_argument("--apply", action="store_true", help="importer et ranger (sinon dry-run)")

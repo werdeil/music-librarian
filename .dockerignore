@@ -3,5 +3,5 @@
 .pytest_cache
 __pycache__
 state
-Brief.md
+.env
 docker-compose.yml

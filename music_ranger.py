@@ -9,16 +9,16 @@ Dry-run par défaut. --apply pour exécuter réellement.
 
 Exemples :
   # Vérifier toute la bibliothèque (rien n'est modifié)
-  music_ranger.py --root /media/werdeil/internal_drive/Musique
+  music_ranger.py --root /srv/musique
 
   # Importer un album déposé dans l'Inbox
-  music_ranger.py --root /media/werdeil/internal_drive/Musique /chemin/Inbox/MonAlbum --apply
+  music_ranger.py --root /srv/musique /srv/inbox/MonAlbum --apply
 
   # Ne traiter que les dossiers modifiés depuis le dernier passage
-  music_ranger.py --root /media/werdeil/internal_drive/Musique --since --apply
+  music_ranger.py --root /srv/musique --since --apply
 
   # Annuler un passage (dry-run, puis --apply)
-  music_ranger.py --root /media/werdeil/internal_drive/Musique --undo state/journal/<date>.jsonl
+  music_ranger.py --root /srv/musique --undo state/journal/<date>.jsonl
 
 Avec --lms-db, l'historique LMS (lectures, notes) suit les fichiers déplacés
 (voir lms.py). --lms-replay JOURNAL le reporte après coup pour un passage.

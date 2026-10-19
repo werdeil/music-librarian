@@ -1,5 +1,8 @@
+# Configuration : copier .env.example en .env et l'adapter.
+#
 # Construction (les tests tournent au build) :
-#   docker buildx bake -f docker-compose.yml --allow network.host
+#   docker compose build
+#   (avec BUILD_NETWORK=host : docker buildx bake -f docker-compose.yml --allow network.host)
 #
 # En continu, le conteneur surveille l'Inbox et importe, et range chaque nuit
 # les dossiers modifiés (music-ranger watch) :
@@ -14,42 +17,37 @@
 #   docker compose run --rm music-ranger undo /state/journal/<date>.jsonl
 #
 # Créer ./state AVANT le premier lancement (mkdir state) : sinon Docker le crée
-# en root et le conteneur (uid 1000) ne peut pas y écrire.
+# en root et le conteneur ne peut pas y écrire.
 services:
   music-ranger:
     build:
       context: .
-      # le DNS de mimosa est le Pi-hole sur 127.0.0.1, injoignable depuis le
-      # réseau de build par défaut. Compose v5 ne sait pas accorder ce
-      # privilège (« docker compose build » échoue) : construire avec bake.
-      network: host
+      # Compose ne sait pas accorder le réseau host au build : avec host,
+      # construire avec bake (voir plus haut)
+      network: ${BUILD_NETWORK:-default}
     image: music-ranger:local
-    # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés
-    # (tags édités depuis le Mac), chaque dimanche l'enrichissement de ce qui
-    # manque (gain, pochettes, paroles publiées depuis l'import)
+    # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés,
+    # chaque dimanche l'enrichissement de ce qui manque
     command: [watch, --apply, --range-at, "02:00", --enrich-at, "dim 03:00"]
     restart: unless-stopped
-    user: "1000:1000"           # fichiers à werdeil, modifiables via Samba
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
-      - TZ=Europe/Paris         # date des dossiers _traités/AAAA-MM-JJ
-      # historique LMS (lectures, notes) reporté sur les fichiers déplacés ;
-      # LMS voit la bibliothèque sous un autre chemin (/opt/stacks/lyrion)
-      - LMS_PERSIST_DB=/lms-prefs/persist.db
-      - LMS_MUSIC_ROOT=/media/internal_drive/Musique
-      # paroles : fournisseurs essayés dans l'ordre (lyrics.py)
-      - LYRICS_PROVIDERS=lrclib,musixmatch,netease
-      # - MUSIXMATCH_TOKEN=
-      # - LRCLIB_TIMEOUT=15
+      - TZ=${TZ:-Europe/Paris}  # date des dossiers _traités/AAAA-MM-JJ
+      - MUSIC_RANGER_ROOT=${MUSIC_RANGER_ROOT:?à définir dans .env}
+      - MUSIC_RANGER_INBOX=${MUSIC_RANGER_INBOX:?à définir dans .env}
+      # historique LMS reporté sur les fichiers déplacés, désactivé sans LMS_PREFS_DIR
+      - LMS_PERSIST_DB=${LMS_PREFS_DIR:+/lms-prefs/persist.db}
+      - LMS_MUSIC_ROOT=${LMS_MUSIC_ROOT:-}
+      - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,musixmatch,netease}
+      - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
     volumes:
-      # Un seul montage pour l'Inbox et la bibliothèque, au même chemin que sur
-      # l'hôte : les déplacements restent des renommages (pas de copie), les
-      # liens physiques marchent, et les chemins des journaux sont valables
-      # dans le conteneur comme sur l'hôte.
-      - /media/werdeil/internal_drive:/media/werdeil/internal_drive
-      # journaux, last_run et verrou, partagés avec les lancements sur l'hôte
+      # Inbox et bibliothèque sous ce seul montage, au même chemin que sur
+      # l'hôte : les déplacements restent des renommages et les journaux valent des deux côtés.
+      - ${MUSIC_RANGER_VOLUME:?à définir dans .env}:${MUSIC_RANGER_VOLUME}
       - ./state:/state
-      # le dossier entier : SQLite y écrit aussi persist.db-wal et -shm
-      - /opt/stacks/lyrion/data/prefs:/lms-prefs
+      # le dossier entier : SQLite y écrit aussi persist.db-wal et -shm ;
+      # sans LMS, ./state est monté à la place et reste inutilisé
+      - ${LMS_PREFS_DIR:-./state}:/lms-prefs
     # docker stop envoie SIGTERM : laisser le temps de finir la conversion ou
     # le rangement en cours (10 s par défaut)
     stop_grace_period: 2m

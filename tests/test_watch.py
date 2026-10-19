@@ -237,7 +237,7 @@ def test_range_crash_logged(nightly, monkeypatch, capsys):
 
 def test_range_at_format():
     with pytest.raises(SystemExit):
-        watch.main(["--range-at", "2h"])
+        watch.main(["--inbox", "inbox", "--range-at", "2h"])
 
 
 def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):

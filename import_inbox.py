@@ -57,7 +57,7 @@ ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # cherche embed_covers.py), sauf si le dossier en a déjà un
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
-R128GAIN = os.environ.get("R128GAIN", "/opt/venvs/r128gain/bin/r128gain")
+R128GAIN = os.environ.get("R128GAIN", "r128gain")
 MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
 OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
 
@@ -440,10 +440,11 @@ def purge(args, log):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Importe l'Inbox dans la bibliothèque.")
-    ap.add_argument("--inbox", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_INBOX", "/media/werdeil/internal_drive/Inbox_Musique"))
-    ap.add_argument("--root", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_ROOT", "/media/werdeil/internal_drive/Musique"))
+    inbox_env, root_env = os.environ.get("MUSIC_RANGER_INBOX"), os.environ.get("MUSIC_RANGER_ROOT")
+    ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
+                    help="dossier de dépôt (défaut : $MUSIC_RANGER_INBOX)")
+    ap.add_argument("--root", type=Path, default=root_env, required=not root_env,
+                    help="racine de la bibliothèque (défaut : $MUSIC_RANGER_ROOT)")
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--settle", type=float, default=10,
                     help="secondes sans changement avant de traiter un élément")

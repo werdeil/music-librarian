@@ -123,7 +123,7 @@ def test_last_slot(t, slot):
 @pytest.mark.parametrize("s", ["dim", "dimanche 3h", "xyz 03:00"])
 def test_enrich_at_format(s):
     with pytest.raises(SystemExit):
-        watch.main(["--enrich-at", s])
+        watch.main(["--inbox", "inbox", "--enrich-at", s])
 
 
 @pytest.fixture

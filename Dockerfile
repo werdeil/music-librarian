@@ -5,8 +5,6 @@ FROM python:3.12-slim-bookworm AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    MUSIC_RANGER_ROOT=/media/werdeil/internal_drive/Musique \
-    MUSIC_RANGER_INBOX=/media/werdeil/internal_drive/Inbox_Musique \
     MUSIC_RANGER_STATE=/state \
     R128GAIN=r128gain
 
@@ -16,7 +14,6 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY requirements.txt ./
-# r128gain : même version que /opt/venvs/r128gain sur l'hôte
 RUN pip install --no-cache-dir -r requirements.txt r128gain==1.0.7
 
 COPY music-ranger music_ranger.py import_inbox.py watch.py lms.py enrich.py \
