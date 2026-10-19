@@ -42,7 +42,7 @@ def test_dry_run_changes_nothing(lib, run, make_track, capsys):
     assert run() == 0
     assert files(lib) == before
     assert not run.state.exists()
-    assert "DÉPLACER" in capsys.readouterr().out
+    assert "MOVE" in capsys.readouterr().out
 
 
 def test_apply_then_undo(lib, run, make_track, capsys):
@@ -114,7 +114,7 @@ def test_compilation_conflict_keeps_album_together(lib, run, make_track, capsys)
     before = files(lib)
     assert run("--apply") == 2
     assert files(lib) == before
-    assert "cpil incohérent : 1/2" in capsys.readouterr().out
+    assert "inconsistent cpil: 1/2" in capsys.readouterr().out
 
 
 def test_coherent_compilation(lib, run, make_track):
@@ -157,7 +157,7 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkey
     time.sleep(0.2)  # older than the last_run margin
     # first pass: no state, everything is processed
     assert run("--since", "--apply") == 0
-    assert "pas de dernier passage" in capsys.readouterr().out
+    assert "no known last pass" in capsys.readouterr().out
     assert (run.state / "last_run").exists()
 
     time.sleep(0.05)
@@ -169,20 +169,20 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkey
 
     assert run("--since", "--apply") == 0
     out = capsys.readouterr().out
-    assert "analysés : 1" in out          # A/C was not read again
+    assert "scanned: 1" in out          # A/C was not read again
     assert files(lib) == ["A/C/01 Deux.m4a", "A/Nouveau/01 Un.m4a"]
 
     # the move updated the ctime: the file is read once more, in place (even when
     # the ctime, from a coarser clock, is a few ms before the pass start: seen on CI)
     assert run("--since", "--apply") == 0
-    assert "en place : 1" in capsys.readouterr().out
+    assert "in place: 1" in capsys.readouterr().out
 
     # nothing changed since: nothing is read again
     time.sleep(0.2)
     assert run("--since", "--apply") == 0
     capsys.readouterr()
     assert run("--since") == 0
-    assert "analysés" not in capsys.readouterr().out
+    assert "scanned" not in capsys.readouterr().out
 
 
 def test_last_run_keeps_a_margin(lib, run, make_track, monkeypatch):

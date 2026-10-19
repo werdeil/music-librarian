@@ -22,7 +22,7 @@ def env(tmp_path, monkeypatch):
     calls = tmp_path / "enrich.log"
     script = f"import sys; open({str(calls)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')"
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("faux", [sys.executable, "-c", script])])
+                        lambda args: [("fake", [sys.executable, "-c", script])])
 
     class Env:
         pass
@@ -56,7 +56,7 @@ def test_dry_run_changes_nothing(env, make_track, capsys):
     assert env.run() == 0
     out = capsys.readouterr().out
     assert files(env.inbox) == before and files(env.lib) == []
-    assert "CONVERTIR x1.flac" in out
+    assert "CONVERT  x1.flac" in out
     assert "A/B/01 Un.m4a" in out
     assert not env.calls.exists()
 
@@ -74,10 +74,10 @@ def test_flac_album_imported(env, make_track):
     assert not any("REPLAYGAIN" in k.upper() for k in t.keys())
     assert importer.probe(env.lib / "A/B/01 Un.m4a")[0] == "alac"
 
-    # the original, FLAC included, is kept in _traités/; the Inbox stays
-    assert files(env.inbox) == [f"_traités/{TODAY}/Album/folder.jpg",
-                                f"_traités/{TODAY}/Album/x1.flac",
-                                f"_traités/{TODAY}/Album/x2.flac"]
+    # the original, FLAC included, is kept in _done/; the Inbox stays
+    assert files(env.inbox) == [f"_done/{TODAY}/Album/folder.jpg",
+                                f"_done/{TODAY}/Album/x1.flac",
+                                f"_done/{TODAY}/Album/x2.flac"]
     assert env.calls.read_text().split() == [str(env.lib / "A/B")]
 
 
@@ -91,16 +91,16 @@ def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
 
     assert env.run() == 0                           # dry run: same result announced
     out = capsys.readouterr().out
-    assert "POCHETTE cover.jpg → folder.jpg" in out and "LAISSÉ   info.txt" in out
+    assert "COVER    cover.jpg → folder.jpg" in out and "KEPT     info.txt" in out
     assert "A/B/folder.jpg" in out and "A/B/info.txt" not in out
 
     assert env.run("--apply") == 0
     assert files(env.lib) == ["A/B/01 Un.m4a", "A/B/02 Deux.m4a", "A/B/1.lrc",
                               "A/B/Booklet.pdf", "A/B/folder.jpg"]
     assert (env.lib / "A/B/folder.jpg").read_bytes() == JPEG
-    # the original stays whole in _traités/, info.txt included
-    assert f"_traités/{TODAY}/Album/info.txt" in files(env.inbox)
-    assert f"_traités/{TODAY}/Album/cover.jpg" in files(env.inbox)
+    # the original stays whole in _done/, info.txt included
+    assert f"_done/{TODAY}/Album/info.txt" in files(env.inbox)
+    assert f"_done/{TODAY}/Album/cover.jpg" in files(env.inbox)
 
 
 def test_existing_folder_jpg_wins_over_cover(env, make_track):
@@ -130,7 +130,7 @@ def test_alac_and_loose_mp3_moved(env, make_track):
     (env.inbox / ".DS_Store").write_bytes(b"x")
     assert env.run("--apply") == 0
     assert files(env.lib) == ["A/B/01 Un.m4a", "C/D/03 Seule.mp3"]
-    assert files(env.inbox) == [f"_traités/{TODAY}/Album/1.m4a", f"_traités/{TODAY}/chanson.mp3"]
+    assert files(env.inbox) == [f"_done/{TODAY}/Album/1.m4a", f"_done/{TODAY}/chanson.mp3"]
 
 
 @pytest.mark.parametrize("name, maker", [
@@ -150,8 +150,8 @@ def test_rejected_whole_to_errors(env, make_track, name, maker):
     before = sorted(p.name for p in (env.inbox / name).iterdir())
     assert env.run("--apply") == 2
     assert files(env.lib) == []
-    assert sorted(p.name for p in (env.inbox / "_erreurs" / name).iterdir()) == before
-    assert not (env.inbox / "_en_cours").exists()
+    assert sorted(p.name for p in (env.inbox / "_failed" / name).iterdir()) == before
+    assert not (env.inbox / "_processing").exists()
 
 
 def test_no_audio_rejected(env):
@@ -159,7 +159,7 @@ def test_no_audio_rejected(env):
     (env.inbox / "notes/lisez-moi.txt").write_text("x")
     (env.inbox / "cover.jpg").write_bytes(JPEG)
     assert env.run("--apply") == 2
-    assert files(env.inbox) == ["_erreurs/cover.jpg", "_erreurs/notes/lisez-moi.txt"]
+    assert files(env.inbox) == ["_failed/cover.jpg", "_failed/notes/lisez-moi.txt"]
 
 
 def test_already_in_library_rejected(env, make_track):
@@ -167,7 +167,7 @@ def test_already_in_library_rejected(env, make_track):
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 2
     assert files(env.lib) == ["A/B/01 Un.m4a"]
-    assert (env.inbox / "_erreurs/Album/1.flac").exists()
+    assert (env.inbox / "_failed/Album/1.flac").exists()
 
 
 def test_duration_mismatch_rejected(env, make_track, monkeypatch):
@@ -177,15 +177,15 @@ def test_duration_mismatch_rejected(env, make_track, monkeypatch):
         real(p)[0], 1.0 if p.suffix == ".flac" else 2.0))
     assert env.run("--apply") == 2
     assert files(env.lib) == []
-    assert (env.inbox / "_erreurs/Album/1.flac").exists()
+    assert (env.inbox / "_failed/Album/1.flac").exists()
 
 
 def test_errors_name_collision(env, make_track):
-    (env.inbox / "_erreurs/Album").mkdir(parents=True)
+    (env.inbox / "_failed/Album").mkdir(parents=True)
     (env.inbox / "Album").mkdir()
     (env.inbox / "Album/1.wav").write_bytes(b"x")
     assert env.run("--apply") == 2
-    assert (env.inbox / "_erreurs/Album (2)/1.wav").exists()
+    assert (env.inbox / "_failed/Album (2)/1.wav").exists()
 
 
 def test_busy_item_waits(env, make_track, monkeypatch):
@@ -197,19 +197,19 @@ def test_busy_item_waits(env, make_track, monkeypatch):
 
 
 def test_purge_old_done(env, capsys):
-    old = env.inbox / "_traités/2020-01-01/Album"
+    old = env.inbox / "_done/2020-01-01/Album"
     old.mkdir(parents=True)
-    (env.inbox / f"_traités/{TODAY}").mkdir()
+    (env.inbox / f"_done/{TODAY}").mkdir()
     assert env.run() == 0
     assert old.exists()
     assert env.run("--apply") == 0
-    assert not (env.inbox / "_traités/2020-01-01").exists()
-    assert (env.inbox / f"_traités/{TODAY}").exists()
+    assert not (env.inbox / "_done/2020-01-01").exists()
+    assert (env.inbox / f"_done/{TODAY}").exists()
 
 
 def test_enrich_failure_reported(env, make_track, monkeypatch):
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("raté", [sys.executable, "-c", "raise SystemExit(1)"])])
+                        lambda args: [("broken", [sys.executable, "-c", "raise SystemExit(1)"])])
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 2
     assert files(env.lib) == ["A/B/01 Un.m4a"]
@@ -218,4 +218,4 @@ def test_enrich_failure_reported(env, make_track, monkeypatch):
 def test_empty_inbox_kept(env):
     assert env.run("--apply") == 0
     assert env.inbox.is_dir()
-    assert sorted(p.name for p in env.inbox.iterdir()) == ["_erreurs", "_traités"]
+    assert sorted(p.name for p in env.inbox.iterdir()) == ["_done", "_failed"]
