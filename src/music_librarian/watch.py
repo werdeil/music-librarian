@@ -17,8 +17,6 @@ hand).
   music-librarian watch --apply   # actually import
   music-librarian watch --apply --organize-at 02:00 --enrich-at "sun 03:00"
 
---range-at is the former name of --organize-at.
-
 With --enrich-at "DAY HH:MM" (mon … sun, French names accepted), the enrichment of the whole
 library (enrich: missing gain, covers, lyrics) runs every week from that
 slot, unless it already ran since (state/enrich_last_run). Without a known
@@ -107,7 +105,7 @@ def main(argv=None):
     ap.add_argument("--interval", type=float, default=30,
                     help="seconds between two reads of the Inbox")
     ap.add_argument("--apply", action="store_true", help="import and file (otherwise dry run)")
-    ap.add_argument("--organize-at", "--range-at", type=hhmm, metavar="HH:MM",
+    ap.add_argument("--organize-at", type=hhmm, metavar="HH:MM",
                     help="run organize --since every day from this time")
     ap.add_argument("--enrich-at", type=weekly, metavar="DAY HH:MM",
                     help="enrich the whole library every week from this slot (e.g. 'sun 03:00')")

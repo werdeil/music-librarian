@@ -250,8 +250,7 @@ def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
     next_day = datetime.fromtimestamp(before).date() + timedelta(days=1)
     monkeypatch.setattr(watch, "now", lambda: datetime.combine(next_day, dtime(3, 0)))
     monkeypatch.setattr(importer, "main", lambda argv: 0)
-    # --range-at, the former name of --organize-at, still works
     ticks(inbox_dir, [nothing], "--root", str(lib), "--state-dir", str(state), "--apply",
-          "--range-at", "02:00")
+          "--organize-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()
     assert float((state / organize.LAST_RUN).read_text()) > before

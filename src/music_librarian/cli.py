@@ -8,7 +8,6 @@ music-librarian — single entry point.
   music-librarian enrich [options]            add missing gain, covers, lyrics (enrich/)
 
 Everything is a dry run without --apply. `music-librarian <command> --help` for the options.
-`range` is the former name of `organize`.
 """
 import sys
 
@@ -22,10 +21,6 @@ def main(argv=None):
         print(__doc__.strip())
         return 0 if argv else 2
     cmd, rest = argv[0], argv[1:]
-    if cmd == "range":
-        print("music-librarian: 'range' is now 'organize', the old name will be removed",
-              file=sys.stderr)
-        cmd = "organize"
     if cmd == "organize":
         return organize.main(rest)
     if cmd == "import":

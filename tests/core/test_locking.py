@@ -76,7 +76,7 @@ def test_undo_refused_while_locked(dirs, make_track):
 def test_lock_released_after_run(dirs, make_track):
     lib, inbox_dir, state = dirs
     make_track(inbox_dir / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
-    assert import_inbox(lib, inbox_dir, state, "--apply") == 0   # import calls range
+    assert import_inbox(lib, inbox_dir, state, "--apply") == 0   # import calls organize
     with open(state / LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)      # does not raise: lock released
 
@@ -95,7 +95,7 @@ def stop_after(n, real):
     return wrapper
 
 
-def test_range_stops_after_current_move(dirs, make_track, monkeypatch):
+def test_organize_stops_after_current_move(dirs, make_track, monkeypatch):
     lib, _, state = dirs
     for i in range(1, 4):
         make_track(lib / f"vrac/{i}.m4a", title=f"T{i}", artist="A", album="B", track=i)
@@ -157,16 +157,7 @@ def test_cli_dispatch(dirs, make_track, monkeypatch):
     assert cli.main(["import", "--inbox", str(inbox_dir), "--settle", "0"]) == 0
 
 
-def test_cli_range_is_an_alias(dirs, make_track, monkeypatch, capsys):
-    lib, _, state = dirs
-    monkeypatch.setenv("MUSIC_LIBRARIAN_ROOT", str(lib))
-    monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(state))
-    make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
-    assert cli.main(["range", "--apply"]) == 0
-    assert files(lib) == ["A/B/01 Un.m4a"]
-    assert "'range' is now 'organize'" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["oups"], 2), (["undo"], 2)])
+@pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["oups"], 2), (["range"], 2),
+                                        (["undo"], 2)])
 def test_cli_usage(argv, code):
     assert cli.main(argv) == code
