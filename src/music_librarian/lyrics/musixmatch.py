@@ -11,7 +11,7 @@ from .matching import int_duration, matches_request
 
 log = logging.getLogger(__name__)
 
-BASE = "https://apic-desktop.musixmatch.com/ws/1.1"
+MXM_BASE = "https://apic-desktop.musixmatch.com/ws/1.1"
 
 _token_cache = {"value": None, "expires_at": 0}
 _token_lock = threading.Lock()
@@ -40,7 +40,7 @@ def _user_token():
 
         try:
             r = requests.get(
-                f"{BASE}/token.get",
+                f"{MXM_BASE}/token.get",
                 params={"app_id": "web-desktop-app-v1.0"},
                 headers=_HEADERS,
                 timeout=5,
@@ -97,7 +97,7 @@ def _macro_calls(artist, title, album, duration, token):
 
     try:
         r = requests.get(
-            f"{BASE}/macro.subtitles.get", params=params, headers=_HEADERS, timeout=6
+            f"{MXM_BASE}/macro.subtitles.get", params=params, headers=_HEADERS, timeout=6
         )
         body = r.json().get("message", {}).get("body", {})
     except requests.RequestException as exc:

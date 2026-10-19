@@ -10,11 +10,11 @@ from .matching import by_length, drop_article, duration_close, float_duration
 
 log = logging.getLogger(__name__)
 
-SITE = "https://lrclib.net"
-BASE = f"{SITE}/api"
+LRCLIB_SITE = "https://lrclib.net"
+LRCLIB_BASE = f"{LRCLIB_SITE}/api"
 
 # LRCLIB takes 8-10s on busy evenings.
-TIMEOUT = int(os.getenv("LRCLIB_TIMEOUT", "15"))
+LRCLIB_TIMEOUT = int(os.getenv("LRCLIB_TIMEOUT", "15"))
 
 # Versions offered for one track, the library's own text included. Each carries
 # a full lyrics body into the cache, so this caps an entry's weight too.
@@ -57,7 +57,7 @@ def _attempts(artist, title, album):
 def _search_url(artist, title):
     """Browsable URL for this track on LRCLIB's own search page, for the diagnostic logs."""
     query = " ".join(part for part in (artist, title) if part)
-    return f"{SITE}/search/{quote(query, safe='')}"
+    return f"{LRCLIB_SITE}/search/{quote(query, safe='')}"
 
 
 def _candidates(results, seconds, search_params):
@@ -94,10 +94,10 @@ def _search(artist, title, album, seconds, fallback):
     for search_params in _attempts(artist, title, album):
         try:
             r = requests.get(
-                f"{BASE}/search",
+                f"{LRCLIB_BASE}/search",
                 params=search_params,
                 headers=headers,
-                timeout=TIMEOUT,
+                timeout=LRCLIB_TIMEOUT,
             )
         except requests.RequestException as exc:
             raise ProviderUnavailable("lrclib") from exc
@@ -140,7 +140,7 @@ def fetch(artist, title, album, duration):
 
     payload = None
     try:
-        r = requests.get(f"{BASE}/get", params=params, headers=headers, timeout=TIMEOUT)
+        r = requests.get(f"{LRCLIB_BASE}/get", params=params, headers=headers, timeout=LRCLIB_TIMEOUT)
         if r.status_code == 200:
             payload = r.json()
         else:
@@ -162,7 +162,7 @@ def fetch(artist, title, album, duration):
     if payload.get("syncedLyrics") and not synced_text:
         log.info(
             "lrclib: %s/tracks/%s is %ss, this track is %ss - its timings dropped",
-            SITE, payload.get("id"), payload.get("duration"), int(seconds),
+            LRCLIB_SITE, payload.get("id"), payload.get("duration"), int(seconds),
         )
     log.debug(
         "lrclib: record %s (%r, %ss), synced=%s",

@@ -9,7 +9,7 @@ from .matching import by_length, float_duration, int_duration, matches_request
 
 log = logging.getLogger(__name__)
 
-BASE = "https://music.163.com/api"
+NETEASE_BASE = "https://music.163.com/api"
 
 _HEADERS = {"User-Agent": BROWSER_UA, "Referer": "https://music.163.com/"}
 _LRC_TIMESTAMP_RE = re.compile(r"^\[\d+:\d{2}", re.MULTILINE)
@@ -64,7 +64,7 @@ def _search(artist, title):
     """
     try:
         r = requests.get(
-            f"{BASE}/cloudsearch/pc",
+            f"{NETEASE_BASE}/cloudsearch/pc",
             params={"s": f"{artist} {title}", "type": 1, "limit": 10, "offset": 0},
             headers=_HEADERS,
             timeout=6,
@@ -94,7 +94,7 @@ def _lyric(song_id):
     """
     try:
         r = requests.get(
-            f"{BASE}/song/lyric",
+            f"{NETEASE_BASE}/song/lyric",
             params={"id": song_id, "lv": 1, "kv": 1, "tv": -1},
             headers=_HEADERS,
             timeout=6,
