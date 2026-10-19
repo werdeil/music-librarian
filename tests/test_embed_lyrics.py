@@ -1,5 +1,5 @@
-"""embed_lyrics : paroles écrites dans les tags, sur de vrais fichiers, fournisseurs simulés."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+"""embed_lyrics: lyrics written into the tags, on real files, with mocked providers."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import pytest
 
 import embed_lyrics
@@ -38,7 +38,7 @@ def test_synced_written_as_plain(album, web):
     d, tracks = album
     assert run(d) == 0
     calls, _ = web
-    assert len(calls) == 3                              # le fichier sans titre n'est pas cherché
+    assert len(calls) == 3                              # the file without a title is not looked up
     assert all(c["verify"] for c in calls)
     assert all(tags.has_lyrics(str(t)) for t in tracks)
 

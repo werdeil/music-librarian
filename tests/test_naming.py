@@ -1,12 +1,12 @@
-"""Règles de nommage, à partir des cas réels de la bibliothèque."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+"""Naming rules, from real cases in the library."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import os
 import unicodedata
 from pathlib import Path
 
 import pytest
 
-from music_ranger import clean, is_in_place, read_tags, target_rel
+from librarian import clean, is_in_place, read_tags, target_rel
 
 
 def tags(**kw):
@@ -65,7 +65,7 @@ def test_target_compilation():
 
 @pytest.mark.parametrize("disc, disctotal, prefix", [
     (1, 2, "1-03 "),
-    (2, None, "2-03 "),   # disque 2 sans total : multi-disques quand même
+    (2, None, "2-03 "),   # disc 2 without a total: multi-disc anyway
     (1, 1, "03 "),
     (None, None, "03 "),
     (None, 2, "1-03 "),
@@ -76,9 +76,9 @@ def test_target_multidisc(disc, disctotal, prefix):
 
 
 @pytest.mark.parametrize("track, disc, name", [
-    (1, None, "01 ...And The Gods Made Love.m4a"),  # cas réel : Electric Ladyland
+    (1, None, "01 ...And The Gods Made Love.m4a"),  # real case: Electric Ladyland
     (1, 2, "2-01 ...And The Gods Made Love.m4a"),
-    (None, None, "_..And The Gods Made Love.m4a"),  # sans numéro : pas de fichier caché
+    (None, None, "_..And The Gods Made Love.m4a"),  # without a number: no hidden file
 ])
 def test_target_title_leading_dot(track, disc, name):
     t = tags(artist="A", album="...Hits", title="...And The Gods Made Love", track=track,
@@ -110,13 +110,13 @@ def test_in_place_truncated():
     cur = Path("A/B/01 Ceci est un titre tellement long qu.m4a")
     tgt = Path("A/B/01 Ceci est un titre tellement long qu'Apple Music l'a coupé.m4a")
     assert is_in_place(cur, tgt, strict_case=False)
-    # trop court pour être un nom tronqué
+    # too short to be a truncated name
     assert not is_in_place(Path("A/B/01 Ceci.m4a"), tgt, strict_case=False)
 
 
 def test_u0092_in_existing_name_is_renamed():
-    # cas réel, Queens of the Stone Age/Villains : caractère invisible U+0092
-    # (octets C2 92) devant l'apostrophe, tag correct
+    # real case, Queens of the Stone Age/Villains: invisible U+0092 character
+    # (bytes C2 92) before the apostrophe, correct tag
     cur = Path("Queens of the Stone Age/Villains/01 Feet Don\u0092't Fail Me.m4a")
     t = tags(albumartist="Queens of the Stone Age", album="Villains",
              title="Feet Don't Fail Me", track=1)
@@ -126,7 +126,7 @@ def test_u0092_in_existing_name_is_renamed():
 
 
 def test_raw_x92_byte_in_existing_name_is_renamed():
-    # variante : octet \x92 brut (CP1252), nom non UTF-8
+    # variant: raw \x92 byte (CP1252), non-UTF-8 name
     name = os.fsdecode(b"03 Feet Don\x92t Fail Me.m4a")
     cur = Path("Queens of the Stone Age/Villains") / name
     t = tags(albumartist="Queens of the Stone Age", album="Villains",
@@ -140,7 +140,7 @@ def test_extension_must_match():
     assert not is_in_place(Path("A/B/01 T.mp3"), Path("A/B/01 T.m4a"), strict_case=False)
 
 
-# ---------- read_tags (vrais fichiers) ----------
+# ---------- read_tags (real files) ----------
 
 @pytest.mark.parametrize("ext", [".m4a", ".mp3", ".flac"])
 def test_read_tags_all_formats(tmp_path, make_track, ext):
