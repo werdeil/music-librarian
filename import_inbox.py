@@ -5,7 +5,7 @@ import_inbox — imports what is dropped in the Inbox into the library.
 For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
      artwork), duration (ffprobe) and tag checks;
-  2. filing with music_ranger, all or nothing: on any problem the whole item
+  2. filing with librarian, all or nothing: on any problem the whole item
      goes to _erreurs/;
   3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
   4. the original item (FLAC included) goes to _traités/YYYY-MM-DD/, purged
@@ -17,7 +17,7 @@ Dry run by default. --apply to actually do it.
   import_inbox.py --apply         # import
 
 Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
-One --apply pass at a time (lock shared with music_ranger). On SIGTERM or
+One --apply pass at a time (lock shared with librarian). On SIGTERM or
 Ctrl-C, the item being filed is completed; the one being converted and the
 following ones stay in the Inbox for the next pass.
 
@@ -40,8 +40,8 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
-import music_ranger
-from music_ranger import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
+import librarian
+from librarian import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
                           locked, read_tags)
 
 HERE = Path(__file__).resolve().parent
@@ -166,7 +166,7 @@ def copy_tags(flac: FLAC, mp4: MP4):
             mp4.tags[f"----:com.apple.iTunes:{k.upper()}"] = [
                 MP4FreeForm(x.encode("utf-8")) for x in v]
 
-    num = lambda *ks: next((music_ranger.parse_pair(keys[k][0]) for k in ks if k in keys),
+    num = lambda *ks: next((librarian.parse_pair(keys[k][0]) for k in ks if k in keys),
                            (None, None))
     trk, trk_total = num("tracknumber")
     disc, disc_total = num("discnumber")
@@ -261,10 +261,10 @@ def ranger(args, paths, apply, quiet=False):
         argv.append("--syslog")
     # interruptible=False: an item is filed entirely or not at all
     if not quiet:
-        return music_ranger.run(argv, interruptible=False)
+        return librarian.run(argv, interruptible=False)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code, report = music_ranger.run(argv, interruptible=False)
+        code, report = librarian.run(argv, interruptible=False)
     report["output"] = buf.getvalue()
     return code, report
 
@@ -380,7 +380,7 @@ def process(args, item, log):
         code, report = ranger(args, [work], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
-            raise Reject("refusé par music_ranger (voir ci-dessus)")
+            raise Reject("refusé par le rangement (voir ci-dessus)")
     except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
         with contextlib.suppress(OSError):
@@ -461,7 +461,7 @@ def main(argv=None):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog, ident="music-import")
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox : {args.inbox}")
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
             return import_all(args, log)
@@ -526,5 +526,5 @@ def import_all(args, log):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

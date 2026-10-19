@@ -6,9 +6,9 @@ from datetime import time as dtime
 import pytest
 
 import import_inbox
-import music_ranger
+import librarian
 import watch
-from music_ranger import EXIT_LOCKED, STOP
+from librarian import EXIT_LOCKED, STOP
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_missing_inbox(tmp_path, calls, ticks):
 def test_stop_during_import_ends_loop(inbox, ticks, monkeypatch):
     def stopping(argv):
         STOP.set()
-        return music_ranger.EXIT_STOPPED
+        return librarian.EXIT_STOPPED
 
     monkeypatch.setattr(import_inbox, "main", stopping)
     waits = []
@@ -159,7 +159,7 @@ def nightly(tmp_path, inbox, calls, ticks, monkeypatch):
         ranges = Calls()
 
         def last_run(self, t):
-            (state / music_ranger.LAST_RUN).write_text(f"{t.timestamp()}\n")
+            (state / librarian.LAST_RUN).write_text(f"{t.timestamp()}\n")
 
         def run(self, actions, *argv):
             return ticks(inbox, actions, "--range-at", "02:00", "--state-dir", str(state),
@@ -175,7 +175,7 @@ def nightly(tmp_path, inbox, calls, ticks, monkeypatch):
         n.ranges.append(argv)
         return n.ranges.codes.pop(0) if n.ranges.codes else 0
 
-    monkeypatch.setattr(music_ranger, "main", fake_range)
+    monkeypatch.setattr(librarian, "main", fake_range)
     monkeypatch.setattr(watch, "now", lambda: n.clock[0])
     return n
 
@@ -230,7 +230,7 @@ def test_range_crash_logged(nightly, monkeypatch, capsys):
     def boom(argv):
         raise RuntimeError("oups")
 
-    monkeypatch.setattr(music_ranger, "main", boom)
+    monkeypatch.setattr(librarian, "main", boom)
     assert nightly.run([nothing, nothing]) == 0
     assert "ERREUR   rangement interrompu" in capsys.readouterr().out
 
@@ -244,8 +244,8 @@ def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
     lib, inbox, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     inbox.mkdir()
     make_track(lib / "C/D/01 Rien.m4a", title="Rien", artist="C", album="D", track=1)
-    assert music_ranger.main(["--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
-    before = float((state / music_ranger.LAST_RUN).read_text())
+    assert librarian.main(["--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
+    before = float((state / librarian.LAST_RUN).read_text())
     # tag edited from the Mac during the day
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     # the next day at 03:00 (whatever time the test runs at)
@@ -255,4 +255,4 @@ def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
     ticks(inbox, [nothing], "--root", str(lib), "--state-dir", str(state), "--apply",
           "--range-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()
-    assert float((state / music_ranger.LAST_RUN).read_text()) > before
+    assert float((state / librarian.LAST_RUN).read_text()) > before

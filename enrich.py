@@ -31,8 +31,8 @@ import time
 from pathlib import Path
 
 import import_inbox
-import music_ranger
-from music_ranger import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
+import librarian
+from librarian import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
@@ -67,7 +67,7 @@ def main(argv=None):
     ap.add_argument("--r128gain", default=import_inbox.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     log = Log()
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
@@ -113,5 +113,5 @@ def enrich_all(args, root, state_dir, log):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

@@ -36,8 +36,8 @@ from pathlib import Path
 
 import enrich
 import import_inbox
-import music_ranger
-from music_ranger import EXIT_LOCKED, LAST_RUN, STOP, Log
+import librarian
+from librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
 
 
 def signature(inbox: Path):
@@ -117,7 +117,7 @@ def main(argv=None):
     import_argv = ["--inbox", str(args.inbox), *rest, *common]
     range_argv = ["--since", *common]
     enrich_argv = list(common)
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     started = now().timestamp()
 
     log = Log()
@@ -155,7 +155,7 @@ def main(argv=None):
             else:
                 log(f"RANGEMENT de nuit (dossiers modifiés depuis le "
                     f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-                code = safe(music_ranger.main, range_argv, log, "rangement")
+                code = safe(librarian.main, range_argv, log, "rangement")
                 if code != EXIT_LOCKED:   # lock held by an import: next tick
                     range_day = t.date()
                 log("")
@@ -176,5 +176,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

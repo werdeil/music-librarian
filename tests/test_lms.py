@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 import lms
-import music_ranger
-from music_ranger import EXIT_LMS
+import librarian
+from librarian import EXIT_LMS
 
 LMS_ROOT = "/music/Musique"
 SCHEMA = """
@@ -45,7 +45,7 @@ def env(tmp_path):
 
     class Env:
         def run(self, *a):
-            return music_ranger.main(["--root", str(lib), "--state-dir", str(state),
+            return librarian.main(["--root", str(lib), "--state-dir", str(state),
                                       "--lms-db", str(db), "--lms-root", LMS_ROOT, *a])
 
         # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -200,14 +200,14 @@ def test_backups_rotated(misplaced, monkeypatch):
 
 
 def test_disabled_without_lms_db(misplaced):
-    assert music_ranger.main(["--root", str(misplaced.lib), "--state-dir",
+    assert librarian.main(["--root", str(misplaced.lib), "--state-dir",
                               str(misplaced.state), "--apply"]) == 0
     assert misplaced.row("tracks_persistent", "vrac/1.m4a")["playCount"] == 7
 
 
 def test_lms_root_required(misplaced):
     with pytest.raises(SystemExit):
-        music_ranger.main(["--root", str(misplaced.lib), "--lms-db", str(misplaced.db)])
+        librarian.main(["--root", str(misplaced.lib), "--lms-db", str(misplaced.db)])
 
 
 def test_journal_unchanged_format(misplaced):

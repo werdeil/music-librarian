@@ -3,7 +3,7 @@
 """
 music-librarian — point d'entrée unique.
 
-  music-librarian range  [options]            rangement (music_ranger.py)
+  music-librarian range  [options]            rangement (librarian.py)
   music-librarian import [options]            import de l'Inbox (import_inbox.py)
   music-librarian undo JOURNAL [options]      annulation d'un passage
   music-librarian watch  [options]            surveillance de l'Inbox (watch.py)
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # pylint: disable=wrong-import-position
 import enrich  # noqa: E402
 import import_inbox  # noqa: E402
-import music_ranger  # noqa: E402
+import librarian  # noqa: E402
 import watch  # noqa: E402
 # pylint: enable=wrong-import-position
 
@@ -32,14 +32,14 @@ def main(argv=None):
         return 0 if argv else 2
     cmd, rest = argv[0], argv[1:]
     if cmd == "range":
-        return music_ranger.main(rest)
+        return librarian.main(rest)
     if cmd == "import":
         return import_inbox.main(rest)
     if cmd == "undo":
         if not rest or rest[0].startswith("-"):
             print("usage : music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
             return 2
-        return music_ranger.main(["--undo", rest[0], *rest[1:]])
+        return librarian.main(["--undo", rest[0], *rest[1:]])
     if cmd == "watch":
         return watch.main(rest)
     if cmd == "enrich":
@@ -49,5 +49,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-import music_ranger
+import librarian
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def run(tmp_path, lib):
     state = tmp_path / "state"
 
     def run(*args):
-        return music_ranger.main(["--root", str(lib), "--state-dir", str(state), *args])
+        return librarian.main(["--root", str(lib), "--state-dir", str(state), *args])
 
     run.state = state
     return run
@@ -151,7 +151,7 @@ def test_target_conflict(lib, run, make_track):
 
 
 def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkeypatch):
-    monkeypatch.setattr(music_ranger, "SINCE_MARGIN", 0.05)  # passes close together
+    monkeypatch.setattr(librarian, "SINCE_MARGIN", 0.05)  # passes close together
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
     make_track(lib / "A/C/01 Deux.m4a", title="Deux", artist="A", album="C", track=1)
     time.sleep(0.2)  # older than the last_run margin
@@ -187,9 +187,9 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkey
 
 def test_last_run_keeps_a_margin(lib, run, make_track, monkeypatch):
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
-    monkeypatch.setattr(music_ranger.time, "time", lambda: 1000.0)
+    monkeypatch.setattr(librarian.time, "time", lambda: 1000.0)
     assert run("--apply") == 0
-    assert float((run.state / "last_run").read_text()) == 1000.0 - music_ranger.SINCE_MARGIN
+    assert float((run.state / "last_run").read_text()) == 1000.0 - librarian.SINCE_MARGIN
 
 
 def test_since_dry_run_does_not_advance(lib, run, make_track):

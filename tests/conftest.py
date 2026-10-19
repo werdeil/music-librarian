@@ -26,10 +26,10 @@ def clean_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_stop():
     """The stop request is process-wide: reset between tests."""
-    import music_ranger  # pylint: disable=import-outside-toplevel  # after sys.path
-    music_ranger.STOP.clear()
+    import librarian  # pylint: disable=import-outside-toplevel  # after sys.path
+    librarian.STOP.clear()
     yield
-    music_ranger.STOP.clear()
+    librarian.STOP.clear()
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def ticks(monkeypatch):
     """Drive the watch loop: each wait runs the next action, then stops."""
     # pylint: disable-next=import-outside-toplevel  # after sys.path
     import watch
-    from music_ranger import STOP  # pylint: disable=import-outside-toplevel
+    from librarian import STOP  # pylint: disable=import-outside-toplevel
 
     def run(inbox, actions, *argv):
         todo = list(actions)

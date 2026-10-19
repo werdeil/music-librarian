@@ -9,9 +9,9 @@ import pytest
 
 import enrich
 import import_inbox
-import music_ranger
+import librarian
 import watch
-from music_ranger import EXIT_LOCKED, EXIT_STOPPED, STOP
+from librarian import EXIT_LOCKED, EXIT_STOPPED, STOP
 
 
 @pytest.fixture
@@ -102,7 +102,7 @@ def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
 def test_refused_while_locked(lib, tools, tmp_path):
     state = tmp_path / "state"
     state.mkdir()
-    with open(state / music_ranger.LOCK, "a", encoding="utf-8") as f:
+    with open(state / librarian.LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert run(lib, state, "--apply") == EXIT_LOCKED
     assert tools.calls() == []

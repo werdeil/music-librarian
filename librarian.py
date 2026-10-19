@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-music_ranger — files a music library the way Apple Music does:
+librarian — files a music library the way Apple Music does:
     <Album Artist>/<Album>/<NN Title>.ext
     Compilations/<Album>/<NN Title>.ext            (compilation flag)
     .../<D-NN Title>.ext                           (multi-disc album)
@@ -9,16 +9,16 @@ Dry run by default. --apply to actually do it.
 
 Examples:
   # Check the whole library (nothing is changed)
-  music_ranger.py --root /srv/music
+  librarian.py --root /srv/music
 
   # File an album dropped in the Inbox
-  music_ranger.py --root /srv/music /srv/inbox/MyAlbum --apply
+  librarian.py --root /srv/music /srv/inbox/MyAlbum --apply
 
   # Only process the folders changed since the last pass
-  music_ranger.py --root /srv/music --since --apply
+  librarian.py --root /srv/music --since --apply
 
   # Undo a pass (dry run, then --apply)
-  music_ranger.py --root /srv/music --undo state/journal/<date>.jsonl
+  librarian.py --root /srv/music --undo state/journal/<date>.jsonl
 
 With --lms-db, the LMS history (play counts, ratings) follows moved files
 (see lms.py). --lms-replay JOURNAL carries it over afterwards for one pass.

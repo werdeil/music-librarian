@@ -16,7 +16,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt r128gain==1.0.7
 
-COPY music-librarian music_ranger.py import_inbox.py watch.py lms.py enrich.py \
+COPY music-librarian librarian.py import_inbox.py watch.py lms.py enrich.py \
      embed_covers.py embed_lyrics.py tags.py artwork.py lyrics.py ./
 RUN ln -s /app/music-librarian /usr/local/bin/music-librarian \
  && useradd --create-home --uid 1000 librarian
