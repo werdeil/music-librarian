@@ -1,17 +1,18 @@
 """
 music-librarian — point d'entrée unique.
 
-  music-librarian range  [options]            rangement (librarian.py)
-  music-librarian import [options]            import de l'Inbox (inbox.py)
+  music-librarian range  [options]            rangement (organize/)
+  music-librarian import [options]            import de l'Inbox (importer.py)
   music-librarian undo JOURNAL [options]      annulation d'un passage
   music-librarian watch  [options]            surveillance de l'Inbox (watch.py)
-  music-librarian enrich [options]            gain, pochettes, paroles manquants (enrich.py)
+  music-librarian enrich [options]            gain, pochettes, paroles manquants (enrich/)
 
 Tout est en dry-run sans --apply. `music-librarian <commande> --help` pour les options.
 """
 import sys
 
-from . import enrich, inbox, librarian, watch
+from music_librarian import enrich, importer, organize, watch
+from music_librarian.core.lock import handle_stop_signals
 
 
 def main(argv=None):
@@ -21,14 +22,14 @@ def main(argv=None):
         return 0 if argv else 2
     cmd, rest = argv[0], argv[1:]
     if cmd == "range":
-        return librarian.main(rest)
+        return organize.main(rest)
     if cmd == "import":
-        return inbox.main(rest)
+        return importer.main(rest)
     if cmd == "undo":
         if not rest or rest[0].startswith("-"):
             print("usage : music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
             return 2
-        return librarian.main(["--undo", rest[0], *rest[1:]])
+        return organize.main(["--undo", rest[0], *rest[1:]])
     if cmd == "watch":
         return watch.main(rest)
     if cmd == "enrich":
@@ -39,5 +40,5 @@ def main(argv=None):
 
 def run():
     """Console entry point (`music-librarian`, `python -m music_librarian`)."""
-    librarian.handle_stop_signals()
+    handle_stop_signals()
     return main()

@@ -33,6 +33,8 @@ version = { attr = "music_librarian.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# the test folders mirror the package: keep them out of sys.path
+addopts = "--import-mode=importlib"
 
 # pylint src tests, with the package installed (pip install -e .)
 [tool.pylint."messages control"]
@@ -42,7 +44,7 @@ testpaths = ["tests"]
 # import or a Lyrion write failing must not stop the loop or a whole pass.
 # dict(...) is used throughout for journal records and tag dicts, and
 # one-line lambdas as tag getters in read_tags/copy_tags.
-# The passes (rank, process, watch's loop) are linear pipelines read top to
+# The passes (organize_pass, process, watch's loop) are linear pipelines read top to
 # bottom sharing local state; splitting them into helpers to satisfy the
 # size counters would scatter that state without making them clearer.
 disable = [
@@ -62,7 +64,7 @@ disable = [
 max-line-length = 110
 
 [tool.pylint.design]
-# rank() receives the parsed arguments plus the run context (root, state,
+# organize_pass() receives the parsed arguments plus the run context (root, state,
 # log, Lyrion, interruptible); the test fixtures build tracks from tag kwargs.
 max-args = 7
 max-positional-arguments = 7
