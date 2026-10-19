@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-import_inbox — imports what is dropped in the Inbox into the library.
+inbox — imports what is dropped in the Inbox into the library.
 
 For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
@@ -13,8 +13,8 @@ For each Inbox item (an album folder, or a loose file):
 
 Dry run by default. --apply to actually do it.
 
-  import_inbox.py                 # see what would be done
-  import_inbox.py --apply         # import
+  inbox.py                 # see what would be done
+  inbox.py --apply         # import
 
 Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
 One --apply pass at a time (lock shared with librarian). On SIGTERM or

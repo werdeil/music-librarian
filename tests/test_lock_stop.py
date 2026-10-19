@@ -8,25 +8,25 @@ from pathlib import Path
 
 import pytest
 
-import import_inbox
+import inbox
 import librarian
 
 
 @pytest.fixture
 def dirs(tmp_path, monkeypatch):
-    lib, inbox, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
+    lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     lib.mkdir()
-    inbox.mkdir()
-    monkeypatch.setattr(import_inbox, "enrichers", lambda args: [])
-    return lib, inbox, state
+    inbox_dir.mkdir()
+    monkeypatch.setattr(inbox, "enrichers", lambda args: [])
+    return lib, inbox_dir, state
 
 
 def ranger(lib, state, *a):
     return librarian.main(["--root", str(lib), "--state-dir", str(state), *a])
 
 
-def importer(lib, inbox, state, *a):
-    return import_inbox.main(["--inbox", str(inbox), "--root", str(lib),
+def importer(lib, inbox_dir, state, *a):
+    return inbox.main(["--inbox", str(inbox_dir), "--root", str(lib),
                               "--state-dir", str(state), "--settle", "0", *a])
 
 
@@ -57,11 +57,11 @@ def test_apply_refused_while_locked(dirs, held_lock, make_track, capsys):
 
 
 def test_import_refused_while_locked(dirs, held_lock, make_track):
-    lib, inbox, state = dirs
-    make_track(inbox / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
-    assert importer(lib, inbox, state, "--apply") == librarian.EXIT_LOCKED
+    lib, inbox_dir, state = dirs
+    make_track(inbox_dir / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
+    assert importer(lib, inbox_dir, state, "--apply") == librarian.EXIT_LOCKED
     assert files(lib) == []
-    assert importer(lib, inbox, state) == 0
+    assert importer(lib, inbox_dir, state) == 0
 
 
 def test_undo_refused_while_locked(dirs, make_track):
@@ -76,9 +76,9 @@ def test_undo_refused_while_locked(dirs, make_track):
 
 
 def test_lock_released_after_run(dirs, make_track):
-    lib, inbox, state = dirs
-    make_track(inbox / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
-    assert importer(lib, inbox, state, "--apply") == 0   # import calls range
+    lib, inbox_dir, state = dirs
+    make_track(inbox_dir / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
+    assert importer(lib, inbox_dir, state, "--apply") == 0   # import calls range
     with open(state / librarian.LOCK, "a", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)      # does not raise: lock released
 
@@ -121,25 +121,25 @@ def test_undo_stops_after_current_move(dirs, make_track, monkeypatch):
 
 
 def test_import_stop_during_conversion_leaves_item(dirs, make_track, monkeypatch):
-    lib, inbox, state = dirs
+    lib, inbox_dir, state = dirs
     for i in range(1, 3):
-        make_track(inbox / f"Album/{i}.flac", title=f"T{i}", artist="A", album="B", track=i)
-    monkeypatch.setattr(import_inbox, "convert", stop_after(1, import_inbox.convert))
-    assert importer(lib, inbox, state, "--apply") == librarian.EXIT_STOPPED
+        make_track(inbox_dir / f"Album/{i}.flac", title=f"T{i}", artist="A", album="B", track=i)
+    monkeypatch.setattr(inbox, "convert", stop_after(1, inbox.convert))
+    assert importer(lib, inbox_dir, state, "--apply") == librarian.EXIT_STOPPED
     assert files(lib) == []
-    assert files(inbox) == ["Album/1.flac", "Album/2.flac"]   # neither _erreurs nor _en_cours
+    assert files(inbox_dir) == ["Album/1.flac", "Album/2.flac"]   # neither _erreurs nor _en_cours
 
 
 def test_import_finishes_current_item_then_stops(dirs, make_track, monkeypatch):
-    lib, inbox, state = dirs
+    lib, inbox_dir, state = dirs
     for name in ("A1", "A2"):
         for i in range(1, 3):
-            make_track(inbox / f"{name}/{i}.m4a", title=f"T{i}", artist="X", album=name, track=i)
+            make_track(inbox_dir / f"{name}/{i}.m4a", title=f"T{i}", artist="X", album=name, track=i)
     # the stop lands while the first item is being filed: it is completed anyway
     monkeypatch.setattr(librarian, "move_file", stop_after(1, librarian.move_file))
-    assert importer(lib, inbox, state, "--apply") == librarian.EXIT_STOPPED
+    assert importer(lib, inbox_dir, state, "--apply") == librarian.EXIT_STOPPED
     assert files(lib) == ["X/A1/01 T1.m4a", "X/A1/02 T2.m4a"]
-    assert (inbox / "A2/1.m4a").exists()
+    assert (inbox_dir / "A2/1.m4a").exists()
 
 
 # ---------- entry point ----------
@@ -154,7 +154,7 @@ def cli():
 
 
 def test_cli_dispatch(cli, dirs, make_track, monkeypatch):
-    lib, inbox, state = dirs
+    lib, inbox_dir, state = dirs
     monkeypatch.setenv("MUSIC_LIBRARIAN_ROOT", str(lib))
     monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(state))
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
@@ -165,7 +165,7 @@ def test_cli_dispatch(cli, dirs, make_track, monkeypatch):
     [j] = (state / "journal").glob("*.jsonl")
     assert cli.main(["undo", str(j), "--apply"]) == 0
     assert files(lib) == ["vrac/1.m4a"]
-    assert cli.main(["import", "--inbox", str(inbox), "--settle", "0"]) == 0
+    assert cli.main(["import", "--inbox", str(inbox_dir), "--settle", "0"]) == 0
 
 
 @pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["oups"], 2), (["undo"], 2)])

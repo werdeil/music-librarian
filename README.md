@@ -13,7 +13,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`enrich`** runs over the whole library and only fills what is missing: ReplayGain (r128gain), the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB, Musixmatch and NetEase. Lyrics are only written when the provider's title, artist and duration match the file.
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `range --since` nightly and `enrich` weekly.
 - **`undo JOURNAL`** replays a run's journal in reverse.
-- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see `lms.py`).
+- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see `lyrion.py`).
 
 ## Running it
 
@@ -47,7 +47,7 @@ Without Docker: Python 3.12, ffmpeg, `pip install -r requirements.txt` and r128g
 | `MUSIC_LIBRARIAN_ROOT` | Library root (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Drop folder, outside the library so a music server does not index it (`--inbox`) |
 | `MUSIC_LIBRARIAN_STATE` | Journals, last run date and lock (`--state-dir`; `/state` in the image) |
-| `LMS_PERSIST_DB`, `LMS_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
+| `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,musixmatch,netease`) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
 | `R128GAIN` | r128gain executable |

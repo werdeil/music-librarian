@@ -20,8 +20,8 @@ Examples:
   # Undo a pass (dry run, then --apply)
   librarian.py --root /srv/music --undo state/journal/<date>.jsonl
 
-With --lms-db, the LMS history (play counts, ratings) follows moved files
-(see lms.py). --lms-replay JOURNAL carries it over afterwards for one pass.
+With --lyrion-db, the Lyrion history (play counts, ratings) follows moved files
+(see lyrion.py). --lyrion-replay JOURNAL carries it over afterwards for one pass.
 
 State (move journals, last pass date): --state-dir, else
 $MUSIC_LIBRARIAN_STATE, else the state/ folder next to the script.
@@ -33,7 +33,7 @@ move completes and the rest is left for the next pass (second Ctrl-C: stop
 at once).
 
 Exit codes: 0 = OK, 2 = conflicts, skipped files or refused undos,
-3 = another pass is running, 4 = stopped before the end, 5 = LMS carry-over failed.
+3 = another pass is running, 4 = stopped before the end, 5 = Lyrion carry-over failed.
 """
 import argparse
 import contextlib
@@ -55,7 +55,7 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
-import lms
+import lyrion
 
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
@@ -67,7 +67,7 @@ LAST_RUN = "last_run"  # --since state file
 # those folders are read again.
 SINCE_MARGIN = 2.0
 LOCK = "lock"
-EXIT_LOCKED, EXIT_STOPPED, EXIT_LMS = 3, 4, 5
+EXIT_LOCKED, EXIT_STOPPED, EXIT_LYRION = 3, 4, 5
 STOP = threading.Event()  # stop requested (SIGTERM, Ctrl-C)
 _lock_held = False  # pylint: disable=invalid-name  # process state
 
@@ -173,8 +173,8 @@ def move_file(src: Path, dst: Path, journal: Journal):
     journal.move(src, dst)
 
 
-def lms_sync(db, moves, apply, log):
-    """Carry the LMS history over to moved files; False on failure."""
+def lyrion_sync(db, moves, apply, log):
+    """Carry the Lyrion history over to moved files; False on failure."""
     if db is None:
         return True
     pairs = db.pairs(moves, AUDIO_EXT)
@@ -183,25 +183,25 @@ def lms_sync(db, moves, apply, log):
     try:
         stats = db.sync(pairs, apply)
     except Exception as e:
-        log(f"ERREUR   report LMS : {e}")
+        log(f"ERREUR   report Lyrion : {e}")
         return False
     for k, v in stats.items():
         if v:
-            log(f"{'LMS ' + k:>20} : {v}")
+            log(f"{'Lyrion ' + k:>20} : {v}")
     return True
 
 
-def lms_replay(args, db, log):
-    """--lms-replay: carry the LMS history over for the moves of a journal."""
+def lyrion_replay(args, db, log):
+    """--lyrion-replay: carry the Lyrion history over for the moves of a journal."""
     if db is None:
-        log("ERREUR   --lms-replay demande --lms-db")
+        log("ERREUR   --lyrion-replay demande --lyrion-db")
         return 2
-    recs = [json.loads(line) for line in Path(args.lms_replay).read_text(
+    recs = [json.loads(line) for line in Path(args.lyrion_replay).read_text(
         encoding="utf-8").splitlines() if line.strip()]
     moves = [(r["src"], r["dst"]) for r in recs if r.get("type") == "move"]
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] report LMS de {args.lms_replay}"
+    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] report Lyrion de {args.lyrion_replay}"
         f" ({len(moves)} déplacements)")
-    return 0 if lms_sync(db, moves, args.apply, log) else EXIT_LMS
+    return 0 if lyrion_sync(db, moves, args.apply, log) else EXIT_LYRION
 
 
 def prune_empty(d: Path, stops):
@@ -436,11 +436,11 @@ def undo(args, root, state_dir, log, db=None):
         log(f"{'dossiers supprimés':>20} : {pruned}")
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
-    lms_ok = lms_sync(db, done if args.apply else todo, args.apply, log)
-    if not lms_ok and journal.path:
-        log(f"{'reprise LMS':>20} : music-librarian range --lms-replay "
+    lyrion_ok = lyrion_sync(db, done if args.apply else todo, args.apply, log)
+    if not lyrion_ok and journal.path:
+        log(f"{'reprise Lyrion':>20} : music-librarian range --lyrion-replay "
             f"{shlex.quote(str(journal.path))} --apply")
-    return EXIT_STOPPED if stopped else 2 if refused else 0 if lms_ok else EXIT_LMS
+    return EXIT_STOPPED if stopped else 2 if refused else 0 if lyrion_ok else EXIT_LYRION
 
 
 # ---------- main ----------
@@ -466,9 +466,9 @@ def run(argv=None, interruptible=True):
     ap.add_argument("--since", action="store_true",
                     help="ne traiter que les dossiers modifiés depuis le dernier passage")
     ap.add_argument("--undo", metavar="JOURNAL", help="annuler les déplacements d'un journal")
-    ap.add_argument("--lms-replay", metavar="JOURNAL",
-                    help="reporter dans LMS l'historique des déplacements d'un journal")
-    lms.add_arguments(ap)
+    ap.add_argument("--lyrion-replay", metavar="JOURNAL",
+                    help="reporter dans Lyrion l'historique des déplacements d'un journal")
+    lyrion.add_arguments(ap)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"),
                     help="dossier d'état (journaux, dernier passage)")
     ap.add_argument("--syslog", action="store_true",
@@ -481,12 +481,12 @@ def run(argv=None, interruptible=True):
     log = Log(args.syslog)
     root = Path(args.root).resolve()
     state_dir = state_path(args.state_dir)
-    db = lms.from_args(args, root, state_dir)
+    db = lyrion.from_args(args, root, state_dir)
 
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
-            if args.lms_replay:
-                return lms_replay(args, db, log), {}
+            if args.lyrion_replay:
+                return lyrion_replay(args, db, log), {}
             if args.undo:
                 return undo(args, root, state_dir, log, db), {}
             return rank(args, argv, root, state_dir, log, interruptible, db)
@@ -646,18 +646,18 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
               "ignorés", "conflits", "fichiers parasites", "dossiers supprimés"):
         if stats[k]:
             log(f"{k:>20} : {stats[k]}")
-    lms_ok = lms_sync(db, done if args.apply else moves, args.apply, log)
+    lyrion_ok = lyrion_sync(db, done if args.apply else moves, args.apply, log)
     if journal.path:
         log(f"{'journal':>20} : {journal.path}")
         log(f"{'annuler':>20} : music-librarian undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
-        if not lms_ok:
-            log(f"{'reprise LMS':>20} : music-librarian range --lms-replay "
+        if not lyrion_ok:
+            log(f"{'reprise Lyrion':>20} : music-librarian range --lyrion-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
 
     code = EXIT_STOPPED if stopped else 2 if stats["conflits"] or stats["ignorés"] else 0
-    if code == 0 and not lms_ok:
-        code = EXIT_LMS
+    if code == 0 and not lyrion_ok:
+        code = EXIT_LYRION
     return code, dict(moves=moves + extra, done=done, journal=journal.path)
 
 

@@ -4,7 +4,7 @@
 music-librarian — point d'entrée unique.
 
   music-librarian range  [options]            rangement (librarian.py)
-  music-librarian import [options]            import de l'Inbox (import_inbox.py)
+  music-librarian import [options]            import de l'Inbox (inbox.py)
   music-librarian undo JOURNAL [options]      annulation d'un passage
   music-librarian watch  [options]            surveillance de l'Inbox (watch.py)
   music-librarian enrich [options]            gain, pochettes, paroles manquants (enrich.py)
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # after sys.path: the /usr/local/bin/music-librarian link is run from anywhere
 # pylint: disable=wrong-import-position
 import enrich  # noqa: E402
-import import_inbox  # noqa: E402
+import inbox  # noqa: E402
 import librarian  # noqa: E402
 import watch  # noqa: E402
 # pylint: enable=wrong-import-position
@@ -34,7 +34,7 @@ def main(argv=None):
     if cmd == "range":
         return librarian.main(rest)
     if cmd == "import":
-        return import_inbox.main(rest)
+        return inbox.main(rest)
     if cmd == "undo":
         if not rest or rest[0].startswith("-"):
             print("usage : music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)

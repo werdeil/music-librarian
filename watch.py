@@ -35,15 +35,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import enrich
-import import_inbox
+import inbox
 import librarian
 from librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
 
 
-def signature(inbox: Path):
+def signature(inbox_dir: Path):
     """Inbox content (names, sizes, dates); None if it is empty or missing."""
     try:
-        items = import_inbox.list_items(inbox)
+        items = inbox.list_items(inbox_dir)
     except FileNotFoundError:
         return None
     return tuple((it.name, tuple(it.snapshot())) for it in items) or None
@@ -132,7 +132,7 @@ def main(argv=None):
         current = signature(args.inbox)
         if date.today() != last_day or (current is not None and current == previous
                                         and current != handled):
-            code = safe(import_inbox.main, import_argv, log, "import")
+            code = safe(inbox.main, import_argv, log, "import")
             if code != EXIT_LOCKED:
                 # an item left in place is only retried once it changes
                 handled, last_day = signature(args.inbox), date.today()

@@ -8,7 +8,7 @@ from datetime import datetime, time
 import pytest
 
 import enrich
-import import_inbox
+import inbox
 import librarian
 import watch
 from librarian import EXIT_LOCKED, EXIT_STOPPED, STOP
@@ -40,7 +40,7 @@ def tools(tmp_path, monkeypatch):
             out.append((name, [sys.executable, "-c", script]))
         return out
 
-    monkeypatch.setattr(import_inbox, "enrichers", enrichers)
+    monkeypatch.setattr(inbox, "enrichers", enrichers)
 
     class T:
         def calls(self):
@@ -128,10 +128,10 @@ def test_enrich_at_format(s):
 
 @pytest.fixture
 def weekly(tmp_path, monkeypatch, ticks):
-    inbox, state = tmp_path / "Inbox", tmp_path / "state"
-    inbox.mkdir()
+    inbox_dir, state = tmp_path / "Inbox", tmp_path / "state"
+    inbox_dir.mkdir()
     state.mkdir()
-    monkeypatch.setattr(import_inbox, "main", lambda argv: 0)
+    monkeypatch.setattr(inbox, "main", lambda argv: 0)
 
     class W:
         clock = [datetime(2026, 10, 17, 12, 0)]     # samedi
@@ -145,7 +145,7 @@ def weekly(tmp_path, monkeypatch, ticks):
             (state / enrich.LAST_RUN).write_text(f"{t.timestamp()}\n")
 
         def run(self, actions, *argv):
-            return ticks(inbox, actions, "--state-dir", str(state),
+            return ticks(inbox_dir, actions, "--state-dir", str(state),
                          "--enrich-at", "dim 03:00", *argv)
 
     w = W()

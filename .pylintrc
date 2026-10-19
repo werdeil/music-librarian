@@ -8,7 +8,7 @@ init-hook="import sys; sys.path.insert(0, '.')"
 # Documented through module docstrings and comments where they add
 # something; systematic docstrings are not enforced.
 # Broad `except Exception` is deliberate resilience: one unreadable file, an
-# import or an LMS write failing must not stop the loop or a whole pass.
+# import or a Lyrion write failing must not stop the loop or a whole pass.
 # dict(...) is used throughout for journal records and tag dicts, and
 # one-line lambdas as tag getters in read_tags/copy_tags.
 # The passes (rank, process, watch's loop) are linear pipelines read top to
@@ -31,7 +31,7 @@ max-line-length=110
 
 [DESIGN]
 # rank() receives the parsed arguments plus the run context (root, state,
-# log, LMS, interruptible); the test fixtures build tracks from tag kwargs.
+# log, Lyrion, interruptible); the test fixtures build tracks from tag kwargs.
 max-args=7
 max-positional-arguments=7
 # music-librarian dispatches each subcommand with its own return.

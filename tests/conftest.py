@@ -19,7 +19,7 @@ CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-
 def clean_env(monkeypatch):
     """Tests must not inherit paths from the Docker image or the host."""
     for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE",
-                "LMS_PERSIST_DB", "LMS_MUSIC_ROOT"):
+                "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -39,7 +39,7 @@ def ticks(monkeypatch):
     import watch
     from librarian import STOP  # pylint: disable=import-outside-toplevel
 
-    def run(inbox, actions, *argv):
+    def run(inbox_dir, actions, *argv):
         todo = list(actions)
 
         def wait(timeout=None):
@@ -50,7 +50,7 @@ def ticks(monkeypatch):
             return STOP.is_set()
 
         monkeypatch.setattr(STOP, "wait", wait)
-        return watch.main(["--inbox", str(inbox), "--interval", "0", *argv])
+        return watch.main(["--inbox", str(inbox_dir), "--interval", "0", *argv])
     return run
 
 

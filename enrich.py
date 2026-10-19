@@ -30,7 +30,7 @@ import sys
 import time
 from pathlib import Path
 
-import import_inbox
+import inbox
 import librarian
 from librarian import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
 
@@ -64,7 +64,7 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="écrire les tags (sinon dry-run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="dossiers par appel d'outil")
-    ap.add_argument("--r128gain", default=import_inbox.R128GAIN)
+    ap.add_argument("--r128gain", default=inbox.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()
     state_dir = librarian.state_path(args.state_dir)
@@ -84,7 +84,7 @@ def enrich_all(args, root, state_dir, log):
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enrichissement de {root} : "
         f"{len(dirs)} dossiers, {len(batches)} lots")
     failed = []
-    for name, cmd in import_inbox.enrichers(args):
+    for name, cmd in inbox.enrichers(args):
         if not args.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICHIR ({name})")

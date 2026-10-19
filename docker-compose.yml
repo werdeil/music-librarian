@@ -35,9 +35,9 @@ services:
       - TZ=${TZ:-Europe/Paris}  # date of the _traités/YYYY-MM-DD folders
       - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?set it in .env}
       - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?set it in .env}
-      # LMS history carried over to moved files, off without LMS_PREFS_DIR
-      - LMS_PERSIST_DB=${LMS_PREFS_DIR:+/lms-prefs/persist.db}
-      - LMS_MUSIC_ROOT=${LMS_MUSIC_ROOT:-}
+      # Lyrion history carried over to moved files, off without LYRION_PREFS_DIR
+      - LYRION_PERSIST_DB=${LYRION_PREFS_DIR:+/lyrion-prefs/persist.db}
+      - LYRION_MUSIC_ROOT=${LYRION_MUSIC_ROOT:-}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,musixmatch,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
     volumes:
@@ -46,8 +46,8 @@ services:
       - ${MUSIC_LIBRARIAN_VOLUME:?set it in .env}:${MUSIC_LIBRARIAN_VOLUME}
       - ./state:/state
       # the whole folder: SQLite also writes persist.db-wal and -shm there;
-      # without LMS, ./state is mounted instead and left unused
-      - ${LMS_PREFS_DIR:-./state}:/lms-prefs
+      # without Lyrion, ./state is mounted instead and left unused
+      - ${LYRION_PREFS_DIR:-./state}:/lyrion-prefs
     # docker stop sends SIGTERM: leave time to finish the current conversion
     # or filing (10 s by default)
     stop_grace_period: 2m

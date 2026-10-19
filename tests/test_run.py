@@ -134,12 +134,12 @@ def test_annexes_stay_when_a_track_is_left_behind(lib, run, make_track):
 
 
 def test_multidisc_flac_from_inbox(tmp_path, lib, run, make_track):
-    inbox = tmp_path / "Inbox/Album"
-    make_track(inbox / "a.flac", title="Un", artist="A", album="B", track=1, disc=1, disctotal=2)
-    make_track(inbox / "b.flac", title="Deux", artist="A", album="B", track=1, disc=2, disctotal=2)
-    assert run(str(inbox), "--apply") == 0
+    inbox_dir = tmp_path / "Inbox/Album"
+    make_track(inbox_dir / "a.flac", title="Un", artist="A", album="B", track=1, disc=1, disctotal=2)
+    make_track(inbox_dir / "b.flac", title="Deux", artist="A", album="B", track=1, disc=2, disctotal=2)
+    assert run(str(inbox_dir), "--apply") == 0
     assert files(lib) == ["A/B/1-01 Un.flac", "A/B/2-01 Deux.flac"]
-    assert inbox.exists()                 # folder passed as an argument: never removed
+    assert inbox_dir.exists()                 # folder passed as an argument: never removed
     assert not (run.state / "last_run").exists()   # partial pass: no last pass
 
 
