@@ -13,14 +13,14 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain (r128gain), la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB, Musixmatch et NetEase. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `range --since` chaque nuit et `enrich` chaque semaine.
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
-- En option, les lectures et notes enregistrées dans le `persist.db` d'un Logitech Media Server suivent les fichiers déplacés au lieu de rester orphelines (voir `lms.py`).
+- En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir `lms.py`).
 
 ## Lancement
 
 Docker est la voie prévue. ffmpeg et r128gain sont dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
 
 ```bash
-cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de LMS
+cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
 mkdir state               # journaux, dernier passage et verrou ; à créer avant le premier lancement
 docker compose build
 docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00
@@ -47,7 +47,7 @@ Sans Docker : Python 3.12, ffmpeg, `pip install -r requirements.txt` et r128gain
 | `MUSIC_LIBRARIAN_ROOT` | Racine de la bibliothèque (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
 | `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image) |
-| `LMS_PERSIST_DB`, `LMS_MUSIC_ROOT` | `persist.db` de LMS et racine de la bibliothèque vue par LMS ; sans eux, l'historique n'est pas reporté |
+| `LMS_PERSIST_DB`, `LMS_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,musixmatch,netease`) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `R128GAIN` | Exécutable r128gain |
