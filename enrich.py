@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-enrich — passage d'enrichissement sur toute la bibliothèque (hebdomadaire).
+enrich — enrichment pass over the whole library (weekly).
 
-Remplace les crons de nuit de l'hôte. Chaque outil ne traite que ce qui manque :
-  - replaygain : r128gain -s, seulement les fichiers sans gain ;
-  - pochettes  : embed_covers.py, seulement si folder.jpg diffère de la pochette
-                 intégrée ;
-  - paroles    : embed_lyrics.py, seulement les fichiers sans paroles (c'est ce
-                 qui rattrape les paroles publiées après l'import).
+Each tool only handles what is missing:
+  - replaygain: r128gain -s, only the files without gain;
+  - covers:     embed_covers.py, only where folder.jpg differs from the embedded
+                cover;
+  - lyrics:     embed_lyrics.py, only the files without lyrics (this is what
+                catches lyrics published after the import).
 
-Les dossiers d'album sont passés aux outils par lots : sur SIGTERM ou Ctrl-C,
-le lot en cours se termine (aucune écriture de tag coupée), le reste est fait
-au passage suivant. En --apply, le verrou est pris : pas de rangement ni
-d'import pendant que les tags sont réécrits.
+Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
+current batch completes (no tag write is cut short) and the rest is done on
+the next pass. With --apply the lock is held: no range or import while tags
+are being rewritten.
 
-  enrich.py                       # dry-run : ce que chaque outil ferait
+  enrich.py                       # dry run: what each tool would do
   enrich.py --apply
 
-La fin d'un passage complet en --apply est notée dans state/enrich_last_run.
+The end of a full --apply pass is recorded in state/enrich_last_run.
 
-Codes retour : 0 = OK, 2 = un outil en échec, 3 = un autre passage est en cours,
-4 = arrêté avant la fin.
+Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
+4 = stopped before the end.
 """
 import argparse
 import contextlib
@@ -30,17 +30,17 @@ import sys
 import time
 from pathlib import Path
 
-import import_inbox
-import music_ranger
-from music_ranger import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
+import inbox
+import librarian
+from librarian import AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, locked
 
 LAST_RUN = "enrich_last_run"
-BATCH = 20  # dossiers par appel d'outil : un lot de paroles prend une à deux minutes
+BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
 DRY = {"replaygain": "--dry-run", "pochettes": "--dry-run", "paroles": "--dry-run"}
 
 
 def album_dirs(root: Path):
-    """Dossiers contenant au moins un fichier audio, dans l'ordre."""
+    """Folders holding at least one audio file, in order."""
     out = []
     for d, dirnames, files in os.walk(root):
         dirnames[:] = sorted(n for n in dirnames if not n.startswith("."))
@@ -59,15 +59,15 @@ def last_run(state_dir: Path):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Enrichit toute la bibliothèque.")
-    root_env = os.environ.get("MUSIC_RANGER_ROOT")
+    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env)
     ap.add_argument("--apply", action="store_true", help="écrire les tags (sinon dry-run)")
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="dossiers par appel d'outil")
-    ap.add_argument("--r128gain", default=import_inbox.R128GAIN)
+    ap.add_argument("--r128gain", default=inbox.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     log = Log()
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
@@ -84,7 +84,7 @@ def enrich_all(args, root, state_dir, log):
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enrichissement de {root} : "
         f"{len(dirs)} dossiers, {len(batches)} lots")
     failed = []
-    for name, cmd in import_inbox.enrichers(args):
+    for name, cmd in inbox.enrichers(args):
         if not args.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICHIR ({name})")
@@ -113,5 +113,5 @@ def enrich_all(args, root, state_dir, log):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

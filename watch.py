@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
 """
-watch — surveille l'Inbox et lance l'import, en continu (processus du conteneur).
+watch — watches the Inbox and runs the import, continuously (the container's process).
 
-Toutes les --interval secondes, la racine de l'Inbox est relue (simple listage,
-la bibliothèque n'est pas parcourue). L'import est lancé quand son contenu n'a
-pas bougé depuis le tour précédent et n'a pas déjà été traité tel quel : pas de
-lancement à chaque tour pendant une copie, ni pour un élément laissé en place.
-Un passage a lieu aussi une fois par jour, Inbox vide comprise, pour purger
-_traités/.
+Every --interval seconds the Inbox root is read again (a plain listing, the
+library is not walked). The import runs once its content has not changed
+since the previous tick and has not already been handled as is: no run on
+every tick during a copy, nor for an item left in place. A pass also runs
+once a day, empty Inbox included, to purge _traités/.
 
-Avec --range-at HH:MM, le rangement des dossiers modifiés (range --since) est
-lancé chaque jour à partir de cette heure, sauf si un passage complet a déjà eu
-lieu depuis (date de state/last_run) : un redémarrage du conteneur ou un
-passage manuel ne le font pas tourner deux fois. Sans dernier passage connu,
-rien n'est lancé (un passage complet est long, il se fait à la main).
+With --range-at HH:MM, the range of changed folders (range --since) runs every
+day from that time, unless a full pass already happened since (state/last_run
+date): a container restart or a manual pass does not make it run twice.
+Without a known last pass nothing runs (a full pass is long, it is done by
+hand).
 
-  watch.py                        # import en dry-run à chaque nouveau dépôt
-  watch.py --apply                # importer réellement
+  watch.py                        # dry-run import on every new drop
+  watch.py --apply                # actually import
   watch.py --apply --range-at 02:00 --enrich-at "dim 03:00"
 
-Avec --enrich-at "JOUR HH:MM", l'enrichissement de toute la bibliothèque
-(enrich.py : gain, pochettes, paroles manquants) est lancé chaque semaine à
-partir de ce créneau, sauf s'il a déjà eu lieu depuis (state/enrich_last_run).
-Sans passage connu, le premier a lieu au créneau suivant, pas au démarrage.
+With --enrich-at "DAY HH:MM" (French day names), the enrichment of the whole
+library (enrich.py: missing gain, covers, lyrics) runs every week from that
+slot, unless it already ran since (state/enrich_last_run). Without a known
+pass, the first one runs at the next slot, not at startup.
 
-Les autres options sont passées à l'import (--settle, --no-enrich…) ; --root et
---state-dir le sont aussi au rangement.
-Sur SIGTERM ou Ctrl-C, le passage en cours s'arrête proprement, puis la boucle.
+Other options are passed to the import (--settle, --no-enrich…); --root and
+--state-dir are passed to range too.
+On SIGTERM or Ctrl-C, the current pass stops cleanly, then the loop.
 """
 import argparse
 import os
@@ -36,15 +35,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import enrich
-import import_inbox
-import music_ranger
-from music_ranger import EXIT_LOCKED, LAST_RUN, STOP, Log
+import inbox
+import librarian
+from librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
 
 
-def signature(inbox: Path):
-    """Contenu de l'Inbox (noms, tailles, dates) ; None si elle est vide ou absente."""
+def signature(inbox_dir: Path):
+    """Inbox content (names, sizes, dates); None if it is empty or missing."""
     try:
-        items = import_inbox.list_items(inbox)
+        items = inbox.list_items(inbox_dir)
     except FileNotFoundError:
         return None
     return tuple((it.name, tuple(it.snapshot())) for it in items) or None
@@ -72,7 +71,7 @@ def weekly(s):
 
 
 def last_slot(t: datetime, day, at):
-    """Dernier créneau hebdomadaire passé (ou en cours) à l'instant t."""
+    """Last weekly slot passed (or in progress) at time t."""
     slot = datetime.combine(t.date() - timedelta(days=(t.weekday() - day) % 7), at)
     return slot if slot <= t else slot - timedelta(days=7)
 
@@ -98,8 +97,9 @@ def safe(fn, argv, log, what):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Surveille l'Inbox et lance l'import.")
-    ap.add_argument("--inbox", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_INBOX", "/media/werdeil/internal_drive/Inbox_Musique"))
+    inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
+    ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
+                    help="dossier de dépôt (défaut : $MUSIC_LIBRARIAN_INBOX)")
     ap.add_argument("--interval", type=float, default=30,
                     help="secondes entre deux lectures de l'Inbox")
     ap.add_argument("--apply", action="store_true", help="importer et ranger (sinon dry-run)")
@@ -117,7 +117,7 @@ def main(argv=None):
     import_argv = ["--inbox", str(args.inbox), *rest, *common]
     range_argv = ["--since", *common]
     enrich_argv = list(common)
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     started = now().timestamp()
 
     log = Log()
@@ -132,9 +132,9 @@ def main(argv=None):
         current = signature(args.inbox)
         if date.today() != last_day or (current is not None and current == previous
                                         and current != handled):
-            code = safe(import_inbox.main, import_argv, log, "import")
+            code = safe(inbox.main, import_argv, log, "import")
             if code != EXIT_LOCKED:
-                # un élément resté en place n'est repris que s'il change
+                # an item left in place is only retried once it changes
                 handled, last_day = signature(args.inbox), date.today()
             log("")
         previous = current
@@ -151,18 +151,18 @@ def main(argv=None):
                         f"{state_dir} (lancer une fois « range --apply » à la main)")
                     warned_day = t.date()
             elif last >= slot.timestamp():
-                range_day = t.date()      # passage complet déjà fait depuis l'heure prévue
+                range_day = t.date()      # full pass already done since the scheduled time
             else:
                 log(f"RANGEMENT de nuit (dossiers modifiés depuis le "
                     f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-                code = safe(music_ranger.main, range_argv, log, "rangement")
-                if code != EXIT_LOCKED:   # verrou pris par un import : tour suivant
+                code = safe(librarian.main, range_argv, log, "rangement")
+                if code != EXIT_LOCKED:   # lock held by an import: next tick
                     range_day = t.date()
                 log("")
 
         if args.enrich_at and not STOP.is_set():
             slot = last_slot(now(), *args.enrich_at)
-            # sans passage connu : le premier a lieu au créneau suivant
+            # no known pass: the first one runs at the next slot
             last = enrich.last_run(state_dir) or started
             if last < slot.timestamp() and enrich_slot != slot:
                 log(f"ENRICHISSEMENT hebdomadaire (créneau du {slot:%Y-%m-%d %H:%M})")
@@ -176,5 +176,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

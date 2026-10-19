@@ -1,6 +1,6 @@
-"""Import depuis l'Inbox, sur de vrais fichiers créés par ffmpeg."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
-# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
+"""Import from the Inbox, on real files created by ffmpeg."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+# pylint: disable=attribute-defined-outside-init  # fixture environment objects
 import subprocess
 import sys
 from datetime import date
@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from mutagen.mp4 import MP4
 
-import import_inbox
+import inbox
 
 TODAY = date.today().isoformat()
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
@@ -16,20 +16,20 @@ JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    inbox, lib, state = tmp_path / "Inbox_Musique", tmp_path / "Musique", tmp_path / "state"
-    inbox.mkdir()
+    inbox_dir, lib, state = tmp_path / "Inbox_Musique", tmp_path / "Musique", tmp_path / "state"
+    inbox_dir.mkdir()
     lib.mkdir()
     calls = tmp_path / "enrich.log"
     script = f"import sys; open({str(calls)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')"
-    monkeypatch.setattr(import_inbox, "enrichers",
+    monkeypatch.setattr(inbox, "enrichers",
                         lambda args: [("faux", [sys.executable, "-c", script])])
 
     class Env:
         pass
 
     e = Env()
-    e.inbox, e.lib, e.calls = inbox, lib, calls
-    e.run = lambda *a: import_inbox.main(["--inbox", str(inbox), "--root", str(lib),
+    e.inbox, e.lib, e.calls = inbox_dir, lib, calls
+    e.run = lambda *a: inbox.main(["--inbox", str(inbox_dir), "--root", str(lib),
                                           "--state-dir", str(state), "--settle", "0", *a])
     return e
 
@@ -72,9 +72,9 @@ def test_flac_album_imported(env, make_track):
     assert bytes(t["covr"][0]) == JPEG
     assert bytes(t["----:com.apple.iTunes:MUSICBRAINZ_TRACKID"][0]) == b"abc"
     assert not any("REPLAYGAIN" in k.upper() for k in t.keys())
-    assert import_inbox.probe(env.lib / "A/B/01 Un.m4a")[0] == "alac"
+    assert inbox.probe(env.lib / "A/B/01 Un.m4a")[0] == "alac"
 
-    # l'original, FLAC compris, est gardé dans _traités/ ; l'Inbox reste
+    # the original, FLAC included, is kept in _traités/; the Inbox stays
     assert files(env.inbox) == [f"_traités/{TODAY}/Album/folder.jpg",
                                 f"_traités/{TODAY}/Album/x1.flac",
                                 f"_traités/{TODAY}/Album/x2.flac"]
@@ -82,14 +82,14 @@ def test_flac_album_imported(env, make_track):
 
 
 def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
-    # cas réel : Salut C'est Cool - Mon premier EP
+    # real case: Salut C'est Cool - Mon premier EP
     d = flac_album(env, make_track)
     (d / "folder.jpg").rename(d / "cover.jpg")
     (d / "info.txt").write_text("source")
     (d / "Booklet.pdf").write_bytes(b"pdf")
     (d / "1.lrc").write_text("[00:01]la")
 
-    assert env.run() == 0                           # dry-run : même résultat annoncé
+    assert env.run() == 0                           # dry run: same result announced
     out = capsys.readouterr().out
     assert "POCHETTE cover.jpg → folder.jpg" in out and "LAISSÉ   info.txt" in out
     assert "A/B/folder.jpg" in out and "A/B/info.txt" not in out
@@ -98,7 +98,7 @@ def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
     assert files(env.lib) == ["A/B/01 Un.m4a", "A/B/02 Deux.m4a", "A/B/1.lrc",
                               "A/B/Booklet.pdf", "A/B/folder.jpg"]
     assert (env.lib / "A/B/folder.jpg").read_bytes() == JPEG
-    # l'original reste entier dans _traités/, info.txt compris
+    # the original stays whole in _traités/, info.txt included
     assert f"_traités/{TODAY}/Album/info.txt" in files(env.inbox)
     assert f"_traités/{TODAY}/Album/cover.jpg" in files(env.inbox)
 
@@ -172,8 +172,8 @@ def test_already_in_library_rejected(env, make_track):
 
 def test_duration_mismatch_rejected(env, make_track, monkeypatch):
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
-    real = import_inbox.probe
-    monkeypatch.setattr(import_inbox, "probe", lambda p: (
+    real = inbox.probe
+    monkeypatch.setattr(inbox, "probe", lambda p: (
         real(p)[0], 1.0 if p.suffix == ".flac" else 2.0))
     assert env.run("--apply") == 2
     assert files(env.lib) == []
@@ -190,8 +190,8 @@ def test_errors_name_collision(env, make_track):
 
 def test_busy_item_waits(env, make_track, monkeypatch):
     p = make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
-    # la copie continue pendant l'attente
-    monkeypatch.setattr(import_inbox.time, "sleep", lambda s: p.open("ab").write(b"x"))
+    # the copy goes on during the wait
+    monkeypatch.setattr(inbox.time, "sleep", lambda s: p.open("ab").write(b"x"))
     assert env.run("--settle", "1", "--apply") == 0
     assert p.exists() and files(env.lib) == []
 
@@ -208,7 +208,7 @@ def test_purge_old_done(env, capsys):
 
 
 def test_enrich_failure_reported(env, make_track, monkeypatch):
-    monkeypatch.setattr(import_inbox, "enrichers",
+    monkeypatch.setattr(inbox, "enrichers",
                         lambda args: [("raté", [sys.executable, "-c", "raise SystemExit(1)"])])
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 2

@@ -1,17 +1,17 @@
 """
-lms — reporte dans la base de LMS (persist.db) l'historique des fichiers déplacés.
+lyrion — carries the history of moved files over in the Lyrion database (persist.db).
 
-LMS rattache lectures et note à l'URL du fichier (tables tracks_persistent et
-alternativeplaycount, clé urlmd5 = md5 de l'URL). Après un renommage, il crée
-une entrée neuve et l'ancienne reste orpheline. Pour chaque déplacement :
-  - l'ancienne entrée prend la nouvelle URL, si LMS n'a pas encore vu le fichier ;
-  - sinon ses compteurs sont reportés sur l'entrée neuve, puis elle est supprimée.
+Lyrion keys play counts and ratings on the file URL (tables tracks_persistent and
+alternativeplaycount, key urlmd5 = md5 of the URL). After a rename it creates a
+fresh entry and the old one is left orphaned. For each move:
+  - the old entry takes the new URL, if Lyrion has not seen the file yet;
+  - otherwise its counters are merged into the new entry, then it is deleted.
 
-LMS peut rester allumé : écriture en place par SQLite, en une transaction
-courte, après une copie de sauvegarde de la base (WAL compris).
+Lyrion can stay up: SQLite writes in place, in one short transaction, after a
+backup copy of the database (WAL included).
 
-Réglages : --lms-db / $LMS_PERSIST_DB (désactivé sans), --lms-root /
-$LMS_MUSIC_ROOT = la racine de la bibliothèque telle que LMS la voit.
+Settings: --lyrion-db / $LYRION_PERSIST_DB (off without it), --lyrion-root /
+$LYRION_MUSIC_ROOT = the library root as Lyrion sees it.
 """
 import hashlib
 import os
@@ -20,13 +20,13 @@ import time
 from pathlib import Path
 from urllib.parse import quote
 
-BACKUPS, KEEP_BACKUPS = "lms-backups", 14
-# caractères laissés tels quels dans les URL de LMS (relevé sur toute la base)
+BACKUPS, KEEP_BACKUPS = "lyrion-backups", 14
+# characters Lyrion leaves as is in its URLs (checked over the whole database)
 URL_SAFE = "-_.!~*()/:@&=+$,[]"
-BUSY_TIMEOUT = 60  # secondes d'attente si LMS écrit au même moment
+BUSY_TIMEOUT = 60  # seconds to wait if Lyrion is writing at the same time
 
 TABLES = {
-    # table : (colonnes additionnées, colonnes au plus récent, colonnes reprises si vides)
+    # table: (summed columns, latest-value columns, columns filled in if empty)
     "tracks_persistent": (("playCount",), ("lastPlayed", "lastRated"),
                           ("rating", "prevRating", "musicbrainz_id")),
     "alternativeplaycount": (("playCount", "skipCount"), ("lastPlayed", "lastSkipped"),
@@ -35,33 +35,33 @@ TABLES = {
 
 
 def add_arguments(ap):
-    ap.add_argument("--lms-db", default=os.environ.get("LMS_PERSIST_DB"),
-                    help="persist.db de LMS, pour y reporter l'historique des fichiers "
-                         "déplacés (défaut : $LMS_PERSIST_DB, sinon désactivé)")
-    ap.add_argument("--lms-root", default=os.environ.get("LMS_MUSIC_ROOT"),
-                    help="racine de la bibliothèque vue par LMS (défaut : $LMS_MUSIC_ROOT)")
+    ap.add_argument("--lyrion-db", default=os.environ.get("LYRION_PERSIST_DB"),
+                    help="persist.db de Lyrion, pour y reporter l'historique des fichiers "
+                         "déplacés (défaut : $LYRION_PERSIST_DB, sinon désactivé)")
+    ap.add_argument("--lyrion-root", default=os.environ.get("LYRION_MUSIC_ROOT"),
+                    help="racine de la bibliothèque vue par Lyrion (défaut : $LYRION_MUSIC_ROOT)")
 
 
 def from_args(args, root: Path, state_dir: Path):
-    if not args.lms_db:
+    if not args.lyrion_db:
         return None
-    if not args.lms_root:
-        raise SystemExit("--lms-db demande --lms-root (ou $LMS_MUSIC_ROOT)")
-    return Lms(Path(args.lms_db), args.lms_root, root, state_dir / BACKUPS)
+    if not args.lyrion_root:
+        raise SystemExit("--lyrion-db demande --lyrion-root (ou $LYRION_MUSIC_ROOT)")
+    return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS)
 
 
-class Lms:
-    def __init__(self, db: Path, lms_root, root: Path, backup_dir: Path):
-        self.db, self.lms_root, self.root = db, os.fsencode(lms_root).rstrip(b"/"), root
+class Lyrion:
+    def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path):
+        self.db, self.lyrion_root, self.root = db, os.fsencode(lyrion_root).rstrip(b"/"), root
         self.backup_dir = backup_dir
 
     def url(self, path: Path):
-        """URL de LMS pour un fichier de la bibliothèque ; None s'il est hors de --root."""
+        """Lyrion URL for a library file; None if it is outside --root."""
         try:
             rel = Path(path).relative_to(self.root)
         except ValueError:
             return None
-        return "file://" + quote(self.lms_root + b"/" + os.fsencode(rel), safe=URL_SAFE)
+        return "file://" + quote(self.lyrion_root + b"/" + os.fsencode(rel), safe=URL_SAFE)
 
     def pairs(self, moves, audio_ext):
         out = []
@@ -95,8 +95,8 @@ class Lms:
         return dest
 
     def sync(self, pairs, apply):
-        """Reporte l'historique ; renvoie {"renommées": n, "fusionnées": n, ...}.
-        En dry-run, rien n'est écrit (la base est ouverte en lecture seule)."""
+        """Carry the history over; returns {"renommées": n, "fusionnées": n, ...}.
+        In a dry run nothing is written (the database is opened read-only)."""
         stats = dict.fromkeys(("renommées", "fusionnées", "sans historique"), 0)
         if not pairs:
             return stats
@@ -105,7 +105,7 @@ class Lms:
         con = self._connect(readonly=not apply)
         try:
             if apply:
-                con.execute("BEGIN IMMEDIATE")  # LMS ne peut pas insérer entre-temps
+                con.execute("BEGIN IMMEDIATE")  # Lyrion cannot insert in between
             for old, new in pairs:
                 kinds = {self._move(con, t, old, new, apply) for t in TABLES}
                 kinds.discard(None)
@@ -144,7 +144,7 @@ class Lms:
                 vals["added"] = min((x for x in (row["added"], cur["added"]) if x is not None),
                                     default=None)
             if "dynPSval" in cols:
-                # la note dynamique du plugin : celle de l'entrée qui a le plus d'événements
+                # the plugin's dynamic rating: the one of the entry with the most events
                 ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)
                 vals["dynPSval"] = (cur if ev(cur) >= ev(row) else row)["dynPSval"]
             sets = ", ".join(f"{c} = ?" for c in vals)

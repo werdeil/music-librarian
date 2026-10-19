@@ -1,12 +1,12 @@
-"""Passages complets sur une mini-bibliothèque : dry-run, apply, undo, --since."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+"""Full passes over a small library: dry run, apply, undo, --since."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import json
 import os
 import time
 
 import pytest
 
-import music_ranger
+import librarian
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def run(tmp_path, lib):
     state = tmp_path / "state"
 
     def run(*args):
-        return music_ranger.main(["--root", str(lib), "--state-dir", str(state), *args])
+        return librarian.main(["--root", str(lib), "--state-dir", str(state), *args])
 
     run.state = state
     return run
@@ -57,21 +57,21 @@ def test_apply_then_undo(lib, run, make_track, capsys):
     assert not (lib / "vrac").exists()
 
     [j] = journals(run)
-    # commande d'annulation prête à copier, valable dans le conteneur
-    assert f"music-ranger undo {j} --root {lib} --apply" in capsys.readouterr().out
+    # undo command ready to copy, valid in the container
+    assert f"music-librarian undo {j} --root {lib} --apply" in capsys.readouterr().out
     recs = [json.loads(line) for line in j.read_text().splitlines()]
     assert recs[0]["type"] == "meta"
     assert len([r for r in recs if r["type"] == "move"]) == 3
 
-    # undo en dry-run : rien ne bouge
+    # dry-run undo: nothing moves
     assert run("--undo", str(j)) == 0
     assert "A/B/01 Un.m4a" in files(lib)
 
     assert run("--undo", str(j), "--apply") == 0
-    # le parasite supprimé n'est pas restauré
+    # the deleted junk file is not restored
     assert files(lib) == ["C/D/01 Rien.m4a", "vrac/1.m4a", "vrac/2.m4a", "vrac/folder.jpg"]
     assert not (lib / "A").exists()
-    # l'annulation a son propre journal
+    # the undo has its own journal
     assert len(journals(run)) == 2
 
 
@@ -127,20 +127,20 @@ def test_coherent_compilation(lib, run, make_track):
 
 def test_annexes_stay_when_a_track_is_left_behind(lib, run, make_track):
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
-    make_track(lib / "vrac/2.m4a", artist="A", album="B", track=2)   # pas de titre
+    make_track(lib / "vrac/2.m4a", artist="A", album="B", track=2)   # no title
     (lib / "vrac/folder.jpg").write_bytes(b"jpg")
     assert run("--apply") == 2
     assert files(lib) == ["A/B/01 Un.m4a", "vrac/2.m4a", "vrac/folder.jpg"]
 
 
 def test_multidisc_flac_from_inbox(tmp_path, lib, run, make_track):
-    inbox = tmp_path / "Inbox/Album"
-    make_track(inbox / "a.flac", title="Un", artist="A", album="B", track=1, disc=1, disctotal=2)
-    make_track(inbox / "b.flac", title="Deux", artist="A", album="B", track=1, disc=2, disctotal=2)
-    assert run(str(inbox), "--apply") == 0
+    inbox_dir = tmp_path / "Inbox/Album"
+    make_track(inbox_dir / "a.flac", title="Un", artist="A", album="B", track=1, disc=1, disctotal=2)
+    make_track(inbox_dir / "b.flac", title="Deux", artist="A", album="B", track=1, disc=2, disctotal=2)
+    assert run(str(inbox_dir), "--apply") == 0
     assert files(lib) == ["A/B/1-01 Un.flac", "A/B/2-01 Deux.flac"]
-    assert inbox.exists()                 # dossier passé en argument : jamais supprimé
-    assert not (run.state / "last_run").exists()   # passage partiel : pas de dernier passage
+    assert inbox_dir.exists()                 # folder passed as an argument: never removed
+    assert not (run.state / "last_run").exists()   # partial pass: no last pass
 
 
 def test_target_conflict(lib, run, make_track):
@@ -151,17 +151,17 @@ def test_target_conflict(lib, run, make_track):
 
 
 def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkeypatch):
-    monkeypatch.setattr(music_ranger, "SINCE_MARGIN", 0.05)  # passages rapprochés
+    monkeypatch.setattr(librarian, "SINCE_MARGIN", 0.05)  # passes close together
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
     make_track(lib / "A/C/01 Deux.m4a", title="Deux", artist="A", album="C", track=1)
-    time.sleep(0.2)  # plus anciens que la marge de last_run
-    # premier passage : pas d'état, tout est traité
+    time.sleep(0.2)  # older than the last_run margin
+    # first pass: no state, everything is processed
     assert run("--since", "--apply") == 0
     assert "pas de dernier passage" in capsys.readouterr().out
     assert (run.state / "last_run").exists()
 
     time.sleep(0.05)
-    # tag modifié dans A/B (comme depuis le Mac) : l'album change
+    # tag changed in A/B (as from the Mac): the album changes
     from mutagen.mp4 import MP4  # pylint: disable=import-outside-toplevel
     f = MP4(lib / "A/B/01 Un.m4a")
     f["\xa9alb"] = ["Nouveau"]
@@ -169,16 +169,15 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkey
 
     assert run("--since", "--apply") == 0
     out = capsys.readouterr().out
-    assert "analysés : 1" in out          # A/C n'a pas été relu
+    assert "analysés : 1" in out          # A/C was not read again
     assert files(lib) == ["A/C/01 Deux.m4a", "A/Nouveau/01 Un.m4a"]
 
-    # le déplacement a mis à jour la ctime : le fichier est relu une fois, en place
-    # (même si la ctime, posée par une horloge plus grossière, précède de quelques
-    # ms le début noté du passage : cas vu sur la CI)
+    # the move updated the ctime: the file is read once more, in place (even when
+    # the ctime, from a coarser clock, is a few ms before the pass start: seen on CI)
     assert run("--since", "--apply") == 0
     assert "en place : 1" in capsys.readouterr().out
 
-    # rien n'a changé depuis : rien n'est relu
+    # nothing changed since: nothing is read again
     time.sleep(0.2)
     assert run("--since", "--apply") == 0
     capsys.readouterr()
@@ -188,9 +187,9 @@ def test_since_only_rescans_changed_folders(lib, run, make_track, capsys, monkey
 
 def test_last_run_keeps_a_margin(lib, run, make_track, monkeypatch):
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
-    monkeypatch.setattr(music_ranger.time, "time", lambda: 1000.0)
+    monkeypatch.setattr(librarian.time, "time", lambda: 1000.0)
     assert run("--apply") == 0
-    assert float((run.state / "last_run").read_text()) == 1000.0 - music_ranger.SINCE_MARGIN
+    assert float((run.state / "last_run").read_text()) == 1000.0 - librarian.SINCE_MARGIN
 
 
 def test_since_dry_run_does_not_advance(lib, run, make_track):

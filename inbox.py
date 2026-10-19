@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 """
-import_inbox — importe dans la bibliothèque ce qui est déposé dans l'Inbox.
+inbox — imports what is dropped in the Inbox into the library.
 
-Pour chaque élément de l'Inbox (un dossier d'album, ou un fichier en vrac) :
-  1. conversion FLAC → ALAC (ffmpeg pour l'audio, mutagen pour les tags et la
-     pochette), contrôle de la durée (ffprobe) et des tags ;
-  2. rangement avec music_ranger, tout ou rien : au moindre problème l'élément
-     part entier dans _erreurs/ ;
-  3. enrichissement (ReplayGain, pochette, paroles) des seuls dossiers cibles ;
-  4. l'élément d'origine (FLAC compris) part dans _traités/AAAA-MM-JJ/, purgé
-     après 7 jours.
+For each Inbox item (an album folder, or a loose file):
+  1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
+     artwork), duration (ffprobe) and tag checks;
+  2. filing with librarian, all or nothing: on any problem the whole item
+     goes to _erreurs/;
+  3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
+  4. the original item (FLAC included) goes to _traités/YYYY-MM-DD/, purged
+     after 7 days.
 
-Dry-run par défaut. --apply pour exécuter réellement.
+Dry run by default. --apply to actually do it.
 
-  import_inbox.py                 # voir ce qui serait fait
-  import_inbox.py --apply         # importer
+  inbox.py                 # see what would be done
+  inbox.py --apply         # import
 
-Chemins : --inbox / $MUSIC_RANGER_INBOX, --root / $MUSIC_RANGER_ROOT.
-Un seul passage en --apply à la fois (verrou partagé avec music_ranger). Sur
-SIGTERM ou Ctrl-C, l'élément en cours de rangement est terminé ; celui en cours
-de conversion et les suivants restent dans l'Inbox pour le prochain passage.
+Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
+One --apply pass at a time (lock shared with librarian). On SIGTERM or
+Ctrl-C, the item being filed is completed; the one being converted and the
+following ones stay in the Inbox for the next pass.
 
-Codes retour : 0 = OK, 2 = au moins un élément en erreur ou un enrichissement raté,
-3 = un autre passage est en cours, 4 = arrêté avant la fin.
+Exit codes: 0 = OK, 2 = at least one item failed or an enrichment failed,
+3 = another pass is running, 4 = stopped before the end.
 """
 import argparse
 import contextlib
@@ -40,41 +40,41 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
-import music_ranger
-from music_ranger import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
+import librarian
+from librarian import (AUDIO_EXT, EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, Log, is_junk,
                           locked, read_tags)
 
 HERE = Path(__file__).resolve().parent
 ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
 RESERVED = {ERRORS, DONE, WORK}
-# formats audio reconnus mais non gérés : l'élément part dans _erreurs
+# audio formats recognized but not handled: the item goes to _erreurs
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
-# annexes qui suivent l'album dans la bibliothèque ; les autres (.txt, .nfo,
-# .log…) restent avec l'original dans _traités/
+# side files that follow the album into the library; the others (.txt, .nfo,
+# .log…) stay with the original in _traités/
 ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
-# pochettes renommées en folder.jpg (le nom de la bibliothèque, et celui que
-# cherche embed_covers.py), sauf si le dossier en a déjà un
+# covers renamed to folder.jpg (the library's name, and the one embed_covers.py
+# looks for), unless the folder already has one
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
-R128GAIN = os.environ.get("R128GAIN", "/opt/venvs/r128gain/bin/r128gain")
-MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
-OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
+R128GAIN = os.environ.get("R128GAIN", "r128gain")
+MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
+OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # outcome of an item
 
 
 class Reject(Exception):
-    """Problème sur un élément : il part dans _erreurs."""
+    """Problem with an item: it goes to _erreurs."""
 
 
 class Stopped(Exception):
-    """Arrêt demandé pendant la préparation d'un élément : il reste dans l'Inbox."""
+    """Stop requested while an item is being prepared: it stays in the Inbox."""
 
 
-# ---------- éléments de l'Inbox ----------
+# ---------- Inbox items ----------
 
 class Item:
     def __init__(self, path: Path):
-        self.path = path                      # dossier d'album ou fichier en vrac
+        self.path = path                      # album folder or loose file
         self.name = path.name
         self.is_dir = path.is_dir()
 
@@ -107,8 +107,8 @@ def list_items(inbox: Path):
 
 
 def stable_items(items, settle):
-    """Garde les éléments dont aucun fichier n'a changé pendant `settle` secondes
-    (copie terminée)."""
+    """Keep the items where no file changed for `settle` seconds (copy
+    finished)."""
     if settle <= 0:
         return items, []
     before = {it.name: it.snapshot() for it in items}
@@ -120,7 +120,7 @@ def stable_items(items, settle):
 
 
 def free_name(d: Path, name, is_dir=True):
-    """d/name, ou d/name (2), (3)… si déjà pris."""
+    """d/name, or d/name (2), (3)… if already taken."""
     stem, ext = (name, "") if is_dir else os.path.splitext(name)
     p, i = d / name, 2
     while p.exists():
@@ -132,7 +132,7 @@ def free_name(d: Path, name, is_dir=True):
 # ---------- ffprobe / conversion ----------
 
 def probe(p: Path):
-    """(codec audio, durée en secondes)"""
+    """(audio codec, duration in seconds)"""
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                           "format=duration:stream=codec_type,codec_name", "-of", "json", str(p)],
                          capture_output=True, text=True, check=True)
@@ -142,8 +142,8 @@ def probe(p: Path):
     return codec, float(j.get("format", {}).get("duration") or 0)
 
 
-# Vorbis (FLAC) → MP4. Le reste est gardé en champ libre iTunes, sauf
-# REPLAYGAIN_* : r128gain recalcule le gain comme pour le reste de la bibliothèque.
+# Vorbis (FLAC) → MP4. The rest is kept as iTunes freeform fields, except
+# REPLAYGAIN_*: r128gain computes the gain as for the rest of the library.
 MP4_TEXT = {
     "title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "album artist": "aART",
     "album": "\xa9alb", "date": "\xa9day", "genre": "\xa9gen", "composer": "\xa9wrt",
@@ -166,7 +166,7 @@ def copy_tags(flac: FLAC, mp4: MP4):
             mp4.tags[f"----:com.apple.iTunes:{k.upper()}"] = [
                 MP4FreeForm(x.encode("utf-8")) for x in v]
 
-    num = lambda *ks: next((music_ranger.parse_pair(keys[k][0]) for k in ks if k in keys),
+    num = lambda *ks: next((librarian.parse_pair(keys[k][0]) for k in ks if k in keys),
                            (None, None))
     trk, trk_total = num("tracknumber")
     disc, disc_total = num("discnumber")
@@ -182,7 +182,7 @@ def copy_tags(flac: FLAC, mp4: MP4):
     if bpm:
         mp4.tags["tmpo"] = [bpm]
 
-    pics = sorted(flac.pictures, key=lambda p: p.type != 3)   # pochette avant d'abord
+    pics = sorted(flac.pictures, key=lambda p: p.type != 3)   # front cover first
     if pics:
         fmt = MP4Cover.FORMAT_PNG if pics[0].mime == "image/png" else MP4Cover.FORMAT_JPEG
         mp4.tags["covr"] = [MP4Cover(pics[0].data, imageformat=fmt)]
@@ -193,7 +193,7 @@ CHECKED = ("albumartist", "artist", "album", "title", "track", "disc", "disctota
 
 
 def convert(src: Path, dst: Path):
-    """FLAC → ALAC, puis contrôles. Lève Reject si quelque chose cloche."""
+    """FLAC → ALAC, then checks. Raises Reject if anything is off."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
                         "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
@@ -222,10 +222,10 @@ def convert(src: Path, dst: Path):
         raise Reject(f"pochette perdue à la conversion de {src.name}")
 
 
-# ---------- enrichissement ----------
+# ---------- enrichment ----------
 
 def enrichers(args):
-    """(nom, commande) appelées avec les dossiers cibles en arguments."""
+    """(name, command) called with the target folders as arguments."""
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
         ("pochettes", [sys.executable, str(HERE / "embed_covers.py")]),
@@ -249,7 +249,7 @@ def enrich(args, dirs, log):
     return ok
 
 
-# ---------- traitement d'un élément ----------
+# ---------- item processing ----------
 
 def ranger(args, paths, apply, quiet=False):
     argv = ["--root", str(args.root), *map(str, paths)]
@@ -259,19 +259,19 @@ def ranger(args, paths, apply, quiet=False):
         argv += ["--state-dir", args.state_dir]
     if args.syslog and not quiet:
         argv.append("--syslog")
-    # interruptible=False : un élément est rangé en entier ou pas du tout
+    # interruptible=False: an item is filed entirely or not at all
     if not quiet:
-        return music_ranger.run(argv, interruptible=False)
+        return librarian.run(argv, interruptible=False)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code, report = music_ranger.run(argv, interruptible=False)
+        code, report = librarian.run(argv, interruptible=False)
     report["output"] = buf.getvalue()
     return code, report
 
 
 def classify(item):
-    """(flac, autres audio acceptés, annexes, laissés, parasites). Lève Reject
-    pour un format non géré."""
+    """(flac, other accepted audio, side files, left behind, junk). Raises
+    Reject for an unhandled format."""
     flacs, audio, annexes, left, junk = [], [], [], [], []
     for p in item.files():
         ext = p.suffix.lower()
@@ -297,7 +297,7 @@ def classify(item):
 
 
 def annex_names(item, annexes):
-    """Nom relatif de chaque annexe dans la bibliothèque : cover.jpg → folder.jpg."""
+    """Relative name of each side file in the library: cover.jpg → folder.jpg."""
     has_cover = {item.rel(p).parent for p in annexes if p.name.lower() == COVER}
     out = {}
     for p in annexes:
@@ -312,7 +312,7 @@ def annex_names(item, annexes):
 def link_or_copy(src: Path, dst: Path):
     dst.parent.mkdir(parents=True, exist_ok=True)
     try:
-        os.link(src, dst)        # même disque : instantané, l'original reste intact
+        os.link(src, dst)        # same disk: instant, the original stays intact
     except OSError:
         shutil.copy2(src, dst)
 
@@ -326,7 +326,7 @@ def to_errors(args, item, reason, log):
 
 
 def process(args, item, log):
-    """Renvoie (OK | FAILED | STOPPED, dossiers cibles)."""
+    """Return (OK | FAILED | STOPPED, target folders)."""
     try:
         flacs, audio, annexes, left, junk = classify(item)
     except (Reject, subprocess.CalledProcessError, ValueError) as e:
@@ -366,7 +366,7 @@ def process(args, item, log):
             f"élément laissé en place")
         return FAILED, set()
 
-    # 1. Dossier de travail : FLAC convertis, ALAC/MP3 et annexes liés.
+    # 1. Work folder: converted FLAC, hard-linked ALAC/MP3 and side files.
     try:
         for p in flacs:
             if STOP.is_set():
@@ -380,7 +380,7 @@ def process(args, item, log):
         code, report = ranger(args, [work], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
-            raise Reject("refusé par music_ranger (voir ci-dessus)")
+            raise Reject("refusé par le rangement (voir ci-dessus)")
     except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
         with contextlib.suppress(OSError):
@@ -391,7 +391,7 @@ def process(args, item, log):
         to_errors(args, item, e, log)
         return FAILED, set()
 
-    # 2. Rangement réel.
+    # 2. Actual filing.
     code, report = ranger(args, [work], apply=True)
     if code:
         log(f"ERREUR   {item.name} : rangement incomplet, élément et {work} laissés "
@@ -399,8 +399,8 @@ def process(args, item, log):
         return FAILED, set()
     targets = {dst.parent for src, dst in report["done"] if dst.suffix.lower() in AUDIO_EXT}
 
-    # 3. L'original part dans _traités/ ; ce qui reste dans le dossier de travail
-    #    (annexes qui n'ont pas suivi) le rejoint.
+    # 3. The original goes to _traités/; what is left in the work folder (side
+    #    files that did not follow) joins it.
     day = args.inbox / DONE / date.today().isoformat()
     day.mkdir(parents=True, exist_ok=True)
     kept = free_name(day, item.name, item.is_dir)
@@ -436,21 +436,22 @@ def purge(args, log):
                 shutil.rmtree(p)
 
 
-# ---------- programme principal ----------
+# ---------- main ----------
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Importe l'Inbox dans la bibliothèque.")
-    ap.add_argument("--inbox", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_INBOX", "/media/werdeil/internal_drive/Inbox_Musique"))
-    ap.add_argument("--root", type=Path, default=os.environ.get(
-        "MUSIC_RANGER_ROOT", "/media/werdeil/internal_drive/Musique"))
+    inbox_env, root_env = os.environ.get("MUSIC_LIBRARIAN_INBOX"), os.environ.get("MUSIC_LIBRARIAN_ROOT")
+    ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
+                    help="dossier de dépôt (défaut : $MUSIC_LIBRARIAN_INBOX)")
+    ap.add_argument("--root", type=Path, default=root_env, required=not root_env,
+                    help="racine de la bibliothèque (défaut : $MUSIC_LIBRARIAN_ROOT)")
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--settle", type=float, default=10,
                     help="secondes sans changement avant de traiter un élément")
     ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
     ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
     ap.add_argument("--r128gain", default=R128GAIN)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
+    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="envoyer aussi les lignes dans syslog/journald (tag music-import)")
     args = ap.parse_args(argv)
@@ -460,7 +461,7 @@ def main(argv=None):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog, ident="music-import")
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox : {args.inbox}")
-    state_dir = music_ranger.state_path(args.state_dir)
+    state_dir = librarian.state_path(args.state_dir)
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
             return import_all(args, log)
@@ -525,5 +526,5 @@ def import_all(args, log):
 
 
 if __name__ == "__main__":
-    music_ranger.handle_stop_signals()
+    librarian.handle_stop_signals()
     sys.exit(main())

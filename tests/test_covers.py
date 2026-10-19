@@ -1,5 +1,5 @@
-"""embed_covers : folder.jpg reporté dans les tags, sur de vrais fichiers."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+"""embed_covers: folder.jpg embedded into the tags, on real files."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import struct
 
 import pytest
@@ -33,7 +33,7 @@ def test_dry_run_writes_nothing(album, capsys):
 def test_written_then_up_to_date(album, capsys):
     d, tracks = album
     cover = jpeg(600, 600)
-    (d / "Folder.JPG").write_bytes(cover)              # casse indifférente
+    (d / "Folder.JPG").write_bytes(cover)              # case-insensitive
     assert embed_covers.main([str(d)]) == 0
     assert all(tags.read_cover(str(t)) == cover for t in tracks)
     capsys.readouterr()
