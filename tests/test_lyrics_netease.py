@@ -7,7 +7,7 @@ from unittest.mock import patch
 import requests
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 
 def _song(song_id, name, artists, millis, album="Absolution"):
@@ -74,7 +74,7 @@ class NeteaseTest(unittest.TestCase):
         with patch.object(L.requests, "get", side_effect=[
             FakeResponse({"result": {"songs": [_song(7, "Space Debris", ["Muse"], 247000)]}, "code": 200}),
             FakeResponse({"nolyric": True, "code": 200}),
-        ]), self.assertLogs("lyrics", "INFO") as logs:
+        ]), self.assertLogs("music_librarian.lyrics", "INFO") as logs:
             self.assertIsNone(L._provider_netease("Muse", "Space Debris", None, "247"))
         self.assertIn("song 7 ('Absolution', 247s) has no lyrics", logs.output[-1])
 

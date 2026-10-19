@@ -7,11 +7,8 @@ from datetime import datetime, time
 
 import pytest
 
-import enrich
-import inbox
-import librarian
-import watch
-from librarian import EXIT_LOCKED, EXIT_STOPPED, STOP
+from music_librarian import enrich, inbox, librarian, watch
+from music_librarian.librarian import EXIT_LOCKED, EXIT_STOPPED, STOP
 
 
 @pytest.fixture

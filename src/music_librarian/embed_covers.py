@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Mirror each album folder's cover file into the tags of its tracks.
 
 Lyrion displays the artwork embedded in the files and ignores a folder's cover
@@ -8,13 +7,13 @@ byte for byte, the file is written in. Lyrion picks the change up on its next
 scan.
 
 Usage:
-    python embed_covers.py /path/to/music [--dry-run] [--name folder.jpg]
-                           [--verbose]
+    python -m music_librarian.embed_covers /path/to/music [--dry-run] [--name folder.jpg]
+                                           [--verbose]
 
 Several targets are accepted, and shell-style wildcards work even when quoted
 (or when the shell finds no match and passes the pattern through literally):
-    python embed_covers.py /path/to/music/A*
-    python embed_covers.py "/path/to/music/A*" /path/to/music/B*
+    python -m music_librarian.embed_covers /path/to/music/A*
+    python -m music_librarian.embed_covers "/path/to/music/A*" /path/to/music/B*
 Each target is a directory, scanned recursively for folders holding music.
 
 Nothing is written with --dry-run. Either way the run reports how much the
@@ -32,8 +31,7 @@ import glob
 import os
 import sys
 
-import artwork
-import tags
+from . import artwork, tags
 
 
 def album_folders(patterns):

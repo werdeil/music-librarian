@@ -1,9 +1,9 @@
 # Lint and tests on every push and pull request.
-#   lint  : pylint (rules and exceptions documented in .pylintrc);
+#   lint  : pylint (rules and exceptions documented in pyproject.toml);
 #   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
 #   image : Docker image build, which reruns the tests in the container and
 #           checks the tools (r128gain really analyses a file, --help of the
-#           cover and lyrics scripts).
+#           cover and lyrics modules).
 name: CI
 
 on:
@@ -26,9 +26,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements-dev.txt
-      - run: pylint *.py music-librarian tests
+          cache-dependency-path: |
+            requirements*.txt
+            pyproject.toml
+      - run: pip install -r requirements-dev.txt -e .
+      - run: pylint src tests
 
   tests:
     runs-on: ubuntu-24.04
@@ -38,11 +40,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements*.txt
+          cache-dependency-path: |
+            requirements*.txt
+            pyproject.toml
       - name: ffmpeg (fichiers audio des tests)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-      - run: pip install -r requirements-dev.txt
-      - run: python -m pytest -q tests
+      - run: pip install -r requirements-dev.txt -e .
+      - run: python -m pytest -q
 
   image:
     runs-on: ubuntu-24.04

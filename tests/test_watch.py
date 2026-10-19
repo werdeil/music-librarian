@@ -5,10 +5,8 @@ from datetime import time as dtime
 
 import pytest
 
-import inbox
-import librarian
-import watch
-from librarian import EXIT_LOCKED, STOP
+from music_librarian import inbox, librarian, watch
+from music_librarian.librarian import EXIT_LOCKED, STOP
 
 
 @pytest.fixture

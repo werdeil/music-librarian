@@ -4,7 +4,7 @@
 import unittest
 
 
-import lyrics as L
+from music_librarian import lyrics as L
 
 META = {"artist": "Muse", "title": "Space Debris", "album": None, "duration": 247}
 PLAIN = {"lyrics": "la la la", "synced": None, "meta": META}

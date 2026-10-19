@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 watch — watches the Inbox and runs the import, continuously (the container's process).
 
@@ -14,9 +13,9 @@ date): a container restart or a manual pass does not make it run twice.
 Without a known last pass nothing runs (a full pass is long, it is done by
 hand).
 
-  watch.py                        # dry-run import on every new drop
-  watch.py --apply                # actually import
-  watch.py --apply --range-at 02:00 --enrich-at "dim 03:00"
+  music-librarian watch           # dry-run import on every new drop
+  music-librarian watch --apply   # actually import
+  music-librarian watch --apply --range-at 02:00 --enrich-at "dim 03:00"
 
 With --enrich-at "DAY HH:MM" (French day names), the enrichment of the whole
 library (enrich.py: missing gain, covers, lyrics) runs every week from that
@@ -34,10 +33,8 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import enrich
-import inbox
-import librarian
-from librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
+from . import enrich, inbox, librarian
+from .librarian import EXIT_LOCKED, LAST_RUN, STOP, Log
 
 
 def signature(inbox_dir: Path):
