@@ -219,23 +219,3 @@ def test_empty_inbox_kept(env):
     assert env.run("--apply") == 0
     assert env.inbox.is_dir()
     assert sorted(p.name for p in env.inbox.iterdir()) == ["_done", "_failed"]
-
-
-def test_legacy_folders_renamed_on_apply(env, make_track):
-    old = env.inbox / "_traités/2020-01-01/Album"
-    old.mkdir(parents=True)
-    (env.inbox / "_erreurs").mkdir()
-    make_track(env.inbox / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
-    assert env.run() == 0                                   # dry run: neither renamed nor imported
-    assert (env.inbox / "_traités").is_dir() and not (env.inbox / "_done").exists()
-    assert env.run("--apply") == 0
-    assert sorted(p.name for p in env.inbox.iterdir()) == ["_done", "_failed"]
-    assert files(env.lib) == ["A/B/01 Un.m4a"]              # the legacy folders were not items
-
-
-def test_legacy_folder_left_when_both_exist(env, capsys):
-    (env.inbox / "_traités/2020-01-01").mkdir(parents=True)
-    (env.inbox / "_done").mkdir()
-    assert env.run("--apply") == 0
-    assert (env.inbox / "_traités/2020-01-01").is_dir()
-    assert "both exist" in capsys.readouterr().out

@@ -10,9 +10,6 @@ For each Inbox item (an album folder, or a loose file):
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
-The folders of earlier versions (_erreurs, _traités, _en_cours) are renamed
-to these names on the first --apply pass.
-
 Dry run by default. --apply to actually do it.
 
   music-librarian import            # see what would be done
@@ -51,9 +48,7 @@ from music_librarian.organize.scan import parse_pair, read_tags
 
 ERRORS, DONE, WORK = "_failed", "_done", "_processing"
 UNFILED = "_unfiled"  # side files of a done item that did not follow it
-# folder names of earlier versions, renamed by the first --apply pass
-LEGACY = {"_erreurs": ERRORS, "_traités": DONE, "_en_cours": WORK}
-RESERVED = {ERRORS, DONE, WORK, *LEGACY}
+RESERVED = {ERRORS, DONE, WORK}
 # audio formats recognized but not handled: the item goes to _failed
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
@@ -427,21 +422,6 @@ def process(args, item, log):
     return OK, targets
 
 
-def migrate_legacy(args, log):
-    """Rename the Inbox folders of earlier versions (_traités…) to the current names."""
-    for old, new in LEGACY.items():
-        src, dst = args.inbox / old, args.inbox / new
-        if not src.is_dir():
-            continue
-        if dst.exists():
-            log(f"WARNING  {src} and {dst} both exist: {old}/ left as is, to merge by hand")
-        elif args.apply:
-            src.rename(dst)
-            log(f"RENAMED  {src} → {dst}")
-        else:
-            log(f"RENAME   {src} → {dst}")
-
-
 def purge(args, log):
     limit = date.today() - timedelta(days=args.keep_days)
     d = args.inbox / DONE
@@ -496,8 +476,6 @@ def import_all(args, log):
     if not args.root.is_dir():
         log(f"ERROR    library not found: {args.root}")
         return 2
-    if args.inbox.is_dir():
-        migrate_legacy(args, log)
     if args.apply:
         for d in ERRORS, DONE:
             (args.inbox / d).mkdir(parents=True, exist_ok=True)
