@@ -13,7 +13,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`enrich`** runs over the whole library and only fills what is missing: ReplayGain (r128gain), the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB, Musixmatch and NetEase. Lyrics are only written when the provider's title, artist and duration match the file.
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `range --since` nightly and `enrich` weekly.
 - **`undo JOURNAL`** replays a run's journal in reverse.
-- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [`lyrion.py`](src/music_librarian/lyrion.py)).
+- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [`lyrion.py`](src/music_librarian/integrations/lyrion.py)).
 
 ## Running it
 

@@ -31,8 +31,8 @@ COPY tests ./tests
 USER librarian
 RUN python -m pytest -q -p no:cacheprovider tests \
  && music-librarian --help > /dev/null \
- && python -m music_librarian.embed_lyrics --help > /dev/null \
- && python -m music_librarian.embed_covers --help > /dev/null \
+ && python -m music_librarian.enrich.lyrics --help > /dev/null \
+ && python -m music_librarian.enrich.covers --help > /dev/null \
  && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine.m4a \
  && r128gain --dry-run /tmp/sine.m4a 2>&1 | grep -q 'loudness = -' \
  && touch /tmp/tests-ok
