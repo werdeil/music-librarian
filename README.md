@@ -62,7 +62,7 @@ python -m pytest -q tests     # needs ffmpeg
 pylint *.py music-librarian tests
 ```
 
-The CLI output and the code comments are in French.
+The CLI output is in French.
 
 ## License
 

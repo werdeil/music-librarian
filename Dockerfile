@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-# Debian 12 : r128gain 1.0.7 fait planter le ffmpeg 7.1 de Debian 13
-# (assertion sur le anullsink de son graphe de filtres). Vérifié au build.
+# Debian 12: r128gain 1.0.7 makes Debian 13's ffmpeg 7.1 abort (assertion on
+# the anullsink of its filter graph). Checked at build time.
 FROM python:3.12-slim-bookworm AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -21,7 +21,7 @@ COPY music-librarian music_ranger.py import_inbox.py watch.py lms.py enrich.py \
 RUN ln -s /app/music-librarian /usr/local/bin/music-librarian \
  && useradd --create-home --uid 1000 librarian
 
-# Les tests tournent à la construction : une image qui échoue n'est pas produite.
+# The tests run at build time: a failing image is never produced.
 FROM base AS test
 COPY requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt

@@ -1,4 +1,4 @@
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import os
 import shutil
 import subprocess
@@ -17,7 +17,7 @@ CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
-    """Les tests ne doivent pas hériter des chemins de l'image Docker ou de l'hôte."""
+    """Tests must not inherit paths from the Docker image or the host."""
     for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE",
                 "LMS_PERSIST_DB", "LMS_MUSIC_ROOT"):
         monkeypatch.delenv(var, raising=False)
@@ -25,8 +25,8 @@ def clean_env(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_stop():
-    """L'arrêt demandé est global au processus : remis à zéro entre les tests."""
-    import music_ranger  # pylint: disable=import-outside-toplevel  # après le sys.path
+    """The stop request is process-wide: reset between tests."""
+    import music_ranger  # pylint: disable=import-outside-toplevel  # after sys.path
     music_ranger.STOP.clear()
     yield
     music_ranger.STOP.clear()
@@ -34,9 +34,8 @@ def no_stop():
 
 @pytest.fixture
 def ticks(monkeypatch):
-    """Fait tourner la boucle de watch : chaque attente exécute l'action suivante,
-    puis arrête."""
-    # pylint: disable-next=import-outside-toplevel  # après le sys.path
+    """Drive the watch loop: each wait runs the next action, then stops."""
+    # pylint: disable-next=import-outside-toplevel  # after sys.path
     import watch
     from music_ranger import STOP  # pylint: disable=import-outside-toplevel
 
@@ -57,7 +56,7 @@ def ticks(monkeypatch):
 
 @pytest.fixture(scope="session")
 def templates(tmp_path_factory):
-    """Un fichier audio vide (0,1 s de silence) par format, créé une fois avec ffmpeg."""
+    """One empty audio file (0.1 s of silence) per format, created once with ffmpeg."""
     if not shutil.which("ffmpeg"):
         pytest.skip("ffmpeg absent")
     d = tmp_path_factory.mktemp("templates")
@@ -73,13 +72,13 @@ def templates(tmp_path_factory):
 
 @pytest.fixture
 def make_track(templates):
-    """Crée un fichier audio taggé. `path` peut être un str ou des bytes (nom non UTF-8)."""
+    """Create a tagged audio file. `path` may be a str or bytes (non-UTF-8 name)."""
 
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def make(path, title=None, artist=None, albumartist=None, album=None,
              track=None, disc=None, disctotal=None, compilation=False, extra=None,
              cover=None):
-        """extra : tags FLAC supplémentaires ; cover : octets d'une pochette JPEG (FLAC)."""
+        """extra: additional FLAC tags; cover: bytes of a JPEG cover (FLAC)."""
         p = os.fsdecode(path)
         ext = os.path.splitext(p)[1].lower()
         os.makedirs(os.path.dirname(p), exist_ok=True)

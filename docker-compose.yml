@@ -1,55 +1,55 @@
-# Configuration : copier .env.example en .env et l'adapter.
+# Configuration: copy .env.example to .env and adapt it.
 #
-# Construction (les tests tournent au build) :
+# Build (the tests run at build time):
 #   docker compose build
-#   (avec BUILD_NETWORK=host : docker buildx bake -f docker-compose.yml --allow network.host)
+#   (with BUILD_NETWORK=host: docker buildx bake -f docker-compose.yml --allow network.host)
 #
-# En continu, le conteneur surveille l'Inbox et importe, et range chaque nuit
-# les dossiers modifiés (music-librarian watch) :
+# Continuously, the container watches the Inbox and imports, and files the
+# changed folders every night (music-librarian watch):
 #   docker compose up -d
 #   journalctl -t music-librarian -f     # logs
-#   docker compose down                  # arrêt (finit l'opération en cours)
+#   docker compose down                  # stop (finishes the current operation)
 #
-# Lancements à la main, en dry-run sans --apply :
+# Manual runs, dry run without --apply:
 #   docker compose run --rm music-librarian import
 #   docker compose run --rm music-librarian range --since
 #   docker compose run --rm music-librarian enrich
 #   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
-# Créer ./state AVANT le premier lancement (mkdir state) : sinon Docker le crée
-# en root et le conteneur ne peut pas y écrire.
+# Create ./state BEFORE the first start (mkdir state): otherwise Docker creates
+# it as root and the container cannot write to it.
 services:
   music-librarian:
     build:
       context: .
-      # Compose ne sait pas accorder le réseau host au build : avec host,
-      # construire avec bake (voir plus haut)
+      # Compose cannot grant the host network at build time: with host, build
+      # with bake (see above)
       network: ${BUILD_NETWORK:-default}
     image: music-librarian:local
-    # import à chaque dépôt, chaque nuit le rangement des dossiers modifiés,
-    # chaque dimanche l'enrichissement de ce qui manque
+    # import on every drop, nightly range of the changed folders, Sunday
+    # enrichment of what is missing ("dim" is Sunday in French)
     command: [watch, --apply, --range-at, "02:00", --enrich-at, "dim 03:00"]
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
-      - TZ=${TZ:-Europe/Paris}  # date des dossiers _traités/AAAA-MM-JJ
-      - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?à définir dans .env}
-      - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?à définir dans .env}
-      # historique LMS reporté sur les fichiers déplacés, désactivé sans LMS_PREFS_DIR
+      - TZ=${TZ:-Europe/Paris}  # date of the _traités/YYYY-MM-DD folders
+      - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?set it in .env}
+      - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?set it in .env}
+      # LMS history carried over to moved files, off without LMS_PREFS_DIR
       - LMS_PERSIST_DB=${LMS_PREFS_DIR:+/lms-prefs/persist.db}
       - LMS_MUSIC_ROOT=${LMS_MUSIC_ROOT:-}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,musixmatch,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
     volumes:
-      # Inbox et bibliothèque sous ce seul montage, au même chemin que sur
-      # l'hôte : les déplacements restent des renommages et les journaux valent des deux côtés.
-      - ${MUSIC_LIBRARIAN_VOLUME:?à définir dans .env}:${MUSIC_LIBRARIAN_VOLUME}
+      # Inbox and library under this single mount, at the same path as on the
+      # host: moves stay renames and journal paths are valid on both sides.
+      - ${MUSIC_LIBRARIAN_VOLUME:?set it in .env}:${MUSIC_LIBRARIAN_VOLUME}
       - ./state:/state
-      # le dossier entier : SQLite y écrit aussi persist.db-wal et -shm ;
-      # sans LMS, ./state est monté à la place et reste inutilisé
+      # the whole folder: SQLite also writes persist.db-wal and -shm there;
+      # without LMS, ./state is mounted instead and left unused
       - ${LMS_PREFS_DIR:-./state}:/lms-prefs
-    # docker stop envoie SIGTERM : laisser le temps de finir la conversion ou
-    # le rangement en cours (10 s par défaut)
+    # docker stop sends SIGTERM: leave time to finish the current conversion
+    # or filing (10 s by default)
     stop_grace_period: 2m
     logging:
       driver: journald

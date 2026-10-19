@@ -1,39 +1,39 @@
 #!/usr/bin/env python3
 """
-music_ranger — range une bibliothèque musicale à la façon d'Apple Music :
-    <Artiste de l'album>/<Album>/<NN Titre>.ext
-    Compilations/<Album>/<NN Titre>.ext            (flag compilation)
-    .../<D-NN Titre>.ext                           (album multi-disques)
+music_ranger — files a music library the way Apple Music does:
+    <Album Artist>/<Album>/<NN Title>.ext
+    Compilations/<Album>/<NN Title>.ext            (compilation flag)
+    .../<D-NN Title>.ext                           (multi-disc album)
 
-Dry-run par défaut. --apply pour exécuter réellement.
+Dry run by default. --apply to actually do it.
 
-Exemples :
-  # Vérifier toute la bibliothèque (rien n'est modifié)
-  music_ranger.py --root /srv/musique
+Examples:
+  # Check the whole library (nothing is changed)
+  music_ranger.py --root /srv/music
 
-  # Importer un album déposé dans l'Inbox
-  music_ranger.py --root /srv/musique /srv/inbox/MonAlbum --apply
+  # File an album dropped in the Inbox
+  music_ranger.py --root /srv/music /srv/inbox/MyAlbum --apply
 
-  # Ne traiter que les dossiers modifiés depuis le dernier passage
-  music_ranger.py --root /srv/musique --since --apply
+  # Only process the folders changed since the last pass
+  music_ranger.py --root /srv/music --since --apply
 
-  # Annuler un passage (dry-run, puis --apply)
-  music_ranger.py --root /srv/musique --undo state/journal/<date>.jsonl
+  # Undo a pass (dry run, then --apply)
+  music_ranger.py --root /srv/music --undo state/journal/<date>.jsonl
 
-Avec --lms-db, l'historique LMS (lectures, notes) suit les fichiers déplacés
-(voir lms.py). --lms-replay JOURNAL le reporte après coup pour un passage.
+With --lms-db, the LMS history (play counts, ratings) follows moved files
+(see lms.py). --lms-replay JOURNAL carries it over afterwards for one pass.
 
-État (journaux des déplacements, date du dernier passage) : --state-dir, sinon
-$MUSIC_LIBRARIAN_STATE, sinon le dossier state/ à côté du script.
+State (move journals, last pass date): --state-dir, else
+$MUSIC_LIBRARIAN_STATE, else the state/ folder next to the script.
 
---root peut aussi venir de $MUSIC_LIBRARIAN_ROOT.
+--root can also come from $MUSIC_LIBRARIAN_ROOT.
 
-Un seul passage en --apply à la fois (verrou state/lock). Sur SIGTERM ou
-Ctrl-C, le déplacement en cours se termine, les suivants sont laissés pour le
-prochain passage (deuxième Ctrl-C : arrêt immédiat).
+One --apply pass at a time (state/lock). On SIGTERM or Ctrl-C, the current
+move completes and the rest is left for the next pass (second Ctrl-C: stop
+at once).
 
-Codes retour : 0 = OK, 2 = conflits, fichiers ignorés ou annulations refusées,
-3 = un autre passage est en cours, 4 = arrêté avant la fin, 5 = report LMS en échec.
+Exit codes: 0 = OK, 2 = conflicts, skipped files or refused undos,
+3 = another pass is running, 4 = stopped before the end, 5 = LMS carry-over failed.
 """
 import argparse
 import contextlib
@@ -59,20 +59,20 @@ import lms
 
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
-MIN_TRUNC = 20  # longueur mini pour tolérer un nom tronqué par Apple Music
-LAST_RUN = "last_run"  # fichier d'état de --since
-# Marge retirée à l'heure de début notée dans last_run : le noyau pose les ctime
-# avec une horloge plus grossière que time.time(), en retard de quelques ms. Un
-# fichier modifié juste après le début du passage aurait sinon une ctime
-# antérieure, et le --since suivant le raterait. Au pire, on relit ces dossiers.
+MIN_TRUNC = 20  # minimum length to accept a name truncated by Apple Music
+LAST_RUN = "last_run"  # --since state file
+# Taken off the start time stored in last_run: the kernel stamps ctime with a
+# coarser clock than time.time(), a few ms behind, so a file changed right after
+# the start would look older and the next --since would miss it. At worst
+# those folders are read again.
 SINCE_MARGIN = 2.0
 LOCK = "lock"
 EXIT_LOCKED, EXIT_STOPPED, EXIT_LMS = 3, 4, 5
-STOP = threading.Event()  # arrêt demandé (SIGTERM, Ctrl-C)
-_lock_held = False  # pylint: disable=invalid-name  # état du processus
+STOP = threading.Event()  # stop requested (SIGTERM, Ctrl-C)
+_lock_held = False  # pylint: disable=invalid-name  # process state
 
 
-# ---------- utilitaires ----------
+# ---------- helpers ----------
 
 def nfc(s):
     return unicodedata.normalize("NFC", s)
@@ -109,31 +109,31 @@ def parse_pair(s):
 
 
 class Log:
-    """stdout, et en plus journald (tag music-librarian) avec --syslog."""
+    """stdout, plus journald (tag music-librarian) with --syslog."""
 
     def __init__(self, use_syslog=False, ident="music-librarian"):
         self.syslog = None
         self.ident = ident
         if use_syslog:
-            import syslog  # pylint: disable=import-outside-toplevel  # avec --syslog seulement
+            import syslog  # pylint: disable=import-outside-toplevel  # only with --syslog
             self.syslog = syslog
 
     def __call__(self, msg=""):
-        # caractères de contrôle invisibles (ex. U+0092) affichés en clair
+        # invisible control characters (e.g. U+0092) shown escaped
         msg = "".join(f"\\x{ord(c):02x}" if unicodedata.category(c) == "Cc" and c != "\n"
                       else c for c in msg)
-        print(msg, flush=True)   # dans l'ordre avec la sortie des sous-commandes
+        print(msg, flush=True)   # in order with the subcommands' output
         if self.syslog and msg.strip():
             line = " ".join(part.strip() for part in msg.splitlines() if part.strip())
-            # rouvert à chaque ligne : l'import et le rangement ont chacun leur tag
+            # reopened on every line: import and range each have their own tag
             self.syslog.openlog(self.ident)
-            # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter le log
+            # a non-UTF-8 file name (e.g. \x92) must not crash the log
             self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())
 
 
 class Journal:
-    """Une ligne JSON par déplacement réussi, écrite juste après : un passage
-    interrompu reste annulable. Le fichier n'est créé qu'au premier déplacement."""
+    """One JSON line per successful move, written right after it, so an
+    interrupted pass can still be undone. The file is created on the first move."""
 
     def __init__(self, state_dir: Path, meta):
         self.state_dir = state_dir
@@ -149,7 +149,7 @@ class Journal:
             for i in range(100):
                 self.path = d / (f"{stamp}.jsonl" if i == 0 else f"{stamp}-{i}.jsonl")
                 try:
-                    # reste ouvert tout le passage, fermé par close()
+                    # stays open for the whole pass, closed by close()
                     self.f = open(self.path, "x", encoding="utf-8")  # pylint: disable=consider-using-with
                     break
                 except FileExistsError:
@@ -158,7 +158,7 @@ class Journal:
         self._write(dict(type="move", src=str(src), dst=str(dst)))
 
     def _write(self, rec):
-        # ensure_ascii : un nom non UTF-8 est gardé tel quel (\udcXX) et relu à l'identique
+        # ensure_ascii: a non-UTF-8 name is kept as is (\udcXX) and read back identically
         self.f.write(json.dumps(rec) + "\n")
         self.f.flush()
 
@@ -174,7 +174,7 @@ def move_file(src: Path, dst: Path, journal: Journal):
 
 
 def lms_sync(db, moves, apply, log):
-    """Reporte l'historique LMS des fichiers déplacés ; False en cas d'échec."""
+    """Carry the LMS history over to moved files; False on failure."""
     if db is None:
         return True
     pairs = db.pairs(moves, AUDIO_EXT)
@@ -192,7 +192,7 @@ def lms_sync(db, moves, apply, log):
 
 
 def lms_replay(args, db, log):
-    """--lms-replay : reporte l'historique LMS des déplacements d'un journal."""
+    """--lms-replay: carry the LMS history over for the moves of a journal."""
     if db is None:
         log("ERREUR   --lms-replay demande --lms-db")
         return 2
@@ -205,8 +205,8 @@ def lms_replay(args, db, log):
 
 
 def prune_empty(d: Path, stops):
-    """Supprime d et ses parents tant qu'ils sont vides, sans jamais remonter
-    jusqu'aux dossiers de `stops` (racine, dossiers passés en argument)."""
+    """Remove d and its parents while they are empty, never reaching the
+    folders in `stops` (root, folders passed as arguments)."""
     n = 0
     while d not in stops and any(d.is_relative_to(s) for s in stops):
         try:
@@ -229,9 +229,9 @@ class Locked(Exception):
 
 @contextlib.contextmanager
 def locked(state_dir: Path):
-    """Verrou exclusif sur state/lock : un seul passage en --apply à la fois
-    (rangement, import, annulation). Réentrant dans un même processus : l'import
-    appelle le rangement sans se bloquer lui-même."""
+    """Exclusive lock on state/lock: one --apply pass at a time (range, import,
+    undo). Reentrant within a process: import calls range without blocking
+    itself."""
     global _lock_held  # pylint: disable=global-statement
     if _lock_held:
         yield
@@ -251,10 +251,10 @@ def locked(state_dir: Path):
 
 
 def handle_stop_signals():
-    """SIGTERM (docker stop) et Ctrl-C : finir l'opération en cours, puis s'arrêter."""
+    """SIGTERM (docker stop) and Ctrl-C: finish the current operation, then stop."""
     def stop(_signum, _frame):
         if STOP.is_set():
-            raise KeyboardInterrupt  # deuxième demande : arrêt immédiat
+            raise KeyboardInterrupt  # second request: stop at once
         STOP.set()
         print("arrêt demandé : fin de l'opération en cours…", flush=True)
 
@@ -262,7 +262,7 @@ def handle_stop_signals():
         signal.signal(s, stop)
 
 
-# ---------- lecture des tags ----------
+# ---------- tag reading ----------
 
 def read_tags(path: Path):
     f = MFile(path)
@@ -307,13 +307,13 @@ def read_tags(path: Path):
     return None
 
 
-# ---------- calcul du chemin cible ----------
+# ---------- target path ----------
 
 def clean(s, is_dir=False, lead=True):
-    """`lead=False` : le `.` initial est gardé, pour un titre précédé du numéro de
-    piste (Apple Music ne le remplace qu'en tête du nom complet)."""
-    # caractères remplacés par Apple Music
-    # constatés : / : ? " | ’ ´   — par analogie : ‘ “ ” * < > \
+    """`lead=False`: the leading `.` is kept, for a title preceded by the track
+    number (Apple Music only replaces it at the start of the whole name)."""
+    # characters Apple Music replaces
+    # observed: / : ? " | ’ ´   — by analogy: ‘ “ ” * < > \
     for ch in '/:?"|*<>\\’‘“”´':
         s = s.replace(ch, "_")
     s = nfc(s).strip()
@@ -348,7 +348,7 @@ def same_component(cur, tgt, strict_case):
         cur, tgt = cur.casefold(), tgt.casefold()
     if cur == tgt:
         return True
-    # Apple Music tronque parfois les noms longs : on tolère un préfixe
+    # Apple Music sometimes truncates long names: a prefix is accepted
     return len(cur) >= MIN_TRUNC and tgt.startswith(cur)
 
 
@@ -373,12 +373,11 @@ def changed_since(p: Path, since):
 
 
 def collect(scan, since=None):
-    """Fichiers à examiner. Avec `since`, seulement les dossiers dont au moins un
-    fichier a changé depuis (ctime : un tag réécrit ou un renommage la met à
-    jour), mais alors le dossier entier, pour que les annexes ne partent pas
-    avec une partie seulement des pistes."""
+    """Files to examine. With `since`, only the folders where at least one file
+    changed since then (ctime: a rewritten tag or a rename updates it), but then
+    the whole folder, so side files never leave with only some of the tracks."""
     for base in scan:
-        if base.is_file():           # fichier isolé passé en argument
+        if base.is_file():           # single file passed as an argument
             yield base
             continue
         for dirpath, dirnames, filenames in os.walk(base):
@@ -389,7 +388,7 @@ def collect(scan, since=None):
             yield from paths
 
 
-# ---------- annulation ----------
+# ---------- undo ----------
 
 def undo(args, root, state_dir, log, db=None):
     jpath = Path(args.undo)
@@ -444,17 +443,17 @@ def undo(args, root, state_dir, log, db=None):
     return EXIT_STOPPED if stopped else 2 if refused else 0 if lms_ok else EXIT_LMS
 
 
-# ---------- programme principal ----------
+# ---------- main ----------
 
 def main(argv=None):
     return run(argv)[0]
 
 
 def run(argv=None, interruptible=True):
-    """Comme main, mais renvoie aussi (code, rapport) : rapport["moves"] liste
-    les déplacements prévus, rapport["done"] ceux effectués.
-    interruptible=False : un arrêt demandé n'interrompt pas les déplacements
-    (l'import range un élément en entier ou pas du tout)."""
+    """Like main, but returns (code, report): report["moves"] lists the planned
+    moves, report["done"] the ones carried out.
+    interruptible=False: a stop request does not interrupt the moves (import
+    files an item entirely or not at all)."""
     ap = argparse.ArgumentParser(description="Range la musique façon Apple Music.")
     root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env,
@@ -476,7 +475,7 @@ def run(argv=None, interruptible=True):
                     help="envoyer aussi les lignes dans syslog/journald (tag music-librarian)")
     args = ap.parse_args(argv)
 
-    # un nom de fichier non UTF-8 (ex. \x92) ne doit pas faire planter l'affichage
+    # a non-UTF-8 file name (e.g. \x92) must not crash the output
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog)
@@ -510,10 +509,10 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
         except (OSError, ValueError):
             log("pas de dernier passage connu : tout est traité")
 
-    entries = []                  # (fichier, tags, chemin cible relatif)
+    entries = []                  # (file, tags, relative target path)
     stats = defaultdict(int)
     junk = []
-    blocked = set()               # dossiers dont les annexes ne doivent pas bouger
+    blocked = set()               # folders whose side files must not move
 
     for p in collect(scan, since):
         if is_junk(p):
@@ -537,9 +536,9 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
             continue
         entries.append((p, tags, tgt))
 
-    # Garde-fou compilation : un album (même dossier, même tag album) dont le
-    # flag cpil n'est pas le même partout serait éclaté entre Compilations/ et
-    # un dossier d'artiste. On ne le touche pas.
+    # Compilation safeguard: an album (same folder, same album tag) whose cpil
+    # flag differs between tracks would be split between Compilations/ and an
+    # artist folder, so it is left alone.
     groups = defaultdict(list)
     for e in entries:
         groups[(e[0].parent, nfc(e[1]["album"] or "").casefold())].append(e)
@@ -555,7 +554,7 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
 
     moves = []                    # (src, dst)
     seen_targets = {}             # dst -> src
-    dir_targets = defaultdict(set)  # dossier source -> dossiers cibles
+    dir_targets = defaultdict(set)  # source folder -> target folders
 
     for p, tags, tgt in entries:
         if p in mixed:
@@ -563,7 +562,7 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
         try:
             cur_rel = p.relative_to(root)
         except ValueError:
-            cur_rel = None  # fichier hors bibliothèque (Inbox)
+            cur_rel = None  # file outside the library (Inbox)
 
         if cur_rel is not None and is_in_place(cur_rel, tgt, args.strict_case):
             stats["en place"] += 1
@@ -582,9 +581,9 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
         moves.append((p, dst))
         dir_targets[p.parent].add(dst.parent)
 
-    # Fichiers annexes (folder.jpg, .lrc…) : suivent l'album si toutes les
-    # pistes du dossier partent vers le même dossier cible, et qu'aucune n'est
-    # restée en arrière (conflit, tags insuffisants).
+    # Side files (folder.jpg, .lrc…) follow the album if every track in the
+    # folder goes to the same target folder and none stayed behind (conflict,
+    # missing tags).
     extra = []
     for src_dir, tdirs in dir_targets.items():
         if len(tdirs) != 1 or src_dir in blocked:
@@ -627,13 +626,13 @@ def rank(args, argv, root, state_dir, log, interruptible, db=None):
         for j in junk:
             j.unlink(missing_ok=True)
             touched.add(j.parent)
-        # dossiers vidés (jamais la racine ni les dossiers passés en argument)
+        # emptied folders (never the root nor the folders passed as arguments)
         protected = {root, *scan}
         for d in sorted(touched, key=lambda d: -len(d.parts)):
             stats["dossiers supprimés"] += prune_empty(d, protected)
-        # Le dernier passage n'avance qu'après un passage sur toute la racine.
-        # Les conflits restants ne le bloquent pas : ils réapparaîtront au
-        # prochain passage complet, ou dès que leur dossier sera retouché.
+        # The last pass only moves forward after a pass over the whole root.
+        # Remaining conflicts do not hold it back: they show up again on the
+        # next full pass, or as soon as their folder is touched.
         if scan == [root] and not stopped:
             state_dir.mkdir(parents=True, exist_ok=True)
             (state_dir / LAST_RUN).write_text(f"{started - SINCE_MARGIN}\n")

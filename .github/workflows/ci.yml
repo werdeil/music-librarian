@@ -1,9 +1,9 @@
-# Lint et tests à chaque push et pull request.
-#   lint  : pylint (règles et exceptions documentées dans .pylintrc) ;
-#   tests : pytest sur la machine GitHub (ffmpeg de Ubuntu), rapide ;
-#   image : construction de l'image Docker, qui rejoue les tests dans le
-#           conteneur et vérifie les outils (r128gain analyse vraiment un
-#           fichier, --help des scripts de pochettes et de paroles).
+# Lint and tests on every push and pull request.
+#   lint  : pylint (rules and exceptions documented in .pylintrc);
+#   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
+#   image : Docker image build, which reruns the tests in the container and
+#           checks the tools (r128gain really analyses a file, --help of the
+#           cover and lyrics scripts).
 name: CI
 
 on:

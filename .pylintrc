@@ -1,5 +1,5 @@
 [MAIN]
-# Même base que lyrion-dashboard. Lints the scripts and the tests, from the
+# Same base as lyrion-dashboard. Lints the scripts and the tests, from the
 # repo root (CI: pylint *.py tests). The tests import the modules from the
 # root, as conftest.py does.
 init-hook="import sys; sys.path.insert(0, '.')"

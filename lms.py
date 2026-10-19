@@ -1,17 +1,17 @@
 """
-lms — reporte dans la base de LMS (persist.db) l'historique des fichiers déplacés.
+lms — carries the history of moved files over in the LMS database (persist.db).
 
-LMS rattache lectures et note à l'URL du fichier (tables tracks_persistent et
-alternativeplaycount, clé urlmd5 = md5 de l'URL). Après un renommage, il crée
-une entrée neuve et l'ancienne reste orpheline. Pour chaque déplacement :
-  - l'ancienne entrée prend la nouvelle URL, si LMS n'a pas encore vu le fichier ;
-  - sinon ses compteurs sont reportés sur l'entrée neuve, puis elle est supprimée.
+LMS keys play counts and ratings on the file URL (tables tracks_persistent and
+alternativeplaycount, key urlmd5 = md5 of the URL). After a rename it creates a
+fresh entry and the old one is left orphaned. For each move:
+  - the old entry takes the new URL, if LMS has not seen the file yet;
+  - otherwise its counters are merged into the new entry, then it is deleted.
 
-LMS peut rester allumé : écriture en place par SQLite, en une transaction
-courte, après une copie de sauvegarde de la base (WAL compris).
+LMS can stay up: SQLite writes in place, in one short transaction, after a
+backup copy of the database (WAL included).
 
-Réglages : --lms-db / $LMS_PERSIST_DB (désactivé sans), --lms-root /
-$LMS_MUSIC_ROOT = la racine de la bibliothèque telle que LMS la voit.
+Settings: --lms-db / $LMS_PERSIST_DB (off without it), --lms-root /
+$LMS_MUSIC_ROOT = the library root as LMS sees it.
 """
 import hashlib
 import os
@@ -21,12 +21,12 @@ from pathlib import Path
 from urllib.parse import quote
 
 BACKUPS, KEEP_BACKUPS = "lms-backups", 14
-# caractères laissés tels quels dans les URL de LMS (relevé sur toute la base)
+# characters LMS leaves as is in its URLs (checked over the whole database)
 URL_SAFE = "-_.!~*()/:@&=+$,[]"
-BUSY_TIMEOUT = 60  # secondes d'attente si LMS écrit au même moment
+BUSY_TIMEOUT = 60  # seconds to wait if LMS is writing at the same time
 
 TABLES = {
-    # table : (colonnes additionnées, colonnes au plus récent, colonnes reprises si vides)
+    # table: (summed columns, latest-value columns, columns filled in if empty)
     "tracks_persistent": (("playCount",), ("lastPlayed", "lastRated"),
                           ("rating", "prevRating", "musicbrainz_id")),
     "alternativeplaycount": (("playCount", "skipCount"), ("lastPlayed", "lastSkipped"),
@@ -56,7 +56,7 @@ class Lms:
         self.backup_dir = backup_dir
 
     def url(self, path: Path):
-        """URL de LMS pour un fichier de la bibliothèque ; None s'il est hors de --root."""
+        """LMS URL for a library file; None if it is outside --root."""
         try:
             rel = Path(path).relative_to(self.root)
         except ValueError:
@@ -95,8 +95,8 @@ class Lms:
         return dest
 
     def sync(self, pairs, apply):
-        """Reporte l'historique ; renvoie {"renommées": n, "fusionnées": n, ...}.
-        En dry-run, rien n'est écrit (la base est ouverte en lecture seule)."""
+        """Carry the history over; returns {"renommées": n, "fusionnées": n, ...}.
+        In a dry run nothing is written (the database is opened read-only)."""
         stats = dict.fromkeys(("renommées", "fusionnées", "sans historique"), 0)
         if not pairs:
             return stats
@@ -105,7 +105,7 @@ class Lms:
         con = self._connect(readonly=not apply)
         try:
             if apply:
-                con.execute("BEGIN IMMEDIATE")  # LMS ne peut pas insérer entre-temps
+                con.execute("BEGIN IMMEDIATE")  # LMS cannot insert in between
             for old, new in pairs:
                 kinds = {self._move(con, t, old, new, apply) for t in TABLES}
                 kinds.discard(None)
@@ -144,7 +144,7 @@ class Lms:
                 vals["added"] = min((x for x in (row["added"], cur["added"]) if x is not None),
                                     default=None)
             if "dynPSval" in cols:
-                # la note dynamique du plugin : celle de l'entrée qui a le plus d'événements
+                # the plugin's dynamic rating: the one of the entry with the most events
                 ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)
                 vals["dynPSval"] = (cur if ev(cur) >= ev(row) else row)["dynPSval"]
             sets = ", ".join(f"{c} = ?" for c in vals)

@@ -1,6 +1,6 @@
-"""Enrichissement hebdomadaire (enrich.py) et son créneau dans watch."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
-# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
+"""Weekly enrichment (enrich.py) and its slot in watch."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+# pylint: disable=attribute-defined-outside-init  # fixture environment objects
 import fcntl
 import sys
 from datetime import datetime, time
@@ -21,13 +21,13 @@ def lib(tmp_path):
         (root / d).mkdir(parents=True)
     for f in ("A/B/01.m4a", "A/C/01.mp3", "D/E/01.flac", "D/E/CD2/01.m4a", ".cache/x/1.m4a"):
         (root / f).write_bytes(b"x")
-    (root / "A/folder.jpg").write_bytes(b"jpg")      # dossier d'artiste sans audio
+    (root / "A/folder.jpg").write_bytes(b"jpg")      # artist folder without audio
     return root
 
 
 @pytest.fixture
 def tools(tmp_path, monkeypatch):
-    """Faux outils : chaque appel est noté (nom, arguments) dans un fichier."""
+    """Fake tools: each call is recorded (name, arguments) in a file."""
     log = tmp_path / "calls.log"
     fails = set()
 
@@ -89,14 +89,14 @@ def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
     real = enrich.subprocess.run
 
     def run_then_stop(cmd, **kw):
-        r = real(cmd, **kw)  # pylint: disable=subprocess-run-check  # check passé par enrich
-        STOP.set()          # docker stop pendant le premier lot
+        r = real(cmd, **kw)  # pylint: disable=subprocess-run-check  # check passed by enrich
+        STOP.set()          # docker stop during the first batch
         return r
 
     monkeypatch.setattr(enrich.subprocess, "run", run_then_stop)
     assert run(lib, state, "--apply", "--batch", "2") == EXIT_STOPPED
-    assert len(tools.calls()) == 1                    # le lot en cours a fini, pas les autres
-    assert enrich.last_run(state) is None             # repris au prochain passage
+    assert len(tools.calls()) == 1                    # the current batch finished, not the others
+    assert enrich.last_run(state) is None             # picked up on the next pass
 
 
 def test_refused_while_locked(lib, tools, tmp_path):
@@ -106,13 +106,13 @@ def test_refused_while_locked(lib, tools, tmp_path):
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert run(lib, state, "--apply") == EXIT_LOCKED
     assert tools.calls() == []
-    assert run(lib, state) == 0                        # un dry-run ne prend pas le verrou
+    assert run(lib, state) == 0                        # a dry run does not take the lock
 
 
-# ---------- créneau hebdomadaire dans watch ----------
+# ---------- weekly slot in watch ----------
 
 @pytest.mark.parametrize("t, slot", [
-    (datetime(2026, 10, 18, 3, 0), datetime(2026, 10, 18, 3, 0)),   # dimanche, à l'heure
+    (datetime(2026, 10, 18, 3, 0), datetime(2026, 10, 18, 3, 0)),   # Sunday, on time
     (datetime(2026, 10, 18, 2, 59), datetime(2026, 10, 11, 3, 0)),  # dimanche, juste avant
     (datetime(2026, 10, 21, 12, 0), datetime(2026, 10, 18, 3, 0)),  # mercredi suivant
 ])
@@ -160,22 +160,22 @@ def weekly(tmp_path, monkeypatch, ticks):
 
 
 def test_first_run_waits_for_next_slot(weekly):
-    # pas de passage connu, conteneur lancé samedi : rien avant dimanche 03:00
+    # no known pass, container started on Saturday: nothing before Sunday 03:00
     weekly.run([weekly.at(2026, 10, 18, 2, 0), weekly.at(2026, 10, 18, 3, 0), lambda: None],
                "--apply")
     assert weekly.calls == [["--state-dir", weekly.calls[0][1], "--apply"]]
 
 
 def test_caught_up_after_missed_slot(weekly):
-    weekly.clock[0] = datetime(2026, 10, 19, 9, 0)    # lundi : le conteneur était arrêté
-    weekly.stamp(datetime(2026, 10, 11, 5, 0))         # dernier passage la semaine d'avant
+    weekly.clock[0] = datetime(2026, 10, 19, 9, 0)    # Monday: the container was stopped
+    weekly.stamp(datetime(2026, 10, 11, 5, 0))         # last pass the week before
     weekly.run([lambda: None])
     assert len(weekly.calls) == 1
 
 
 def test_not_twice_in_a_week(weekly):
     weekly.clock[0] = datetime(2026, 10, 19, 9, 0)
-    weekly.stamp(datetime(2026, 10, 18, 3, 0))         # déjà fait dimanche
+    weekly.stamp(datetime(2026, 10, 18, 3, 0))         # already done on Sunday
     weekly.run([lambda: None, weekly.at(2026, 10, 24, 23, 0)])
     assert weekly.calls == []
 
@@ -184,5 +184,5 @@ def test_retried_while_locked_then_once(weekly):
     weekly.clock[0] = datetime(2026, 10, 18, 3, 0)
     weekly.stamp(datetime(2026, 10, 11, 5, 0))
     weekly.codes += [EXIT_LOCKED]
-    weekly.run([lambda: None, lambda: None, lambda: None])  # dry-run : last_run n'avance pas
+    weekly.run([lambda: None, lambda: None, lambda: None])  # dry run: last_run does not move forward
     assert len(weekly.calls) == 2

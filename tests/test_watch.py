@@ -1,5 +1,5 @@
-"""Surveillance de l'Inbox (watch.py) : quand l'import est lancé, et arrêt."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
+"""Inbox watching (watch.py): when the import runs, and stopping."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 from datetime import date, datetime, timedelta
 from datetime import time as dtime
 
@@ -19,12 +19,12 @@ def inbox(tmp_path):
 
 
 class Calls(list):
-    codes = None  # codes retour à renvoyer, dans l'ordre (0 ensuite)
+    codes = None  # exit codes to return, in order (0 afterwards)
 
 
 @pytest.fixture
 def calls(monkeypatch):
-    """Remplace l'import : enregistre les appels."""
+    """Stands in for the import: records the calls."""
     out = Calls()
     out.codes = []
 
@@ -50,7 +50,7 @@ def test_empty_inbox_runs_once_per_day(inbox, calls, ticks, monkeypatch):
 
     monkeypatch.setattr(watch, "date", FakeDate)
     assert ticks(inbox, [nothing, nothing, nothing]) == 0
-    # au démarrage (purge), puis au changement de jour
+    # at startup (purge), then when the day changes
     assert len(calls) == 2
 
 
@@ -65,7 +65,7 @@ def test_waits_until_content_is_stable(inbox, calls, ticks):
         (album / "2.flac").write_bytes(b"y")
 
     ticks(inbox, [start_copy, copy_more, nothing, nothing, nothing])
-    # 1 au démarrage, 1 une fois la copie stable, pas de relance ensuite
+    # 1 at startup, 1 once the copy is stable, no rerun afterwards
     assert len(calls) == 2
 
 
@@ -150,7 +150,7 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
 
 @pytest.fixture
 def nightly(tmp_path, inbox, calls, ticks, monkeypatch):
-    """Horloge simulée, rangement remplacé par un enregistreur."""
+    """Simulated clock, range replaced by a recorder."""
     state = tmp_path / "state"
     state.mkdir()
 
@@ -183,12 +183,12 @@ def nightly(tmp_path, inbox, calls, ticks, monkeypatch):
 def test_range_once_after_slot(nightly):
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
     nightly.run([nothing, nightly.at(2, 0), nothing, nightly.at(3, 0), nothing], "--apply")
-    # pas avant 02:00, puis une seule fois
+    # not before 02:00, then only once
     assert nightly.ranges == [["--since", "--state-dir", nightly.ranges[0][2], "--apply"]]
 
 
 def test_range_catches_up_at_startup(nightly):
-    nightly.clock[0] = datetime(2026, 10, 18, 10, 0)  # conteneur relancé dans la matinée
+    nightly.clock[0] = datetime(2026, 10, 18, 10, 0)  # container restarted in the morning
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
     nightly.run([nothing])
     assert len(nightly.ranges) == 1
@@ -196,7 +196,7 @@ def test_range_catches_up_at_startup(nightly):
 
 def test_range_skipped_after_manual_full_run(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 10, 0)
-    nightly.last_run(datetime(2026, 10, 18, 9, 0))    # passage complet fait à la main ce matin
+    nightly.last_run(datetime(2026, 10, 18, 9, 0))    # full pass run by hand this morning
     nightly.run([nothing, nothing])
     assert nightly.ranges == []
 
@@ -218,7 +218,7 @@ def test_range_retried_while_locked(nightly):
 
 def test_range_dry_run_once_a_day(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
-    nightly.last_run(datetime(2026, 10, 17, 2, 0))    # un dry-run ne fait pas avancer last_run
+    nightly.last_run(datetime(2026, 10, 17, 2, 0))    # a dry run does not move last_run forward
     nightly.run([nothing, nothing, nothing])
     assert nightly.ranges == [["--since", "--state-dir", nightly.ranges[0][2]]]
 
@@ -246,9 +246,9 @@ def test_real_nightly_range(tmp_path, ticks, make_track, monkeypatch):
     make_track(lib / "C/D/01 Rien.m4a", title="Rien", artist="C", album="D", track=1)
     assert music_ranger.main(["--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
     before = float((state / music_ranger.LAST_RUN).read_text())
-    # tag édité depuis le Mac dans la journée
+    # tag edited from the Mac during the day
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
-    # le lendemain à 03:00 (indépendant de l'heure à laquelle tourne le test)
+    # the next day at 03:00 (whatever time the test runs at)
     next_day = datetime.fromtimestamp(before).date() + timedelta(days=1)
     monkeypatch.setattr(watch, "now", lambda: datetime.combine(next_day, dtime(3, 0)))
     monkeypatch.setattr(import_inbox, "main", lambda argv: 0)

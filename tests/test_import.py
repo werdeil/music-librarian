@@ -1,6 +1,6 @@
-"""Import depuis l'Inbox, sur de vrais fichiers créés par ffmpeg."""
-# pylint: disable=redefined-outer-name,unused-argument  # fixtures pytest
-# pylint: disable=attribute-defined-outside-init  # objets d'environnement des fixtures
+"""Import from the Inbox, on real files created by ffmpeg."""
+# pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+# pylint: disable=attribute-defined-outside-init  # fixture environment objects
 import subprocess
 import sys
 from datetime import date
@@ -74,7 +74,7 @@ def test_flac_album_imported(env, make_track):
     assert not any("REPLAYGAIN" in k.upper() for k in t.keys())
     assert import_inbox.probe(env.lib / "A/B/01 Un.m4a")[0] == "alac"
 
-    # l'original, FLAC compris, est gardé dans _traités/ ; l'Inbox reste
+    # the original, FLAC included, is kept in _traités/; the Inbox stays
     assert files(env.inbox) == [f"_traités/{TODAY}/Album/folder.jpg",
                                 f"_traités/{TODAY}/Album/x1.flac",
                                 f"_traités/{TODAY}/Album/x2.flac"]
@@ -82,14 +82,14 @@ def test_flac_album_imported(env, make_track):
 
 
 def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
-    # cas réel : Salut C'est Cool - Mon premier EP
+    # real case: Salut C'est Cool - Mon premier EP
     d = flac_album(env, make_track)
     (d / "folder.jpg").rename(d / "cover.jpg")
     (d / "info.txt").write_text("source")
     (d / "Booklet.pdf").write_bytes(b"pdf")
     (d / "1.lrc").write_text("[00:01]la")
 
-    assert env.run() == 0                           # dry-run : même résultat annoncé
+    assert env.run() == 0                           # dry run: same result announced
     out = capsys.readouterr().out
     assert "POCHETTE cover.jpg → folder.jpg" in out and "LAISSÉ   info.txt" in out
     assert "A/B/folder.jpg" in out and "A/B/info.txt" not in out
@@ -98,7 +98,7 @@ def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
     assert files(env.lib) == ["A/B/01 Un.m4a", "A/B/02 Deux.m4a", "A/B/1.lrc",
                               "A/B/Booklet.pdf", "A/B/folder.jpg"]
     assert (env.lib / "A/B/folder.jpg").read_bytes() == JPEG
-    # l'original reste entier dans _traités/, info.txt compris
+    # the original stays whole in _traités/, info.txt included
     assert f"_traités/{TODAY}/Album/info.txt" in files(env.inbox)
     assert f"_traités/{TODAY}/Album/cover.jpg" in files(env.inbox)
 
@@ -190,7 +190,7 @@ def test_errors_name_collision(env, make_track):
 
 def test_busy_item_waits(env, make_track, monkeypatch):
     p = make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
-    # la copie continue pendant l'attente
+    # the copy goes on during the wait
     monkeypatch.setattr(import_inbox.time, "sleep", lambda s: p.open("ab").write(b"x"))
     assert env.run("--settle", "1", "--apply") == 0
     assert p.exists() and files(env.lib) == []

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pylint: disable=invalid-name  # nom de la commande, pas un module importé
+# pylint: disable=invalid-name  # command name, not an imported module
 """
 music-librarian — point d'entrée unique.
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# après le sys.path : le lien /usr/local/bin/music-librarian est lancé de n'importe où
+# after sys.path: the /usr/local/bin/music-librarian link is run from anywhere
 # pylint: disable=wrong-import-position
 import enrich  # noqa: E402
 import import_inbox  # noqa: E402
