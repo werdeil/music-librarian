@@ -64,7 +64,6 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="écrire les tags (sinon dry-run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="dossiers par appel d'outil")
-    ap.add_argument("--lyrion-dir", default=import_inbox.LYRION_DIR)
     ap.add_argument("--r128gain", default=import_inbox.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()

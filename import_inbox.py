@@ -57,7 +57,6 @@ ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # cherche embed_covers.py), sauf si le dossier en a déjà un
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
-LYRION_DIR = os.environ.get("LYRION_DASHBOARD_DIR", "/home/werdeil/workspace/git/lyrion-dashboard")
 R128GAIN = os.environ.get("R128GAIN", "/opt/venvs/r128gain/bin/r128gain")
 MAX_DRIFT = 0.1  # écart de durée toléré entre FLAC et ALAC, en secondes
 OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # issue du traitement d'un élément
@@ -226,15 +225,11 @@ def convert(src: Path, dst: Path):
 # ---------- enrichissement ----------
 
 def enrichers(args):
-    """(nom, commande) appelées avec les dossiers cibles en arguments. Les .py
-    directement, jamais les wrappers _cron.sh (leur marqueur avancerait)."""
-    lyr = Path(args.lyrion_dir)
-    py = next((str(p) for p in (lyr / ".venv-cli/bin/python", lyr / ".venv/bin/python")
-               if p.exists()), "python3")
+    """(nom, commande) appelées avec les dossiers cibles en arguments."""
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
-        ("pochettes", [py, str(lyr / "scripts/embed_covers.py")]),
-        ("paroles", [py, str(lyr / "scripts/embed_lyrics.py")]),
+        ("pochettes", [sys.executable, str(HERE / "embed_covers.py")]),
+        ("paroles", [sys.executable, str(HERE / "embed_lyrics.py")]),
     ]
 
 
@@ -454,7 +449,6 @@ def main(argv=None):
                     help="secondes sans changement avant de traiter un élément")
     ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
     ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
-    ap.add_argument("--lyrion-dir", default=LYRION_DIR)
     ap.add_argument("--r128gain", default=R128GAIN)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_RANGER_STATE"))
     ap.add_argument("--syslog", action="store_true",
