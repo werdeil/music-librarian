@@ -42,8 +42,8 @@ import os
 import sys
 import time
 
-from ..lyrics import fetch_lyrics
-from ..media import tags
+from music_librarian.lyrics import fetch_lyrics
+from music_librarian.media import tags
 
 
 def resolve_targets(patterns):

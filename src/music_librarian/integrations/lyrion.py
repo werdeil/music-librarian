@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from urllib.parse import quote
 
-from ..core.files import AUDIO_EXT
+from music_librarian.core.files import AUDIO_EXT
 
 BACKUPS, KEEP_BACKUPS = "lyrion-backups", 14
 # characters Lyrion leaves as is in its URLs (checked over the whole database)

@@ -4,10 +4,10 @@ import shlex
 import time
 from pathlib import Path
 
-from ..core.files import prune_empty
-from ..core.journal import Journal, move_file
-from ..core.lock import EXIT_STOPPED, STOP
-from ..integrations import lyrion
+from music_librarian.core.files import prune_empty
+from music_librarian.core.journal import Journal, move_file
+from music_librarian.core.lock import EXIT_STOPPED, STOP
+from music_librarian.integrations import lyrion
 
 
 def undo(args, root, state_dir, log, db=None):

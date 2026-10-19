@@ -33,11 +33,11 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from . import enrich, importer, organize
-from .core.lock import EXIT_LOCKED, STOP, handle_stop_signals
-from .core.log import Log
-from .core.state import state_path
-from .organize import LAST_RUN
+from music_librarian import enrich, importer, organize
+from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
+from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
+from music_librarian.organize import LAST_RUN
 
 
 def signature(inbox_dir: Path):

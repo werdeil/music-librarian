@@ -11,8 +11,8 @@ Tout est en dry-run sans --apply. `music-librarian <commande> --help` pour les o
 """
 import sys
 
-from . import enrich, importer, organize, watch
-from .core.lock import handle_stop_signals
+from music_librarian import enrich, importer, organize, watch
+from music_librarian.core.lock import handle_stop_signals
 
 
 def main(argv=None):

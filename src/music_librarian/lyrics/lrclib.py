@@ -5,8 +5,8 @@ from urllib.parse import quote
 
 import requests
 
-from .common import USER_AGENT, ProviderUnavailable
-from .matching import by_length, drop_article, duration_close, float_duration
+from music_librarian.lyrics.common import USER_AGENT, ProviderUnavailable
+from music_librarian.lyrics.matching import by_length, drop_article, duration_close, float_duration
 
 log = logging.getLogger(__name__)
 

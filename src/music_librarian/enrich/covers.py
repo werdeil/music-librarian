@@ -31,7 +31,7 @@ import glob
 import os
 import sys
 
-from ..media import artwork, tags
+from music_librarian.media import artwork, tags
 
 
 def album_folders(patterns):

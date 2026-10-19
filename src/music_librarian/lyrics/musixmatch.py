@@ -6,8 +6,8 @@ import time
 
 import requests
 
-from .common import BROWSER_UA, ProviderUnavailable
-from .matching import int_duration, matches_request
+from music_librarian.lyrics.common import BROWSER_UA, ProviderUnavailable
+from music_librarian.lyrics.matching import int_duration, matches_request
 
 log = logging.getLogger(__name__)
 

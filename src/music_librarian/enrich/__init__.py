@@ -29,11 +29,11 @@ import sys
 import time
 from pathlib import Path
 
-from .. import importer
-from ..core.files import AUDIO_EXT
-from ..core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from ..core.log import Log
-from ..core.state import state_path
+from music_librarian import importer
+from music_librarian.core.files import AUDIO_EXT
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
+from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes

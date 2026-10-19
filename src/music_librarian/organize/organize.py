@@ -44,15 +44,15 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from ..core.files import AUDIO_EXT, is_junk, prune_empty
-from ..core.journal import Journal, move_file
-from ..core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from ..core.log import Log
-from ..core.state import state_path
-from ..integrations import lyrion
-from .naming import is_in_place, nfc, target_rel
-from .scan import collect, read_tags
-from .undo import undo
+from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
+from music_librarian.core.journal import Journal, move_file
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
+from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
+from music_librarian.integrations import lyrion
+from music_librarian.organize.naming import is_in_place, nfc, target_rel
+from music_librarian.organize.scan import collect, read_tags
+from music_librarian.organize.undo import undo
 
 LAST_RUN = "last_run"  # --since state file
 # Taken off the start time stored in last_run: the kernel stamps ctime with a

@@ -7,9 +7,9 @@ import logging
 import os
 import time
 
-from . import cache, lrclib, musixmatch, netease
-from .common import ProviderUnavailable
-from .matching import int_duration, matches_request
+from music_librarian.lyrics import cache, lrclib, musixmatch, netease
+from music_librarian.lyrics.common import ProviderUnavailable
+from music_librarian.lyrics.matching import int_duration, matches_request
 
 log = logging.getLogger(__name__)
 

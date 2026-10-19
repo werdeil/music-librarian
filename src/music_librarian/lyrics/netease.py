@@ -4,8 +4,8 @@ import re
 
 import requests
 
-from .common import BROWSER_UA, ProviderUnavailable
-from .matching import by_length, float_duration, int_duration, matches_request
+from music_librarian.lyrics.common import BROWSER_UA, ProviderUnavailable
+from music_librarian.lyrics.matching import by_length, float_duration, int_duration, matches_request
 
 log = logging.getLogger(__name__)
 

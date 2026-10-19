@@ -39,12 +39,12 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
-from . import organize
-from .core.files import AUDIO_EXT, is_junk
-from .core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from .core.log import Log
-from .core.state import state_path
-from .organize.scan import parse_pair, read_tags
+from music_librarian import organize
+from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
+from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
+from music_librarian.organize.scan import parse_pair, read_tags
 
 ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
 RESERVED = {ERRORS, DONE, WORK}
@@ -229,8 +229,8 @@ def enrichers(args):
     """(name, command) called with the target folders as arguments."""
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
-        ("pochettes", [sys.executable, "-m", f"{__package__}.enrich.covers"]),
-        ("paroles", [sys.executable, "-m", f"{__package__}.enrich.lyrics"]),
+        ("pochettes", [sys.executable, "-m", "music_librarian.enrich.covers"]),
+        ("paroles", [sys.executable, "-m", "music_librarian.enrich.lyrics"]),
     ]
 
 
