@@ -10,7 +10,7 @@ Each tool only handles what is missing:
 
 Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
 current batch completes (no tag write is cut short) and the rest is done on
-the next pass. With --apply the lock is held: no range or import while tags
+the next pass. With --apply the lock is held: no organize or import while tags
 are being rewritten.
 
   music-librarian enrich          # dry run: what each tool would do
@@ -37,7 +37,7 @@ from music_librarian.core.state import state_path
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
-DRY = {"replaygain": "--dry-run", "pochettes": "--dry-run", "paroles": "--dry-run"}
+DRY = {"replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
 
 
 def album_dirs(root: Path):
@@ -59,12 +59,12 @@ def last_run(state_dir: Path):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Enrichit toute la bibliothèque.")
+    ap = argparse.ArgumentParser(description="Enrich the whole library.")
     root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env)
-    ap.add_argument("--apply", action="store_true", help="écrire les tags (sinon dry-run)")
+    ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
-    ap.add_argument("--batch", type=int, default=BATCH, help="dossiers par appel d'outil")
+    ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
     ap.add_argument("--r128gain", default=importer.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()
@@ -74,7 +74,7 @@ def main(argv=None):
         with locked(state_dir) if args.apply else contextlib.nullcontext():
             return enrich_all(args, root, state_dir, log)
     except Locked as e:
-        log(f"VERROU   un autre passage est en cours ({e}), abandon")
+        log(f"LOCKED   another pass is running ({e}), giving up")
         return EXIT_LOCKED
 
 
@@ -82,17 +82,17 @@ def enrich_all(args, root, state_dir, log):
     started = time.time()
     dirs = album_dirs(root)
     batches = [dirs[i:i + args.batch] for i in range(0, len(dirs), args.batch)]
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enrichissement de {root} : "
-        f"{len(dirs)} dossiers, {len(batches)} lots")
+    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enriching {root}: "
+        f"{len(dirs)} folders, {len(batches)} batches")
     failed = []
     for name, cmd in importer.enrichers(args):
         if not args.apply:
             cmd = [*cmd, DRY[name]]
-        log(f"ENRICHIR ({name})")
+        log(f"ENRICH   ({name})")
         for i, batch in enumerate(batches, 1):
             if STOP.is_set():
-                log(f"ARRÊT    demandé : {name} arrêté au lot {i}/{len(batches)}, "
-                    f"repris au prochain passage")
+                log(f"STOP     requested: {name} stopped at batch {i}/{len(batches)}, "
+                    f"resumed on the next pass")
                 return EXIT_STOPPED
             try:
                 r = subprocess.run([*cmd, *map(str, batch)], check=False)
@@ -101,12 +101,12 @@ def enrich_all(args, root, state_dir, log):
                 log(f"         {e}")
                 ok = False
             if not ok:
-                log(f"ÉCHEC    {name}, lot {i}/{len(batches)} ({batch[0]} …)")
+                log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
                 failed.append(name)
-    log("\n--- Résumé enrichissement ---")
-    log(f"{'dossiers':>20} : {len(dirs)}")
+    log("\n--- Enrichment summary ---")
+    log(f"{'folders':>20}: {len(dirs)}")
     if failed:
-        log(f"{'lots en échec':>20} : {len(failed)} ({', '.join(sorted(set(failed)))})")
+        log(f"{'failed batches':>20}: {len(failed)} ({', '.join(sorted(set(failed)))})")
     if args.apply:
         state_dir.mkdir(parents=True, exist_ok=True)
         (state_dir / LAST_RUN).write_text(f"{started}\n")

@@ -4,10 +4,10 @@ importer — imports what is dropped in the Inbox into the library.
 For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
      artwork), duration (ffprobe) and tag checks;
-  2. filing with librarian, all or nothing: on any problem the whole item
-     goes to _erreurs/;
+  2. filing with organize, all or nothing: on any problem the whole item
+     goes to _failed/;
   3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
-  4. the original item (FLAC included) goes to _traités/YYYY-MM-DD/, purged
+  4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
 Dry run by default. --apply to actually do it.
@@ -16,7 +16,7 @@ Dry run by default. --apply to actually do it.
   music-librarian import --apply    # import
 
 Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
-One --apply pass at a time (lock shared with librarian). On SIGTERM or
+One --apply pass at a time (lock shared with organize). On SIGTERM or
 Ctrl-C, the item being filed is completed; the one being converted and the
 following ones stay in the Inbox for the next pass.
 
@@ -46,13 +46,14 @@ from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.organize.scan import parse_pair, read_tags
 
-ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
+ERRORS, DONE, WORK = "_failed", "_done", "_processing"
+UNFILED = "_unfiled"  # side files of a done item that did not follow it
 RESERVED = {ERRORS, DONE, WORK}
-# audio formats recognized but not handled: the item goes to _erreurs
+# audio formats recognized but not handled: the item goes to _failed
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
 # side files that follow the album into the library; the others (.txt, .nfo,
-# .log…) stay with the original in _traités/
+# .log…) stay with the original in _done/
 ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # covers renamed to folder.jpg (the library's name, and the one enrich/covers.py
 # looks for), unless the folder already has one
@@ -60,11 +61,11 @@ COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
 R128GAIN = os.environ.get("R128GAIN", "r128gain")
 MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
-OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # outcome of an item
+OK, FAILED, STOPPED = "ok", "failed", "stopped"  # outcome of an item
 
 
 class Reject(Exception):
-    """Problem with an item: it goes to _erreurs."""
+    """Problem with an item: it goes to _failed."""
 
 
 class Stopped(Exception):
@@ -201,7 +202,7 @@ def convert(src: Path, dst: Path):
                         "-fflags", "+bitexact", str(dst)],
                        capture_output=True, text=True, check=False)
     if r.returncode:
-        raise Reject(f"ffmpeg a échoué sur {src.name} : {r.stderr.strip()[-300:]}")
+        raise Reject(f"ffmpeg failed on {src.name}: {r.stderr.strip()[-300:]}")
 
     flac = FLAC(src)
     mp4 = MP4(dst)
@@ -213,14 +214,14 @@ def convert(src: Path, dst: Path):
     _, d_src = probe(src)
     codec, d_dst = probe(dst)
     if codec != "alac" or abs(d_src - d_dst) > MAX_DRIFT:
-        raise Reject(f"contrôle raté sur {src.name} : {codec}, "
-                           f"durée {d_src:.2f}s → {d_dst:.2f}s")
+        raise Reject(f"check failed on {src.name}: {codec}, "
+                     f"duration {d_src:.2f}s → {d_dst:.2f}s")
     a, b = read_tags(src) or {}, read_tags(dst) or {}
     diff = [k for k in CHECKED if a.get(k) != b.get(k)]
     if diff:
-        raise Reject(f"tags différents après conversion de {src.name} : {', '.join(diff)}")
+        raise Reject(f"tags differ after converting {src.name}: {', '.join(diff)}")
     if flac.pictures and "covr" not in MP4(dst).tags:
-        raise Reject(f"pochette perdue à la conversion de {src.name}")
+        raise Reject(f"cover lost converting {src.name}")
 
 
 # ---------- enrichment ----------
@@ -229,15 +230,15 @@ def enrichers(args):
     """(name, command) called with the target folders as arguments."""
     return [
         ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
-        ("pochettes", [sys.executable, "-m", "music_librarian.enrich.covers"]),
-        ("paroles", [sys.executable, "-m", "music_librarian.enrich.lyrics"]),
+        ("covers", [sys.executable, "-m", "music_librarian.enrich.covers"]),
+        ("lyrics", [sys.executable, "-m", "music_librarian.enrich.lyrics"]),
     ]
 
 
 def enrich(args, dirs, log):
     ok = True
     for name, cmd in enrichers(args):
-        log(f"ENRICHIR ({name})  {len(dirs)} dossier(s)")
+        log(f"ENRICH   ({name})  {len(dirs)} folder(s)")
         try:
             r = subprocess.run([*cmd, *map(str, dirs)], check=False)
             failed = r.returncode != 0
@@ -245,14 +246,14 @@ def enrich(args, dirs, log):
             failed = True
             log(f"         {e}")
         if failed:
-            log(f"ÉCHEC    enrichissement {name} : rattrapé par le passage hebdomadaire")
+            log(f"FAILED   enrichment {name}: caught up by the weekly pass")
             ok = False
     return ok
 
 
 # ---------- item processing ----------
 
-def ranger(args, paths, apply, quiet=False):
+def organize_paths(args, paths, apply, quiet=False):
     argv = ["--root", str(args.root), *map(str, paths)]
     if apply:
         argv.append("--apply")
@@ -284,16 +285,16 @@ def classify(item):
             if ext == ".m4a":
                 codec, _ = probe(p)
                 if codec != "alac":
-                    raise Reject(f"{p.name} : .m4a en {codec}, pas en ALAC")
+                    raise Reject(f"{p.name}: .m4a in {codec}, not ALAC")
             audio.append(p)
         elif ext in OTHER_AUDIO:
-            raise Reject(f"{p.name} : format {ext} non géré")
+            raise Reject(f"{p.name}: format {ext} not handled")
         elif ext in ANNEX_EXT:
             annexes.append(p)
         else:
             left.append(p)
     if not flacs and not audio:
-        raise Reject("aucun fichier audio")
+        raise Reject("no audio file")
     return flacs, audio, annexes, left, junk
 
 
@@ -319,7 +320,7 @@ def link_or_copy(src: Path, dst: Path):
 
 
 def to_errors(args, item, reason, log):
-    log(f"ERREUR   {item.name} : {reason}")
+    log(f"ERROR    {item.name}: {reason}")
     if args.apply:
         dst = free_name(args.inbox / ERRORS, item.name, item.is_dir)
         shutil.move(str(item.path), str(dst))
@@ -335,21 +336,21 @@ def process(args, item, log):
         return FAILED, set()
 
     log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
-        f"{len(annexes)} annexe(s))")
+        f"{len(annexes)} side file(s))")
     names = annex_names(item, annexes)
     for p, rel in names.items():
         if rel.name != p.name:
-            log(f"POCHETTE {item.rel(p)} → {rel.name}")
+            log(f"COVER    {item.rel(p)} → {rel.name}")
     for p in left:
-        log(f"LAISSÉ   {item.rel(p)} : gardé avec l'original dans {DONE}/")
+        log(f"KEPT     {item.rel(p)}: kept with the original in {DONE}/")
 
     if not args.apply:
         for p in flacs:
-            log(f"CONVERTIR {item.rel(p)}  → .m4a")
-        code, report = ranger(args, [item.path], apply=False, quiet=True)
+            log(f"CONVERT  {item.rel(p)}  → .m4a")
+        code, report = organize_paths(args, [item.path], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
-            log(f"ERREUR   {item.name} : irait dans {ERRORS}/ (voir ci-dessus)")
+            log(f"ERROR    {item.name}: would go to {ERRORS}/ (see above)")
             return FAILED, set()
         for src, dst in report["moves"]:
             if src in left:
@@ -358,13 +359,13 @@ def process(args, item, log):
                 dst = dst.with_suffix(".m4a")
             elif src in names:
                 dst = dst.with_name(names[src].name)
-            log(f"RANGER   {item.rel(src)}\n         → {dst}")
+            log(f"ORGANIZE {item.rel(src)}\n         → {dst}")
         return OK, set()
 
     work = args.inbox / WORK / item.name
     if work.exists():
-        log(f"ERREUR   {item.name} : {work} existe déjà (passage interrompu ?), "
-            f"élément laissé en place")
+        log(f"ERROR    {item.name}: {work} already exists (interrupted pass?), "
+            f"item left in place")
         return FAILED, set()
 
     # 1. Work folder: converted FLAC, hard-linked ALAC/MP3 and side files.
@@ -372,35 +373,35 @@ def process(args, item, log):
         for p in flacs:
             if STOP.is_set():
                 raise Stopped
-            log(f"CONVERTIR {item.rel(p)}")
+            log(f"CONVERT  {item.rel(p)}")
             convert(p, work / item.rel(p).with_suffix(".m4a"))
         for p in audio:
             link_or_copy(p, work / item.rel(p))
         for p, rel in names.items():
             link_or_copy(p, work / rel)
-        code, report = ranger(args, [work], apply=False, quiet=True)
+        code, report = organize_paths(args, [work], apply=False, quiet=True)
         if code:
             log(report["output"].rstrip())
-            raise Reject("refusé par le rangement (voir ci-dessus)")
+            raise Reject("refused by organize (see above)")
     except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
         with contextlib.suppress(OSError):
             work.parent.rmdir()
         if isinstance(e, Stopped):
-            log(f"ARRÊT    {item.name} : laissé dans l'Inbox pour le prochain passage")
+            log(f"STOP     {item.name}: left in the Inbox for the next pass")
             return STOPPED, set()
         to_errors(args, item, e, log)
         return FAILED, set()
 
     # 2. Actual filing.
-    code, report = ranger(args, [work], apply=True)
+    code, report = organize_paths(args, [work], apply=True)
     if code:
-        log(f"ERREUR   {item.name} : rangement incomplet, élément et {work} laissés "
-            f"en place (journal : {report.get('journal')})")
+        log(f"ERROR    {item.name}: filing incomplete, item and {work} left "
+            f"in place (journal: {report.get('journal')})")
         return FAILED, set()
     targets = {dst.parent for src, dst in report["done"] if dst.suffix.lower() in AUDIO_EXT}
 
-    # 3. The original goes to _traités/; what is left in the work folder (side
+    # 3. The original goes to _done/; what is left in the work folder (side
     #    files that did not follow) joins it.
     day = args.inbox / DONE / date.today().isoformat()
     day.mkdir(parents=True, exist_ok=True)
@@ -410,14 +411,14 @@ def process(args, item, log):
     shutil.move(str(item.path), str(kept))
     leftovers = [p for p in work.rglob("*") if p.is_file()]
     if leftovers:
-        rest = kept / "_non_rangés" if kept.is_dir() else free_name(day, f"{item.name}_non_rangés")
+        rest = kept / UNFILED if kept.is_dir() else free_name(day, f"{item.name}{UNFILED}")
         for p in leftovers:
             link_or_copy(p, rest / p.relative_to(work))
-        log(f"NOTE     {len(leftovers)} fichier(s) non rangé(s) gardé(s) dans {rest}")
+        log(f"NOTE     {len(leftovers)} unfiled file(s) kept in {rest}")
     shutil.rmtree(work)
     with contextlib.suppress(OSError):
         work.parent.rmdir()
-    log(f"TRAITÉ   {item.name} → {kept}")
+    log(f"DONE     {item.name} → {kept}")
     return OK, targets
 
 
@@ -432,7 +433,7 @@ def purge(args, log):
         except ValueError:
             continue
         if p.is_dir() and day < limit:
-            log(f"PURGER   {p}")
+            log(f"PURGE    {p}")
             if args.apply:
                 shutil.rmtree(p)
 
@@ -440,46 +441,46 @@ def purge(args, log):
 # ---------- main ----------
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Importe l'Inbox dans la bibliothèque.")
+    ap = argparse.ArgumentParser(description="Import the Inbox into the library.")
     inbox_env, root_env = os.environ.get("MUSIC_LIBRARIAN_INBOX"), os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
-                    help="dossier de dépôt (défaut : $MUSIC_LIBRARIAN_INBOX)")
+                    help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
     ap.add_argument("--root", type=Path, default=root_env, required=not root_env,
-                    help="racine de la bibliothèque (défaut : $MUSIC_LIBRARIAN_ROOT)")
-    ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
+                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
+    ap.add_argument("--apply", action="store_true", help="do it (otherwise dry run)")
     ap.add_argument("--settle", type=float, default=10,
-                    help="secondes sans changement avant de traiter un élément")
-    ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
-    ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
+                    help="seconds without change before handling an item")
+    ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
+    ap.add_argument("--no-enrich", action="store_true", help="without ReplayGain/cover/lyrics")
     ap.add_argument("--r128gain", default=R128GAIN)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
-                    help="envoyer aussi les lignes dans syslog/journald (tag music-import)")
+                    help="also send the lines to syslog/journald (tag music-import)")
     args = ap.parse_args(argv)
     args.inbox, args.root = args.inbox.resolve(), args.root.resolve()
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
     log = Log(args.syslog, ident="music-import")
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox : {args.inbox}")
+    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox: {args.inbox}")
     state_dir = state_path(args.state_dir)
     try:
         with locked(state_dir) if args.apply else contextlib.nullcontext():
             return import_all(args, log)
     except Locked as e:
-        log(f"VERROU   un autre passage est en cours ({e}), abandon")
+        log(f"LOCKED   another pass is running ({e}), giving up")
         return EXIT_LOCKED
 
 
 def import_all(args, log):
     if not args.root.is_dir():
-        log(f"ERREUR   bibliothèque introuvable : {args.root}")
+        log(f"ERROR    library not found: {args.root}")
         return 2
     if args.apply:
         for d in ERRORS, DONE:
             (args.inbox / d).mkdir(parents=True, exist_ok=True)
     elif not args.inbox.is_dir():
-        log("Inbox absente : elle sera créée avec --apply")
+        log("Inbox missing: it will be created with --apply")
         return 0
 
     purge(args, log)
@@ -490,18 +491,18 @@ def import_all(args, log):
                 p.unlink(missing_ok=True)
     items = list_items(args.inbox)
     if not items:
-        log("Inbox vide")
+        log("Inbox empty")
         return 0
 
     items, busy = stable_items(items, args.settle)
     for it in busy:
-        log(f"ATTENTE  {it.name} : copie en cours, traité au prochain passage")
+        log(f"WAITING  {it.name}: copy in progress, handled on the next pass")
 
     counts, targets = defaultdict(int), set()
     for i, it in enumerate(items):
         if STOP.is_set():
-            counts["laissés (arrêt)"] += len(items) - i
-            log(f"ARRÊT    demandé : {len(items) - i} élément(s) laissés pour le prochain passage")
+            counts["left (stopped)"] += len(items) - i
+            log(f"STOP     requested: {len(items) - i} item(s) left for the next pass")
             break
         status, t = process(args, it, log)
         counts[status] += 1
@@ -511,16 +512,16 @@ def import_all(args, log):
     if targets and not args.no_enrich:
         log("")
         if STOP.is_set():
-            log("ARRÊT    enrichissement sauté : rattrapé par le passage hebdomadaire")
+            log("STOP     enrichment skipped: caught up by the weekly pass")
         else:
             enrich_ok = enrich(args, sorted(targets), log)
 
-    log("\n--- Résumé import ---")
-    for k, v in (("importés", counts[OK]), ("en erreur", counts[FAILED]),
-                 ("laissés (arrêt)", counts[STOPPED] + counts["laissés (arrêt)"]),
-                 ("en attente", len(busy)), ("dossiers cibles", len(targets))):
+    log("\n--- Import summary ---")
+    for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),
+                 ("left (stopped)", counts[STOPPED] + counts["left (stopped)"]),
+                 ("waiting", len(busy)), ("target folders", len(targets))):
         if v:
-            log(f"{k:>20} : {v}")
+            log(f"{k:>20}: {v}")
     if STOP.is_set():
         return EXIT_STOPPED
     return 2 if counts[FAILED] or not enrich_ok else 0

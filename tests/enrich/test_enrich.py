@@ -30,7 +30,7 @@ def tools(tmp_path, monkeypatch):
 
     def enrichers(args):
         out = []
-        for name in ("replaygain", "pochettes", "paroles"):
+        for name in ("replaygain", "covers", "lyrics"):
             code = 1 if name in fails else 0
             script = (f"import sys; open({str(log)!r}, 'a').write({name!r} + ' ' + "
                       f"' '.join(sys.argv[1:]) + '\\n'); sys.exit({code})")
@@ -61,7 +61,7 @@ def test_batches_and_last_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--apply", "--batch", "3") == 0
     calls = tools.calls()
-    assert [c.split()[0] for c in calls] == ["replaygain"] * 2 + ["pochettes"] * 2 + ["paroles"] * 2
+    assert [c.split()[0] for c in calls] == ["replaygain"] * 2 + ["covers"] * 2 + ["lyrics"] * 2
     assert calls[0].endswith(f"{lib}/A/B {lib}/A/C {lib}/D/E")
     assert calls[1] == f"replaygain {lib}/D/E/CD2"
     assert enrich.last_run(state) is not None
@@ -75,10 +75,10 @@ def test_dry_run(lib, tools, tmp_path):
 
 
 def test_tool_failure_reported(lib, tools, tmp_path, capsys):
-    tools.fails.add("pochettes")
+    tools.fails.add("covers")
     assert run(lib, tmp_path / "state", "--apply") == 2
-    assert "ÉCHEC    pochettes" in capsys.readouterr().out
-    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "pochettes", "paroles"]
+    assert "FAILED   covers" in capsys.readouterr().out
+    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers", "lyrics"]
 
 
 def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
@@ -117,7 +117,13 @@ def test_last_slot(t, slot):
     assert watch.last_slot(t, 6, time(3, 0)) == slot
 
 
-@pytest.mark.parametrize("s", ["dim", "dimanche 3h", "xyz 03:00"])
+@pytest.mark.parametrize("s, slot", [("sun 03:00", (6, time(3, 0))), ("Monday 8:30", (0, time(8, 30))),
+                                     ("dim 03:00", (6, time(3, 0)))])   # French names accepted
+def test_enrich_at_days(s, slot):
+    assert watch.weekly(s) == slot
+
+
+@pytest.mark.parametrize("s", ["sun", "sunday 3h", "xyz 03:00"])
 def test_enrich_at_format(s):
     with pytest.raises(SystemExit):
         watch.main(["--inbox", "inbox", "--enrich-at", s])
@@ -131,7 +137,7 @@ def weekly(tmp_path, monkeypatch, ticks):
     monkeypatch.setattr(importer, "main", lambda argv: 0)
 
     class W:
-        clock = [datetime(2026, 10, 17, 12, 0)]     # samedi
+        clock = [datetime(2026, 10, 17, 12, 0)]     # Saturday
         calls = []
         codes = []
 
@@ -143,7 +149,7 @@ def weekly(tmp_path, monkeypatch, ticks):
 
         def run(self, actions, *argv):
             return ticks(inbox_dir, actions, "--state-dir", str(state),
-                         "--enrich-at", "dim 03:00", *argv)
+                         "--enrich-at", "sun 03:00", *argv)
 
     w = W()
 

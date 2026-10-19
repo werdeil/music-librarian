@@ -19,7 +19,7 @@ class Log:
         print(msg, flush=True)   # in order with the subcommands' output
         if self.syslog and msg.strip():
             line = " ".join(part.strip() for part in msg.splitlines() if part.strip())
-            # reopened on every line: import and range each have their own tag
+            # reopened on every line: import and organize each have their own tag
             self.syslog.openlog(self.ident)
             # a non-UTF-8 file name (e.g. \x92) must not crash the log
             self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())

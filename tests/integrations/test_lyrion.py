@@ -107,7 +107,7 @@ def test_dry_run_writes_nothing(misplaced, capsys):
     assert misplaced.run() == 0
     assert misplaced.row("tracks_persistent", "vrac/1.m4a")["playCount"] == 7
     assert not (misplaced.state / lyrion.BACKUPS).exists()
-    assert "Lyrion renommées : 1" in " ".join(capsys.readouterr().out.split())
+    assert "Lyrion renamed: 1" in " ".join(capsys.readouterr().out.split())
 
 
 def test_history_follows_renamed_file(misplaced):
@@ -146,7 +146,7 @@ def test_only_in_tracks_persistent(env, make_track):
 def test_no_history(env, make_track, capsys):
     make_track(env.lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 0
-    assert "Lyrion sans historique : 1" in " ".join(capsys.readouterr().out.split())
+    assert "Lyrion no history: 1" in " ".join(capsys.readouterr().out.split())
     assert env.count("tracks_persistent") == 0
 
 
@@ -175,7 +175,7 @@ def test_lyrion_busy_files_still_moved_then_replay(misplaced, monkeypatch, capsy
     other.execute("ROLLBACK")
     other.close()
     out = capsys.readouterr().out
-    assert "ERREUR   report Lyrion" in out and "--lyrion-replay" in out
+    assert "ERROR    Lyrion carry-over" in out and "--lyrion-replay" in out
     assert (misplaced.lib / "A/B/01 Un.m4a").exists()
     assert misplaced.row("tracks_persistent", "vrac/1.m4a")["playCount"] == 7
 
