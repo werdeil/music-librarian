@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
-      - TZ=${TZ:-Europe/Paris}  # date of the _traités/YYYY-MM-DD folders
+      - TZ=${TZ:-Europe/Paris}  # date of the _done/YYYY-MM-DD folders
       - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?set it in .env}
       - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?set it in .env}
       # Lyrion history carried over to moved files, off without LYRION_PREFS_DIR

@@ -125,7 +125,7 @@ def test_import_stop_during_conversion_leaves_item(dirs, make_track, monkeypatch
     monkeypatch.setattr(importer, "convert", stop_after(1, importer.convert))
     assert import_inbox(lib, inbox_dir, state, "--apply") == EXIT_STOPPED
     assert files(lib) == []
-    assert files(inbox_dir) == ["Album/1.flac", "Album/2.flac"]   # neither _erreurs nor _en_cours
+    assert files(inbox_dir) == ["Album/1.flac", "Album/2.flac"]   # neither _failed nor _processing
 
 
 def test_import_finishes_current_item_then_stops(dirs, make_track, monkeypatch):

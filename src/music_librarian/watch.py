@@ -5,7 +5,7 @@ Every --interval seconds the Inbox root is read again (a plain listing, the
 library is not walked). The import runs once its content has not changed
 since the previous tick and has not already been handled as is: no run on
 every tick during a copy, nor for an item left in place. A pass also runs
-once a day, empty Inbox included, to purge _traités/.
+once a day, empty Inbox included, to purge _done/.
 
 With --range-at HH:MM, the range of changed folders (range --since) runs every
 day from that time, unless a full pass already happened since (state/last_run

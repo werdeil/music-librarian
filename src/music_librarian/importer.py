@@ -4,11 +4,14 @@ importer — imports what is dropped in the Inbox into the library.
 For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
      artwork), duration (ffprobe) and tag checks;
-  2. filing with librarian, all or nothing: on any problem the whole item
-     goes to _erreurs/;
+  2. filing with organize, all or nothing: on any problem the whole item
+     goes to _failed/;
   3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
-  4. the original item (FLAC included) goes to _traités/YYYY-MM-DD/, purged
+  4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
+
+The folders of earlier versions (_erreurs, _traités, _en_cours) are renamed
+to these names on the first --apply pass.
 
 Dry run by default. --apply to actually do it.
 
@@ -16,7 +19,7 @@ Dry run by default. --apply to actually do it.
   music-librarian import --apply    # import
 
 Paths: --inbox / $MUSIC_LIBRARIAN_INBOX, --root / $MUSIC_LIBRARIAN_ROOT.
-One --apply pass at a time (lock shared with librarian). On SIGTERM or
+One --apply pass at a time (lock shared with organize). On SIGTERM or
 Ctrl-C, the item being filed is completed; the one being converted and the
 following ones stay in the Inbox for the next pass.
 
@@ -46,13 +49,16 @@ from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.organize.scan import parse_pair, read_tags
 
-ERRORS, DONE, WORK = "_erreurs", "_traités", "_en_cours"
-RESERVED = {ERRORS, DONE, WORK}
-# audio formats recognized but not handled: the item goes to _erreurs
+ERRORS, DONE, WORK = "_failed", "_done", "_processing"
+UNFILED = "_unfiled"  # side files of a done item that did not follow it
+# folder names of earlier versions, renamed by the first --apply pass
+LEGACY = {"_erreurs": ERRORS, "_traités": DONE, "_en_cours": WORK}
+RESERVED = {ERRORS, DONE, WORK, *LEGACY}
+# audio formats recognized but not handled: the item goes to _failed
 OTHER_AUDIO = {".wav", ".aif", ".aiff", ".ogg", ".oga", ".opus", ".wma", ".ape", ".wv",
                ".dsf", ".dff", ".aac", ".m4b", ".mp2", ".mka", ".alac", ".mpc", ".tta"}
 # side files that follow the album into the library; the others (.txt, .nfo,
-# .log…) stay with the original in _traités/
+# .log…) stay with the original in _done/
 ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # covers renamed to folder.jpg (the library's name, and the one enrich/covers.py
 # looks for), unless the folder already has one
@@ -64,7 +70,7 @@ OK, FAILED, STOPPED = "ok", "erreur", "arrêt"  # outcome of an item
 
 
 class Reject(Exception):
-    """Problem with an item: it goes to _erreurs."""
+    """Problem with an item: it goes to _failed."""
 
 
 class Stopped(Exception):
@@ -400,7 +406,7 @@ def process(args, item, log):
         return FAILED, set()
     targets = {dst.parent for src, dst in report["done"] if dst.suffix.lower() in AUDIO_EXT}
 
-    # 3. The original goes to _traités/; what is left in the work folder (side
+    # 3. The original goes to _done/; what is left in the work folder (side
     #    files that did not follow) joins it.
     day = args.inbox / DONE / date.today().isoformat()
     day.mkdir(parents=True, exist_ok=True)
@@ -410,7 +416,7 @@ def process(args, item, log):
     shutil.move(str(item.path), str(kept))
     leftovers = [p for p in work.rglob("*") if p.is_file()]
     if leftovers:
-        rest = kept / "_non_rangés" if kept.is_dir() else free_name(day, f"{item.name}_non_rangés")
+        rest = kept / UNFILED if kept.is_dir() else free_name(day, f"{item.name}{UNFILED}")
         for p in leftovers:
             link_or_copy(p, rest / p.relative_to(work))
         log(f"NOTE     {len(leftovers)} fichier(s) non rangé(s) gardé(s) dans {rest}")
@@ -419,6 +425,21 @@ def process(args, item, log):
         work.parent.rmdir()
     log(f"TRAITÉ   {item.name} → {kept}")
     return OK, targets
+
+
+def migrate_legacy(args, log):
+    """Rename the Inbox folders of earlier versions (_traités…) to the current names."""
+    for old, new in LEGACY.items():
+        src, dst = args.inbox / old, args.inbox / new
+        if not src.is_dir():
+            continue
+        if dst.exists():
+            log(f"WARNING  {src} and {dst} both exist: {old}/ left as is, to merge by hand")
+        elif args.apply:
+            src.rename(dst)
+            log(f"RENAMED  {src} → {dst}")
+        else:
+            log(f"RENAME   {src} → {dst}")
 
 
 def purge(args, log):
@@ -449,7 +470,7 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="exécuter (sinon dry-run)")
     ap.add_argument("--settle", type=float, default=10,
                     help="secondes sans changement avant de traiter un élément")
-    ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _traités/")
+    ap.add_argument("--keep-days", type=int, default=7, help="durée de garde de _done/")
     ap.add_argument("--no-enrich", action="store_true", help="sans ReplayGain/pochette/paroles")
     ap.add_argument("--r128gain", default=R128GAIN)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
@@ -475,6 +496,8 @@ def import_all(args, log):
     if not args.root.is_dir():
         log(f"ERREUR   bibliothèque introuvable : {args.root}")
         return 2
+    if args.inbox.is_dir():
+        migrate_legacy(args, log)
     if args.apply:
         for d in ERRORS, DONE:
             (args.inbox / d).mkdir(parents=True, exist_ok=True)
