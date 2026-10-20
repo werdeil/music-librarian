@@ -5,7 +5,8 @@ For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion and its checks (media/convert.py);
   2. filing with organize, all or nothing: on any problem the whole item
      goes to _failed/;
-  3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
+  3. enrichment (ReplayGain, cover, lyrics) of the target folders only, then
+     the split of their credits holding several names (split/);
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
@@ -34,7 +35,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from music_librarian import enrich, organize
+from music_librarian import enrich, organize, split
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Buffer, Log
@@ -67,6 +68,7 @@ class Options:
     settle: float = 10
     keep_days: int = 7
     enrich: bool = True
+    split: bool = True
     state_dir: Path = field(default_factory=state_path)
     syslog: bool = False
     lyrion: Lyrion | None = None
@@ -160,6 +162,15 @@ def enrich_targets(dirs, log):
             log(f"FAILED   enrichment {name}: caught up by the weekly pass")
             ok = False
     return ok
+
+
+def split_credits(opts, dirs, log):
+    """Splits the credits of `dirs`, under the lock import already holds."""
+    if split.split_pass(split.Options(root=opts.root, paths=dirs, apply=True,
+                                      state_dir=opts.state_dir), log):
+        log("FAILED   credit split: caught up by the weekly pass")
+        return False
+    return True
 
 
 # ---------- item processing ----------
@@ -354,6 +365,7 @@ def parser():
                     help="seconds without change before handling an item")
     ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
     ap.add_argument("--no-enrich", action="store_true", help="without ReplayGain/cover/lyrics")
+    ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-import)")
@@ -364,7 +376,7 @@ def parser():
 def options(args):
     """Options from the arguments of `parser()`."""
     opts = Options(inbox=args.inbox, root=args.root, apply=args.apply, settle=args.settle,
-                   keep_days=args.keep_days, enrich=not args.no_enrich,
+                   keep_days=args.keep_days, enrich=not args.no_enrich, split=not args.no_split,
                    state_dir=state_path(args.state_dir), syslog=args.syslog)
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     return opts
@@ -433,6 +445,9 @@ def import_all(opts, log):
             log("STOP     enrichment skipped: caught up by the weekly pass")
         else:
             enrich_ok = enrich_targets(sorted(targets), log)
+    if targets and opts.split and not STOP.is_set():
+        log("")
+        enrich_ok = split_credits(opts, sorted(targets), log) and enrich_ok
 
     log("\n--- Import summary ---")
     for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),

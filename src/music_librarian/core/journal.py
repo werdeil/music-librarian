@@ -1,4 +1,4 @@
-"""Move journals: what a pass moved, so it can be undone."""
+"""Journals: what a pass moved or retagged, so it can be undone."""
 import json
 import shutil
 import time
@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 class Journal:
-    """One JSON line per successful move, written right after it, so an
-    interrupted pass can still be undone. The file is created on the first move."""
+    """One JSON line per successful move or tag change, written right after it, so
+    an interrupted pass can still be undone. The file is created on the first one."""
 
     def __init__(self, state_dir: Path, meta):
         self.state_dir = state_dir
@@ -16,6 +16,12 @@ class Journal:
         self.f = None
 
     def move(self, src, dst):
+        self._write(dict(type="move", src=str(src), dst=str(dst)))
+
+    def tag(self, path, field, old, new):
+        self._write(dict(type="tag", path=str(path), field=field, old=old, new=new))
+
+    def _write(self, rec):
         if self.f is None:
             d = self.state_dir / "journal"
             d.mkdir(parents=True, exist_ok=True)
@@ -28,10 +34,10 @@ class Journal:
                     break
                 except FileExistsError:
                     continue
-            self._write(dict(type="meta", **self.meta))
-        self._write(dict(type="move", src=str(src), dst=str(dst)))
+            self._append(dict(type="meta", **self.meta))
+        self._append(rec)
 
-    def _write(self, rec):
+    def _append(self, rec):
         # ensure_ascii: a non-UTF-8 name is kept as is (\udcXX) and read back identically
         self.f.write(json.dumps(rec) + "\n")
         self.f.flush()
