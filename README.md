@@ -27,6 +27,8 @@ docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on 
 journalctl -t music-librarian -f
 ```
 
+To use the published image instead of building it, replace the `build:` section of `docker-compose.yml` with `image: ghcr.io/werdeil/music-librarian:0.1` (or `latest`), then `docker compose pull`. Images are built for amd64 and arm64.
+
 The library and the Inbox must sit under the single folder set in `MUSIC_LIBRARIAN_VOLUME`, mounted at the same path as on the host, so moves stay renames and journal paths are valid on both sides.
 
 One-off runs, dry-run unless `--apply` is added:
