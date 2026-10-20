@@ -27,7 +27,7 @@ docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le
 journalctl -t music-librarian -f
 ```
 
-Pour utiliser l'image publiée plutôt que de la construire, remplacer la section `build:` de `docker-compose.yml` par `image: ghcr.io/werdeil/music-librarian:0.1` (ou `latest`), puis `docker compose pull`. Les images sont construites pour amd64 et arm64.
+Pour utiliser l'image publiée plutôt que de la construire, remplacer la section `build:` et la ligne `image:` de `docker-compose.yml` par `image: ghcr.io/werdeil/music-librarian:0.1` (ou `latest`), puis `docker compose pull`. Les images sont construites pour amd64 et arm64.
 
 La bibliothèque et l'Inbox doivent se trouver sous le dossier unique de `MUSIC_LIBRARIAN_VOLUME`, monté au même chemin que sur l'hôte : les déplacements restent des renommages et les chemins des journaux valent des deux côtés.
 
