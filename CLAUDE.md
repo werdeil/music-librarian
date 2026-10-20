@@ -59,7 +59,7 @@ Rules for the comments that do survive:
 
 ## Commits and pull requests
 
-**Commit subjects and PR titles follow Conventional Commits: `type(scope): summary`.** PRs are squash-merged, so the title becomes the commit subject on `main` and a line of the release notes. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. The scope is the area touched (`organize`, `import`, `watch`, `enrich`, `lyrics`, `lyrion`, `docker`, `ci`, `deps`), dropped when the change is repo-wide. Lowercase after the colon, imperative, no trailing period, short enough to read in `git log --oneline`. The `Pull request` workflow fails a title that breaks this form and labels the PR with its type and the areas its files touch (`.github/labeler.yml`); the release notes are grouped by those labels (`.github/release.yml`).
+**Commit subjects and PR titles follow Conventional Commits: `type(scope): summary`.** PRs are squash-merged, so the title becomes the commit subject on `main` and a line of the release notes. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. The scope is the area touched (`organize`, `import`, `watch`, `enrich`, `split`, `lyrics`, `lyrion`, `docker`, `ci`, `deps`), dropped when the change is repo-wide. Lowercase after the colon, imperative, no trailing period, short enough to read in `git log --oneline`. The `Pull request` workflow fails a title that breaks this form and labels the PR with its type and the areas its files touch (`.github/labeler.yml`); the release notes are grouped by those labels (`.github/release.yml`).
 
 **PR titles, PR descriptions and commit messages are written in English.** Only the READMEs are bilingual.
 

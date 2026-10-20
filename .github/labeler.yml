@@ -14,6 +14,10 @@ enrich:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/enrich/**", "src/music_librarian/media/**"]
 
+split:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/split/**", "src/music_librarian/media/credit_tags.py"]
+
 lyrics:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/lyrics/**", "src/music_librarian/enrich/lyrics.py"]
