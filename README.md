@@ -62,8 +62,6 @@ python -m pytest -q    # needs ffmpeg
 pylint src tests
 ```
 
-The CLI output is in French.
-
 ## License
 
 [MIT](LICENSE)
