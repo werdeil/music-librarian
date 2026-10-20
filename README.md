@@ -68,6 +68,8 @@ python -m pytest -q    # needs ffmpeg
 pylint src tests
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and [CHANGELOG.md](CHANGELOG.md) for what changed between versions.
+
 ## License
 
 [MIT](LICENSE)

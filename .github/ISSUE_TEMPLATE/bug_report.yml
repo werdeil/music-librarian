@@ -1,0 +1,38 @@
+name: Bug report
+description: Something did not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The relevant log lines, ideally from a dry run (without --apply).
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release or commit you run.
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How you run it
+      options:
+        - Docker / Docker Compose
+        - pip install
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files involved
+      description: Format (ALAC, MP3, FLAC) and the tags of a file that shows the problem, if it is about one.

@@ -1,0 +1,16 @@
+name: Feature request
+description: An idea to make music-librarian more useful
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: The problem you want solved, and how you deal with it today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: How music-librarian could do it, if you have one in mind.
