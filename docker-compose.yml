@@ -38,7 +38,7 @@ services:
       # Lyrion history carried over to moved files, off without LYRION_PREFS_DIR
       - LYRION_PERSIST_DB=${LYRION_PREFS_DIR:+/lyrion-prefs/persist.db}
       - LYRION_MUSIC_ROOT=${LYRION_MUSIC_ROOT:-}
-      - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,musixmatch,netease}
+      - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
     volumes:
       # Inbox and library under this single mount, at the same path as on the

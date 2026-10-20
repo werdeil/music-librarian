@@ -20,7 +20,8 @@ PROVIDERS = {
     "musixmatch": musixmatch.fetch,
     "netease": netease.fetch,
 }
-DEFAULT_PROVIDER_ORDER = "lrclib,musixmatch,netease"
+# Musixmatch is opt-in: it is reached through the unofficial endpoint of its desktop app
+DEFAULT_PROVIDER_ORDER = "lrclib,netease"
 
 # The cache key includes client-supplied fields: longer ones are refused.
 MAX_FIELD_LEN = 512
