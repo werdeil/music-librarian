@@ -35,6 +35,10 @@ Imports inside the package are absolute (`from music_librarian.core.lock import 
 - **Messages are in English**, and each log line starts with an 8-character tag (`MOVE`, `CONFLICT`, `SKIPPED`, `ERROR`, `STOP`, `LOCKED`…) so the output lines up; summaries read `key: value`.
 - **Tests never touch a real library.** They build their audio files with ffmpeg in a temporary folder (`tests/conftest.py`), and never reach a real Lyrion database or a lyrics provider.
 
+## Documentation
+
+**`README.md` and `README.fr.md` are kept in lockstep**: a change to one lands in the other in the same PR. The pages under `docs/` are in English only, and every link to them from the French README is flagged "(en anglais)".
+
 ## Code style & comments
 
 **Comments are the exception, not the norm.** The default is no comment: intent belongs in naming and small functions, not in prose. When you touch a block, delete the comments in it that the rules below don't justify.
