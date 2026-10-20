@@ -74,7 +74,7 @@ python -m pytest -q    # needs ffmpeg
 pylint src tests
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and [CHANGELOG.md](CHANGELOG.md) for what changed between versions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and the [releases](https://github.com/werdeil/music-librarian/releases) for what changed between versions.
 
 ## License
 

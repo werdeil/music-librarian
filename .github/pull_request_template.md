@@ -6,4 +6,4 @@
 
 - [ ] `python -m pytest -q` passes
 - [ ] `pylint src tests` stays at 10/10
-- [ ] `CHANGELOG.md` updated, if users would notice the change
+- [ ] The title says what changes for users: it becomes this pull request's line in the release notes

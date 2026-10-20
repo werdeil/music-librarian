@@ -38,8 +38,8 @@ The CI also builds the Docker image, which runs the tests again inside the conta
 
 ## Pull requests
 
-- Keep a pull request to one change, and describe what it changes for users.
-- Add a line to the `Unreleased` section of [CHANGELOG.md](CHANGELOG.md) when users would notice the change.
+- Keep a pull request to one change.
+- Give the pull request a title that says what changes for users: release notes are generated from the titles of the merged pull requests.
 - Write commit messages in English, with a short summary line and a body explaining why.
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

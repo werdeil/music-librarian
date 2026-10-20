@@ -1,8 +1,9 @@
-# Publishes the Docker image to the GitHub Container Registry when a version
-# tag is pushed:
+# Publishes a version when its tag is pushed:
 #   git tag v0.1.0 && git push origin v0.1.0
-# The image is built for amd64 and arm64, and the build runs the tests on
-# both (arm64 through QEMU, slower). It is tagged 0.1.0, 0.1 and latest.
+# The Docker image goes to the GitHub Container Registry, built for amd64 and
+# arm64 with the tests run on both (arm64 through QEMU, slower), and tagged
+# 0.1.0, 0.1 and latest. Then the GitHub release is created, its notes
+# generated from the pull requests merged since the previous tag.
 name: Release
 
 on:
@@ -10,7 +11,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write   # create the release
   packages: write
 
 jobs:
@@ -49,3 +50,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
