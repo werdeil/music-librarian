@@ -62,3 +62,28 @@ def rewrite(value, known, decisions):
         unique.setdefault(key(name), name)
     new = LYRION_SEPARATOR.join(unique.values())
     return (new if new != value else None), pending
+
+
+def decided_names(decisions):
+    """Names the decisions vouch for: a kept credit, and the names a split one gives."""
+    names = set()
+    for credit, decision in decisions.items():
+        if decision == KEEP:
+            names.add(key(credit))
+        elif decision == SPLIT:
+            names |= {key(f) for f in fragments(credit)}
+        elif decision != PENDING:
+            names |= {key(n) for n in names_of(decision)}
+    return names
+
+
+def suggest(credit, known):
+    """SPLIT or KEEP, the likelier answer for a credit awaiting a decision."""
+    parts = fragments(credit)
+    if any(key(p) in known for p in parts):
+        return SPLIT
+    if "," not in credit:
+        return KEEP if all(len(p) <= 3 for p in parts) else SPLIT
+    if "/" not in credit and all(" " not in p for p in parts[:-1]):
+        return KEEP
+    return SPLIT

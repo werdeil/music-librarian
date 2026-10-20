@@ -1,4 +1,5 @@
 """The decisions file: what to do with each credit the library cannot settle."""
+import os
 import re
 from pathlib import Path
 
@@ -40,3 +41,23 @@ def append_pending(path: Path, pending):
             f.write(HEADER)
         for credit in pending:
             f.write(f"{credit} => {PENDING}\n")
+
+
+def record(path: Path, credit, decision):
+    """Write the decision in place of the credit's line, or at the end of the file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        lines = HEADER.splitlines()
+    line = f"{credit} => {decision}"
+    for i, old in enumerate(lines):
+        m = LINE.match(old.strip())
+        if m and not old.lstrip().startswith("#") and key(m[1]) == key(credit):
+            lines[i] = line
+            break
+    else:
+        lines.append(line)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.replace(tmp, path)

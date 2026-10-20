@@ -39,7 +39,23 @@ Holland-Dozier-Holland, Smokey Robinson => ?
 - anything else is the names to write, separated by `;`;
 - `?` waits for a decision.
 
-A decision wins over the library, and matches the credit case and spaces aside. Lines starting with `#` are comments. A pass with `--apply` writes the credits newly awaiting a decision at the end of the file, marked `?`, so each credit is only asked about once.
+A decision wins over the library, and matches the credit case and spaces aside. It also vouches for names: a kept credit becomes a known name, and so do the names a split or rewritten credit gives, which can settle other credits. Lines starting with `#` are comments. A pass with `--apply` writes the credits newly awaiting a decision at the end of the file, marked `?`, so each credit is only asked about once.
+
+## Reviewing one credit at a time
+
+`music-librarian split --review` asks about the credits awaiting a decision, most frequent first, and shows each one with its fragments, the ones already known and an example track:
+
+```
+REVIEW   [1/534] Angus Young/Malcolm Young  (42 track(s))
+         split: Angus Young · Malcolm Young
+         e.g. AC_DC/Back in Black/01 Hells Bells.m4a
+         [Enter] split · s split · k keep · e edit · n later · u undo · q quit >
+```
+
+- **Enter** takes the suggestion: split when a fragment is already known, keep for a slash between short fragments (`AC/DC`) or a comma list whose fragments are single words but the last (`Bach, Johann Sebastian`, `Crosby, Stills, Nash & Young`), split otherwise.
+- **e** types the names to write, separated by `;`. **n** leaves the credit for a later review, **u** takes back the previous answer, **q** (or Ctrl-D) stops.
+
+Each answer is written to the decisions file at once, so a review can stop at any point and resume where it left off. Since an answer vouches for names, the credits it settles further down are not asked about. The review only writes the decisions file: the tags are rewritten by the next `split --apply` or weekly `enrich`. It needs a terminal, so in Docker it runs with `docker compose run --rm music-librarian split --review`.
 
 ## When it runs
 

@@ -8,7 +8,9 @@ library vouches for it:
   - a credit whose fragments are all names seen on their own is split;
   - any other credit waits for a decision in state/split-decisions.txt, one line
     per credit: "CREDIT => split", "=> keep" or "=> Name A; Name B".
---apply writes the credits waiting for a decision at the end of that file.
+--apply writes the credits waiting for a decision at the end of that file, and
+--review asks about them one at a time (see split/review.py). A decision vouches
+for the names it gives, which can settle other credits.
 
 The artist is only rewritten on tracks that have an album artist, which organize
 files them by. A tag holding several values already is left alone.
@@ -16,6 +18,7 @@ files them by. A tag holding several values already is left alone.
   music-librarian split                    # dry run over the whole library
   music-librarian split --apply
   music-librarian split --apply PATH...    # only these folders
+  music-librarian split --review           # answer the credits awaiting a decision
 
 A full --apply pass keeps the names it saw in state/split-names.json, so a pass
 over a few folders (the one import runs) still knows the whole library.
@@ -43,7 +46,8 @@ from music_librarian.core.state import state_path
 from music_librarian.media import credit_tags
 from music_librarian.organize.scan import collect
 from music_librarian.split import decisions
-from music_librarian.split.rules import key, known_names, rewrite
+from music_librarian.split.review import review
+from music_librarian.split.rules import decided_names, key, known_names, rewrite
 
 NAMES = "split-names.json"
 FIELDS = ("composer", "artist")
@@ -70,7 +74,11 @@ def parser():
     ap.add_argument("--root", default=root_env, required=not root_env,
                     help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
     ap.add_argument("paths", nargs="*", help="folders to process (default: --root)")
-    ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
+    mode.add_argument("--review", action="store_true",
+                      help="answer the credits awaiting a decision, one at a time (writes the "
+                           "decisions file only)")
     ap.add_argument("--decisions", type=Path,
                     help=f"decisions file (default: state/{decisions.FILE})")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
@@ -83,7 +91,8 @@ def main(argv=None):
     args = parser().parse_args(argv)
     opts = Options(root=args.root, paths=args.paths, apply=args.apply, decisions=args.decisions,
                    state_dir=state_path(args.state_dir))
-    return run(opts, Log(args.syslog))
+    log = Log(args.syslog)
+    return review_pass(opts, log) if args.review else run(opts, log)
 
 
 def run(opts: Options, log):
@@ -123,7 +132,7 @@ def library_names(tracks, cache: Path, full):
 
 
 def plan(tracks, known, decided):
-    """({(field, old, new): [files]}, {key: [credit, tracks]} awaiting a decision)."""
+    """({(field, old, new): [files]}, {key: [credit, tracks, first file]} awaiting a decision)."""
     changes, pending = defaultdict(list), {}
     for p, tags in tracks:
         for field in FIELDS:
@@ -132,10 +141,41 @@ def plan(tracks, known, decided):
                 continue
             new, waiting = rewrite(values[0], known, decided)
             for credit in waiting:
-                pending.setdefault(key(credit), [credit, 0])[1] += 1
+                pending.setdefault(key(credit), [credit, 0, p])[1] += 1
             if new:
                 changes[(field, values[0], new)].append(p)
     return changes, pending
+
+
+def by_frequency(pending):
+    return sorted(pending.values(), key=lambda c: (-c[1], key(c[0])))
+
+
+def review_pass(opts: Options, log):
+    """Asks about the credits awaiting a decision; writes the decisions file only, without the lock."""
+    if not sys.stdin.isatty():
+        log("ERROR    --review asks questions: run it in a terminal (docker compose run, not up)")
+        return 2
+    root, decisions_path = opts.root, opts.decisions
+    scan = opts.paths or [root]
+    decided = decisions.load(decisions_path, log)
+    stats = defaultdict(int)
+    log(f"reading the credits of {', '.join(map(str, scan))}…")
+    tracks = read_tracks(scan, log, stats)
+    known = library_names(tracks, opts.state_dir / NAMES, scan == [root])
+    _, pending = plan(tracks, known | decided_names(decided), decided)
+    queue = [(credit, n, p.relative_to(root) if p.is_relative_to(root) else p)
+             for credit, n, p in by_frequency(pending)]
+    answered = review(queue, known, decided, decisions_path, input, log)
+    _, left = plan(tracks, known | decided_names(decided), decided)
+
+    log("\n--- Review summary ---")
+    log(f"{'answered':>20}: {answered}")
+    log(f"{'settled by answers':>20}: {max(len(pending) - len(left) - answered, 0)}")
+    log(f"{'awaiting decision':>20}: {len(left)}")
+    log(f"{'decisions':>20}: {decisions_path}")
+    log(f"{'to write the tags':>20}: music-librarian split --apply (or the weekly enrich)")
+    return 0
 
 
 def split_pass(opts: Options, log):
@@ -151,11 +191,11 @@ def split_pass(opts: Options, log):
     stats = defaultdict(int)
     tracks = read_tracks(scan, log, stats)
     known = library_names(tracks, state_dir / NAMES, full)
-    changes, pending = plan(tracks, known, decided)
+    changes, pending = plan(tracks, known | decided_names(decided), decided)
 
     for (field, old, new), files in sorted(changes.items()):
         log(f"SPLIT    {field}: {old}\n         → {new}  ({len(files)} track(s))")
-    for credit, n in sorted(pending.values(), key=lambda c: (-c[1], key(c[0]))):
+    for credit, n, _ in by_frequency(pending):
         log(f"REVIEW   {credit}  ({n} track(s))")
 
     writes = [(p, field, old, new) for (field, old, new), files in sorted(changes.items())
@@ -177,7 +217,7 @@ def split_pass(opts: Options, log):
                 continue
             journal.tag(p, field, old, new)
             stats["rewritten"] += 1
-        new_pending = [c for k, (c, _) in sorted(pending.items()) if k not in decided]
+        new_pending = [c for k, (c, _, _) in sorted(pending.items()) if k not in decided]
         if new_pending:
             decisions.append_pending(decisions_path, new_pending)
         if full:
@@ -196,6 +236,7 @@ def split_pass(opts: Options, log):
             log(f"{k:>20}: {stats[k]}")
     if pending:
         log(f"{'decisions':>20}: {decisions_path}")
+        log(f"{'review':>20}: music-librarian split --review")
     if journal.path:
         log(f"{'journal':>20}: {journal.path}")
         log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "

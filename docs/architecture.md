@@ -22,6 +22,7 @@ src/music_librarian/
 │   └── undo.py      replaying a journal backwards
 ├── split/           split: credits holding several names, see splitting.md
 │   ├── rules.py     which credits are split, kept or left for a decision
+│   ├── review.py    --review: one credit at a time
 │   └── decisions.py the decisions file
 ├── enrich/          enrich: ReplayGain, covers, lyrics on the whole library
 │   ├── common.py    album folders under the targets, summary and exit code

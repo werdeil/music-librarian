@@ -1,7 +1,8 @@
 """Which credits are split, kept or left for a decision."""
 import pytest
 
-from music_librarian.split.rules import KEEP, PENDING, SPLIT, known_names, resolve, rewrite
+from music_librarian.split.rules import (KEEP, PENDING, SPLIT, decided_names, known_names, resolve, rewrite,
+                                         suggest)
 
 KNOWN = known_names(["AC/DC", "Earth, Wind & Fire", "The Beatles"],
                     ["John Lennon", "Paul McCartney", "John Lennon/Paul McCartney", "Malcolm Young"])
@@ -49,3 +50,22 @@ def test_decision_overrides_a_known_name():
 ])
 def test_rewrite(value, new, pending):
     assert rewrite(value, KNOWN, {}) == (new, pending)
+
+
+@pytest.mark.parametrize("credit, hint", [
+    ("AC/DC", KEEP),
+    ("Angus Young/Malcolm Young", SPLIT),
+    ("Bach, Johann Sebastian", KEEP),
+    ("Crosby, Stills, Nash & Young", KEEP),
+    ("Maurice White, Verdine White", SPLIT),
+    ("Holland, Dozier", KEEP),
+    ("Holland, Paul McCartney", SPLIT),                             # a known fragment
+])
+def test_suggest(credit, hint):
+    assert suggest(credit, KNOWN) == hint
+
+
+def test_decided_names():
+    assert decided_names({"angus young/malcolm young": "split", "bach, j.s.": "keep",
+                          "goffin/king": "Gerry Goffin; Carole King", "x/y": "?"}) == \
+        {"angus young", "malcolm young", "bach, j.s.", "gerry goffin", "carole king"}
