@@ -8,12 +8,12 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 
 ## What it does
 
-- **`organize`** files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass.
+- **`organize`** files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass. The full rules are in [docs/naming-rules.md](docs/naming-rules.md).
 - **`import`** takes album folders or loose files dropped in the Inbox (FLAC, ALAC, MP3), converts FLAC to ALAC with ffmpeg (tags and artwork kept, duration checked with ffprobe), files them all-or-nothing, and enriches only the target folders. Originals go to `_done/YYYY-MM-DD/` and are purged after 7 days; items that cannot be filed go to `_failed/`.
 - **`enrich`** runs over the whole library and only fills what is missing: ReplayGain (r128gain), the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB, Musixmatch and NetEase. Lyrics are only written when the provider's title, artist and duration match the file.
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich` weekly (`--enrich-at "sun 03:00"`).
 - **`undo JOURNAL`** replays a run's journal in reverse.
-- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [`lyrion.py`](src/music_librarian/integrations/lyrion.py)).
+- Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
 ## Running it
 
@@ -53,6 +53,12 @@ Without Docker: Python 3.12, ffmpeg, r128gain 1.0.7 on `PATH` (or in `R128GAIN`)
 | `R128GAIN` | r128gain executable |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
+
+## Documentation
+
+- [Naming rules](docs/naming-rules.md): how target paths are built, and when a file counts as in place
+- [Lyrion history carry-over](docs/lyrion.md)
+- [Architecture](docs/architecture.md): the package layout, for contributors
 
 ## Development
 
