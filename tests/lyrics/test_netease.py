@@ -91,7 +91,7 @@ class NeteaseTest(unittest.TestCase):
                 netease.fetch("Muse", "Space Debris", None, "247")
 
     def test_default_order(self):
-        self.assertEqual(L.DEFAULT_PROVIDER_ORDER, "lrclib,musixmatch,netease")
+        self.assertEqual(L.DEFAULT_PROVIDER_ORDER, "lrclib,netease")
         self.assertEqual(set(L.PROVIDERS), {"lrclib", "musixmatch", "netease"})
 
 

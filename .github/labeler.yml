@@ -1,0 +1,35 @@
+organize:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/organize/**"]
+
+import:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/importer.py"]
+
+watch:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/watch.py"]
+
+enrich:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/enrich/**", "src/music_librarian/media/**"]
+
+lyrics:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/lyrics/**", "src/music_librarian/enrich/lyrics.py"]
+
+lyrion:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/integrations/lyrion.py"]
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file: ["Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example"]
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["README*.md", "docs/**", "CONTRIBUTING.md", "SECURITY.md"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]

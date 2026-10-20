@@ -50,7 +50,7 @@ def from_args(args, root: Path, state_dir: Path):
     if not args.lyrion_db:
         return None
     if not args.lyrion_root:
-        raise SystemExit("--lyrion-db demande --lyrion-root (ou $LYRION_MUSIC_ROOT)")
+        raise SystemExit("--lyrion-db needs --lyrion-root (or $LYRION_MUSIC_ROOT)")
     return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS)
 
 

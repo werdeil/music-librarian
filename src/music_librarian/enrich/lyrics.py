@@ -32,7 +32,7 @@ Several targets are accepted, and shell-style wildcards work even when quoted
 Each target may be a directory (scanned recursively) or a single music file.
 
 Config comes from the environment. Provider order comes from LYRICS_PROVIDERS
-(defaults to lrclib,musixmatch,netease); LRCLIB_TIMEOUT (seconds, default 15)
+(defaults to lrclib,netease; add musixmatch to use it); LRCLIB_TIMEOUT (seconds, default 15)
 is honored too — raise it for big batches when LRCLIB is slow under load.
 """
 
