@@ -15,7 +15,7 @@ def dirs(tmp_path, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     lib.mkdir()
     inbox_dir.mkdir()
-    monkeypatch.setattr(importer, "enrichers", lambda args: [])
+    monkeypatch.setattr(importer, "enrichers", lambda: [])
     return lib, inbox_dir, state
 
 

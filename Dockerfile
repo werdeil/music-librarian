@@ -1,12 +1,9 @@
 # syntax=docker/dockerfile:1
-# Debian 12: r128gain 1.0.7 makes Debian 13's ffmpeg 7.1 abort (assertion on
-# the anullsink of its filter graph). Checked at build time.
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.12-slim-trixie AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    MUSIC_LIBRARIAN_STATE=/state \
-    R128GAIN=r128gain
+    MUSIC_LIBRARIAN_STATE=/state
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg \
@@ -14,7 +11,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt r128gain==1.0.7
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Dependencies come pinned from requirements.txt, hence --no-deps
 COPY pyproject.toml README.md LICENSE ./
@@ -33,8 +30,8 @@ RUN python -m pytest -q -p no:cacheprovider tests \
  && music-librarian --help > /dev/null \
  && python -m music_librarian.enrich.lyrics --help > /dev/null \
  && python -m music_librarian.enrich.covers --help > /dev/null \
- && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine.m4a \
- && r128gain --dry-run /tmp/sine.m4a 2>&1 | grep -q 'loudness = -' \
+ && mkdir /tmp/sine && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine/sine.m4a \
+ && python -m music_librarian.enrich.replaygain /tmp/sine | grep -q '^GAIN ' \
  && touch /tmp/tests-ok
 
 FROM base

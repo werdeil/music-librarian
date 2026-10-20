@@ -59,7 +59,6 @@ ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # looks for), unless the folder already has one
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
-R128GAIN = os.environ.get("R128GAIN", "r128gain")
 MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
 OK, FAILED, STOPPED = "ok", "failed", "stopped"  # outcome of an item
 
@@ -145,7 +144,7 @@ def probe(p: Path):
 
 
 # Vorbis (FLAC) → MP4. The rest is kept as iTunes freeform fields, except
-# REPLAYGAIN_*: r128gain computes the gain as for the rest of the library.
+# REPLAYGAIN_*: enrich.replaygain computes the gain as for the rest of the library.
 MP4_TEXT = {
     "title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "album artist": "aART",
     "album": "\xa9alb", "date": "\xa9day", "genre": "\xa9gen", "composer": "\xa9wrt",
@@ -226,18 +225,18 @@ def convert(src: Path, dst: Path):
 
 # ---------- enrichment ----------
 
-def enrichers(args):
+def enrichers():
     """(name, command) called with the target folders as arguments."""
     return [
-        ("replaygain", [args.r128gain, "-r", "-s", "-p", "1"]),
+        ("replaygain", [sys.executable, "-m", "music_librarian.enrich.replaygain"]),
         ("covers", [sys.executable, "-m", "music_librarian.enrich.covers"]),
         ("lyrics", [sys.executable, "-m", "music_librarian.enrich.lyrics"]),
     ]
 
 
-def enrich(args, dirs, log):
+def enrich(dirs, log):
     ok = True
-    for name, cmd in enrichers(args):
+    for name, cmd in enrichers():
         log(f"ENRICH   ({name})  {len(dirs)} folder(s)")
         try:
             r = subprocess.run([*cmd, *map(str, dirs)], check=False)
@@ -452,7 +451,6 @@ def main(argv=None):
                     help="seconds without change before handling an item")
     ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
     ap.add_argument("--no-enrich", action="store_true", help="without ReplayGain/cover/lyrics")
-    ap.add_argument("--r128gain", default=R128GAIN)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-import)")
@@ -514,7 +512,7 @@ def import_all(args, log):
         if STOP.is_set():
             log("STOP     enrichment skipped: caught up by the weekly pass")
         else:
-            enrich_ok = enrich(args, sorted(targets), log)
+            enrich_ok = enrich(sorted(targets), log)
 
     log("\n--- Import summary ---")
     for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),

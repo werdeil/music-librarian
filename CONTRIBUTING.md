@@ -11,8 +11,6 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt -e .
 ```
 
-r128gain is only needed to run `enrich` for real, not for the tests.
-
 ## Checks
 
 Run the same checks as the CI before opening a pull request:
@@ -24,7 +22,7 @@ pylint src tests
 
 Both must pass, and pylint must stay at 10/10. The rules and the few disabled checks are explained in `pyproject.toml`.
 
-The CI also builds the Docker image, which runs the tests again inside the container and checks that r128gain works there. You can do the same with `docker compose build`.
+The CI also builds the Docker image, which runs the tests again inside the container and checks that ffmpeg measures loudness there. You can do the same with `docker compose build`.
 
 ## Code
 

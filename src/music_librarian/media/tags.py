@@ -1,4 +1,4 @@
-"""Read music metadata and embed lyrics or cover art into a file's tags.
+"""Read music metadata and embed lyrics, cover art or ReplayGain into a file's tags.
 
 Works on the audio files via mutagen; Lyrion picks changes up on its next scan.
 Lyrics are stored as plain text (LRC timestamps stripped), cover art as the bytes
@@ -9,9 +9,9 @@ import os
 import re
 
 import mutagen
-from mutagen.id3 import APIC, USLT
+from mutagen.id3 import APIC, TXXX, USLT
 from mutagen.flac import FLAC, Picture
-from mutagen.mp4 import MP4, MP4Cover
+from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from mutagen.mp3 import MP3
 from mutagen.aiff import AIFF
 from mutagen.wave import WAVE
@@ -36,6 +36,10 @@ class LyricsTagError(Exception):
 
 class CoverTagError(Exception):
     """A user-facing failure while reading or writing cover art."""
+
+
+class ReplayGainTagError(Exception):
+    """A user-facing failure while reading or writing ReplayGain."""
 
 
 def lrc_to_plain(text):
@@ -223,3 +227,57 @@ def write_cover(path, data, mime="image/jpeg"):
         audio.save()
     except Exception as exc:
         raise CoverTagError(f"write failed: {exc}") from exc
+
+
+# Same fields and value formats as the tags r128gain wrote across the library.
+_RG_ITUNES = "----:com.apple.iTunes:replaygain_track_"
+
+
+def has_replaygain(path):
+    """True if the file carries both a track gain and a track peak."""
+    try:
+        audio = mutagen.File(path)
+    except Exception:
+        return False
+    if audio is None or audio.tags is None:
+        return False
+    if isinstance(audio, (MP3, AIFF, WAVE)):
+        keys = ("TXXX:REPLAYGAIN_TRACK_GAIN", "TXXX:REPLAYGAIN_TRACK_PEAK")
+    elif isinstance(audio, MP4):
+        keys = (_RG_ITUNES + "gain", _RG_ITUNES + "peak")
+    elif isinstance(audio, (FLAC, OggVorbis)):
+        keys = ("REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_TRACK_PEAK")
+    else:
+        return False
+    return all(k in audio.tags for k in keys)
+
+
+def write_replaygain(path, gain, peak):
+    """Write the track gain (dB) and sample peak (0 to 1) into `path`.
+
+    Raises ReplayGainTagError on unrecognised/unsupported format or write failure.
+    """
+    audio = mutagen.File(path)
+    if audio is None:
+        raise ReplayGainTagError("unrecognised file format")
+    if audio.tags is None:
+        audio.add_tags()
+    gain_text = f"{gain:.2f} dB"
+
+    if isinstance(audio, (MP3, AIFF, WAVE)):
+        for desc, text in (("REPLAYGAIN_TRACK_GAIN", gain_text), ("REPLAYGAIN_TRACK_PEAK", f"{peak:.6f}")):
+            audio.tags.delall(f"TXXX:{desc}")
+            audio.tags.add(TXXX(encoding=0, desc=desc, text=text))
+    elif isinstance(audio, MP4):
+        audio.tags[_RG_ITUNES + "gain"] = MP4FreeForm(gain_text.encode())
+        audio.tags[_RG_ITUNES + "peak"] = MP4FreeForm(f"{peak:.6f}".encode())
+    elif isinstance(audio, (FLAC, OggVorbis)):
+        audio["REPLAYGAIN_TRACK_GAIN"] = gain_text
+        audio["REPLAYGAIN_TRACK_PEAK"] = f"{peak:.8f}"
+    else:
+        raise ReplayGainTagError("unsupported format for ReplayGain")
+
+    try:
+        audio.save()
+    except Exception as exc:
+        raise ReplayGainTagError(f"write failed: {exc}") from exc

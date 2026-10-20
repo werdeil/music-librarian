@@ -28,7 +28,7 @@ def tools(tmp_path, monkeypatch):
     log = tmp_path / "calls.log"
     fails = set()
 
-    def enrichers(args):
+    def enrichers():
         out = []
         for name in ("replaygain", "covers", "lyrics"):
             code = 1 if name in fails else 0

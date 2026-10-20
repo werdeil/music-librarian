@@ -2,7 +2,7 @@
 #   lint  : pylint (rules and exceptions documented in pyproject.toml);
 #   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
 #   image : Docker image build, which reruns the tests in the container and
-#           checks the tools (r128gain really analyses a file, --help of the
+#           checks the tools (a file really gets a ReplayGain, --help of the
 #           cover and lyrics modules).
 name: CI
 
