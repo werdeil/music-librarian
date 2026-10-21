@@ -16,7 +16,12 @@ enrich:
 
 split:
   - changed-files:
-      - any-glob-to-any-file: ["src/music_librarian/split/**", "src/music_librarian/media/credit_tags.py"]
+      - any-glob-to-any-file: ["src/music_librarian/split/**", "src/music_librarian/media/credit_tags.py",
+                                "src/music_librarian/media/tag_cache.py"]
+
+dedupe:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/dedupe/**"]
 
 lyrics:
   - changed-files:

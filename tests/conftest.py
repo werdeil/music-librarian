@@ -2,6 +2,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -130,3 +131,18 @@ def make_track(templates):
         return Path(p)
 
     return make
+
+
+@pytest.fixture
+def answers(monkeypatch):
+    """Feed the replies of a --review, then end the input as Ctrl-D does."""
+    def feed(*replies):
+        todo = list(replies)
+
+        def ask(_prompt=""):
+            if not todo:
+                raise EOFError
+            return todo.pop(0)
+        monkeypatch.setattr("builtins.input", ask)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    return feed

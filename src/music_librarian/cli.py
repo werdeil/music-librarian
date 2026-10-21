@@ -7,17 +7,18 @@ music-librarian — single entry point.
   music-librarian watch [options]             watch the Inbox (watch.py)
   music-librarian enrich [options]            add missing gain, covers, lyrics (enrich/)
   music-librarian split [options]             split credits holding several names (split/)
+  music-librarian dedupe [options]            unify one artist spelled several ways (dedupe/)
 
 Everything is a dry run without --apply. `music-librarian <command> --help` for the options.
 """
 import sys
 
-from music_librarian import enrich, importer, organize, split, watch
+from music_librarian import dedupe, enrich, importer, organize, split, watch
 from music_librarian.core.lock import handle_stop_signals
 
 
 COMMANDS = {"organize": organize, "import": importer, "watch": watch, "enrich": enrich,
-            "split": split}
+            "split": split, "dedupe": dedupe}
 
 
 def main(argv=None):

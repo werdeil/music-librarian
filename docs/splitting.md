@@ -63,7 +63,7 @@ Each answer is written to the decisions file at once, so a review can stop at an
 - `import`, on the folders it has just filed, after their enrichment (`--no-split` to skip it).
 - `enrich`, over the whole library, after the other tools (`--no-split` to skip it): the decisions taken in the file are applied by the next weekly pass.
 
-A pass over a few folders still needs the names of the whole library: a full `--apply` pass keeps them in `state/split-names.json`, read by the partial passes.
+A pass over a few folders still needs the names of the whole library: a full `--apply` pass keeps them in `state/split-names.json`, read by the partial passes. The tags themselves come from the tag cache described in [dedupe.md](dedupe.md#the-tag-cache), so a pass only reads the files that changed.
 
 ## Undoing
 

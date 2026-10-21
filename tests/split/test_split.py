@@ -46,7 +46,7 @@ def test_dry_run_changes_nothing(lib, tmp_path, capsys):
     assert "SPLIT    composer: John Lennon/Paul McCartney\n         → John Lennon; Paul McCartney" in out
     assert "REVIEW   Angus Young/Malcolm Young  (1 track(s))" in out
     assert {p: credit_tags.read(p) for p in lib.rglob("*.*")} == before
-    assert not (tmp_path / "state").exists()
+    assert sorted(p.name for p in (tmp_path / "state").iterdir()) == ["tag-cache.json"]
 
 
 def test_apply(lib, tmp_path):
@@ -55,9 +55,9 @@ def test_apply(lib, tmp_path):
     duet = credit_tags.read(lib / "Compil/01 Duet.m4a")
     assert duet["artist"] == ["John Lennon; Paul McCartney"]
     assert duet["composer"] == ["Lennon/McCartney"]                 # waits for a decision
-    assert credit_tags.read(lib / "Earth, Wind & Fire/All 'n All/01 Serpentine Fire.flac") == {
-        "albumartist": ["Earth, Wind & Fire"], "artist": ["Earth, Wind & Fire"],
-        "composer": ["Maurice White, Verdine White"]}
+    ewf = credit_tags.read(lib / "Earth, Wind & Fire/All 'n All/01 Serpentine Fire.flac")
+    assert (ewf["albumartist"], ewf["artist"], ewf["composer"]) == \
+        (["Earth, Wind & Fire"], ["Earth, Wind & Fire"], ["Maurice White, Verdine White"])
     loose = credit_tags.read(lib / "Loose/Duet.m4a")
     assert loose["artist"] == ["John Lennon, Paul McCartney"]      # no album artist
     text = (tmp_path / "state" / decisions.FILE).read_text(encoding="utf-8")
@@ -124,3 +124,15 @@ def test_stop(lib, tmp_path):
     STOP.set()
     assert run(lib, tmp_path, "--apply") == EXIT_STOPPED
     assert composer(lib / "The Beatles/Help!/01 Help!.mp3") == ["John Lennon/Paul McCartney"]
+
+
+def test_unchanged_files_come_from_the_cache(lib, tmp_path, monkeypatch):
+    run(lib, tmp_path)
+    help_mp3 = lib / "The Beatles/Help!/01 Help!.mp3"
+    credit_tags.write(help_mp3, "composer", "John Lennon, Paul McCartney")
+    read = []
+    real = credit_tags.read
+    monkeypatch.setattr(credit_tags, "read", lambda p: read.append(p) or real(p))
+    assert run(lib, tmp_path, "--apply") == 0
+    assert read == [help_mp3]
+    assert composer(help_mp3) == ["John Lennon; Paul McCartney"]

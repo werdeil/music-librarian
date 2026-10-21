@@ -1,7 +1,5 @@
 """split --review: one credit at a time, stopped and resumed at will."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
-import sys
-
 import pytest
 
 from music_librarian import split
@@ -24,21 +22,6 @@ def lib(tmp_path, make_track):
     make_track(root / "Bach/Suites/02 Allemande.flac", title="Allemande", albumartist="Pablo Casals",
                composer="Bach, Johann Sebastian")
     return root
-
-
-@pytest.fixture
-def answers(monkeypatch):
-    """Feed the replies, then end the input as Ctrl-D does."""
-    def feed(*replies):
-        todo = list(replies)
-
-        def ask(_prompt=""):
-            if not todo:
-                raise EOFError
-            return todo.pop(0)
-        monkeypatch.setattr("builtins.input", ask)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    return feed
 
 
 def run(lib, tmp_path, *a):
