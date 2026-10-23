@@ -47,8 +47,10 @@ def test_tagged_with_mtime_kept(album, capsys):
     d, (m4a, mp3, flac) = album
     assert replaygain.main([str(d)]) == 0
     assert all(tags.has_replaygain(str(t)) for t in (m4a, mp3, flac))
-    assert fields(m4a)[1].endswith(" dB") and len(fields(m4a)[0]) == len("0.088379")
-    assert fields(flac)[1].endswith(" dB") and len(fields(flac)[0]) == len("0.08837900")
+    for track, decimals in ((m4a, 6), (flac, 8)):
+        peak, gain = fields(track)
+        assert float(gain.removesuffix(" dB")) == pytest.approx(3.1, abs=0.1)
+        assert float(peak) == pytest.approx(0.088379, abs=1e-4) and len(peak.split(".")[1]) == decimals
     assert fields(mp3)[1].endswith(" dB")
     assert os.stat(m4a).st_mtime == 1_000_000_001
     assert "tagged: 3" in capsys.readouterr().out

@@ -240,10 +240,12 @@ def enrich(dirs, log):
         log(f"ENRICH   ({name})  {len(dirs)} folder(s)")
         try:
             r = subprocess.run([*cmd, *map(str, dirs)], check=False)
-            failed = r.returncode != 0
+            failed = r.returncode not in (0, EXIT_STOPPED)
         except OSError as e:
             failed = True
             log(f"         {e}")
+        if not failed and r.returncode == EXIT_STOPPED:
+            log(f"STOP     enrichment {name} stopped: caught up by the weekly pass")
         if failed:
             log(f"FAILED   enrichment {name}: caught up by the weekly pass")
             ok = False
