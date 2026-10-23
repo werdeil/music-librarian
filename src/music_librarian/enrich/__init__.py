@@ -2,7 +2,7 @@
 enrich — enrichment pass over the whole library (weekly).
 
 Each tool only handles what is missing:
-  - replaygain: r128gain -s, only the files without gain;
+  - replaygain: enrich/replaygain.py, only the files without gain;
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
                 cover;
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
@@ -65,7 +65,6 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
-    ap.add_argument("--r128gain", default=importer.R128GAIN)
     args = ap.parse_args(argv)
     root = Path(args.root).resolve()
     state_dir = state_path(args.state_dir)
@@ -85,7 +84,7 @@ def enrich_all(args, root, state_dir, log):
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enriching {root}: "
         f"{len(dirs)} folders, {len(batches)} batches")
     failed = []
-    for name, cmd in importer.enrichers(args):
+    for name, cmd in importer.enrichers():
         if not args.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICH   ({name})")
@@ -96,7 +95,7 @@ def enrich_all(args, root, state_dir, log):
                 return EXIT_STOPPED
             try:
                 r = subprocess.run([*cmd, *map(str, batch)], check=False)
-                ok = r.returncode == 0
+                ok = r.returncode in (0, EXIT_STOPPED)   # what a stopped tool left is done next pass
             except OSError as e:
                 log(f"         {e}")
                 ok = False

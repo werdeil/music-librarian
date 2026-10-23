@@ -26,12 +26,12 @@ def lib(tmp_path):
 def tools(tmp_path, monkeypatch):
     """Fake tools: each call is recorded (name, arguments) in a file."""
     log = tmp_path / "calls.log"
-    fails = set()
+    fails, stops = set(), set()
 
-    def enrichers(args):
+    def enrichers():
         out = []
         for name in ("replaygain", "covers", "lyrics"):
-            code = 1 if name in fails else 0
+            code = 1 if name in fails else EXIT_STOPPED if name in stops else 0
             script = (f"import sys; open({str(log)!r}, 'a').write({name!r} + ' ' + "
                       f"' '.join(sys.argv[1:]) + '\\n'); sys.exit({code})")
             out.append((name, [sys.executable, "-c", script]))
@@ -44,7 +44,7 @@ def tools(tmp_path, monkeypatch):
             return log.read_text().splitlines() if log.exists() else []
 
     t = T()
-    t.fails = fails
+    t.fails, t.stops = fails, stops
     return t
 
 
@@ -79,6 +79,12 @@ def test_tool_failure_reported(lib, tools, tmp_path, capsys):
     assert run(lib, tmp_path / "state", "--apply") == 2
     assert "FAILED   covers" in capsys.readouterr().out
     assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers", "lyrics"]
+
+
+def test_stopped_tool_is_not_a_failure(lib, tools, tmp_path, capsys):
+    tools.stops.add("replaygain")
+    assert run(lib, tmp_path / "state", "--apply") == 0
+    assert "FAILED" not in capsys.readouterr().out
 
 
 def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):

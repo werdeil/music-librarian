@@ -10,14 +10,14 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 
 - **`organize`** range la bibliothèque en `Artiste de l'album/Album/NN Titre.ext` (repli sur l'artiste), `Compilations/Album/…` si le flag compilation est posé, et `D-NN Titre` pour les albums multi-disques. Les caractères qu'Apple Music remplace (`/ : ? " | ’ ´ * < > \` …) deviennent `_`. L'encodage des accents (NFC/NFD), les différences de casse seules et les noms tronqués sont tolérés, pour ne pas renommer l'existant à tort. Les annexes (`folder.jpg`, livrets, `.lrc`) suivent leur album ; `.DS_Store` et `._*` sont supprimés. Un album dont les pistes ne s'accordent pas sur le flag compilation est signalé en conflit et laissé en place. `--since` ne relit que les dossiers modifiés depuis le dernier passage complet. Les règles complètes sont dans [docs/naming-rules.md](docs/naming-rules.md) (en anglais).
 - **`import`** prend les dossiers d'album ou fichiers en vrac déposés dans l'Inbox (FLAC, ALAC, MP3), convertit le FLAC en ALAC avec ffmpeg (tags et pochette conservés, durée contrôlée avec ffprobe), range tout ou rien, et n'enrichit que les dossiers cibles. Les originaux partent dans `_done/AAAA-MM-JJ/`, purgés après 7 jours ; ce qui ne peut pas être rangé part dans `_failed/`.
-- **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain (r128gain), la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
+- **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain mesuré avec ffmpeg, la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français).
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
 
 ## Lancement
 
-Docker est la voie prévue. ffmpeg et r128gain sont dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
+Docker est la voie prévue. ffmpeg est dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
 
 ```bash
 cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
@@ -40,7 +40,7 @@ docker compose run --rm music-librarian enrich
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
-Sans Docker : Python 3.12, ffmpeg, r128gain 1.0.7 dans le `PATH` (ou dans `R128GAIN`) et `pip install .` (`pip install -r requirements.txt .` pour les versions testées), puis `music-librarian {commande} --help`.
+Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip install -r requirements.txt .` pour les versions testées), puis `music-librarian {commande} --help`.
 
 ## Configuration
 
@@ -52,7 +52,6 @@ Sans Docker : Python 3.12, ffmpeg, r128gain 1.0.7 dans le `PATH` (ou dans `R128G
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
-| `R128GAIN` | Exécutable r128gain |
 
 Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
 

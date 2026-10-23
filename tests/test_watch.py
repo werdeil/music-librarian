@@ -132,7 +132,7 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     lib.mkdir()
     inbox_dir.mkdir()
-    monkeypatch.setattr(importer, "enrichers", lambda args: [])
+    monkeypatch.setattr(importer, "enrichers", lambda: [])
 
     def deposit():
         make_track(inbox_dir / "Album/1.flac", title="Un", artist="A", album="B", track=1)

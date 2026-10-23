@@ -22,7 +22,7 @@ def env(tmp_path, monkeypatch):
     calls = tmp_path / "enrich.log"
     script = f"import sys; open({str(calls)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')"
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("fake", [sys.executable, "-c", script])])
+                        lambda: [("fake", [sys.executable, "-c", script])])
 
     class Env:
         pass
@@ -209,10 +209,19 @@ def test_purge_old_done(env, capsys):
 
 def test_enrich_failure_reported(env, make_track, monkeypatch):
     monkeypatch.setattr(importer, "enrichers",
-                        lambda args: [("broken", [sys.executable, "-c", "raise SystemExit(1)"])])
+                        lambda: [("broken", [sys.executable, "-c", "raise SystemExit(1)"])])
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
     assert env.run("--apply") == 2
     assert files(env.lib) == ["A/B/01 Un.m4a"]
+
+
+def test_enrich_stopped_not_a_failure(env, make_track, monkeypatch, capsys):
+    monkeypatch.setattr(importer, "enrichers",
+                        lambda: [("stopped", [sys.executable, "-c", "raise SystemExit(4)"])])
+    make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
+    assert env.run("--apply") == 0
+    out = capsys.readouterr().out
+    assert "STOP     enrichment stopped" in out and "FAILED" not in out
 
 
 def test_empty_inbox_kept(env):
