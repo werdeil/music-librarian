@@ -230,54 +230,58 @@ def write_cover(path, data, mime="image/jpeg"):
 
 
 # Same fields and value formats as the tags r128gain wrote across the library.
-_RG_ITUNES = "----:com.apple.iTunes:replaygain_track_"
+# Other taggers vary the case of the names, so they are matched without it.
+def _rg_keys(audio):
+    """(gain key, peak key) for the file's tag format, or None if unsupported."""
+    if isinstance(audio, MP3):
+        return "TXXX:REPLAYGAIN_TRACK_GAIN", "TXXX:REPLAYGAIN_TRACK_PEAK"
+    if isinstance(audio, MP4):
+        return "----:com.apple.iTunes:replaygain_track_gain", "----:com.apple.iTunes:replaygain_track_peak"
+    if isinstance(audio, FLAC):
+        return "REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_TRACK_PEAK"
+    return None
 
 
 def has_replaygain(path):
-    """True if the file carries both a track gain and a track peak."""
+    """True if the file carries a track gain, whatever the case of its name."""
     try:
         audio = mutagen.File(path)
     except Exception:
         return False
-    if audio is None or audio.tags is None:
+    if audio is None or audio.tags is None or not _rg_keys(audio):
         return False
-    if isinstance(audio, (MP3, AIFF, WAVE)):
-        keys = ("TXXX:REPLAYGAIN_TRACK_GAIN", "TXXX:REPLAYGAIN_TRACK_PEAK")
-    elif isinstance(audio, MP4):
-        keys = (_RG_ITUNES + "gain", _RG_ITUNES + "peak")
-    elif isinstance(audio, (FLAC, OggVorbis)):
-        keys = ("REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_TRACK_PEAK")
-    else:
-        return False
-    return all(k in audio.tags for k in keys)
+    gain = _rg_keys(audio)[0].lower()
+    return any(k.lower() == gain for k in audio.tags.keys())
 
 
 def write_replaygain(path, gain, peak):
     """Write the track gain (dB) and sample peak (0 to 1) into `path`.
 
-    Raises ReplayGainTagError on unrecognised/unsupported format or write failure.
+    Fields of the same name in another case are replaced. Raises
+    ReplayGainTagError on unreadable/unsupported format or write failure.
     """
-    audio = mutagen.File(path)
-    if audio is None:
-        raise ReplayGainTagError("unrecognised file format")
-    if audio.tags is None:
-        audio.add_tags()
-    gain_text = f"{gain:.2f} dB"
-
-    if isinstance(audio, (MP3, AIFF, WAVE)):
-        for desc, text in (("REPLAYGAIN_TRACK_GAIN", gain_text), ("REPLAYGAIN_TRACK_PEAK", f"{peak:.6f}")):
-            audio.tags.delall(f"TXXX:{desc}")
-            audio.tags.add(TXXX(encoding=0, desc=desc, text=text))
-    elif isinstance(audio, MP4):
-        audio.tags[_RG_ITUNES + "gain"] = MP4FreeForm(gain_text.encode())
-        audio.tags[_RG_ITUNES + "peak"] = MP4FreeForm(f"{peak:.6f}".encode())
-    elif isinstance(audio, (FLAC, OggVorbis)):
-        audio["REPLAYGAIN_TRACK_GAIN"] = gain_text
-        audio["REPLAYGAIN_TRACK_PEAK"] = f"{peak:.8f}"
-    else:
-        raise ReplayGainTagError("unsupported format for ReplayGain")
-
     try:
+        audio = mutagen.File(path)
+        if audio is None or not _rg_keys(audio):
+            raise ReplayGainTagError("unsupported format for ReplayGain")
+        if audio.tags is None:
+            audio.add_tags()
+        gain_key, peak_key = _rg_keys(audio)
+        for key in list(audio.tags.keys()):
+            if key.lower() in (gain_key.lower(), peak_key.lower()):
+                del audio.tags[key]
+        gain_text = f"{gain:.2f} dB"
+        if isinstance(audio, MP3):
+            for key, text in ((gain_key, gain_text), (peak_key, f"{peak:.6f}")):
+                audio.tags.add(TXXX(encoding=0, desc=key[len("TXXX:"):], text=text))
+        elif isinstance(audio, MP4):
+            audio.tags[gain_key] = MP4FreeForm(gain_text.encode())
+            audio.tags[peak_key] = MP4FreeForm(f"{peak:.6f}".encode())
+        else:
+            audio[gain_key] = gain_text
+            audio[peak_key] = f"{peak:.8f}"
         audio.save()
+    except ReplayGainTagError:
+        raise
     except Exception as exc:
         raise ReplayGainTagError(f"write failed: {exc}") from exc

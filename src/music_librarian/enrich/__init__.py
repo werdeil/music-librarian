@@ -95,7 +95,7 @@ def enrich_all(args, root, state_dir, log):
                 return EXIT_STOPPED
             try:
                 r = subprocess.run([*cmd, *map(str, batch)], check=False)
-                ok = r.returncode == 0
+                ok = r.returncode in (0, EXIT_STOPPED)   # what a stopped tool left is done next pass
             except OSError as e:
                 log(f"         {e}")
                 ok = False
