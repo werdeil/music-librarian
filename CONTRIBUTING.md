@@ -47,4 +47,8 @@ Pull requests are squash-merged, so the title becomes the commit subject on `mai
 
 Keep a pull request to one change, and fill in the template: the problem, the solution, how it was tested, and the checklist.
 
+## Releasing
+
+Every push to `main` publishes the image as `ghcr.io/werdeil/music-librarian:dev`. For a version, set `__version__` in `src/music_librarian/__init__.py` (through a pull request), then tag that commit on `main`: `git tag v0.1.0 && git push origin v0.1.0`. The `Publish` workflow checks the tag against `__version__`, pushes the image as `0.1.0`, `0.1` and `latest`, and creates the GitHub release with notes generated from the merged pull requests.
+
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
