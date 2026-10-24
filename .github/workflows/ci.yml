@@ -1,4 +1,4 @@
-# Lint and tests on every push and pull request.
+# Lint and tests on every pull request and every push to main.
 #   lint  : pylint (rules and exceptions documented in pyproject.toml);
 #   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
 #   image : Docker image build, which reruns the tests in the container and
@@ -8,6 +8,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
