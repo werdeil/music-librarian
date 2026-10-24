@@ -1,56 +1,67 @@
-# Publishes a version when its tag is pushed:
-#   git tag v0.1.0 && git push origin v0.1.0
-# The Docker image goes to the GitHub Container Registry, built for amd64 and
-# arm64 with the tests run on both (arm64 through QEMU, slower), and tagged
-# 0.1.0, 0.1 and latest. Then the GitHub release is created, its notes
-# generated from the pull requests merged since the previous tag.
+# Cuts a release from the Actions tab: tags main at its __version__ and opens
+# a draft GitHub release with generated notes. Publishing that draft fires
+# publish.yml, which pushes the versioned image.
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v; empty for __version__ on main"
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: write   # create the release
-  packages: write
+  contents: write
 
 jobs:
-  image:
+  release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Check the tag against the package version
+        with:
+          fetch-depth: 0
+      - name: Check the version and tag main
+        id: version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        # main only takes pull requests, so __version__ is bumped through one beforehand.
         run: |
           version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/music_librarian/__init__.py)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match __version__ $version"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::__version__ '$version' is not X.Y.Z"
             exit 1
           fi
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-      - name: Build and push the image (tests included)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Create the GitHub release
+          if [ -n "$REQUESTED" ] && [ "$REQUESTED" != "$version" ]; then
+            echo "::error::main is at __version__ $version, not $REQUESTED: bump it through a pull request first"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "::error::tag v$version already exists: bump __version__ through a pull request first"
+            exit 1
+          fi
+          git tag "v$version"
+          git push origin "v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          args=(--draft --generate-notes --verify-tag --title "v$VERSION")
+          if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
+          gh release create "v$VERSION" "${args[@]}"
+          url=$(gh release view "v$VERSION" --json url --jq .url)
+          printf '## Draft release v%s\n\nReview the notes, then publish it: %s\n' "$VERSION" "$url" >> "$GITHUB_STEP_SUMMARY"

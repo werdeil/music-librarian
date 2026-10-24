@@ -47,4 +47,8 @@ Pull requests are squash-merged, so the title becomes the commit subject on `mai
 
 Keep a pull request to one change, and fill in the template: the problem, the solution, how it was tested, and the checklist.
 
+## Releasing
+
+Every push to `main` that touches more than documentation publishes the image as `ghcr.io/werdeil/music-librarian:dev`. To cut a version, first set `__version__` in `src/music_librarian/__init__.py` through a pull request, since `main` only takes pull requests. Then run the `Release` workflow from the Actions tab on `main`, the version field left empty or set to the same value: it tags `main` as `v0.1.0` and opens a draft release with notes generated from the merged pull requests. Review the notes and publish the draft: the `Publish` workflow then pushes the image as `0.1.0`, `0.1` and `latest` (only `0.1.0` for a pre-release).
+
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
