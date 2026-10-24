@@ -22,12 +22,11 @@ library (enrich: missing gain, covers, lyrics) runs every week from that
 slot, unless it already ran since (state/enrich_last_run). Without a known
 pass, the first one runs at the next slot, not at startup.
 
-Other options are passed to the import (--settle, --no-enrich…); --root and
---state-dir are passed to organize too.
+The import options (--settle, --no-enrich…) apply to every import; --root,
+--state-dir and the Lyrion ones to organize too.
 On SIGTERM or Ctrl-C, the current pass stops cleanly, then the loop.
 """
 import argparse
-import os
 import sys
 import traceback
 from datetime import date, datetime, timedelta
@@ -36,8 +35,6 @@ from pathlib import Path
 from music_librarian import enrich, importer, organize
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
-from music_librarian.core.state import state_path
-from music_librarian.organize import LAST_RUN
 
 
 def signature(inbox_dir: Path):
@@ -82,43 +79,30 @@ def now():
     return datetime.now()
 
 
-def last_run(state_dir: Path):
+def safe(fn, log, what):
     try:
-        return float((state_dir / LAST_RUN).read_text().strip())
-    except (OSError, ValueError):
-        return None
-
-
-def safe(fn, argv, log, what):
-    try:
-        return fn(argv)
+        return fn()
     except Exception:
         log(f"ERROR    {what} interrupted:\n{traceback.format_exc()}")
         return 2
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Watch the Inbox and run the import.")
-    inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
-    ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
-                    help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
+    ap = importer.parser()
+    ap.description = "Watch the Inbox and run the import."
     ap.add_argument("--interval", type=float, default=30,
                     help="seconds between two reads of the Inbox")
-    ap.add_argument("--apply", action="store_true", help="import and file (otherwise dry run)")
     ap.add_argument("--organize-at", type=hhmm, metavar="HH:MM",
                     help="run organize --since every day from this time")
     ap.add_argument("--enrich-at", type=weekly, metavar="DAY HH:MM",
                     help="enrich the whole library every week from this slot (e.g. 'sun 03:00')")
-    ap.add_argument("--root")
-    ap.add_argument("--state-dir")
-    args, rest = ap.parse_known_args(argv)
-    common = [*(["--root", args.root] if args.root else []),
-              *(["--state-dir", args.state_dir] if args.state_dir else []),
-              *(["--apply"] if args.apply else [])]
-    import_argv = ["--inbox", str(args.inbox), *rest, *common]
-    organize_argv = ["--since", *common]
-    enrich_argv = list(common)
-    state_dir = state_path(args.state_dir)
+    args = ap.parse_args(argv)
+    import_opts = importer.options(args)
+    state_dir = import_opts.state_dir
+    organize_opts = organize.Options(root=import_opts.root, since=True, apply=args.apply,
+                                     state_dir=state_dir, lyrion=import_opts.lyrion)
+    enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir)
+    import_log = importer.new_log(import_opts)
     started = now().timestamp()
 
     log = Log()
@@ -133,7 +117,7 @@ def main(argv=None):
         current = signature(args.inbox)
         if date.today() != last_day or (current is not None and current == previous
                                         and current != handled):
-            code = safe(importer.main, import_argv, log, "import")
+            code = safe(lambda: importer.run(import_opts, import_log), log, "import")
             if code != EXIT_LOCKED:
                 # an item left in place is only retried once it changes
                 handled, last_day = signature(args.inbox), date.today()
@@ -143,7 +127,7 @@ def main(argv=None):
         if args.organize_at and not STOP.is_set():
             t = now()
             slot = datetime.combine(t.date(), args.organize_at)
-            last = last_run(state_dir)
+            last = organize.last_run(state_dir)
             if t < slot or organize_day == t.date():
                 pass
             elif last is None:
@@ -156,7 +140,7 @@ def main(argv=None):
             else:
                 log(f"ORGANIZE nightly (folders changed since "
                     f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-                code = safe(organize.main, organize_argv, log, "organize")
+                code = safe(lambda: organize.run(organize_opts, log).code, log, "organize")
                 if code != EXIT_LOCKED:   # lock held by an import: next tick
                     organize_day = t.date()
                 log("")
@@ -167,7 +151,7 @@ def main(argv=None):
             last = enrich.last_run(state_dir) or started
             if last < slot.timestamp() and enrich_slot != slot:
                 log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-                code = safe(enrich.main, enrich_argv, log, "enrich")
+                code = safe(lambda: enrich.run(enrich_opts, log), log, "enrich")
                 if code != EXIT_LOCKED:
                     enrich_slot = slot
                 log("")

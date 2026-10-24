@@ -64,9 +64,10 @@ disable = [
 max-line-length = 110
 
 [tool.pylint.design]
-# organize_pass() receives the parsed arguments plus the run context (root, state,
-# log, Lyrion, interruptible); the test fixtures build tracks from tag kwargs.
+# The test fixtures build tracks from tag kwargs.
 max-args = 7
 max-positional-arguments = 7
+# The Options dataclasses hold one field per command-line option.
+max-attributes = 10
 # music-librarian dispatches each subcommand with its own return.
 max-returns = 8

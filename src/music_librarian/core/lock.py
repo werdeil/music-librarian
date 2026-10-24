@@ -8,7 +8,6 @@ from pathlib import Path
 LOCK = "lock"
 EXIT_LOCKED, EXIT_STOPPED = 3, 4
 STOP = threading.Event()  # stop requested (SIGTERM, Ctrl-C)
-_lock_held = False  # pylint: disable=invalid-name  # process state
 
 
 class Locked(Exception):
@@ -18,23 +17,16 @@ class Locked(Exception):
 @contextlib.contextmanager
 def locked(state_dir: Path):
     """Exclusive lock on state/lock: one --apply pass at a time (organize, import,
-    undo). Reentrant within a process: import calls organize without blocking
-    itself."""
-    global _lock_held  # pylint: disable=global-statement
-    if _lock_held:
-        yield
-        return
+    undo, enrich). Not reentrant: a pass run from another one goes through its unlocked function."""
     state_dir.mkdir(parents=True, exist_ok=True)
     with open(state_dir / LOCK, "a", encoding="utf-8") as f:
         try:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise Locked(state_dir / LOCK) from None
-        _lock_held = True
         try:
             yield
         finally:
-            _lock_held = False
             fcntl.flock(f, fcntl.LOCK_UN)
 
 

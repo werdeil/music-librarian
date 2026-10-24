@@ -42,14 +42,16 @@ import shlex
 import sys
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
 from music_librarian.core.journal import Journal, move_file
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
-from music_librarian.core.state import state_path
+from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
+from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.organize.naming import is_in_place, nfc, target_rel
 from music_librarian.organize.scan import collect, read_tags
 from music_librarian.organize.undo import undo
@@ -62,15 +64,39 @@ LAST_RUN = "last_run"  # --since state file
 SINCE_MARGIN = 2.0
 
 
-def main(argv=None):
-    return run(argv)[0]
+@dataclass
+class Options:
+    """A filing pass. `paths` defaults to the whole root; with `interruptible`
+    False a stop request does not cut the moves short (import files an item entirely or not at all)."""
+    root: Path
+    paths: list = field(default_factory=list)
+    apply: bool = False
+    compilations_dir: str = "Compilations"
+    strict_case: bool = False
+    since: bool = False
+    state_dir: Path = field(default_factory=state_path)
+    lyrion: Lyrion | None = None
+    interruptible: bool = True
+
+    def __post_init__(self):
+        self.root = Path(self.root).resolve()
+        self.paths = [Path(p).resolve() for p in self.paths]
 
 
-def run(argv=None, interruptible=True):
-    """Like main, but returns (code, report): report["moves"] lists the planned
-    moves, report["done"] the ones carried out.
-    interruptible=False: a stop request does not interrupt the moves (import
-    files an item entirely or not at all)."""
+@dataclass
+class Report:
+    """`moves` lists the planned moves, `done` the ones carried out."""
+    code: int
+    moves: list = field(default_factory=list)
+    done: list = field(default_factory=list)
+    journal: Path | None = None
+
+
+def last_run(state_dir: Path):
+    return read_stamp(state_dir, LAST_RUN)
+
+
+def parser():
     ap = argparse.ArgumentParser(description="File the music library the way Apple Music does.")
     root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--root", default=root_env, required=not root_env,
@@ -90,41 +116,53 @@ def run(argv=None, interruptible=True):
                     help="state folder (journals, last pass)")
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-librarian)")
-    args = ap.parse_args(argv)
+    return ap
 
-    # a non-UTF-8 file name (e.g. \x92) must not crash the output
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(errors="backslashreplace")
+
+def main(argv=None):
+    args = parser().parse_args(argv)
     log = Log(args.syslog)
-    root = Path(args.root).resolve()
-    state_dir = state_path(args.state_dir)
-    db = lyrion.from_args(args, root, state_dir)
-
+    opts = Options(root=args.root, paths=args.paths, apply=args.apply,
+                   compilations_dir=args.compilations_dir, strict_case=args.strict_case,
+                   since=args.since, state_dir=state_path(args.state_dir))
+    opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
+    if not (args.undo or args.lyrion_replay):
+        return run(opts, log).code
     try:
-        with locked(state_dir) if args.apply else contextlib.nullcontext():
+        with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
             if args.lyrion_replay:
-                return lyrion.replay(args, db, log), {}
-            if args.undo:
-                return undo(args, root, state_dir, log, db), {}
-            return organize_pass(args, argv, root, state_dir, log, interruptible, db)
+                return lyrion.replay(args, opts.lyrion, log)
+            return undo(args, opts.root, opts.state_dir, log, opts.lyrion)
     except Locked as e:
         log(f"LOCKED   another pass is running ({e}), giving up")
-        return EXIT_LOCKED, {}
+        return EXIT_LOCKED
 
 
-def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
+def run(opts: Options, log):
+    """A filing pass, under the lock with `apply`."""
+    try:
+        with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
+            return organize_pass(opts, log)
+    except Locked as e:
+        log(f"LOCKED   another pass is running ({e}), giving up")
+        return Report(EXIT_LOCKED)
+
+
+def organize_pass(opts: Options, log):
+    """A filing pass, without taking the lock: the caller holds it when `opts.apply`."""
     started = time.time()
-    scan = [Path(p).resolve() for p in args.paths] or [root]
-    mode = "APPLY" if args.apply else "DRY-RUN"
+    root, state_dir = opts.root, opts.state_dir
+    scan = opts.paths or [root]
+    mode = "APPLY" if opts.apply else "DRY-RUN"
     log(f"[{mode}] root: {root}")
 
     since = None
-    if args.since:
-        try:
-            since = float((state_dir / LAST_RUN).read_text().strip())
-            log(f"since {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
-        except (OSError, ValueError):
+    if opts.since:
+        since = last_run(state_dir)
+        if since is None:
             log("no known last pass: everything is processed")
+        else:
+            log(f"since {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
 
     entries = []                  # (file, tags, relative target path)
     stats = defaultdict(int)
@@ -145,7 +183,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
             stats["skipped"] += 1
             blocked.add(p.parent)
             continue
-        tgt = target_rel(tags, p.suffix, args.compilations_dir) if tags else None
+        tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
         if tgt is None:
             log(f"SKIPPED  (not enough tags)  {p}")
             stats["skipped"] += 1
@@ -181,7 +219,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         except ValueError:
             cur_rel = None  # file outside the library (Inbox)
 
-        if cur_rel is not None and is_in_place(cur_rel, tgt, args.strict_case):
+        if cur_rel is not None and is_in_place(cur_rel, tgt, opts.strict_case):
             stats["in place"] += 1
             dir_targets[p.parent].add(p.parent)
             continue
@@ -220,14 +258,13 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
     for src, dst in moves + extra:
         log(f"MOVE     {src}\n         → {dst}")
 
-    journal = Journal(state_dir, dict(root=str(root), started=started,
-                                      argv=sys.argv[1:] if argv is None else argv))
+    journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
     done = []
     stopped = False
-    if args.apply:
+    if opts.apply:
         touched = set()
         for i, (src, dst) in enumerate(moves + extra):
-            if interruptible and STOP.is_set():
+            if opts.interruptible and STOP.is_set():
                 log(f"STOP     requested: {len(moves) + len(extra) - i} move(s) not done,"
                     " left for the next pass")
                 stopped = True
@@ -251,8 +288,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
         # Remaining conflicts do not hold it back: they show up again on the
         # next full pass, or as soon as their folder is touched.
         if scan == [root] and not stopped:
-            state_dir.mkdir(parents=True, exist_ok=True)
-            (state_dir / LAST_RUN).write_text(f"{started - SINCE_MARGIN}\n")
+            write_stamp(state_dir, LAST_RUN, started - SINCE_MARGIN)
     journal.close()
 
     stats["to move"] = len(moves)
@@ -263,7 +299,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
               "skipped", "conflicts", "junk files", "folders removed"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
-    lyrion_ok = lyrion.carry_over(db, done if args.apply else moves, args.apply, log)
+    lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else moves, opts.apply, log)
     if journal.path:
         log(f"{'journal':>20}: {journal.path}")
         log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
@@ -275,7 +311,7 @@ def organize_pass(args, argv, root, state_dir, log, interruptible, db=None):
     code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] else 0
     if code == 0 and not lyrion_ok:
         code = lyrion.EXIT_LYRION
-    return code, dict(moves=moves + extra, done=done, journal=journal.path)
+    return Report(code, moves + extra, done, journal.path)
 
 
 if __name__ == "__main__":

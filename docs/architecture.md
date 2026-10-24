@@ -41,7 +41,8 @@ src/music_librarian/
 ## Conventions
 
 - Everything is a dry run without `--apply`.
-- Only one `--apply` pass runs at a time, through a lock in the state folder. Within a process the lock is reentrant: `import` calls `organize` without blocking itself.
+- `organize`, `import` and `enrich` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
+- Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself.
 - A stop request (SIGTERM from `docker stop`, or Ctrl-C) lets the current file operation finish, then stops. A second Ctrl-C stops at once.
 - Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed.
 - Imports inside the package are absolute: `from music_librarian.core.lock import STOP`.

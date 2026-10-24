@@ -132,7 +132,7 @@ def test_enrich_at_days(s, slot):
 @pytest.mark.parametrize("s", ["sun", "sunday 3h", "xyz 03:00"])
 def test_enrich_at_format(s):
     with pytest.raises(SystemExit):
-        watch.main(["--inbox", "inbox", "--enrich-at", s])
+        watch.main(["--inbox", "inbox", "--root", "lib", "--enrich-at", s])
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ def weekly(tmp_path, monkeypatch, ticks):
     inbox_dir, state = tmp_path / "Inbox", tmp_path / "state"
     inbox_dir.mkdir()
     state.mkdir()
-    monkeypatch.setattr(importer, "main", lambda argv: 0)
+    monkeypatch.setattr(importer, "run", lambda opts, log: 0)
 
     class W:
         clock = [datetime(2026, 10, 17, 12, 0)]     # Saturday
@@ -159,11 +159,11 @@ def weekly(tmp_path, monkeypatch, ticks):
 
     w = W()
 
-    def fake(argv):
-        w.calls.append(argv)
+    def fake(opts, log):
+        w.calls.append(opts)
         return w.codes.pop(0) if w.codes else 0
 
-    monkeypatch.setattr(enrich, "main", fake)
+    monkeypatch.setattr(enrich, "run", fake)
     monkeypatch.setattr(watch, "now", lambda: w.clock[0])
     return w
 
@@ -172,7 +172,7 @@ def test_first_run_waits_for_next_slot(weekly):
     # no known pass, container started on Saturday: nothing before Sunday 03:00
     weekly.run([weekly.at(2026, 10, 18, 2, 0), weekly.at(2026, 10, 18, 3, 0), lambda: None],
                "--apply")
-    assert weekly.calls == [["--state-dir", weekly.calls[0][1], "--apply"]]
+    assert [(c.apply, c.state_dir) for c in weekly.calls] == [(True, weekly.calls[0].state_dir)]
 
 
 def test_caught_up_after_missed_slot(weekly):

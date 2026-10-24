@@ -228,3 +228,16 @@ def test_empty_inbox_kept(env):
     assert env.run("--apply") == 0
     assert env.inbox.is_dir()
     assert sorted(p.name for p in env.inbox.iterdir()) == ["_done", "_failed"]
+
+
+def test_refused_by_organize_shows_why(env, make_track, capsys):
+    make_track(env.lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
+    make_track(env.inbox / "Album/1.m4a", title="Un", artist="A", album="B", track=1)
+    assert env.run() == 2
+    out = capsys.readouterr().out
+    assert "CONFLICT" in out and "would go to _failed/" in out
+    assert env.run("--apply") == 2
+    out = capsys.readouterr().out
+    assert "CONFLICT" in out and "refused by organize" in out
+    assert files(env.inbox) == ["_failed/Album/1.m4a"]
+    assert files(env.lib) == ["A/B/01 Un.m4a"]
