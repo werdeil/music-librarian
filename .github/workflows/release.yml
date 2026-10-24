@@ -1,14 +1,15 @@
-# Cuts a release from the Actions tab: sets __version__ on main, tags it and
-# opens a draft GitHub release with generated notes. Publishing that draft
-# fires publish.yml, which pushes the versioned image.
+# Cuts a release from the Actions tab: tags main at its __version__ and opens
+# a draft GitHub release with generated notes. Publishing that draft fires
+# publish.yml, which pushes the versioned image.
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, without the leading v (e.g. 0.2.0)"
-        required: true
+        description: "Version to release, without the leading v; empty for __version__ on main"
+        required: false
+        default: ""
         type: string
       prerelease:
         description: "Mark the release as a pre-release"
@@ -31,37 +32,32 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Validate the version
+      - name: Check the version and tag main
+        id: version
         env:
-          VERSION: ${{ inputs.version }}
+          REQUESTED: ${{ inputs.version }}
+        # main only takes pull requests, so __version__ is bumped through one beforehand.
         run: |
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::version '$VERSION' is not X.Y.Z"
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/music_librarian/__init__.py)
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::__version__ '$version' is not X.Y.Z"
             exit 1
           fi
-          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
-            echo "::error::tag v$VERSION already exists"
+          if [ -n "$REQUESTED" ] && [ "$REQUESTED" != "$version" ]; then
+            echo "::error::main is at __version__ $version, not $REQUESTED: bump it through a pull request first"
             exit 1
           fi
-      - name: Set __version__, commit and tag
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          init=src/music_librarian/__init__.py
-          sed -i -E "s/^__version__ = \".*\"$/__version__ = \"$VERSION\"/" "$init"
-          grep -qx "__version__ = \"$VERSION\"" "$init" || { echo "::error::cannot set __version__ in $init"; exit 1; }
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- "$init"; then
-            git commit -m "chore: release v$VERSION" -- "$init"
-            git push origin HEAD:main
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "::error::tag v$version already exists: bump __version__ through a pull request first"
+            exit 1
           fi
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          git tag "v$version"
+          git push origin "v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           args=(--draft --generate-notes --verify-tag --title "v$VERSION")
