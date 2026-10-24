@@ -2,7 +2,7 @@
 
 **English** · [Français](README.fr.md)
 
-Keeps a music library filed the way Apple Music does, and imports new music into it from a drop folder. Made for ALAC `.m4a` libraries with some MP3, it runs as a single container that watches the drop folder, files what lands there, and enriches the tags with ReplayGain, cover art and lyrics.
+Keeps a music library filed the way Apple Music does, and imports new music into it from a drop folder. Made for ALAC `.m4a` libraries with some MP3, it runs as a single container that watches the drop folder, files what lands there, and enriches the tags with ReplayGain, cover art and lyrics. It can also split the composer and artist credits that hold several names into the `;`-separated form Lyrion understands, and unify the names of one artist spelled several ways.
 
 Everything is a dry run unless `--apply` is passed, and every move is journaled so a run can be undone.
 
@@ -11,8 +11,10 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`organize`** files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass. The full rules are in [docs/naming-rules.md](docs/naming-rules.md).
 - **`import`** takes album folders or loose files dropped in the Inbox (FLAC, ALAC, MP3), converts FLAC to ALAC with ffmpeg (tags and artwork kept, duration checked with ffprobe), files them all-or-nothing, and enriches only the target folders. Originals go to `_done/YYYY-MM-DD/` and are purged after 7 days; items that cannot be filed go to `_failed/`.
 - **`enrich`** runs over the whole library and only fills what is missing: ReplayGain measured with ffmpeg, the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB and NetEase, plus Musixmatch if enabled. Lyrics are only written when the provider's title, artist and duration match the file.
+- **`split`** rewrites composer and artist tags such as `John Lennon/Paul McCartney` as `John Lennon; Paul McCartney`, the separator Lyrion splits on. A comma or slash is only split when the library vouches for it: a credit that is an album artist somewhere (`AC/DC`, `Earth, Wind & Fire`) is kept, a credit whose fragments are all names seen on their own is split, and any other one waits for a decision in `state/split-decisions.txt` (`split`, `keep`, or the names to write). `split --review` asks about those one at a time with a suggestion that Enter accepts, can stop and resume at any point, and skips the credits an earlier answer already settles. The artist is only rewritten on tracks with an album artist. `import` runs it on what it files and `enrich` on the whole library; details in [docs/splitting.md](docs/splitting.md).
+- **`dedupe`** finds the names of one artist spelled several ways: the same once case, accents, punctuation and a leading `The` are set aside (`Beyonce` / `Beyoncé`), the same MusicBrainz id, a close spelling (`Mettalica`), or a partial name (`Bach` / `Johann Sebastian Bach`). `dedupe --review` asks about each group one at a time and keeps the answers in `state/artist-aliases.txt` (`Beyonce => Beyoncé`, or `John Lennon != Julian Lennon`), and `--apply` rewrites the variants in the tags. `import` and `enrich` then apply the aliases by themselves; details in [docs/dedupe.md](docs/dedupe.md).
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich` weekly (`--enrich-at "sun 03:00"`).
-- **`undo JOURNAL`** replays a run's journal in reverse.
+- **`undo JOURNAL`** replays a run's journal in reverse, moves and tag changes alike.
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
 ## Running it
@@ -37,6 +39,9 @@ One-off runs, dry-run unless `--apply` is added:
 docker compose run --rm music-librarian organize --since
 docker compose run --rm music-librarian import
 docker compose run --rm music-librarian enrich
+docker compose run --rm music-librarian split
+docker compose run --rm music-librarian split --review   # interactive, writes the decisions only
+docker compose run --rm music-librarian dedupe --review  # interactive, writes the aliases only
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
@@ -48,7 +53,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Library root (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Drop folder, outside the library so a music server does not index it (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journals, last run date and lock (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
+| `MUSIC_LIBRARIAN_STATE` | Journals, last run date, lock, the credit split decisions, the artist aliases and the tag cache (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
@@ -62,6 +67,8 @@ The compose file reads its own variables from `.env`; `.env.example` documents t
 ## Documentation
 
 - [Naming rules](docs/naming-rules.md): how target paths are built, and when a file counts as in place
+- [Splitting credits](docs/splitting.md): which composer and artist credits are split, and the decisions file
+- [Unifying artist names](docs/dedupe.md): which names are grouped, the aliases file and the tag cache
 - [Lyrion history carry-over](docs/lyrion.md)
 - [Architecture](docs/architecture.md): the package layout, for contributors
 

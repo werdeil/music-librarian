@@ -242,3 +242,14 @@ def test_refused_by_organize_shows_why(env, make_track, capsys):
     assert "CONFLICT" in out and "refused by organize" in out
     assert files(env.inbox) == ["_failed/Album/1.m4a"]
     assert files(env.lib) == ["A/B/01 Un.m4a"]
+
+
+def test_credits_split_after_filing(env, make_track, capsys):
+    base = dict(artist="A", albumartist="A", album="B")
+    make_track(env.inbox / "Album/1.flac", title="Un", track=1, composer="Jean/Paul", **base)
+    make_track(env.inbox / "Album/2.flac", title="Deux", track=2, composer="Jean; Paul", **base)
+    make_track(env.inbox / "Album/3.flac", title="Trois", track=3, composer="Jean, Pierre", **base)
+    assert env.run("--apply") == 0
+    assert MP4(env.lib / "A/B/01 Un.m4a").tags["\xa9wrt"] == ["Jean; Paul"]
+    assert MP4(env.lib / "A/B/03 Trois.m4a").tags["\xa9wrt"] == ["Jean, Pierre"]
+    assert "REVIEW   Jean, Pierre" in capsys.readouterr().out

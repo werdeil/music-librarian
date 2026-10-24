@@ -2,7 +2,7 @@
 
 [English](README.md) · **Français**
 
-Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque en ALAC `.m4a` avec quelques MP3, il tourne dans un seul conteneur qui surveille le dossier d'arrivée, range ce qui y arrive et enrichit les tags : ReplayGain, pochette et paroles.
+Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque en ALAC `.m4a` avec quelques MP3, il tourne dans un seul conteneur qui surveille le dossier d'arrivée, range ce qui y arrive et enrichit les tags : ReplayGain, pochette et paroles. Il peut aussi découper les compositeurs et artistes qui regroupent plusieurs noms, sous la forme séparée par `;` que comprend Lyrion, et unifier les noms d'un même artiste écrits de plusieurs façons.
 
 Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour pouvoir annuler un passage.
 
@@ -11,8 +11,10 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`organize`** range la bibliothèque en `Artiste de l'album/Album/NN Titre.ext` (repli sur l'artiste), `Compilations/Album/…` si le flag compilation est posé, et `D-NN Titre` pour les albums multi-disques. Les caractères qu'Apple Music remplace (`/ : ? " | ’ ´ * < > \` …) deviennent `_`. L'encodage des accents (NFC/NFD), les différences de casse seules et les noms tronqués sont tolérés, pour ne pas renommer l'existant à tort. Les annexes (`folder.jpg`, livrets, `.lrc`) suivent leur album ; `.DS_Store` et `._*` sont supprimés. Un album dont les pistes ne s'accordent pas sur le flag compilation est signalé en conflit et laissé en place. `--since` ne relit que les dossiers modifiés depuis le dernier passage complet. Les règles complètes sont dans [docs/naming-rules.md](docs/naming-rules.md) (en anglais).
 - **`import`** prend les dossiers d'album ou fichiers en vrac déposés dans l'Inbox (FLAC, ALAC, MP3), convertit le FLAC en ALAC avec ffmpeg (tags et pochette conservés, durée contrôlée avec ffprobe), range tout ou rien, et n'enrichit que les dossiers cibles. Les originaux partent dans `_done/AAAA-MM-JJ/`, purgés après 7 jours ; ce qui ne peut pas être rangé part dans `_failed/`.
 - **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain mesuré avec ffmpeg, la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
+- **`split`** réécrit les tags compositeur et artiste comme `John Lennon/Paul McCartney` en `John Lennon; Paul McCartney`, le séparateur sur lequel Lyrion découpe. Une virgule ou une barre oblique ne découpe que si la bibliothèque le confirme : un crédit qui est l'artiste d'un album quelque part (`AC/DC`, `Earth, Wind & Fire`) est gardé, un crédit dont tous les morceaux sont des noms vus seuls est découpé, et tout autre attend une décision dans `state/split-decisions.txt` (`split`, `keep`, ou les noms à écrire). `split --review` les présente un par un avec une suggestion qu'Entrée accepte, peut s'arrêter et reprendre à tout moment, et saute les crédits qu'une réponse précédente règle déjà. L'artiste n'est réécrit que sur les pistes qui ont un artiste d'album. `import` le lance sur ce qu'il range et `enrich` sur toute la bibliothèque ; détails dans [docs/splitting.md](docs/splitting.md) (en anglais).
+- **`dedupe`** repère les noms d'un même artiste écrits de plusieurs façons : identiques une fois la casse, les accents, la ponctuation et un `The` initial mis de côté (`Beyonce` / `Beyoncé`), même identifiant MusicBrainz, orthographe proche (`Mettalica`), ou nom partiel (`Bach` / `Johann Sebastian Bach`). `dedupe --review` présente chaque groupe un par un et garde les réponses dans `state/artist-aliases.txt` (`Beyonce => Beyoncé`, ou `John Lennon != Julian Lennon`), et `--apply` réécrit les variantes dans les tags. `import` et `enrich` appliquent ensuite les alias d'eux-mêmes ; détails dans [docs/dedupe.md](docs/dedupe.md) (en anglais).
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français).
-- **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
+- **`undo JOURNAL`** rejoue le journal d'un passage à l'envers, déplacements comme changements de tags.
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
 
 ## Lancement
@@ -37,6 +39,9 @@ Lancements ponctuels, en dry-run sans `--apply` :
 docker compose run --rm music-librarian organize --since
 docker compose run --rm music-librarian import
 docker compose run --rm music-librarian enrich
+docker compose run --rm music-librarian split
+docker compose run --rm music-librarian split --review   # interactif, n'écrit que les décisions
+docker compose run --rm music-librarian dedupe --review  # interactif, n'écrit que les alias
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
@@ -48,7 +53,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Racine de la bibliothèque (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage et verrou (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
+| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage, verrou, décisions de découpage des crédits, alias d'artistes et cache des tags (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
@@ -64,6 +69,8 @@ Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les do
 En anglais :
 
 - [Règles de nommage](docs/naming-rules.md) : construction des chemins cibles, et quand un fichier est considéré en place
+- [Découpage des crédits](docs/splitting.md) : quels compositeurs et artistes sont découpés, et le fichier de décisions
+- [Unification des noms d'artistes](docs/dedupe.md) : quels noms sont regroupés, le fichier d'alias et le cache des tags
 - [Report de l'historique Lyrion](docs/lyrion.md)
 - [Architecture](docs/architecture.md) : organisation du paquet, pour les contributeurs
 

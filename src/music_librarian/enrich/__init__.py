@@ -6,7 +6,11 @@ Each tool only handles what is missing:
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
                 cover;
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
-                catches lyrics published after the import).
+                catches lyrics published after the import);
+  - split:      split/, the credits holding several names, decisions taken in
+                state/split-decisions.txt included (--no-split to leave them);
+  - dedupe:     dedupe/, the spellings decided in state/artist-aliases.txt
+                (--no-dedupe to leave them).
 
 Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
 current batch completes (no tag write is cut short) and the rest is done on
@@ -30,6 +34,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from music_librarian import dedupe, split
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
 from music_librarian.core.state import read_stamp, state_path, write_stamp
@@ -59,6 +64,8 @@ class Options:
     apply: bool = False
     state_dir: Path = field(default_factory=state_path)
     batch: int = BATCH
+    split: bool = True
+    dedupe: bool = True
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -75,9 +82,11 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
+    ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
+    ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
-                   batch=args.batch)
+                   batch=args.batch, split=not args.no_split, dedupe=not args.no_dedupe)
     return run(opts, Log())
 
 
@@ -116,6 +125,17 @@ def enrich_all(opts, log):
             if not ok:
                 log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
                 failed.append(name)
+    for name, wanted, tag_pass, pass_options in (
+            ("split", opts.split, split.split_pass, split.Options),
+            ("dedupe", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):
+        if not wanted:
+            continue
+        log(f"ENRICH   ({name})")
+        code = tag_pass(pass_options(root=opts.root, apply=opts.apply, state_dir=opts.state_dir), log)
+        if code == EXIT_STOPPED:
+            return EXIT_STOPPED
+        if code:
+            failed.append(name)
     log("\n--- Enrichment summary ---")
     log(f"{'folders':>20}: {len(dirs)}")
     if failed:

@@ -1,4 +1,4 @@
-"""Undo a pass by replaying its journal backwards."""
+"""Undo a pass by replaying its journal backwards: moves, then tag changes."""
 import json
 import shlex
 import time
@@ -8,6 +8,47 @@ from music_librarian.core.files import prune_empty
 from music_librarian.core.journal import Journal, move_file
 from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.integrations import lyrion
+from music_librarian.media import credit_tags
+
+
+def plan_tags(recs, log):
+    """Tag changes that can be undone: the file still holds the value written."""
+    todo, refused = [], 0
+    for r in reversed(recs):
+        if r.get("type") != "tag":
+            continue
+        path = Path(r["path"])
+        try:
+            current = credit_tags.read(path)
+        except Exception:
+            current = None
+        if current is None:
+            log(f"REFUSED  (file missing or unreadable)  {path}")
+            refused += 1
+        elif current[r["field"]] != [r["new"]]:
+            log(f"REFUSED  ({r['field']} changed since)  {path}")
+            refused += 1
+        else:
+            log(f"RESTORE  {r['field']} of {path}\n         {r['new']} → {r['old']}")
+            todo.append((path, r["field"], r["new"], r["old"]))
+    return todo, refused
+
+
+def restore_tags(tags, journal, log):
+    """(stopped, failed writes)."""
+    failed = 0
+    for i, (path, field, cur, orig) in enumerate(tags):
+        if STOP.is_set():
+            log(f"STOP     requested: {len(tags) - i} tag restore(s) not done")
+            return True, failed
+        try:
+            credit_tags.write(path, field, orig)
+        except Exception as e:
+            log(f"ERROR    ({e})  {path}")
+            failed += 1
+            continue
+        journal.tag(path, field, cur, orig)
+    return False, failed
 
 
 def undo(args, root, state_dir, log, db=None):
@@ -31,6 +72,8 @@ def undo(args, root, state_dir, log, db=None):
         else:
             log(f"RESTORE  {cur}\n         → {orig}")
             todo.append((cur, orig))
+    tags, tags_refused = plan_tags(recs, log)
+    refused += tags_refused
 
     journal = Journal(state_dir, dict(root=str(root), undo_of=str(jpath),
                                       started=time.time()))
@@ -44,12 +87,17 @@ def undo(args, root, state_dir, log, db=None):
                 break
             move_file(cur, orig, journal)
             done.append((cur, orig))
+        if not stopped:
+            stopped, failed = restore_tags(tags, journal, log)
+            refused += failed
         for d in sorted({cur.parent for cur, _ in todo}, key=lambda d: -len(d.parts)):
             pruned += prune_empty(d, {root})
     journal.close()
 
     log("\n--- Summary ---")
     log(f"{'to restore':>20}: {len(todo)}")
+    if tags:
+        log(f"{'tags to restore':>20}: {len(tags)}")
     if refused:
         log(f"{'refused':>20}: {refused}")
     if pruned:
