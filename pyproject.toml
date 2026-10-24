@@ -44,7 +44,7 @@ addopts = "--import-mode=importlib"
 # import or a Lyrion write failing must not stop the loop or a whole pass.
 # dict(...) is used throughout for journal records and tag dicts, and
 # one-line lambdas as tag getters in read_tags/copy_tags.
-# The passes (organize_pass, process, watch's loop) are linear pipelines read top to
+# The passes (organize_pass, process) are linear pipelines read top to
 # bottom sharing local state; splitting them into helpers to satisfy the
 # size counters would scatter that state without making them clearer.
 disable = [
