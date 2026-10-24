@@ -1,10 +1,7 @@
 """Tests telling an empty search apart from one that never happened.
 
-A provider that can't be reached returns nothing, exactly like a provider that
-has no match — but caching that as a miss would fuse every later search for
-TTL_MISS, long after a passing outage is over. Providers raise
-ProviderUnavailable for it, and fetch_lyrics only skips the cache when no
-provider answered at all.
+A provider that can't be reached raises ProviderUnavailable, so fetch_lyrics can report
+"unavailable" when no provider answered at all: --clear must not drop a tag on that.
 """
 # pylint: disable=protected-access
 
@@ -12,7 +9,6 @@ import unittest
 
 
 from music_librarian import lyrics as L
-from music_librarian.lyrics import cache
 
 FOUND = {"lyrics": "la la la", "synced": None, "meta": None}
 
@@ -42,50 +38,26 @@ def _finds():
 
 class UnavailableProvidersTest(unittest.TestCase):
     def setUp(self):
-        cache._entries.clear()
         self._orig = L._enabled_providers
 
     def tearDown(self):
         L._enabled_providers = self._orig
-        cache._entries.clear()
 
     def _use(self, *providers):
         L._enabled_providers = lambda: [(f"p{i}", p) for i, p in enumerate(providers)]
 
     def test_all_providers_unreachable_reports_unavailable(self):
         self._use(_unreachable("a"), _unreachable("b"))
-        res = L.fetch_lyrics(None, "Muse", "Space Debris")
+        res = L.fetch_lyrics("Muse", "Space Debris")
         self.assertEqual(res, {"lyrics": None, "synced": None, "source": "unavailable"})
 
-    def test_an_unavailable_search_is_not_cached(self):
-        down = _unreachable("a")
-        self._use(down)
-        L.fetch_lyrics(None, "Muse", "Space Debris")
-        self.assertEqual(len(cache._entries), 0)
-        L.fetch_lyrics(None, "Muse", "Space Debris")
-        self.assertEqual(down.calls, 2)
-
-    def test_a_recovered_provider_is_searched_again_without_force(self):
-        down = _unreachable("a")
-        self._use(down)
-        self.assertEqual(L.fetch_lyrics(None, "Muse", "Space Debris")["source"], "unavailable")
-        back = _finds()
-        self._use(back)
-        self.assertEqual(L.fetch_lyrics(None, "Muse", "Space Debris")["source"], "p0")
-        self.assertEqual(back.calls, 1)
-
-    def test_a_reachable_provider_with_no_match_still_caches_a_miss(self):
-        silent = _silent()
-        self._use(_unreachable("a"), silent)
-        res = L.fetch_lyrics(None, "Muse", "Space Debris")
-        self.assertEqual(res["source"], "none")
-        self.assertEqual(len(cache._entries), 1)
-        L.fetch_lyrics(None, "Muse", "Space Debris")
-        self.assertEqual(silent.calls, 1)
+    def test_a_reachable_provider_with_no_match_is_a_miss(self):
+        self._use(_unreachable("a"), _silent())
+        self.assertEqual(L.fetch_lyrics("Muse", "Space Debris")["source"], "none")
 
     def test_a_later_provider_still_answers_when_an_earlier_one_is_down(self):
         self._use(_unreachable("a"), _finds())
-        res = L.fetch_lyrics(None, "Muse", "Space Debris")
+        res = L.fetch_lyrics("Muse", "Space Debris")
         self.assertEqual(res["lyrics"], "la la la")
         self.assertEqual(res["source"], "p1")
 

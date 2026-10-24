@@ -12,7 +12,7 @@ import unittest
 
 
 from music_librarian import lyrics as L
-from music_librarian.lyrics import cache, matching
+from music_librarian.lyrics import matching
 
 
 class NormalizeTest(unittest.TestCase):
@@ -104,12 +104,10 @@ class MatchesRequestTest(unittest.TestCase):
 
 class FetchLyricsVerifyTest(unittest.TestCase):
     def setUp(self):
-        cache._entries.clear()
         self._orig = L._enabled_providers
 
     def tearDown(self):
         L._enabled_providers = self._orig
-        cache._entries.clear()
 
     def _stub_provider(self, meta):
         def provider(_artist, _title, _album, _duration):
@@ -118,19 +116,19 @@ class FetchLyricsVerifyTest(unittest.TestCase):
 
     def test_verify_accepts_matching_candidate(self):
         self._stub_provider({"artist": "Muse", "title": "Space Debris", "album": None, "duration": 247})
-        res = L.fetch_lyrics(None, "Muse", "Space Debris", duration="247", verify=True)
+        res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=True)
         self.assertEqual(res["source"], "fake")
         self.assertEqual(res["lyrics"], "la la la")
 
     def test_verify_rejects_mismatching_candidate(self):
         self._stub_provider({"artist": "Someone Else", "title": "Wrong", "album": None, "duration": 999})
-        res = L.fetch_lyrics(None, "Muse", "Space Debris", duration="247", verify=True)
+        res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=True)
         self.assertEqual(res["source"], "rejected")
         self.assertIsNone(res["lyrics"])
 
     def test_lenient_accepts_mismatching_candidate(self):
         self._stub_provider({"artist": "Someone Else", "title": "Wrong", "album": None, "duration": 999})
-        res = L.fetch_lyrics(None, "Muse", "Space Debris", duration="247", verify=False)
+        res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=False)
         self.assertEqual(res["source"], "fake")
         self.assertEqual(res["lyrics"], "la la la")
 

@@ -24,10 +24,9 @@ src/music_librarian/
 │   ├── common.py    album folders under the targets, summary and exit code
 │   ├── covers.py    folder.jpg embedded into the tracks
 │   └── lyrics.py    lyrics written into the tags
-├── lyrics/          lyrics lookup: provider chain, cache, matching
+├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
-│   ├── matching.py  is a provider's answer this recording?
-│   └── cache.py     bounded in-memory cache
+│   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (lyrics and covers in the tags), artwork.py (image sizes)
 └── integrations/    lyrion.py, see lyrion.md
 ```

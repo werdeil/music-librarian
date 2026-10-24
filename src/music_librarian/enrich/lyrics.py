@@ -102,7 +102,6 @@ def parse_args(argv):
 def lookup(meta, args):
     """The plain lyrics found online for a track and the provider's answer."""
     result = fetch_lyrics(
-        track_id=None,
         artist=meta["artist"],
         title=meta["title"],
         album=meta.get("album"),
