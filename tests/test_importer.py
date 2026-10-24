@@ -9,6 +9,7 @@ import pytest
 from mutagen.mp4 import MP4
 
 from music_librarian import enrich, importer
+from music_librarian.media import convert
 
 TODAY = date.today().isoformat()
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
@@ -172,8 +173,8 @@ def test_already_in_library_rejected(env, make_track):
 
 def test_duration_mismatch_rejected(env, make_track, monkeypatch):
     make_track(env.inbox / "Album/1.flac", title="Un", artist="A", album="B", track=1)
-    real = importer.probe
-    monkeypatch.setattr(importer, "probe", lambda p: (
+    real = convert.probe
+    monkeypatch.setattr(convert, "probe", lambda p: (
         real(p)[0], 1.0 if p.suffix == ".flac" else 2.0))
     assert env.run("--apply") == 2
     assert files(env.lib) == []

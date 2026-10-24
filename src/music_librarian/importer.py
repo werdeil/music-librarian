@@ -2,8 +2,7 @@
 importer — imports what is dropped in the Inbox into the library.
 
 For each Inbox item (an album folder, or a loose file):
-  1. FLAC → ALAC conversion (ffmpeg for the audio, mutagen for the tags and
-     artwork), duration (ffprobe) and tag checks;
+  1. FLAC → ALAC conversion and its checks (media/convert.py);
   2. filing with organize, all or nothing: on any problem the whole item
      goes to _failed/;
   3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
@@ -25,7 +24,6 @@ Exit codes: 0 = OK, 2 = at least one item failed or an enrichment failed,
 """
 import argparse
 import contextlib
-import json
 import os
 import shutil
 import subprocess
@@ -36,9 +34,6 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from mutagen.flac import FLAC
-from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
-
 from music_librarian import enrich, organize
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
@@ -46,7 +41,7 @@ from music_librarian.core.log import Buffer, Log
 from music_librarian.core.state import state_path
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
-from music_librarian.organize.scan import parse_pair, read_tags
+from music_librarian.media.convert import ConversionError, convert, probe
 
 ERRORS, DONE, WORK = "_failed", "_done", "_processing"
 UNFILED = "_unfiled"  # side files of a done item that did not follow it
@@ -61,7 +56,6 @@ ANNEX_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".lrc", ".cue"}
 # looks for), unless the folder already has one
 COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
-MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
 OK, FAILED, STOPPED = "ok", "failed", "stopped"  # outcome of an item
 
 
@@ -146,99 +140,6 @@ def free_name(d: Path, name, is_dir=True):
         p = d / f"{stem} ({i}){ext}"
         i += 1
     return p
-
-
-# ---------- ffprobe / conversion ----------
-
-def probe(p: Path):
-    """(audio codec, duration in seconds)"""
-    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
-                          "format=duration:stream=codec_type,codec_name", "-of", "json", str(p)],
-                         capture_output=True, text=True, check=True)
-    j = json.loads(out.stdout)
-    codec = next((s.get("codec_name") for s in j.get("streams", [])
-                  if s.get("codec_type") == "audio"), None)
-    return codec, float(j.get("format", {}).get("duration") or 0)
-
-
-# Vorbis (FLAC) → MP4. The rest is kept as iTunes freeform fields, except
-# REPLAYGAIN_*: enrich.replaygain computes the gain as for the rest of the library.
-MP4_TEXT = {
-    "title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "album artist": "aART",
-    "album": "\xa9alb", "date": "\xa9day", "genre": "\xa9gen", "composer": "\xa9wrt",
-    "comment": "\xa9cmt", "description": "\xa9cmt", "lyrics": "\xa9lyr",
-    "unsyncedlyrics": "\xa9lyr", "grouping": "\xa9grp", "copyright": "cprt",
-    "titlesort": "sonm", "artistsort": "soar", "albumsort": "soal",
-    "albumartistsort": "soaa", "composersort": "soco",
-}
-NUMBERS = {"tracknumber", "tracktotal", "totaltracks", "discnumber", "disctotal",
-           "totaldiscs", "compilation", "bpm"}
-
-
-def copy_tags(flac: FLAC, mp4: MP4):
-    t = flac.tags or {}
-    keys = {k.lower(): t[k] for k in t.keys()}
-    for k, v in keys.items():
-        if k in MP4_TEXT:
-            mp4.tags[MP4_TEXT[k]] = list(mp4.tags.get(MP4_TEXT[k], [])) + list(v)
-        elif k not in NUMBERS and not k.startswith("replaygain_"):
-            mp4.tags[f"----:com.apple.iTunes:{k.upper()}"] = [
-                MP4FreeForm(x.encode("utf-8")) for x in v]
-
-    num = lambda *ks: next((parse_pair(keys[k][0]) for k in ks if k in keys),
-                           (None, None))
-    trk, trk_total = num("tracknumber")
-    disc, disc_total = num("discnumber")
-    trk_total = trk_total or num("tracktotal", "totaltracks")[0]
-    disc_total = disc_total or num("disctotal", "totaldiscs")[0]
-    if trk:
-        mp4.tags["trkn"] = [(trk, trk_total or 0)]
-    if disc:
-        mp4.tags["disk"] = [(disc, disc_total or 0)]
-    if keys.get("compilation", ["0"])[0].strip() == "1":
-        mp4.tags["cpil"] = True
-    bpm = num("bpm")[0]
-    if bpm:
-        mp4.tags["tmpo"] = [bpm]
-
-    pics = sorted(flac.pictures, key=lambda p: p.type != 3)   # front cover first
-    if pics:
-        fmt = MP4Cover.FORMAT_PNG if pics[0].mime == "image/png" else MP4Cover.FORMAT_JPEG
-        mp4.tags["covr"] = [MP4Cover(pics[0].data, imageformat=fmt)]
-
-
-CHECKED = ("albumartist", "artist", "album", "title", "track", "disc", "disctotal",
-           "compilation")
-
-
-def convert(src: Path, dst: Path):
-    """FLAC → ALAC, then checks. Raises Reject if anything is off."""
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
-                        "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
-                        "-fflags", "+bitexact", str(dst)],
-                       capture_output=True, text=True, check=False)
-    if r.returncode:
-        raise Reject(f"ffmpeg failed on {src.name}: {r.stderr.strip()[-300:]}")
-
-    flac = FLAC(src)
-    mp4 = MP4(dst)
-    if mp4.tags is None:
-        mp4.add_tags()
-    copy_tags(flac, mp4)
-    mp4.save()
-
-    _, d_src = probe(src)
-    codec, d_dst = probe(dst)
-    if codec != "alac" or abs(d_src - d_dst) > MAX_DRIFT:
-        raise Reject(f"check failed on {src.name}: {codec}, "
-                     f"duration {d_src:.2f}s → {d_dst:.2f}s")
-    a, b = read_tags(src) or {}, read_tags(dst) or {}
-    diff = [k for k in CHECKED if a.get(k) != b.get(k)]
-    if diff:
-        raise Reject(f"tags differ after converting {src.name}: {', '.join(diff)}")
-    if flac.pictures and "covr" not in MP4(dst).tags:
-        raise Reject(f"cover lost converting {src.name}")
 
 
 # ---------- enrichment ----------
@@ -383,7 +284,7 @@ def process(opts, item, log):
         if organize_paths(opts, [work], False, out).code:
             log(out.text().rstrip())
             raise Reject("refused by organize (see above)")
-    except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
+    except (Reject, ConversionError, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
         with contextlib.suppress(OSError):
             work.parent.rmdir()

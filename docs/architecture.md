@@ -27,7 +27,8 @@ src/music_librarian/
 ├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
 │   └── matching.py  is a provider's answer this recording?
-├── media/           tags.py (lyrics and covers in the tags), artwork.py (image sizes)
+├── media/           tags.py (lyrics and covers in the tags), artwork.py (image sizes),
+│                    convert.py (FLAC → ALAC and its checks)
 └── integrations/    lyrion.py, see lyrion.md
 ```
 
@@ -36,7 +37,7 @@ src/music_librarian/
 - **organize** walks the library (or only the folders changed since the last full pass with `--since`), computes each file's target, holds back conflicts, then moves files one by one. Each move is written to the journal right after it happens, so an interrupted pass can still be undone.
 - **import** never files from the Inbox directly. It builds a work folder in `_processing/` with the FLAC files converted to ALAC and the others hard-linked (copied across disks), checks that `organize` would file all of it, then files it in one pass. On success the original goes to `_done/`; on any problem the whole item goes to `_failed/`.
 - **enrich** hands album folders in batches to the `enrich.replaygain`, `enrich.covers` and `enrich.lyrics` modules, run as subprocesses. Each tool only touches what is missing.
-- **watch** reads the Inbox root every `--interval` seconds and runs `import` once a drop has stopped changing. It also runs `organize --since` every night and `enrich` every week when asked to.
+- **watch** reads the Inbox root every `--interval` seconds and runs `import` once a drop has stopped changing. It also runs `organize --since` every night and `enrich` every week when asked to. Each of the three is a job with its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) that the loop ticks in turn.
 
 ## Conventions
 

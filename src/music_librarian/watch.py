@@ -87,6 +87,70 @@ def safe(fn, log, what):
         return 2
 
 
+class Imports:
+    """The import, once the Inbox content has settled and was not handled as is, and once a day."""
+
+    def __init__(self, inbox: Path, run):
+        self.inbox, self.run = inbox, run
+        self.previous = self.handled = self.day = None
+
+    def tick(self, log):
+        current = signature(self.inbox)
+        if date.today() != self.day or (current is not None and current == self.previous
+                                        and current != self.handled):
+            if safe(self.run, log, "import") != EXIT_LOCKED:
+                # an item left in place is only retried once it changes
+                self.handled, self.day = signature(self.inbox), date.today()
+            log("")
+        self.previous = current
+
+
+class NightlyOrganize:
+    """organize --since every day from `at`, unless a full pass already ran since."""
+
+    def __init__(self, at, opts):
+        self.at, self.opts = at, opts
+        self.day = self.warned = None
+
+    def tick(self, log):
+        t = now()
+        slot = datetime.combine(t.date(), self.at)
+        last = organize.last_run(self.opts.state_dir)
+        if t < slot or self.day == t.date():
+            return
+        if last is None:
+            if self.warned != t.date():
+                log(f"WARNING  nightly organize skipped: no last pass in {self.opts.state_dir} "
+                    f"(run 'organize --apply' once by hand)")
+                self.warned = t.date()
+        elif last >= slot.timestamp():
+            self.day = t.date()
+        else:
+            log(f"ORGANIZE nightly (folders changed since "
+                f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
+            if safe(lambda: organize.run(self.opts, log).code, log, "organize") != EXIT_LOCKED:
+                self.day = t.date()
+            log("")
+
+
+class WeeklyEnrich:
+    """enrich every week from the (day, time) slot `at`, unless it already ran since."""
+
+    def __init__(self, at, opts, started):
+        self.at, self.opts, self.started = at, opts, started
+        self.slot = None
+
+    def tick(self, log):
+        slot = last_slot(now(), *self.at)
+        # no known pass: the first one runs at the next slot
+        last = enrich.last_run(self.opts.state_dir) or self.started
+        if last < slot.timestamp() and self.slot != slot:
+            log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
+            if safe(lambda: enrich.run(self.opts, log), log, "enrich") != EXIT_LOCKED:
+                self.slot = slot
+            log("")
+
+
 def main(argv=None):
     ap = importer.parser()
     ap.description = "Watch the Inbox and run the import."
@@ -103,7 +167,11 @@ def main(argv=None):
                                      state_dir=state_dir, lyrion=import_opts.lyrion)
     enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir)
     import_log = importer.new_log(import_opts)
-    started = now().timestamp()
+    jobs = [Imports(args.inbox, lambda: importer.run(import_opts, import_log))]
+    if args.organize_at:
+        jobs.append(NightlyOrganize(args.organize_at, organize_opts))
+    if args.enrich_at:
+        jobs.append(WeeklyEnrich(args.enrich_at, enrich_opts, now().timestamp()))
 
     log = Log()
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] watching {args.inbox} "
@@ -111,50 +179,11 @@ def main(argv=None):
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
         + (f", enrich every {DAYS[args.enrich_at[0]]} at {args.enrich_at[1]:%H:%M}"
            if args.enrich_at else ""))
-    previous = handled = None
-    last_day = organize_day = warned_day = enrich_slot = None
     while not STOP.is_set():
-        current = signature(args.inbox)
-        if date.today() != last_day or (current is not None and current == previous
-                                        and current != handled):
-            code = safe(lambda: importer.run(import_opts, import_log), log, "import")
-            if code != EXIT_LOCKED:
-                # an item left in place is only retried once it changes
-                handled, last_day = signature(args.inbox), date.today()
-            log("")
-        previous = current
-
-        if args.organize_at and not STOP.is_set():
-            t = now()
-            slot = datetime.combine(t.date(), args.organize_at)
-            last = organize.last_run(state_dir)
-            if t < slot or organize_day == t.date():
-                pass
-            elif last is None:
-                if warned_day != t.date():
-                    log(f"WARNING  nightly organize skipped: no last pass in {state_dir} "
-                        f"(run 'organize --apply' once by hand)")
-                    warned_day = t.date()
-            elif last >= slot.timestamp():
-                organize_day = t.date()   # full pass already done since the scheduled time
-            else:
-                log(f"ORGANIZE nightly (folders changed since "
-                    f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-                code = safe(lambda: organize.run(organize_opts, log).code, log, "organize")
-                if code != EXIT_LOCKED:   # lock held by an import: next tick
-                    organize_day = t.date()
-                log("")
-
-        if args.enrich_at and not STOP.is_set():
-            slot = last_slot(now(), *args.enrich_at)
-            # no known pass: the first one runs at the next slot
-            last = enrich.last_run(state_dir) or started
-            if last < slot.timestamp() and enrich_slot != slot:
-                log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-                code = safe(lambda: enrich.run(enrich_opts, log), log, "enrich")
-                if code != EXIT_LOCKED:
-                    enrich_slot = slot
-                log("")
+        for job in jobs:
+            if STOP.is_set():
+                break
+            job.tick(log)
         STOP.wait(args.interval)
     log("STOP     watch ended")
     return 0
