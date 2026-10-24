@@ -2,7 +2,8 @@
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import pytest
 
-from music_librarian.enrich import lyrics
+from music_librarian.core.lock import EXIT_STOPPED, STOP
+from music_librarian.enrich import common, lyrics
 from music_librarian.media import tags
 
 SYNCED = "[00:01.00] la la\n[00:02.00] lo lo"
@@ -81,7 +82,44 @@ def test_clear_keeps_tag_when_unreachable(album, web):
 def test_targets(tmp_path):
     album = tmp_path / "MTV Unplugged [Live]"
     album.mkdir()
-    assert lyrics.resolve_targets([str(album)]) == ([str(album)], [])
-    assert lyrics.resolve_targets([str(tmp_path / "MTV*")]) == ([str(album)], [])
+    assert common.expand([str(album)]) == ([str(album)], [])
+    assert common.expand([str(tmp_path / "MTV*")]) == ([str(album)], [])
     missing = str(tmp_path / "Nope*")
-    assert lyrics.resolve_targets([missing]) == ([], [missing])
+    assert common.expand([missing]) == ([], [missing])
+
+
+def test_write_failure_is_exit_2(album, web, monkeypatch, capsys):
+    d, _ = album
+
+    def broken(path, text):
+        raise tags.LyricsTagError("read-only file")
+
+    monkeypatch.setattr(tags, "write_lyrics", broken)
+    assert run(d) == 2
+    out = capsys.readouterr().out
+    assert out.count("FAILED   ") == 3 and "failed: 3" in out
+
+
+def test_stop_after_current_file(album, web, monkeypatch):
+    d, tracks = album
+    calls, answer = web
+
+    def fetch_then_stop(**kw):
+        calls.append(kw)
+        STOP.set()
+        return dict(answer)
+
+    monkeypatch.setattr(lyrics, "fetch_lyrics", fetch_then_stop)
+    assert run(d) == EXIT_STOPPED
+    assert len(calls) == 1
+    assert [tags.has_lyrics(str(t)) for t in tracks] == [True, False, False]
+
+
+def test_single_file_and_hidden_folder(album, web, make_track):
+    d, tracks = album
+    make_track(d / ".cache/01 Titre.m4a", title="Titre", artist="Nirvana")
+    assert [p for _, files in common.album_folders([str(d)]) for p in files] == \
+        sorted(str(p) for p in d.iterdir() if p.is_file())
+    assert run(tracks[1]) == 0
+    calls, _ = web
+    assert len(calls) == 1 and tags.has_lyrics(str(tracks[1]))

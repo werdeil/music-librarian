@@ -4,12 +4,13 @@ The loudness is measured by ffmpeg (EBU R128 integrated loudness, sample peak)
 and written as ReplayGain 2.0 tags, referenced to -18 LUFS. Files that already
 carry a gain are left alone, as are formats other than MP3, MP4 and FLAC. Each
 tagged file keeps its modification time, one second later. A stop request lets
-the files being measured finish, then stops (exit code 4).
+the files being measured finish, then stops (exit code 4); a failed file gives
+exit code 2.
 
 Usage:
     python -m music_librarian.enrich.replaygain /path/to/music [--dry-run] [--jobs N]
 
-Targets are directories, scanned recursively, as for enrich.covers. With
+Targets are directories, scanned recursively, or music files, as for enrich.covers. With
 --dry-run nothing is measured nor written: the files without gain are listed.
 """
 import argparse
@@ -22,8 +23,9 @@ from concurrent.futures import ThreadPoolExecutor
 import mutagen
 
 from music_librarian.core.files import AUDIO_EXT
-from music_librarian.core.lock import EXIT_STOPPED, STOP, handle_stop_signals
-from music_librarian.enrich.covers import album_folders
+from music_librarian.core.lock import STOP, handle_stop_signals
+from music_librarian.core.log import Log
+from music_librarian.enrich.common import album_folders, finish
 from music_librarian.media import tags
 
 REFERENCE_LUFS = -18
@@ -86,34 +88,29 @@ def main(argv=None):
                         help="Files measured in parallel (default: CPU count).")
     args = parser.parse_args(argv)
 
-    todo = [p for _folder, files in album_folders(args.targets) for p in files
+    log = Log()
+    todo = [p for _folder, files in album_folders(args.targets, log) for p in files
             if os.path.splitext(p)[1].lower() in AUDIO_EXT and not tags.has_replaygain(p)]
     if args.dry_run:
         for path in todo:
-            print(f"WOULD    {path}")
-        print(f"\n{'without gain':>12}: {len(todo)}")
-        return 0
+            log(f"WOULD    {path}")
+        return finish("ReplayGain", {"without gain": len(todo), "failed": 0}, True, False, log)
 
-    tagged = failed = 0
+    counts = {"tagged": 0, "failed": 0}
     with ThreadPoolExecutor(max(1, args.jobs)) as pool:
         for path, outcome in zip(todo, pool.map(attempt, todo)):
             if outcome is None:
                 continue
             result, error = outcome
             if error:
-                failed += 1
-                print(f"ERROR    {path}: {error}", flush=True)
+                counts["failed"] += 1
+                log(f"ERROR    {path}: {error}")
             else:
-                tagged += 1
-                print(f"GAIN     {path}  {result[0]:.2f} dB, peak {result[1]:.6f}", flush=True)
+                counts["tagged"] += 1
+                log(f"GAIN     {path}  {result[0]:.2f} dB, peak {result[1]:.6f}")
     if STOP.is_set():
-        print(f"STOP     requested: {len(todo) - tagged - failed} file(s) left for the next pass")
-    print(f"\n{'tagged':>12}: {tagged}")
-    print(f"{'failed':>12}: {failed}")
-    if STOP.is_set():
-        return EXIT_STOPPED
-    return 1 if failed else 0
-
+        log(f"STOP     requested: {len(todo) - sum(counts.values())} file(s) left for the next pass")
+    return finish("ReplayGain", counts, False, STOP.is_set(), log)
 
 if __name__ == "__main__":
     handle_stop_signals()

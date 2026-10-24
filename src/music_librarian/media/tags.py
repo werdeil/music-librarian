@@ -18,10 +18,10 @@ from mutagen.wave import WAVE
 from mutagen.oggvorbis import OggVorbis
 from mutagen.oggopus import OggOpus
 
+from music_librarian.core.files import AUDIO_EXT
 
-MUSIC_EXTENSIONS = {
-    ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".mp4", ".aiff", ".aif", ".wav",
-}
+# the library's formats, plus the other ones these functions can tag
+MUSIC_EXTENSIONS = AUDIO_EXT | {".ogg", ".opus", ".mp4", ".aiff", ".aif", ".wav"}
 
 # LRC timing tags: line timestamps [mm:ss.xx], enhanced word timestamps
 # <mm:ss.xx>, and metadata lines like [ar:...] / [length:...].

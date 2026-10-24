@@ -14,7 +14,8 @@ Several targets are accepted, and shell-style wildcards work even when quoted
 (or when the shell finds no match and passes the pattern through literally):
     python -m music_librarian.enrich.covers /path/to/music/A*
     python -m music_librarian.enrich.covers "/path/to/music/A*" /path/to/music/B*
-Each target is a directory, scanned recursively for folders holding music.
+Each target is a directory, scanned recursively for folders holding music, or a
+single music file.
 
 Nothing is written with --dry-run. Either way the run reports how much the
 audio files grow: embedding a cover rewrites every track, so a 2 MB sleeve
@@ -23,50 +24,18 @@ across a twelve-track album adds 24 MB that then has to resync and back up.
 The comparison is on bytes, not on dimensions, so replacing a folder.jpg with a
 *smaller* one propagates too — which is the point: the folder decides. Only
 tracks that actually differ are rewritten, so an interrupted run resumes
-cheaply.
+cheaply. A stop request lets the current album finish, then stops (exit code 4);
+a failed album gives exit code 2.
 """
 
 import argparse
-import glob
 import os
 import sys
 
+from music_librarian.core.lock import STOP, handle_stop_signals
+from music_librarian.core.log import Log
+from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.media import artwork, tags
-
-
-def album_folders(patterns):
-    """Yield (folder, [music files]) for every album folder under `patterns`.
-
-    Returns them through a generator, so the walk and the work interleave.
-    Patterns the shell already expanded arrive as plain paths; literal ones
-    (quoted, or left untouched because the shell found no match) are expanded
-    here, unless they name an existing path: `Album [Live]` is a folder, not a
-    character class. Folders without music are skipped, which leaves artwork-only
-    subfolders (Scans/, Artwork/) alone.
-    """
-    seen = set()
-    for pattern in patterns:
-        literal = os.path.exists(pattern) or not glob.has_magic(pattern)
-        matches = [pattern] if literal else sorted(glob.glob(pattern))
-        if not matches:
-            print(f"warning: no match for pattern: {pattern}", file=sys.stderr)
-        for match in matches:
-            if not os.path.isdir(match):
-                print(f"warning: not a directory: {match}", file=sys.stderr)
-                continue
-            for dirpath, _dirs, names in os.walk(match):
-                # macOS leaves AppleDouble stubs (._track.mp3) beside the real
-                # files; they carry the extension but none of the content.
-                music = sorted(n for n in names if tags.is_music_file(n) and not n.startswith("."))
-                if music and dirpath not in seen:
-                    seen.add(dirpath)
-                    yield dirpath, [os.path.join(dirpath, n) for n in music]
-
-
-def label(folder):
-    """The album's last two path components, so a disc subfolder still names its
-    album in the log rather than showing up as a bare CD1."""
-    return os.sep.join(folder.rstrip(os.sep).split(os.sep)[-2:])
 
 
 def read_folder_cover(folder, name):
@@ -97,7 +66,7 @@ def stale(files, data):
     return [path for path in files if tags.read_cover(path) != data]
 
 
-def process(folder, files, data, dims):
+def process(folder, files, data, dims, log):
     """Write `data` into every track given, returning the failures as text."""
     failures = []
     for path in files:
@@ -107,11 +76,11 @@ def process(folder, files, data, dims):
             failures.append(f"{os.path.basename(path)}: {exc}")
     rel = label(folder)
     if failures:
-        print(f"[fail]      {rel}: {len(failures)}/{len(files)} tracks failed")
+        log(f"FAILED   {rel}: {len(failures)}/{len(files)} tracks failed")
         for line in failures[:3]:
-            print(f"              {line}")
+            log(f"         {line}")
     else:
-        print(f"[written]   {rel}  {dims[1]}x{dims[2]} into {len(files)} tracks")
+        log(f"COVER    {rel}  {dims[1]}x{dims[2]} into {len(files)} tracks")
     return failures
 
 
@@ -136,47 +105,48 @@ def main(argv=None):
         help="Log every album, including those skipped.",
     )
     args = parser.parse_args(argv)
+    log = Log()
 
-    counts = {"scanned": 0, "written": 0, "no_cover": 0, "up_to_date": 0, "failed": 0}
+    counts = dict.fromkeys(("scanned", "re-tagged", "up to date", f"without {args.name}", "failed"), 0)
     added = 0
-    dry = " (dry-run)" if args.dry_run else ""
+    stopped = False
 
-    for folder, files in album_folders(args.targets):
+    for folder, files in album_folders(args.targets, log):
+        if STOP.is_set():
+            log("STOP     requested: the next albums are left for the next pass")
+            stopped = True
+            break
         counts["scanned"] += 1
         rel = label(folder)
 
         cover = read_folder_cover(folder, args.name)
         if not cover:
-            counts["no_cover"] += 1
+            counts[f"without {args.name}"] += 1
             if args.verbose:
-                print(f"[skip:none] {rel}")
+                log(f"SKIPPED  (no {args.name})  {rel}")
             continue
 
         data, dims = cover
         outdated = stale(files, data)
         if not outdated:
-            counts["up_to_date"] += 1
+            counts["up to date"] += 1
             if args.verbose:
-                print(f"[skip:same] {rel}")
+                log(f"SKIPPED  (up to date)  {rel}")
             continue
 
         added += len(data) * len(outdated)
         if args.dry_run:
-            counts["written"] += 1
-            print(f"[would]     {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of {len(files)} tracks")
+            counts["re-tagged"] += 1
+            log(f"WOULD    {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of {len(files)} tracks")
             continue
 
-        counts["failed" if process(folder, outdated, data, dims) else "written"] += 1
+        counts["failed" if process(folder, outdated, data, dims, log) else "re-tagged"] += 1
 
-    print(
-        f"\nDone{dry}: {counts['scanned']} albums scanned, {counts['written']} re-tagged, "
-        f"{counts['up_to_date']} already good, {counts['no_cover']} without {args.name}, "
-        f"{counts['failed']} failed"
-    )
     if added:
-        print(f"Audio files grow by about {added / 1024 / 1024:.0f} MB")
-    return 1 if counts["failed"] else 0
+        counts["audio growth (MB)"] = round(added / 1024 / 1024)
+    return finish("Covers", counts, args.dry_run, stopped, log)
 
 
 if __name__ == "__main__":
+    handle_stop_signals()
     sys.exit(main())
