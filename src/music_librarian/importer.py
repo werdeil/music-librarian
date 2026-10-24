@@ -25,7 +25,6 @@ Exit codes: 0 = OK, 2 = at least one item failed or an enrichment failed,
 """
 import argparse
 import contextlib
-import io
 import json
 import os
 import shutil
@@ -33,6 +32,7 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -42,8 +42,10 @@ from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from music_librarian import organize
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from music_librarian.core.log import Log
+from music_librarian.core.log import Buffer, Log
 from music_librarian.core.state import state_path
+from music_librarian.integrations import lyrion
+from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.organize.scan import parse_pair, read_tags
 
 ERRORS, DONE, WORK = "_failed", "_done", "_processing"
@@ -61,6 +63,22 @@ COVER = "folder.jpg"
 COVER_NAMES = {"cover.jpg", "cover.jpeg", "front.jpg", "front.jpeg"}
 MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
 OK, FAILED, STOPPED = "ok", "failed", "stopped"  # outcome of an item
+
+
+@dataclass
+class Options:
+    inbox: Path
+    root: Path
+    apply: bool = False
+    settle: float = 10
+    keep_days: int = 7
+    enrich: bool = True
+    state_dir: Path = field(default_factory=state_path)
+    syslog: bool = False
+    lyrion: Lyrion | None = None
+
+    def __post_init__(self):
+        self.inbox, self.root = Path(self.inbox).resolve(), Path(self.root).resolve()
 
 
 class Reject(Exception):
@@ -254,22 +272,11 @@ def enrich(dirs, log):
 
 # ---------- item processing ----------
 
-def organize_paths(args, paths, apply, quiet=False):
-    argv = ["--root", str(args.root), *map(str, paths)]
-    if apply:
-        argv.append("--apply")
-    if args.state_dir:
-        argv += ["--state-dir", args.state_dir]
-    if args.syslog and not quiet:
-        argv.append("--syslog")
-    # interruptible=False: an item is filed entirely or not at all
-    if not quiet:
-        return organize.run(argv, interruptible=False)
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        code, report = organize.run(argv, interruptible=False)
-    report["output"] = buf.getvalue()
-    return code, report
+def organize_paths(opts, paths, apply, log):
+    """Files `paths` with organize, under the lock import already holds."""
+    return organize.organize_pass(organize.Options(
+        root=opts.root, paths=paths, apply=apply, state_dir=opts.state_dir,
+        lyrion=opts.lyrion, interruptible=False), log)
 
 
 def classify(item):
@@ -320,20 +327,20 @@ def link_or_copy(src: Path, dst: Path):
         shutil.copy2(src, dst)
 
 
-def to_errors(args, item, reason, log):
+def to_errors(opts, item, reason, log):
     log(f"ERROR    {item.name}: {reason}")
-    if args.apply:
-        dst = free_name(args.inbox / ERRORS, item.name, item.is_dir)
+    if opts.apply:
+        dst = free_name(opts.inbox / ERRORS, item.name, item.is_dir)
         shutil.move(str(item.path), str(dst))
         log(f"         → {dst}")
 
 
-def process(args, item, log):
+def process(opts, item, log):
     """Return (OK | FAILED | STOPPED, target folders)."""
     try:
         flacs, audio, annexes, left, junk = classify(item)
     except (Reject, subprocess.CalledProcessError, ValueError) as e:
-        to_errors(args, item, e, log)
+        to_errors(opts, item, e, log)
         return FAILED, set()
 
     log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
@@ -345,15 +352,16 @@ def process(args, item, log):
     for p in left:
         log(f"KEPT     {item.rel(p)}: kept with the original in {DONE}/")
 
-    if not args.apply:
+    if not opts.apply:
         for p in flacs:
             log(f"CONVERT  {item.rel(p)}  → .m4a")
-        code, report = organize_paths(args, [item.path], apply=False, quiet=True)
-        if code:
-            log(report["output"].rstrip())
+        out = Buffer()
+        report = organize_paths(opts, [item.path], False, out)
+        if report.code:
+            log(out.text().rstrip())
             log(f"ERROR    {item.name}: would go to {ERRORS}/ (see above)")
             return FAILED, set()
-        for src, dst in report["moves"]:
+        for src, dst in report.moves:
             if src in left:
                 continue
             if src.suffix.lower() == ".flac":
@@ -363,7 +371,7 @@ def process(args, item, log):
             log(f"ORGANIZE {item.rel(src)}\n         → {dst}")
         return OK, set()
 
-    work = args.inbox / WORK / item.name
+    work = opts.inbox / WORK / item.name
     if work.exists():
         log(f"ERROR    {item.name}: {work} already exists (interrupted pass?), "
             f"item left in place")
@@ -380,9 +388,9 @@ def process(args, item, log):
             link_or_copy(p, work / item.rel(p))
         for p, rel in names.items():
             link_or_copy(p, work / rel)
-        code, report = organize_paths(args, [work], apply=False, quiet=True)
-        if code:
-            log(report["output"].rstrip())
+        out = Buffer()
+        if organize_paths(opts, [work], False, out).code:
+            log(out.text().rstrip())
             raise Reject("refused by organize (see above)")
     except (Reject, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
         shutil.rmtree(work, ignore_errors=True)
@@ -391,20 +399,21 @@ def process(args, item, log):
         if isinstance(e, Stopped):
             log(f"STOP     {item.name}: left in the Inbox for the next pass")
             return STOPPED, set()
-        to_errors(args, item, e, log)
+        to_errors(opts, item, e, log)
         return FAILED, set()
 
     # 2. Actual filing.
-    code, report = organize_paths(args, [work], apply=True)
-    if code:
+    # organize logs under its own syslog tag
+    report = organize_paths(opts, [work], True, Log(opts.syslog))
+    if report.code:
         log(f"ERROR    {item.name}: filing incomplete, item and {work} left "
-            f"in place (journal: {report.get('journal')})")
+            f"in place (journal: {report.journal})")
         return FAILED, set()
-    targets = {dst.parent for src, dst in report["done"] if dst.suffix.lower() in AUDIO_EXT}
+    targets = {dst.parent for src, dst in report.done if dst.suffix.lower() in AUDIO_EXT}
 
     # 3. The original goes to _done/; what is left in the work folder (side
     #    files that did not follow) joins it.
-    day = args.inbox / DONE / date.today().isoformat()
+    day = opts.inbox / DONE / date.today().isoformat()
     day.mkdir(parents=True, exist_ok=True)
     kept = free_name(day, item.name, item.is_dir)
     for j in junk:
@@ -423,9 +432,9 @@ def process(args, item, log):
     return OK, targets
 
 
-def purge(args, log):
-    limit = date.today() - timedelta(days=args.keep_days)
-    d = args.inbox / DONE
+def purge(opts, log):
+    limit = date.today() - timedelta(days=opts.keep_days)
+    d = opts.inbox / DONE
     if not d.is_dir():
         return
     for p in sorted(d.iterdir()):
@@ -435,13 +444,13 @@ def purge(args, log):
             continue
         if p.is_dir() and day < limit:
             log(f"PURGE    {p}")
-            if args.apply:
+            if opts.apply:
                 shutil.rmtree(p)
 
 
 # ---------- main ----------
 
-def main(argv=None):
+def parser():
     ap = argparse.ArgumentParser(description="Import the Inbox into the library.")
     inbox_env, root_env = os.environ.get("MUSIC_LIBRARIAN_INBOX"), os.environ.get("MUSIC_LIBRARIAN_ROOT")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
@@ -456,45 +465,62 @@ def main(argv=None):
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-import)")
-    args = ap.parse_args(argv)
-    args.inbox, args.root = args.inbox.resolve(), args.root.resolve()
+    lyrion.add_arguments(ap)
+    return ap
 
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(errors="backslashreplace")
-    log = Log(args.syslog, ident="music-import")
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] inbox: {args.inbox}")
-    state_dir = state_path(args.state_dir)
+
+def options(args):
+    """Options from the arguments of `parser()`."""
+    opts = Options(inbox=args.inbox, root=args.root, apply=args.apply, settle=args.settle,
+                   keep_days=args.keep_days, enrich=not args.no_enrich,
+                   state_dir=state_path(args.state_dir), syslog=args.syslog)
+    opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
+    return opts
+
+
+def new_log(opts):
+    return Log(opts.syslog, ident="music-import")
+
+
+def main(argv=None):
+    opts = options(parser().parse_args(argv))
+    return run(opts, new_log(opts))
+
+
+def run(opts: Options, log):
+    """An import pass, under the lock with `apply`."""
+    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] inbox: {opts.inbox}")
     try:
-        with locked(state_dir) if args.apply else contextlib.nullcontext():
-            return import_all(args, log)
+        with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
+            return import_all(opts, log)
     except Locked as e:
         log(f"LOCKED   another pass is running ({e}), giving up")
         return EXIT_LOCKED
 
 
-def import_all(args, log):
-    if not args.root.is_dir():
-        log(f"ERROR    library not found: {args.root}")
+def import_all(opts, log):
+    if not opts.root.is_dir():
+        log(f"ERROR    library not found: {opts.root}")
         return 2
-    if args.apply:
+    if opts.apply:
         for d in ERRORS, DONE:
-            (args.inbox / d).mkdir(parents=True, exist_ok=True)
-    elif not args.inbox.is_dir():
+            (opts.inbox / d).mkdir(parents=True, exist_ok=True)
+    elif not opts.inbox.is_dir():
         log("Inbox missing: it will be created with --apply")
         return 0
 
-    purge(args, log)
+    purge(opts, log)
 
-    if args.apply:
-        for p in args.inbox.iterdir():
+    if opts.apply:
+        for p in opts.inbox.iterdir():
             if p.is_file() and is_junk(p):
                 p.unlink(missing_ok=True)
-    items = list_items(args.inbox)
+    items = list_items(opts.inbox)
     if not items:
         log("Inbox empty")
         return 0
 
-    items, busy = stable_items(items, args.settle)
+    items, busy = stable_items(items, opts.settle)
     for it in busy:
         log(f"WAITING  {it.name}: copy in progress, handled on the next pass")
 
@@ -504,12 +530,12 @@ def import_all(args, log):
             counts["left (stopped)"] += len(items) - i
             log(f"STOP     requested: {len(items) - i} item(s) left for the next pass")
             break
-        status, t = process(args, it, log)
+        status, t = process(opts, it, log)
         counts[status] += 1
         targets |= t
 
     enrich_ok = True
-    if targets and not args.no_enrich:
+    if targets and opts.enrich:
         log("")
         if STOP.is_set():
             log("STOP     enrichment skipped: caught up by the weekly pass")

@@ -27,13 +27,14 @@ import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian import importer
 from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
-from music_librarian.core.state import state_path
+from music_librarian.core.state import read_stamp, state_path, write_stamp
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
@@ -51,11 +52,19 @@ def album_dirs(root: Path):
     return out
 
 
+@dataclass
+class Options:
+    root: Path
+    apply: bool = False
+    state_dir: Path = field(default_factory=state_path)
+    batch: int = BATCH
+
+    def __post_init__(self):
+        self.root = Path(self.root).resolve()
+
+
 def last_run(state_dir: Path):
-    try:
-        return float((state_dir / LAST_RUN).read_text().strip())
-    except (OSError, ValueError):
-        return None
+    return read_stamp(state_dir, LAST_RUN)
 
 
 def main(argv=None):
@@ -66,26 +75,30 @@ def main(argv=None):
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
     args = ap.parse_args(argv)
-    root = Path(args.root).resolve()
-    state_dir = state_path(args.state_dir)
-    log = Log()
+    opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
+                   batch=args.batch)
+    return run(opts, Log())
+
+
+def run(opts: Options, log):
+    """An enrichment pass, under the lock with `apply`."""
     try:
-        with locked(state_dir) if args.apply else contextlib.nullcontext():
-            return enrich_all(args, root, state_dir, log)
+        with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
+            return enrich_all(opts, log)
     except Locked as e:
         log(f"LOCKED   another pass is running ({e}), giving up")
         return EXIT_LOCKED
 
 
-def enrich_all(args, root, state_dir, log):
+def enrich_all(opts, log):
     started = time.time()
-    dirs = album_dirs(root)
-    batches = [dirs[i:i + args.batch] for i in range(0, len(dirs), args.batch)]
-    log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] enriching {root}: "
+    dirs = album_dirs(opts.root)
+    batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
+    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{len(dirs)} folders, {len(batches)} batches")
     failed = []
     for name, cmd in importer.enrichers():
-        if not args.apply:
+        if not opts.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICH   ({name})")
         for i, batch in enumerate(batches, 1):
@@ -106,9 +119,8 @@ def enrich_all(args, root, state_dir, log):
     log(f"{'folders':>20}: {len(dirs)}")
     if failed:
         log(f"{'failed batches':>20}: {len(failed)} ({', '.join(sorted(set(failed)))})")
-    if args.apply:
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / LAST_RUN).write_text(f"{started}\n")
+    if opts.apply:
+        write_stamp(opts.state_dir, LAST_RUN, started)
     return 2 if failed else 0
 
 

@@ -6,6 +6,7 @@ from datetime import time as dtime
 import pytest
 
 from music_librarian import importer, organize, watch
+from music_librarian.organize import Report
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP
 
 
@@ -26,11 +27,11 @@ def calls(monkeypatch):
     out = Calls()
     out.codes = []
 
-    def fake(argv):
-        out.append(argv)
+    def fake(opts, log):
+        out.append(opts)
         return out.codes.pop(0) if out.codes else 0
 
-    monkeypatch.setattr(importer, "main", fake)
+    monkeypatch.setattr(importer, "run", fake)
     return out
 
 
@@ -90,11 +91,11 @@ def test_retried_while_locked(inbox_dir, calls, ticks):
 def test_import_crash_logged_and_loop_goes_on(inbox_dir, ticks, monkeypatch, capsys):
     n = []
 
-    def boom(argv):
-        n.append(argv)
+    def boom(opts, log):
+        n.append(opts)
         raise RuntimeError("oups")
 
-    monkeypatch.setattr(importer, "main", boom)
+    monkeypatch.setattr(importer, "run", boom)
     (inbox_dir / "1.flac").write_bytes(b"x")
     assert ticks(inbox_dir, [nothing, nothing]) == 0
     assert len(n) == 1
@@ -104,11 +105,12 @@ def test_import_crash_logged_and_loop_goes_on(inbox_dir, ticks, monkeypatch, cap
 
 def test_options_passed_to_import(inbox_dir, calls, ticks):
     ticks(inbox_dir, [], "--settle", "5", "--apply")
-    assert calls == [["--inbox", str(inbox_dir), "--settle", "5", "--apply"]]
+    [opts] = calls
+    assert (opts.inbox, opts.settle, opts.apply) == (inbox_dir.resolve(), 5, True)
     calls.clear()
     STOP.clear()
     ticks(inbox_dir, [])
-    assert "--apply" not in calls[0]
+    assert not calls[0].apply
 
 
 def test_missing_inbox(tmp_path, calls, ticks):
@@ -117,14 +119,14 @@ def test_missing_inbox(tmp_path, calls, ticks):
 
 
 def test_stop_during_import_ends_loop(inbox_dir, ticks, monkeypatch):
-    def stopping(argv):
+    def stopping(opts, log):
         STOP.set()
         return EXIT_STOPPED
 
-    monkeypatch.setattr(importer, "main", stopping)
+    monkeypatch.setattr(importer, "run", stopping)
     waits = []
     monkeypatch.setattr(STOP, "wait", lambda timeout=None: waits.append(1) or True)
-    assert watch.main(["--inbox", str(inbox_dir), "--interval", "0"]) == 0
+    assert watch.main(["--inbox", str(inbox_dir), "--root", "lib", "--interval", "0"]) == 0
     assert len(waits) == 1
 
 
@@ -169,11 +171,11 @@ def nightly(tmp_path, inbox_dir, calls, ticks, monkeypatch):
     n = N()
     n.passes.codes = []
 
-    def fake_organize(argv):
-        n.passes.append(argv)
-        return n.passes.codes.pop(0) if n.passes.codes else 0
+    def fake_organize(opts, log):
+        n.passes.append(opts)
+        return Report(n.passes.codes.pop(0) if n.passes.codes else 0)
 
-    monkeypatch.setattr(organize, "main", fake_organize)
+    monkeypatch.setattr(organize, "run", fake_organize)
     monkeypatch.setattr(watch, "now", lambda: n.clock[0])
     return n
 
@@ -182,7 +184,7 @@ def test_organize_once_after_slot(nightly):
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
     nightly.run([nothing, nightly.at(2, 0), nothing, nightly.at(3, 0), nothing], "--apply")
     # not before 02:00, then only once
-    assert nightly.passes == [["--since", "--state-dir", nightly.passes[0][2], "--apply"]]
+    assert [(p.since, p.apply, p.paths) for p in nightly.passes] == [(True, True, [])]
 
 
 def test_organize_catches_up_at_startup(nightly):
@@ -218,24 +220,24 @@ def test_organize_dry_run_once_a_day(nightly):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.last_run(datetime(2026, 10, 17, 2, 0))    # a dry run does not move last_run forward
     nightly.run([nothing, nothing, nothing])
-    assert nightly.passes == [["--since", "--state-dir", nightly.passes[0][2]]]
+    assert [(p.since, p.apply) for p in nightly.passes] == [(True, False)]
 
 
 def test_organize_crash_logged(nightly, monkeypatch, capsys):
     nightly.clock[0] = datetime(2026, 10, 18, 3, 0)
     nightly.last_run(datetime(2026, 10, 17, 2, 0))
 
-    def boom(argv):
+    def boom(opts, log):
         raise RuntimeError("oups")
 
-    monkeypatch.setattr(organize, "main", boom)
+    monkeypatch.setattr(organize, "run", boom)
     assert nightly.run([nothing, nothing]) == 0
     assert "ERROR    organize interrupted" in capsys.readouterr().out
 
 
 def test_organize_at_format():
     with pytest.raises(SystemExit):
-        watch.main(["--inbox", "inbox", "--organize-at", "2h"])
+        watch.main(["--inbox", "inbox", "--root", "lib", "--organize-at", "2h"])
 
 
 def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
@@ -249,7 +251,7 @@ def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
     # the next day at 03:00 (whatever time the test runs at)
     next_day = datetime.fromtimestamp(before).date() + timedelta(days=1)
     monkeypatch.setattr(watch, "now", lambda: datetime.combine(next_day, dtime(3, 0)))
-    monkeypatch.setattr(importer, "main", lambda argv: 0)
+    monkeypatch.setattr(importer, "run", lambda opts, log: 0)
     ticks(inbox_dir, [nothing], "--root", str(lib), "--state-dir", str(state), "--apply",
           "--organize-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()

@@ -1,4 +1,5 @@
 """Output of the commands: stdout, plus journald with --syslog."""
+import sys
 import unicodedata
 
 
@@ -8,6 +9,9 @@ class Log:
     def __init__(self, use_syslog=False, ident="music-librarian"):
         self.syslog = None
         self.ident = ident
+        # a non-UTF-8 file name (e.g. \x92) must not crash the output
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(errors="backslashreplace")
         if use_syslog:
             import syslog  # pylint: disable=import-outside-toplevel  # only with --syslog
             self.syslog = syslog
@@ -23,3 +27,16 @@ class Log:
             self.syslog.openlog(self.ident)
             # a non-UTF-8 file name (e.g. \x92) must not crash the log
             self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())
+
+
+class Buffer:
+    """Keeps the lines instead of printing them, for output shown only on failure."""
+
+    def __init__(self):
+        self.lines = []
+
+    def __call__(self, msg=""):
+        self.lines.append(msg)
+
+    def text(self):
+        return "\n".join(self.lines)

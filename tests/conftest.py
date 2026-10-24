@@ -46,7 +46,8 @@ def ticks(monkeypatch):
             return STOP.is_set()
 
         monkeypatch.setattr(STOP, "wait", wait)
-        return watch.main(["--inbox", str(inbox_dir), "--interval", "0", *argv])
+        return watch.main(["--inbox", str(inbox_dir), "--root", str(inbox_dir.parent / "Musique"),
+                           "--interval", "0", *argv])
     return run
 
 
