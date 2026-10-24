@@ -1,34 +1,36 @@
 # Publishes the Docker image to the GitHub Container Registry, built for amd64
 # and arm64 with the tests run on both (arm64 through QEMU, slower):
-#   - every push to main (or a manual run on main) tags it dev;
-#   - a version tag tags it 0.1.0, 0.1 and latest, then creates the GitHub
-#     release, its notes generated from the pull requests merged since the
-#     previous tag:
-#       git tag v0.1.0 && git push origin v0.1.0
+#   - publishing a GitHub release (see release.yml) tags it 0.1.0, 0.1 and
+#     latest, only 0.1.0 for a pre-release;
+#   - every push to main (or a manual run on main) tags it dev.
 name: Publish
 
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
-    tags: ["v*"]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   workflow_dispatch:
 
 permissions:
-  contents: write   # create the release
+  contents: read
   packages: write
 
 concurrency:
   group: publish-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
   image:
-    if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - name: Check the tag against the package version
-        if: github.ref_type == 'tag'
+        if: github.event_name == 'release'
         run: |
           version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/music_librarian/__init__.py)
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
@@ -46,10 +48,13 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
+          # The pre-release flag lives on the GitHub release, not the tag: latest=auto cannot see it.
+          flavor: latest=false
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=dev,enable={{is_default_branch}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=raw,value=dev,enable=${{ github.event_name != 'release' }}
       - name: Build and push the image (tests included)
         uses: docker/build-push-action@v7
         with:
@@ -60,8 +65,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Create the GitHub release
-        if: github.ref_type == 'tag'
+      - name: Summarise
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: printf '## Image published\n\n```\n%s\n```\n' "$TAGS" >> "$GITHUB_STEP_SUMMARY"

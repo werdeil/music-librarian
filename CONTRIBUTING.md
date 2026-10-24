@@ -49,6 +49,6 @@ Keep a pull request to one change, and fill in the template: the problem, the so
 
 ## Releasing
 
-Every push to `main` publishes the image as `ghcr.io/werdeil/music-librarian:dev`. For a version, set `__version__` in `src/music_librarian/__init__.py` (through a pull request), then tag that commit on `main`: `git tag v0.1.0 && git push origin v0.1.0`. The `Publish` workflow checks the tag against `__version__`, pushes the image as `0.1.0`, `0.1` and `latest`, and creates the GitHub release with notes generated from the merged pull requests.
+Every push to `main` that touches more than documentation publishes the image as `ghcr.io/werdeil/music-librarian:dev`. To cut a version, run the `Release` workflow from the Actions tab on `main` with the version (`0.1.0`): it sets `__version__`, commits it to `main` if it changed, tags `v0.1.0` and opens a draft release with notes generated from the merged pull requests. Review the notes and publish the draft: the `Publish` workflow then pushes the image as `0.1.0`, `0.1` and `latest` (only `0.1.0` for a pre-release).
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
