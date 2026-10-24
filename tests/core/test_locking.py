@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from music_librarian import cli, importer, organize
+from music_librarian import cli, enrich, importer, organize
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
 from music_librarian.organize import organize as organize_module, undo as undo_module
 
@@ -15,7 +15,7 @@ def dirs(tmp_path, monkeypatch):
     lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
     lib.mkdir()
     inbox_dir.mkdir()
-    monkeypatch.setattr(importer, "enrichers", lambda: [])
+    monkeypatch.setattr(enrich, "enrichers", lambda: [])
     return lib, inbox_dir, state
 
 

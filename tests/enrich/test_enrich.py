@@ -37,7 +37,7 @@ def tools(tmp_path, monkeypatch):
             out.append((name, [sys.executable, "-c", script]))
         return out
 
-    monkeypatch.setattr(importer, "enrichers", enrichers)
+    monkeypatch.setattr(enrich, "enrichers", enrichers)
 
     class T:
         def calls(self):

@@ -30,26 +30,27 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_librarian import importer
-from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
 from music_librarian.core.state import read_stamp, state_path, write_stamp
+from music_librarian.enrich.common import album_folders
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
 DRY = {"replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
 
 
+def enrichers():
+    """(name, command) called with the target folders as arguments."""
+    return [
+        (name, [sys.executable, "-m", f"music_librarian.enrich.{name}"])
+        for name in ("replaygain", "covers", "lyrics")
+    ]
+
+
 def album_dirs(root: Path):
-    """Folders holding at least one audio file, in order."""
-    out = []
-    for d, dirnames, files in os.walk(root):
-        dirnames[:] = sorted(n for n in dirnames if not n.startswith("."))
-        if any(not f.startswith(".") and os.path.splitext(f)[1].lower() in AUDIO_EXT
-               for f in files):
-            out.append(Path(d))
-    return out
+    """Folders holding at least one music file, in order."""
+    return [Path(d) for d, _files in album_folders([str(root)])]
 
 
 @dataclass
@@ -97,7 +98,7 @@ def enrich_all(opts, log):
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{len(dirs)} folders, {len(batches)} batches")
     failed = []
-    for name, cmd in importer.enrichers():
+    for name, cmd in enrichers():
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICH   ({name})")

@@ -39,7 +39,7 @@ from pathlib import Path
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
-from music_librarian import organize
+from music_librarian import enrich, organize
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Buffer, Log
@@ -243,18 +243,9 @@ def convert(src: Path, dst: Path):
 
 # ---------- enrichment ----------
 
-def enrichers():
-    """(name, command) called with the target folders as arguments."""
-    return [
-        ("replaygain", [sys.executable, "-m", "music_librarian.enrich.replaygain"]),
-        ("covers", [sys.executable, "-m", "music_librarian.enrich.covers"]),
-        ("lyrics", [sys.executable, "-m", "music_librarian.enrich.lyrics"]),
-    ]
-
-
-def enrich(dirs, log):
+def enrich_targets(dirs, log):
     ok = True
-    for name, cmd in enrichers():
+    for name, cmd in enrich.enrichers():
         log(f"ENRICH   ({name})  {len(dirs)} folder(s)")
         try:
             r = subprocess.run([*cmd, *map(str, dirs)], check=False)
@@ -540,7 +531,7 @@ def import_all(opts, log):
         if STOP.is_set():
             log("STOP     enrichment skipped: caught up by the weekly pass")
         else:
-            enrich_ok = enrich(sorted(targets), log)
+            enrich_ok = enrich_targets(sorted(targets), log)
 
     log("\n--- Import summary ---")
     for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),

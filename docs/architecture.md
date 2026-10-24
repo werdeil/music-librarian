@@ -21,6 +21,7 @@ src/music_librarian/
 │   ├── organize.py  the filing pass
 │   └── undo.py      replaying a journal backwards
 ├── enrich/          enrich: ReplayGain, covers, lyrics on the whole library
+│   ├── common.py    album folders under the targets, summary and exit code
 │   ├── covers.py    folder.jpg embedded into the tracks
 │   └── lyrics.py    lyrics written into the tags
 ├── lyrics/          lyrics lookup: provider chain, cache, matching

@@ -78,7 +78,7 @@ def test_dry_run_writes_nothing(album, capsys):
 def test_unreadable_file_reported(album, capsys):
     d, _ = album
     (d / "04 Cassé.mp3").write_bytes(b"not audio")
-    assert replaygain.main([str(d)]) == 1
+    assert replaygain.main([str(d)]) == 2
     out = capsys.readouterr().out
     assert "ERROR    " in out and "04 Cassé.mp3" in out
     assert "tagged: 3" in out and "failed: 1" in out
@@ -111,7 +111,7 @@ def test_mutagen_error_reported(album, capsys, monkeypatch):
         raise mutagen.MutagenError("damaged header")
 
     monkeypatch.setattr(tags, "write_replaygain", broken)
-    assert replaygain.main([str(d)]) == 1
+    assert replaygain.main([str(d)]) == 2
     out = capsys.readouterr().out
     assert out.count("damaged header") == 3 and "failed: 3" in out
 
