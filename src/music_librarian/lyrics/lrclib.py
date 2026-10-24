@@ -16,23 +16,10 @@ LRCLIB_BASE = f"{LRCLIB_SITE}/api"
 # LRCLIB takes 8-10s on busy evenings.
 LRCLIB_TIMEOUT = int(os.getenv("LRCLIB_TIMEOUT", "15"))
 
-# Versions offered for one track, the library's own text included. Each carries
-# a full lyrics body into the cache, so this caps an entry's weight too.
-MAX_VERSIONS = 5
-
-
-def _version(payload, seconds):
-    """One LRCLIB record in the shape the page cycles through.
-
-    Timestamps only fit the recording they were made for, so the LRC is kept
-    only while the record's own length matches the request's.
-    """
-    return {
-        "lyrics": payload.get("plainLyrics"),
-        "synced": payload.get("syncedLyrics") if duration_close(payload, seconds) else None,
-        "album": payload.get("albumName"),
-        "duration": payload.get("duration"),
-    }
+def _synced(payload, seconds):
+    """The record's LRC, kept only while its own length matches the request's: timestamps
+    only fit the recording they were made for."""
+    return payload.get("syncedLyrics") if duration_close(payload, seconds) else None
 
 
 def _attempts(artist, title, album):
@@ -61,11 +48,8 @@ def _search_url(artist, title):
 
 
 def _candidates(results, seconds, search_params):
-    """One search response's candidates, and those worth offering in order.
-
-    The offer is the uploads of this track's length, synced first and plain
-    behind, or empty when none is synced.
-    """
+    """One search response's candidates of this track's length, and the synced ones
+    among them, nearest length first."""
     close = [c for c in results if duration_close(c, seconds)]
     synced = [c for c in close if c.get("syncedLyrics")]
     log.info(
@@ -74,22 +58,16 @@ def _candidates(results, seconds, search_params):
         search_params.get("artist_name"), search_params.get("album_name"),
         len(results), len(close), len(synced),
     )
-    if not synced:
-        return close, []
-    plain = [c for c in close if not c.get("syncedLyrics")]
-    return close, by_length(synced, seconds) + by_length(plain, seconds)
+    return close, by_length(synced, seconds)
 
 
 def _search(artist, title, album, seconds, fallback):
     """Scan LRCLIB's `search` for a synced record of this very recording.
 
-    Returns (record, others): the synced candidate closest to this track's
-    length, or `fallback` (the `get` hit, when there was one) if the search
-    turns up nothing better, and the rest of the set it was chosen from —
-    other uploads of the same song, which the page offers to compare it
-    against. Raises ProviderUnavailable if LRCLIB can't be reached.
+    Returns the synced candidate closest to this track's length, or `fallback` (the
+    `get` hit, else the first candidate found) if the search turns up nothing better.
+    Raises ProviderUnavailable if LRCLIB can't be reached.
     """
-    others = []
     headers = {"User-Agent": USER_AGENT}
     for search_params in _attempts(artist, title, album):
         try:
@@ -105,18 +83,13 @@ def _search(artist, title, album, seconds, fallback):
             log.info("lrclib: search returned HTTP %s", r.status_code)
             continue
         results = r.json() or []
-        close, ranked = _candidates(results, seconds, search_params)
-        if ranked:
-            if fallback is not None and not any(c.get("id") == fallback.get("id") for c in ranked):
-                ranked.append(fallback)
-            return ranked[0], ranked[1:]
+        close, synced = _candidates(results, seconds, search_params)
+        if synced:
+            return synced[0]
         pool = close or results
-        if pool and not others:
-            if fallback is None:
-                fallback, others = pool[0], pool[1:]
-            else:
-                others = [c for c in pool if c.get("id") != fallback.get("id")]
-    return fallback, others
+        if pool and fallback is None:
+            fallback = pool[0]
+    return fallback
 
 
 def fetch(artist, title, album, duration):
@@ -149,16 +122,15 @@ def fetch(artist, title, album, duration):
         log.debug("lrclib: get failed (%s), falling back to search", exc)
         payload = None
 
-    others = []
-    if payload is None or not _version(payload, seconds)["synced"]:
-        payload, others = _search(artist, title, album, seconds, payload)
+    if payload is None or not _synced(payload, seconds):
+        payload = _search(artist, title, album, seconds, payload)
 
     if not payload:
         log.info("lrclib: no record, catalogue search: %s", _search_url(artist, title))
         return None
     # Another recording's LRC would run against the wrong timeline, so only its
     # words are kept; the caller then shows them as plain lyrics.
-    synced_text = _version(payload, seconds)["synced"]
+    synced_text = _synced(payload, seconds)
     if payload.get("syncedLyrics") and not synced_text:
         log.info(
             "lrclib: %s/tracks/%s is %ss, this track is %ss - its timings dropped",
@@ -178,5 +150,4 @@ def fetch(artist, title, album, duration):
             "album": payload.get("albumName"),
             "duration": payload.get("duration"),
         },
-        "versions": [_version(c, seconds) for c in [payload] + others[:MAX_VERSIONS - 1]],
     }
