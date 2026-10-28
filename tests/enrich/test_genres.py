@@ -47,7 +47,7 @@ def run(genre_list, *targets, dry=False):
 
 @pytest.mark.parametrize("value, expected", [
     ("rock", "Rock"), ("ROCK", "Rock"), ("Hip-Hop", "Rap / Hip-hop / RnB"),
-    ("Rap / Hip-Hop / RnB", "Rap / Hip-hop / RnB"), ("R&B", "Rap / Hip-hop/ RnB"),
+    ("Rap / Hip-Hop / RnB", "Rap / Hip-hop / RnB"), ("R&B", "Rap / Hip-hop / RnB"),
     ("electronique", "Électronique"), ("chanson francaise", "Chanson Française"),
     ("Electronica/Dance", "Électronique"), ("Shoegaze; Rock", "Rock"), ("Shoegaze", None),
 ])

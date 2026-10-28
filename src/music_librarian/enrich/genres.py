@@ -4,7 +4,7 @@ The list is a text file, one validated genre per line, optionally followed by
 the names that stand for it:
 
     Rock
-    Rap / Hip-hop/ RnB: hip hop, hip-hop, rap, r&b, trap
+    Rap / Hip-hop / RnB: hip hop, hip-hop, rap, r&b, trap
     # a comment
 
 Names are compared without case, accents, spaces or punctuation, so "Hip Hop",
