@@ -14,8 +14,8 @@ Folk: folk rock, singer-songwriter
 Jazz / Blues: jazz, blues
 Mashup
 Pop: pop rock, synthpop
-Rap / Hip-hop/ RnB: rap, hip hop, hip-hop, r&b, rnb
-Reggae  / Ska / Cuban: reggae, ska, latin
+Rap / Hip-hop / RnB: rap, hip hop, hip-hop, r&b, rnb
+Reggae / Ska / Cuban: reggae, ska, latin
 Rock: classic rock
 Rock Dur: hard rock, heavy metal, metal
 Soul

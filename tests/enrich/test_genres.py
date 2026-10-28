@@ -11,7 +11,7 @@ from music_librarian.media import tags
 LIST = """\
 # validated genres
 Rock
-Rap / Hip-hop/ RnB: hip hop, rap, r&b
+Rap / Hip-hop / RnB: hip hop, rap, r&b
 Électronique: electronic, electronica
 Chanson Française
 """
@@ -46,8 +46,8 @@ def run(genre_list, *targets, dry=False):
 
 
 @pytest.mark.parametrize("value, expected", [
-    ("rock", "Rock"), ("ROCK", "Rock"), ("Hip-Hop", "Rap / Hip-hop/ RnB"),
-    ("Rap / Hip-Hop / RnB", "Rap / Hip-hop/ RnB"), ("R&B", "Rap / Hip-hop/ RnB"),
+    ("rock", "Rock"), ("ROCK", "Rock"), ("Hip-Hop", "Rap / Hip-hop / RnB"),
+    ("Rap / Hip-Hop / RnB", "Rap / Hip-hop / RnB"), ("R&B", "Rap / Hip-hop/ RnB"),
     ("electronique", "Électronique"), ("chanson francaise", "Chanson Française"),
     ("Electronica/Dance", "Électronique"), ("Shoegaze; Rock", "Rock"), ("Shoegaze", None),
 ])
@@ -65,10 +65,10 @@ def test_alias_claimed_twice(tmp_path):
 def test_retagged_with_mtime_kept(genre_list, album, capsys):
     d, tracks = album("hip hop")
     assert run(genre_list, d) == 0
-    assert all(tags.read_genres(str(t)) == ["Rap / Hip-hop/ RnB"] for t in tracks)
+    assert all(tags.read_genres(str(t)) == ["Rap / Hip-hop / RnB"] for t in tracks)
     assert os.stat(tracks[0]).st_mtime == 1_000_000_001
     out = capsys.readouterr().out
-    assert 'GENRE    Artiste/Album  "hip hop" → "Rap / Hip-hop/ RnB" (3 track(s))' in out
+    assert 'GENRE    Artiste/Album  "hip hop" → "Rap / Hip-hop / RnB" (3 track(s))' in out
     assert "re-tagged: 3" in out
 
 
