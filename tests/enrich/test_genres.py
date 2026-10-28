@@ -178,7 +178,8 @@ def test_unknown_takes_itunes_genre(genre_list, album, lookup, capsys):
     assert all(tags.read_genres(str(t)) == ["Rap / Hip-hop / RnB"] for t in tracks)
     assert fake.calls == [("Artiste", "Album")]
     out = capsys.readouterr().out
-    assert 'ITUNES   Artiste/Album  "Shoegaze" → "Rap / Hip-hop / RnB" (iTunes "Hip-Hop/Rap", 3 track(s))' in out
+    assert ('ITUNES   Artiste/Album  "Shoegaze" → "Rap / Hip-hop / RnB" '
+            '(iTunes "Hip-Hop/Rap", 3 track(s))') in out
     assert "from iTunes: 3" in out
 
 
@@ -220,7 +221,8 @@ def test_dry_run_writes_no_cache(genre_list, album, lookup, capsys):
     d, tracks = album("Shoegaze")
     assert run(genre_list, d, dry=True) == 0
     assert tags.read_genres(str(tracks[0])) == ["Shoegaze"] and not cache.exists()
-    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 track(s))' in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 track(s))' in out
 
 
 def test_itunes_down_is_not_a_failure(genre_list, album, lookup, capsys):
