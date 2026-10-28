@@ -1,7 +1,9 @@
 """
 enrich — enrichment pass over the whole library (weekly).
 
-Each tool only handles what is missing:
+Each tool only handles what is missing or off:
+  - genres:     enrich/genres.py, only the files whose genre is not in the
+                validated list's spelling (unknown genres are reported);
   - replaygain: enrich/replaygain.py, only the files without gain;
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
                 cover;
@@ -37,14 +39,14 @@ from music_librarian.enrich.common import album_folders
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
-DRY = {"replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
+DRY = {"genres": "--dry-run", "replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
 
 
 def enrichers():
     """(name, command) called with the target folders as arguments."""
     return [
         (name, [sys.executable, "-m", f"music_librarian.enrich.{name}"])
-        for name in ("replaygain", "covers", "lyrics")
+        for name in ("genres", "replaygain", "covers", "lyrics")
     ]
 
 

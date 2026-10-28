@@ -30,6 +30,7 @@ RUN python -m pytest -q -p no:cacheprovider tests \
  && music-librarian --help > /dev/null \
  && python -m music_librarian.enrich.lyrics --help > /dev/null \
  && python -m music_librarian.enrich.covers --help > /dev/null \
+ && python -m music_librarian.enrich.genres --help > /dev/null \
  && mkdir /tmp/sine && ffmpeg -v error -f lavfi -i sine=duration=2 -c:a alac /tmp/sine/sine.m4a \
  && python -m music_librarian.enrich.replaygain /tmp/sine | grep '^GAIN ' > /dev/null \
  && touch /tmp/tests-ok

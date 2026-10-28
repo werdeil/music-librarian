@@ -5,7 +5,7 @@ For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion and its checks (media/convert.py);
   2. filing with organize, all or nothing: on any problem the whole item
      goes to _failed/;
-  3. enrichment (ReplayGain, cover, lyrics) of the target folders only;
+  3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only;
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
@@ -353,7 +353,7 @@ def parser():
     ap.add_argument("--settle", type=float, default=10,
                     help="seconds without change before handling an item")
     ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
-    ap.add_argument("--no-enrich", action="store_true", help="without ReplayGain/cover/lyrics")
+    ap.add_argument("--no-enrich", action="store_true", help="without genres/ReplayGain/cover/lyrics")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-import)")

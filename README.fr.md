@@ -10,7 +10,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 
 - **`organize`** range la bibliothèque en `Artiste de l'album/Album/NN Titre.ext` (repli sur l'artiste), `Compilations/Album/…` si le flag compilation est posé, et `D-NN Titre` pour les albums multi-disques. Les caractères qu'Apple Music remplace (`/ : ? " | ’ ´ * < > \` …) deviennent `_`. L'encodage des accents (NFC/NFD), les différences de casse seules et les noms tronqués sont tolérés, pour ne pas renommer l'existant à tort. Les annexes (`folder.jpg`, livrets, `.lrc`) suivent leur album ; `.DS_Store` et `._*` sont supprimés. Un album dont les pistes ne s'accordent pas sur le flag compilation est signalé en conflit et laissé en place. `--since` ne relit que les dossiers modifiés depuis le dernier passage complet. Les règles complètes sont dans [docs/naming-rules.md](docs/naming-rules.md) (en anglais).
 - **`import`** prend les dossiers d'album ou fichiers en vrac déposés dans l'Inbox (FLAC, ALAC, MP3), convertit le FLAC en ALAC avec ffmpeg (tags et pochette conservés, durée contrôlée avec ffprobe), range tout ou rien, et n'enrichit que les dossiers cibles. Les originaux partent dans `_done/AAAA-MM-JJ/`, purgés après 7 jours ; ce qui ne peut pas être rangé part dans `_failed/`.
-- **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque : ReplayGain mesuré avec ffmpeg, la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
+- **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque ou s'écarte de la règle : genres alignés sur une liste validée (voir plus bas), ReplayGain mesuré avec ffmpeg, la pochette intégrée quand `folder.jpg` en diffère, et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier.
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français).
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers.
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
@@ -52,12 +52,17 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
+| `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
 
 Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
 
 ### Fournisseurs de paroles
 
 [LRCLIB](https://lrclib.net) est une base ouverte avec une API publique. NetEase Cloud Music et Musixmatch sont interrogés par les points d'accès de leurs propres applications, qui ne sont pas des API publiques : ils peuvent changer ou bloquer les requêtes à tout moment, et leur usage peut contrevenir à leurs conditions d'utilisation. Musixmatch est donc désactivé par défaut ; l'ajouter à `LYRICS_PROVIDERS` (par exemple `lrclib,musixmatch,netease`) si vous l'acceptez. NetEase peut être retiré de la même façon.
+
+### Genres
+
+Avec une liste de genres validés, `import` et `enrich` réécrivent le genre de chaque piste dans l'orthographe de la liste. Copier [`genres.example.txt`](genres.example.txt) en `state/genres.txt` et l'adapter : un genre validé par ligne, suivi au besoin de deux-points et des noms qui le désignent (`Rock Dur: hard rock, metal`). Les noms sont comparés sans tenir compte de la casse, des accents, des espaces ni de la ponctuation, et un tag qui porte plusieurs genres (`Rock; Pop`) prend le premier que la liste connaît. Un genre inconnu de la liste est laissé tel quel et signalé `UNKNOWN` : l'ajouter à la liste, et le prochain `enrich` hebdomadaire l'aligne. Sans liste, les genres ne sont pas touchés.
 
 ## Documentation
 
