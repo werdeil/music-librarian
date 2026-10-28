@@ -47,9 +47,11 @@ import time
 
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.lyrics import fetch_lyrics
-from music_librarian.media import tags
+from music_librarian.media import metadata_cache, tags
+from music_librarian.media.metadata_cache import MetadataCache
 
 
 def music_files(targets, log):
@@ -137,17 +139,15 @@ MISSES = {"unavailable": ("unreachable", "OFFLINE  {}  (lyrics services unreacha
           "rejected": ("rejected", "REJECTED {}  (no confident match)")}
 
 
-def handle(path, rel, args, log):
+def handle(path, rel, args, log, cache):
     """Look one file up and write what was found; the outcome counted."""
-    meta = tags.read_metadata(path)
+    snap = cache.snapshot(path)
+    meta = metadata_cache.metadata(snap)
     if not meta or not meta.get("artist") or not meta.get("title"):
         if args.verbose:
             log(f"SKIPPED  (no artist or title)  {rel}")
         return "no metadata"
-    try:
-        already = tags.has_lyrics(path)
-    except Exception:
-        already = False
+    already = snap["lyrics"]
     # --force overwrites and --clear may drop the tag: both have to look the file up
     if already and not args.force and not args.clear:
         if args.verbose:
@@ -176,13 +176,14 @@ def main(argv=None):
     counts = dict.fromkeys(("scanned", "written", "cleared", "already", "not found", "rejected",
                             "unreachable", "no metadata", "failed"), 0)
     stopped = False
-    for path, rel in music_files(args.targets, log):
-        if STOP.is_set():
-            log("STOP     requested: the next files are left for the next pass")
-            stopped = True
-            break
-        counts["scanned"] += 1
-        counts[handle(path, rel, args, log)] += 1
+    with MetadataCache(state_path()) as cache:
+        for path, rel in music_files(args.targets, log):
+            if STOP.is_set():
+                log("STOP     requested: the next files are left for the next pass")
+                stopped = True
+                break
+            counts["scanned"] += 1
+            counts[handle(path, rel, args, log, cache)] += 1
 
     return finish("Lyrics", counts, args.dry_run, stopped, log)
 

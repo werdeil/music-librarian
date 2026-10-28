@@ -25,8 +25,10 @@ import mutagen
 from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish
 from music_librarian.media import tags
+from music_librarian.media.metadata_cache import MetadataCache
 
 REFERENCE_LUFS = -18
 FILTERS = ("aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo,"
@@ -80,6 +82,14 @@ def cpus():
     return os.cpu_count() or 1
 
 
+def without_gain(targets, log):
+    """The music files under `targets` whose snapshot has no track gain."""
+    with MetadataCache(state_path()) as cache:
+        return [p for _folder, files in album_folders(targets, log) for p in files
+                if os.path.splitext(p)[1].lower() in AUDIO_EXT
+                and not (cache.snapshot(p) or {}).get("replaygain")]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Write the missing ReplayGain track gains.")
     parser.add_argument("targets", nargs="+", help="Directories to process (wildcards accepted).")
@@ -89,8 +99,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     log = Log()
-    todo = [p for _folder, files in album_folders(args.targets, log) for p in files
-            if os.path.splitext(p)[1].lower() in AUDIO_EXT and not tags.has_replaygain(p)]
+    todo = without_gain(args.targets, log)
     if args.dry_run:
         for path in todo:
             log(f"WOULD    {path}")

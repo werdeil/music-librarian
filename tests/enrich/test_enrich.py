@@ -9,6 +9,7 @@ import pytest
 
 from music_librarian import enrich, importer, watch
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
+from music_librarian.media.metadata_cache import MetadataCache
 
 
 @pytest.fixture
@@ -53,7 +54,7 @@ def run(lib, state, *a):
 
 
 def test_album_dirs(lib):
-    assert [str(d.relative_to(lib)) for d in enrich.album_dirs(lib)] == \
+    assert [str(d.relative_to(lib)) for d in enrich.album_dirs(lib)[0]] == \
         ["A/B", "A/C", "D/E", "D/E/CD2"]
 
 
@@ -65,6 +66,19 @@ def test_batches_and_last_run(lib, tools, tmp_path):
     assert calls[0].endswith(f"{lib}/A/B {lib}/A/C {lib}/D/E")
     assert calls[1] == f"replaygain {lib}/D/E/CD2"
     assert enrich.last_run(state) is not None
+
+
+def test_files_gone_dropped_from_cache(lib, tools, tmp_path, capsys):
+    state = tmp_path / "state"
+    old = lib / "Z" / "01.m4a"
+    old.parent.mkdir()
+    old.write_bytes(b"x")
+    with MetadataCache(state) as cache:
+        for p in (lib / "A/B/01.m4a", old):
+            cache.snapshot(p)
+    old.unlink()
+    assert run(lib, state) == 0
+    assert "gone from cache: 1" in capsys.readouterr().out
 
 
 def test_dry_run(lib, tools, tmp_path):
