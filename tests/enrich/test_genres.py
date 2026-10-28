@@ -135,3 +135,11 @@ def test_stop_between_albums(genre_list, album, capsys):
     STOP.set()
     assert run(genre_list, d) == EXIT_STOPPED
     assert tags.read_genres(str(tracks[0])) == ["rock"]
+
+
+def test_second_pass_reads_from_cache(genre_list, album, monkeypatch, capsys):
+    d, _ = album("rock")
+    assert run(genre_list, d, dry=True) == 0
+    monkeypatch.setattr(tags, "read_snapshot", lambda path: pytest.fail(f"{path} read again"))
+    assert run(genre_list, d, dry=True) == 0
+    assert capsys.readouterr().out.count('"rock" → "Rock" (3 track(s))') == 2

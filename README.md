@@ -11,7 +11,8 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`organize`** files the library as `Album Artist/Album/NN Title.ext` (falling back to the artist), `Compilations/Album/…` when the compilation flag is set, and `D-NN Title` for multi-disc albums. Characters Apple Music replaces (`/ : ? " | ’ ´ * < > \` …) become `_`. Accent normalization (NFC/NFD), case-only differences and truncated names are tolerated so existing files are not renamed for nothing. Side files (`folder.jpg`, booklets, `.lrc`) follow their album; `.DS_Store` and `._*` are deleted. An album whose tracks disagree on the compilation flag is reported as a conflict and left alone. `--since` only rescans folders changed since the last full pass. The full rules are in [docs/naming-rules.md](docs/naming-rules.md).
 - **`import`** takes album folders or loose files dropped in the Inbox (FLAC, ALAC, MP3), converts FLAC to ALAC with ffmpeg (tags and artwork kept, duration checked with ffprobe), files them all-or-nothing, and enriches only the target folders. Originals go to `_done/YYYY-MM-DD/` and are purged after 7 days; items that cannot be filed go to `_failed/`.
 - **`enrich`** runs over the whole library and only fills what is missing or off: genres aligned with a validated list (see below), ReplayGain measured with ffmpeg, the embedded cover when `folder.jpg` differs from it, and lyrics from LRCLIB and NetEase, plus Musixmatch if enabled. Lyrics are only written when the provider's title, artist and duration match the file.
-- **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich` weekly (`--enrich-at "sun 03:00"`).
+- **`scan`** reads the metadata of the whole library into a cache in the state folder (`metadata.db`), then prints the track count per genre. `enrich` and `import` read the tags through that cache, so after one full read (about 20 minutes for 25,000 tracks on a hard disk) a pass only opens the files whose size or dates changed, and a dry run followed by `--apply` reads the library once. Files gone from the library are dropped from the cache by `scan` and by every complete `enrich` pass. `scan --force` reads every file again whatever the cache holds, as `enrich --rescan` does before enriching.
+- **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich --rescan` weekly (`--enrich-at "sun 03:00"`), so the metadata cache is read again in full once a week.
 - **`undo JOURNAL`** replays a run's journal in reverse.
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
@@ -21,7 +22,7 @@ Docker is the intended way. ffmpeg comes with the image, and the test suite runs
 
 ```bash
 cp .env.example .env      # set the library, Inbox and (optionally) Lyrion paths
-mkdir state               # journals, last run and lock; must exist before the first start
+mkdir state               # journals, last run, lock and metadata cache; must exist before the first start
 docker compose build
 docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on Sundays at 03:00
 journalctl -t music-librarian -f
@@ -37,6 +38,7 @@ One-off runs, dry-run unless `--apply` is added:
 docker compose run --rm music-librarian organize --since
 docker compose run --rm music-librarian import
 docker compose run --rm music-librarian enrich
+docker compose run --rm music-librarian scan        # changes nothing in the library
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
@@ -48,7 +50,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Library root (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Drop folder, outside the library so a music server does not index it (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journals, last run date and lock (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
+| `MUSIC_LIBRARIAN_STATE` | Journals, last run date, lock and metadata cache (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |

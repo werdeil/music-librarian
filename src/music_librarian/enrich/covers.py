@@ -34,8 +34,10 @@ import sys
 
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.media import artwork, tags
+from music_librarian.media.metadata_cache import MetadataCache
 
 
 def read_folder_cover(folder, name):
@@ -61,9 +63,10 @@ def read_folder_cover(folder, name):
     return (data, dims) if dims else None
 
 
-def stale(files, data):
+def stale(files, data, cache):
     """The tracks whose embedded artwork is not exactly `data`."""
-    return [path for path in files if tags.read_cover(path) != data]
+    digest = tags.cover_hash(data)
+    return [path for path in files if (cache.snapshot(path) or {}).get("cover") != digest]
 
 
 def process(folder, files, data, dims, log):
@@ -111,36 +114,37 @@ def main(argv=None):
     added = 0
     stopped = False
 
-    for folder, files in album_folders(args.targets, log):
-        if STOP.is_set():
-            log("STOP     requested: the next albums are left for the next pass")
-            stopped = True
-            break
-        counts["scanned"] += 1
-        rel = label(folder)
+    with MetadataCache(state_path()) as cache:
+        for folder, files in album_folders(args.targets, log):
+            if STOP.is_set():
+                log("STOP     requested: the next albums are left for the next pass")
+                stopped = True
+                break
+            counts["scanned"] += 1
+            rel = label(folder)
 
-        cover = read_folder_cover(folder, args.name)
-        if not cover:
-            counts[f"without {args.name}"] += 1
-            if args.verbose:
-                log(f"SKIPPED  (no {args.name})  {rel}")
-            continue
+            cover = read_folder_cover(folder, args.name)
+            if not cover:
+                counts[f"without {args.name}"] += 1
+                if args.verbose:
+                    log(f"SKIPPED  (no {args.name})  {rel}")
+                continue
 
-        data, dims = cover
-        outdated = stale(files, data)
-        if not outdated:
-            counts["up to date"] += 1
-            if args.verbose:
-                log(f"SKIPPED  (up to date)  {rel}")
-            continue
+            data, dims = cover
+            outdated = stale(files, data, cache)
+            if not outdated:
+                counts["up to date"] += 1
+                if args.verbose:
+                    log(f"SKIPPED  (up to date)  {rel}")
+                continue
 
-        added += len(data) * len(outdated)
-        if args.dry_run:
-            counts["re-tagged"] += 1
-            log(f"WOULD    {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of {len(files)} tracks")
-            continue
+            added += len(data) * len(outdated)
+            if args.dry_run:
+                counts["re-tagged"] += 1
+                log(f"WOULD    {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of {len(files)} tracks")
+                continue
 
-        counts["failed" if process(folder, outdated, data, dims, log) else "re-tagged"] += 1
+            counts["failed" if process(folder, outdated, data, dims, log) else "re-tagged"] += 1
 
     if added:
         counts["audio growth (MB)"] = round(added / 1024 / 1024)

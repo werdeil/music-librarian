@@ -12,7 +12,8 @@ Names are compared without case, accents, spaces or punctuation, so "Hip Hop",
 "Electronica/Dance") takes the first one the list knows. A genre the list does
 not know is left as it is and reported, so it is picked up on a later pass once
 the list maps it. Each re-tagged file keeps its modification time, one second
-later. A stop request lets the current album finish, then stops (exit code 4);
+later. The genres are read through the metadata cache (media/metadata_cache.py).
+A stop request lets the current album finish, then stops (exit code 4);
 a failed file or an unreadable list gives exit code 2.
 
 Usage:
@@ -34,7 +35,8 @@ from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
-from music_librarian.media import tags
+from music_librarian.media import metadata_cache, tags
+from music_librarian.media.metadata_cache import MetadataCache
 
 SEPARATORS = re.compile(r"[;,/|]")
 
@@ -93,11 +95,11 @@ def retag(path, genre):
     os.utime(path, (os.stat(path).st_atime, mtime + 1))
 
 
-def process(folder, files, mapping, dry_run, counts, log):
+def process(folder, files, mapping, dry_run, counts, log, cache):
     """Align the tracks of one album, logging one line per distinct change or unknown genre."""
     changes, unknown, missing = Counter(), Counter(), 0
     for path in files:
-        values = tags.read_genres(path)
+        values = metadata_cache.genres(cache.snapshot(path))
         if not values:
             missing += 1
             continue
@@ -147,13 +149,14 @@ def main(argv=None):
 
     counts = Counter({"re-tagged": 0, "unknown genre": 0, "without genre": 0, "failed": 0})
     stopped = False
-    for folder, files in album_folders(args.targets, log):
-        stopped = STOP.is_set()
-        if stopped:
-            log("STOP     requested: the albums left are aligned on the next pass")
-            break
-        files = [p for p in files if os.path.splitext(p)[1].lower() in AUDIO_EXT]
-        process(folder, files, mapping, args.dry_run, counts, log)
+    with MetadataCache(state_path()) as cache:
+        for folder, files in album_folders(args.targets, log):
+            stopped = STOP.is_set()
+            if stopped:
+                log("STOP     requested: the albums left are aligned on the next pass")
+                break
+            files = [p for p in files if os.path.splitext(p)[1].lower() in AUDIO_EXT]
+            process(folder, files, mapping, args.dry_run, counts, log, cache)
     return finish("Genres", dict(counts), args.dry_run, stopped, log)
 
 

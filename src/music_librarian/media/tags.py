@@ -5,6 +5,7 @@ Lyrics are stored as plain text (LRC timestamps stripped), cover art as the byte
 handed in, never re-encoded.
 """
 
+import hashlib
 import os
 import re
 
@@ -60,31 +61,6 @@ def lrc_to_plain(text):
 def is_music_file(path):
     """True if the path's extension is one we know how to tag."""
     return os.path.splitext(path)[1].lower() in MUSIC_EXTENSIONS
-
-
-def read_metadata(path):
-    """Return {artist, title, album, duration} for a file, or None if unreadable.
-
-    Uses mutagen's "easy" interface so the same key names work across formats.
-    """
-    try:
-        audio = mutagen.File(path, easy=True)
-    except Exception:
-        return None
-    if audio is None:
-        return None
-
-    def first(key):
-        value = audio.get(key)
-        return value[0] if value else None
-
-    duration = getattr(getattr(audio, "info", None), "length", None)
-    return {
-        "artist": first("artist"),
-        "title": first("title"),
-        "album": first("album"),
-        "duration": duration,
-    }
 
 
 def read_genres(path):
@@ -208,9 +184,12 @@ def read_cover(path):
         audio = mutagen.File(path)
     except Exception:
         return None
+    return _cover(audio)
+
+
+def _cover(audio):
     if audio is None or audio.tags is None:
         return None
-
     if isinstance(audio, (MP3, AIFF, WAVE)):
         frames = audio.tags.getall("APIC")
         return bytes(frames[0].data) if frames else None
@@ -279,6 +258,10 @@ def has_replaygain(path):
         audio = mutagen.File(path)
     except Exception:
         return False
+    return _has_replaygain(audio)
+
+
+def _has_replaygain(audio):
     if audio is None or audio.tags is None or not _rg_keys(audio):
         return False
     gain = _rg_keys(audio)[0].lower()
@@ -316,3 +299,35 @@ def write_replaygain(path, gain, peak):
         raise
     except Exception as exc:
         raise ReplayGainTagError(f"write failed: {exc}") from exc
+
+
+# lyrics and embedded pictures are kept as a flag and a hash, never as text
+_BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
+
+
+def read_snapshot(path):
+    """Everything the tools check in one read, or None if the file is unreadable.
+
+    {"tags": {easy key: [str]}, "duration": seconds or None, "lyrics": bool,
+     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None}
+    """
+    try:
+        audio = mutagen.File(path)
+        easy = mutagen.File(path, easy=True)
+    except Exception:
+        return None
+    if audio is None or easy is None:
+        return None
+    cover = _cover(audio)
+    return {
+        "tags": {k: [str(v) for v in easy[k]] for k in (easy.keys() if easy.tags else ())
+                 if k.lower() not in _BULKY},
+        "duration": getattr(getattr(audio, "info", None), "length", None),
+        "lyrics": bool(_read_lyrics(audio)),
+        "replaygain": _has_replaygain(audio),
+        "cover": cover_hash(cover) if cover else None,
+    }
+
+
+def cover_hash(data):
+    return hashlib.sha1(data).hexdigest()

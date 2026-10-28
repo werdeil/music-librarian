@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), and fills in missing ReplayGain, covers and lyrics. Commands: `organize`, `import`, `enrich`, `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
+A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), and fills in missing ReplayGain, covers and lyrics. Commands: `organize`, `import`, `enrich`, `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
 
 ## Commands
 
@@ -25,13 +25,13 @@ Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-e
 
 ## Architecture
 
-[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md).
+[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `scan.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md).
 
 Imports inside the package are absolute (`from music_librarian.core.lock import STOP`). The tests mirror the package under `tests/` and run with `--import-mode=importlib`.
 
 ## Behaviour that must not regress
 
-- **Dry run by default.** Without `--apply`, no command changes anything on disk. Every move goes through the journal (`core/journal.py`), so a pass can always be undone with `undo`.
+- **Dry run by default.** Without `--apply`, no command changes anything in the library or the Inbox; only the metadata cache in the state folder is refreshed. Every move goes through the journal (`core/journal.py`), so a pass can always be undone with `undo`.
 - **Messages are in English**, and each log line starts with an 8-character tag (`MOVE`, `CONFLICT`, `SKIPPED`, `ERROR`, `STOP`, `LOCKED`…) so the output lines up; summaries read `key: value`.
 - **Tests never touch a real library.** They build their audio files with ffmpeg in a temporary folder (`tests/conftest.py`), and never reach a real Lyrion database or a lyrics provider.
 

@@ -19,7 +19,8 @@ hand).
 
 With --enrich-at "DAY HH:MM" (mon … sun, French names accepted), the enrichment of the whole
 library (enrich: missing gain, covers, lyrics) runs every week from that
-slot, unless it already ran since (state/enrich_last_run). Without a known
+slot, unless it already ran since (state/enrich_last_run). It first reads every
+file again into the metadata cache (enrich --rescan). Without a known
 pass, the first one runs at the next slot, not at startup.
 
 The import options (--settle, --no-enrich…) apply to every import; --root,
@@ -165,7 +166,8 @@ def main(argv=None):
     state_dir = import_opts.state_dir
     organize_opts = organize.Options(root=import_opts.root, since=True, apply=args.apply,
                                      state_dir=state_dir, lyrion=import_opts.lyrion)
-    enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir)
+    enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
+                                 rescan=True)
     import_log = importer.new_log(import_opts)
     jobs = [Imports(args.inbox, lambda: importer.run(import_opts, import_log))]
     if args.organize_at:
