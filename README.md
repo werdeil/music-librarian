@@ -55,6 +55,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
+| `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` to look up the genres the list cannot align (on in the compose file), and the store asked (default `us`) |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
 
@@ -65,6 +66,8 @@ The compose file reads its own variables from `.env`; `.env.example` documents t
 ### Genres
 
 With a validated genre list, `import` and `enrich` rewrite each track's genre to the list's spelling. Copy [`genres.example.txt`](genres.example.txt) to `state/genres.txt` and adapt it: one validated genre per line, optionally followed by a colon and the names that stand for it (`Rock Dur: hard rock, metal`). Names are compared without case, accents, spaces or punctuation, and a tag holding several genres (`Rock; Pop`) takes the first one the list knows. A genre the list does not know is left as is and reported as `UNKNOWN`: add it to the list and the next weekly `enrich` aligns it. Without a list, genres are left alone.
+
+With `GENRE_LOOKUP=itunes`, an album whose genre the list cannot align, or that has none, is searched on the [iTunes Search API](https://performance-partners.apple.com/search-api), free and without a key: when the list knows Apple's genre for that album (the example maps Apple's names), its tracks take it, logged as `ITUNES`. Otherwise Apple's genre is shown next to `UNKNOWN`, so it can be added to the list. Answers are kept in `state/genre_lookup.json`; an album Apple does not have is searched again after 30 days. Choose the store with `ITUNES_COUNTRY` (`fr` for French genre names).
 
 ## Documentation
 

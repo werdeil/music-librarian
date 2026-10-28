@@ -32,7 +32,7 @@ src/music_librarian/
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), artwork.py (image sizes), convert.py (FLAC → ALAC
 │                    and its checks)
-└── integrations/    lyrion.py, see lyrion.md
+└── integrations/    lyrion.py (see lyrion.md), itunes.py (album genres)
 ```
 
 ## How a pass runs

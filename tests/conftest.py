@@ -18,7 +18,7 @@ CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch, tmp_path):
     """Tests must not inherit paths from the Docker image or the host, nor write to its state."""
-    for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE",
+    for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE", "GENRE_LOOKUP",
                 "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))

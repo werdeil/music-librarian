@@ -55,6 +55,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
+| `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` pour chercher les genres que la liste ne sait pas aligner (activé dans le fichier compose), et le magasin interrogé (défaut `us`) |
 
 Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
 
@@ -65,6 +66,8 @@ Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les do
 ### Genres
 
 Avec une liste de genres validés, `import` et `enrich` réécrivent le genre de chaque piste dans l'orthographe de la liste. Copier [`genres.example.txt`](genres.example.txt) en `state/genres.txt` et l'adapter : un genre validé par ligne, suivi au besoin de deux-points et des noms qui le désignent (`Rock Dur: hard rock, metal`). Les noms sont comparés sans tenir compte de la casse, des accents, des espaces ni de la ponctuation, et un tag qui porte plusieurs genres (`Rock; Pop`) prend le premier que la liste connaît. Un genre inconnu de la liste est laissé tel quel et signalé `UNKNOWN` : l'ajouter à la liste, et le prochain `enrich` hebdomadaire l'aligne. Sans liste, les genres ne sont pas touchés.
+
+Avec `GENRE_LOOKUP=itunes`, un album dont la liste ne sait pas aligner le genre, ou qui n'en a pas, est cherché sur l'[API de recherche iTunes](https://performance-partners.apple.com/search-api), gratuite et sans clé : quand la liste connaît le genre qu'Apple donne à cet album (l'exemple reprend les noms d'Apple), ses pistes le prennent, avec la ligne `ITUNES` dans le journal. Sinon le genre d'Apple est affiché à côté de `UNKNOWN`, pour pouvoir l'ajouter à la liste. Les réponses sont gardées dans `state/genre_lookup.json` ; un album qu'Apple n'a pas est recherché de nouveau après 30 jours. `ITUNES_COUNTRY` choisit le magasin (`fr` pour des noms de genres en français).
 
 ## Documentation
 

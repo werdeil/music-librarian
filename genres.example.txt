@@ -1,23 +1,24 @@
 # Validated genres, one per line: the name written into the tags, then
 # optionally a colon and the names that stand for it, separated by commas.
 # Case, accents, spaces and punctuation are ignored when comparing.
+# The aliases include Apple Music's genres, for GENRE_LOOKUP=itunes.
 # Copy to genres.txt in the state folder (./state with Docker).
 Alternative: alternative rock, indie, indie rock, grunge
 Ambiance: ambient, chillout, new age
 Chanson Française: chanson, variété française, french pop
-Classique: classical, opera, baroque
-Comptines: children's music, kids
+Classique: classical, opera, opéra, baroque
+Comptines: children's music, musique pour enfants, kids
 Dancefloor: dance, eurodance
 Disco / Funk: disco, funk
-Electronic: electronica, electro, techno, house
-Folk: folk rock, singer-songwriter
+Electronic: electronica, électronique, electro, techno, house
+Folk: folk rock, singer/songwriter, auteur-compositeur-interprète
 Jazz / Blues: jazz, blues
 Mashup
 Pop: pop rock, synthpop
-Rap / Hip-hop / RnB: rap, hip hop, hip-hop, r&b, rnb
-Reggae / Ska / Cuban: reggae, ska, latin
+Rap / Hip-hop / RnB: rap, hip hop, hip-hop, hip-hop/rap, r&b, rnb
+Reggae / Ska / Cuban: reggae, ska, latin, latino
 Rock: classic rock
 Rock Dur: hard rock, heavy metal, metal
-Soul
-Soundtrack: score, film score, bande originale
+Soul: r&b/soul
+Soundtrack: score, film score, bande originale, bandes originales de films
 Trip Hop
