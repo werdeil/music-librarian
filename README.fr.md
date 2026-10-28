@@ -72,7 +72,7 @@ En anglais :
 
 - [Règles de nommage](docs/naming-rules.md) : construction des chemins cibles, et quand un fichier est considéré en place
 - [Report de l'historique Lyrion](docs/lyrion.md)
-- [Architecture](docs/architecture.md) : organisation du paquet, pour les contributeurs
+- [Architecture](docs/architecture.md) : organisation du paquet et déroulé de chaque commande, étape par étape
 
 ## Développement
 
