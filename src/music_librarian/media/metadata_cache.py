@@ -16,9 +16,13 @@ COMMIT_EVERY = 200
 
 
 class MetadataCache:
-    """Use as a context manager: what was read is committed on exit, even on an error."""
+    """Use as a context manager: what was read is committed on exit, even on an error.
 
-    def __init__(self, state_dir: Path):
+    With `force`, every file is read again once, whatever the cache holds.
+    """
+
+    def __init__(self, state_dir: Path, force=False):
+        self.force = force
         Path(state_dir).mkdir(parents=True, exist_ok=True)
         # paths are stored as bytes: a non-UTF-8 file name is a valid key too
         self.db = sqlite3.connect(Path(state_dir) / FILE, timeout=60)
@@ -44,7 +48,7 @@ class MetadataCache:
         stamp = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, VERSION)
         row = self.db.execute("SELECT mtime_ns, ctime_ns, size, version, snapshot FROM files "
                               "WHERE path = ?", (key,)).fetchone()
-        if row and row[:4] == stamp:
+        if row and row[:4] == stamp and not self.force:
             self.from_cache += 1
             return json.loads(row[4])
         snap = tags.read_snapshot(path)

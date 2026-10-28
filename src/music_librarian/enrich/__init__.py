@@ -17,6 +17,7 @@ are being rewritten.
 
   music-librarian enrich          # dry run: what each tool would do
   music-librarian enrich --apply
+  music-librarian enrich --rescan # first read the whole library again (scan --force)
 
 The tools read the tags through the metadata cache (media/metadata_cache.py),
 so a pass only opens the files that changed; a complete pass drops the files
@@ -35,6 +36,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from music_librarian import scan
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
 from music_librarian.core.state import read_stamp, state_path, write_stamp
@@ -66,6 +68,7 @@ class Options:
     apply: bool = False
     state_dir: Path = field(default_factory=state_path)
     batch: int = BATCH
+    rescan: bool = False
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -82,9 +85,11 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
+    ap.add_argument("--rescan", action="store_true",
+                    help="first read every file of the library again into the metadata cache")
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
-                   batch=args.batch)
+                   batch=args.batch, rescan=args.rescan)
     return run(opts, Log())
 
 
@@ -100,6 +105,8 @@ def run(opts: Options, log):
 
 def enrich_all(opts, log):
     started = time.time()
+    if opts.rescan and scan.run(opts.root, opts.state_dir, log, force=True) == EXIT_STOPPED:
+        return EXIT_STOPPED
     dirs, files = album_dirs(opts.root)
     env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir)}
     batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]

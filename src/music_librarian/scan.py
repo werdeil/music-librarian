@@ -8,6 +8,7 @@ checks tags (enrich and its tools, import) reads through the same cache. Nothing
 in the library is changed.
 
   music-librarian scan                # refresh state/metadata.db, then the summary
+  music-librarian scan --force        # read every file again, whatever the cache holds
 
 Exit codes: 0 = OK, 4 = stopped before the end.
 """
@@ -26,11 +27,11 @@ from music_librarian.media.metadata_cache import MetadataCache
 PROGRESS_EVERY = 1000
 
 
-def run(root, state_dir, log):
+def run(root, state_dir, log, force=False):
     """Refresh the cache for every music file under `root`; return the exit code."""
     genres = Counter()
     seen, reported, unreadable = [], 0, 0
-    with MetadataCache(state_dir) as cache:
+    with MetadataCache(state_dir, force) as cache:
         for _folder, files in album_folders([str(root)], log):
             if STOP.is_set():
                 log("STOP     requested: the files left are read on the next scan")
@@ -64,10 +65,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Read the library's metadata into the metadata cache.")
     ap.add_argument("--root", default=root_env, required=not root_env)
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
+    ap.add_argument("--force", action="store_true", help="read every file again, ignoring the cache")
     args = ap.parse_args(argv)
     log = Log()
-    log(f"[SCAN] {args.root}")
-    return run(args.root, state_path(args.state_dir), log)
+    log(f"[SCAN{' --force' if args.force else ''}] {args.root}")
+    return run(args.root, state_path(args.state_dir), log, args.force)
 
 
 if __name__ == "__main__":

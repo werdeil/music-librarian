@@ -81,6 +81,16 @@ def test_files_gone_dropped_from_cache(lib, tools, tmp_path, capsys):
     assert "gone from cache: 1" in capsys.readouterr().out
 
 
+def test_rescan_reads_everything_first(lib, tools, tmp_path, capsys):
+    state = tmp_path / "state"
+    with MetadataCache(state) as cache:
+        cache.snapshot(lib / "A/B/01.m4a")
+    assert run(lib, state, "--rescan") == 0
+    out = capsys.readouterr().out
+    assert "read: 4" in out and "from cache: 0" in out
+    assert out.index("Scan summary") < out.index("Enrichment summary")
+
+
 def test_dry_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state) == 0
@@ -187,6 +197,7 @@ def test_first_run_waits_for_next_slot(weekly):
     weekly.run([weekly.at(2026, 10, 18, 2, 0), weekly.at(2026, 10, 18, 3, 0), lambda: None],
                "--apply")
     assert [(c.apply, c.state_dir) for c in weekly.calls] == [(True, weekly.calls[0].state_dir)]
+    assert weekly.calls[0].rescan
 
 
 def test_caught_up_after_missed_slot(weekly):

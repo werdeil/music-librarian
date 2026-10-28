@@ -32,6 +32,14 @@ def test_second_scan_from_cache(lib, tmp_path, capsys):
     assert "read: 1" in out and "from cache: 2" in out and "       2  Rock" in out
 
 
+def test_force_reads_everything(lib, tmp_path, capsys):
+    root, _ = lib
+    run(root, tmp_path)
+    assert cli.main(["scan", "--root", str(root), "--state-dir", str(tmp_path / "state"), "--force"]) == 0
+    out = capsys.readouterr().out
+    assert "read: 3" in out.split("[SCAN --force]")[1] and "from cache: 0" in out.split("[SCAN --force]")[1]
+
+
 def test_deleted_files_removed(lib, tmp_path, capsys):
     root, tracks = lib
     run(root, tmp_path)
