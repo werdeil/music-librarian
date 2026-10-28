@@ -42,6 +42,10 @@ class ReplayGainTagError(Exception):
     """A user-facing failure while reading or writing ReplayGain."""
 
 
+class GenreTagError(Exception):
+    """A user-facing failure while writing the genre."""
+
+
 def lrc_to_plain(text):
     """Strip LRC line/word timestamps and metadata lines, leaving plain text."""
     lines = []
@@ -81,6 +85,33 @@ def read_metadata(path):
         "album": first("album"),
         "duration": duration,
     }
+
+
+def read_genres(path):
+    """The non-empty values of the file's genre tag, or [] if it has none or is unreadable."""
+    try:
+        audio = mutagen.File(path, easy=True)
+    except Exception:
+        return []
+    if audio is None:
+        return []
+    return [v.strip() for v in audio.get("genre", []) if v.strip()]
+
+
+def write_genre(path, genre):
+    """Replace every genre of `path` with `genre`. Raises GenreTagError on failure."""
+    try:
+        audio = mutagen.File(path, easy=True)
+        if audio is None:
+            raise GenreTagError("unrecognised file format")
+        if audio.tags is None:
+            audio.add_tags()
+        audio["genre"] = [genre]
+        audio.save()
+    except GenreTagError:
+        raise
+    except Exception as exc:
+        raise GenreTagError(f"write failed: {exc}") from exc
 
 
 def _read_lyrics(audio):
