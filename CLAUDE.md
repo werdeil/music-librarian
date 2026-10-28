@@ -31,7 +31,7 @@ Imports inside the package are absolute (`from music_librarian.core.lock import 
 
 ## Behaviour that must not regress
 
-- **Dry run by default.** Without `--apply`, no command changes anything in the library or the Inbox; only the metadata cache in the state folder is refreshed. Every move goes through the journal (`core/journal.py`), so a pass can always be undone with `undo`.
+- **Dry run by default.** Without `--apply`, no command changes anything in the library or the Inbox; only the caches in the state folder (metadata, lyrics lookups found in vain) are refreshed. Every move goes through the journal (`core/journal.py`), so a pass can always be undone with `undo`.
 - **Messages are in English**, and each log line starts with an 8-character tag (`MOVE`, `CONFLICT`, `SKIPPED`, `ERROR`, `STOP`, `LOCKED`…) so the output lines up; summaries read `key: value`.
 - **Tests never touch a real library.** They build their audio files with ffmpeg in a temporary folder (`tests/conftest.py`), and never reach a real Lyrion database or a lyrics provider.
 

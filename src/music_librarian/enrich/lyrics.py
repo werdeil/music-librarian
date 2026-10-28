@@ -31,6 +31,9 @@ Several targets are accepted, and shell-style wildcards work even when quoted
     python -m music_librarian.enrich.lyrics "/path/to/music/A*" /path/to/music/B*
 Each target may be a directory (scanned recursively) or a single music file.
 
+A file looked up in vain is not looked up again for LYRICS_RETRY_DAYS (default 30),
+unless its artist, title or album changes or --force is given (lyrics/misses.py).
+
 A stop request lets the current file finish, then stops (exit code 4); a tag that
 could not be written gives exit code 2. A miss, a rejected match or an unreachable
 provider is not a failure: the next pass looks the file up again.
@@ -50,6 +53,7 @@ from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.lyrics import fetch_lyrics
+from music_librarian.lyrics.misses import Misses
 from music_librarian.media import metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -76,7 +80,8 @@ def parse_args(argv):
     )
     parser.add_argument(
         "--force", action="store_true",
-        help="Overwrite the lyrics tag even when one is already present.",
+        help="Overwrite the lyrics tag even when one is already present, and look up "
+             "the files found in vain recently too.",
     )
     parser.add_argument(
         "--clear", action="store_true",
@@ -139,7 +144,7 @@ MISSES = {"unavailable": ("unreachable", "OFFLINE  {}  (lyrics services unreacha
           "rejected": ("rejected", "REJECTED {}  (no confident match)")}
 
 
-def handle(path, rel, args, log, cache):
+def handle(path, rel, args, log, cache, misses):
     """Look one file up and write what was found; the outcome counted."""
     snap = cache.snapshot(path)
     meta = metadata_cache.metadata(snap)
@@ -153,10 +158,15 @@ def handle(path, rel, args, log, cache):
         if args.verbose:
             log(f"SKIPPED  (has lyrics)  {rel}")
         return "already"
+    if not already and not args.force and misses.recent(path, meta):
+        if args.verbose:
+            log(f"SKIPPED  (looked up in vain recently)  {rel}")
+        return "searched recently"
 
     plain, result = lookup(meta, args)
     source = result.get("source")
     if plain:
+        misses.forget(path)
         if already and not args.force:
             if args.verbose:
                 log(f"SKIPPED  (found online, kept the existing lyrics)  {rel}")
@@ -167,6 +177,8 @@ def handle(path, rel, args, log, cache):
         return write(path, rel, None, args, log)
     key, line = MISSES.get(source, ("not found", "NONE     {}"))
     log(line.format(rel))
+    if key != "unreachable":
+        misses.record(path, meta)
     return key
 
 
@@ -174,16 +186,16 @@ def main(argv=None):
     args = parse_args(argv)
     log = Log()
     counts = dict.fromkeys(("scanned", "written", "cleared", "already", "not found", "rejected",
-                            "unreachable", "no metadata", "failed"), 0)
+                            "unreachable", "searched recently", "no metadata", "failed"), 0)
     stopped = False
-    with MetadataCache(state_path()) as cache:
+    with MetadataCache(state_path()) as cache, Misses(state_path()) as misses:
         for path, rel in music_files(args.targets, log):
             if STOP.is_set():
                 log("STOP     requested: the next files are left for the next pass")
                 stopped = True
                 break
             counts["scanned"] += 1
-            counts[handle(path, rel, args, log, cache)] += 1
+            counts[handle(path, rel, args, log, cache, misses)] += 1
 
     return finish("Lyrics", counts, args.dry_run, stopped, log)
 

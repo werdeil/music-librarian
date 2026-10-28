@@ -28,7 +28,8 @@ src/music_librarian/
 │   └── lyrics.py    lyrics written into the tags
 ├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
-│   └── matching.py  is a provider's answer this recording?
+│   ├── matching.py  is a provider's answer this recording?
+│   └── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), artwork.py (image sizes), convert.py (FLAC → ALAC
 │                    and its checks)
