@@ -7,6 +7,8 @@ The pages read the run history and the decisions file in the state folder, and t
 ## Pages
 
 - **Overview**: the passes running now, the schedule of `watch` (how often the Inbox is read, the nightly `organize` and the weekly `enrich`) with each command's last run and next slot, the items waiting in the Inbox and in `_failed/`, the number of credits awaiting a decision in `split-decisions.txt`, and the ten latest runs.
+- **Library**: the albums of the metadata cache, one per folder holding tracks, with their cover (`folder.jpg`, else the first embedded one), searched by artist, album, title or folder without case or accents. A library never scanned shows nothing until a `scan`; a file moved or deleted since it was cached is left out.
+- **An album**: its fields shared by every track (album artist, album, year, genre, number of discs, compilation flag) and a grid of its tracks (disc, number, title, artist, composer), read from the files themselves. See below for editing them.
 - **History**: the runs kept in the history (the 200 latest), filtered by command, or to the problems only.
 - **A run**: its mode, who started it (`watch`, the command line), its duration and exit code, its summary, and its whole output, each line coloured by its tag (`ERROR`, `CONFLICT` and `FAILED` in red, `SKIPPED`, `WARNING`, `REFUSED`, `UNKNOWN`, `GUARDED`, `REVIEW`, `STOP` and `LOCKED` in yellow). While the run goes on, the new lines are appended every 2 seconds, and the page reloads with the summary once it ends. "Plain text" gives the output as a file.
 
@@ -19,6 +21,12 @@ The overview has a form per command: `import`, `organize` (`--since` ticked by d
 The page of a dry run started from the dashboard then offers **Apply this pass**: the same command with the same options, applied. It is a new pass, which plans again from the library as it then is. The page of an applied pass that left a journal offers **Undo this pass**, again as a dry run first. Nothing is applied from the dashboard unless `watch` runs with `--apply`: without it, the dashboard runs dry runs only.
 
 A request that finds the lock taken (a command run by hand, `docker compose run`) is not kept, and its page says so. The queue lives in `watch`: a restart drops the requests not yet started. The `--review` modes of `split` and `dedupe` ask questions and stay on the command line.
+
+## Editing an album
+
+Change any field on the album's page, then **Preview the changes**: the dashboard queues a dry run of `tag` (see `music-librarian tag`) with one edit per field changed, an album field applying to every track. The run's page lists the tags to write and the moves they lead to; **Apply this pass** then writes them and files the tracks where their new tags put them, all in one journal, which **Undo this pass** replays backwards. A field left as shown is not rewritten, and an album field whose tracks differ shows "various values", left alone unless something is typed in. The genre field offers the validated genres of `state/genres.txt`, and a genre the list knows takes its spelling.
+
+Each edit carries the values the page showed: a track whose field changed in between, by another pass or another tagger, is refused (`REFUSED`) rather than overwritten.
 
 ## Statuses
 
@@ -52,12 +60,15 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/runs/<id>/log.json?from=<offset>&kind=<kind>` | the complete lines written since byte `offset`, each with its style (`error`, `warning`, `section` or empty), the offset to ask from next, and the run's status; `kind` is the style of the line before `offset`, which an indented line continues |
 | `POST /passes` | queues a dry run (`command`, its options, and `journal` for `undo`), or the pass applied with `apply=1`; redirects to the request |
 | `POST /runs/<id>/apply` | queues a dashboard dry run again, applied |
+| `/library?q=<words>&page=<n>` | the albums, searched |
+| `/library/album?folder=<folder>` | an album, its folder relative to the library root; `POST` queues a dry run of its edits |
+| `/library/cover?folder=<folder>` | the album's cover |
 | `/requests/<id>` | waits for a queued request, then redirects to its run |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
 
 ## For contributors
 
-The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, and how each command is built from the options of `watch`), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
+The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, and how each command is built from the options of `watch`), `library.py` (the albums from the cache, an album's fields, the edits of its form), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
 
 - Every string shown lives in `web/i18n.py`, in `fr` and `en` with the same keys; a test checks they match.
 - The Content Security Policy is `default-src 'self'`: no inline script or style, everything from `static/`.

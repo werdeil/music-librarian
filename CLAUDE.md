@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. `watch --listen` also serves a dashboard (Flask) of the recent runs, which queues passes for `watch` to run. Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `tag` (tag fields rewritten, then refiled), `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
+A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. `watch --listen` also serves a dashboard (Flask) of the recent runs and the library's albums, which queues passes (tag edits included) for `watch` to run. Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `tag` (tag fields rewritten, then refiled), `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
 
 ## Commands
 

@@ -5,12 +5,12 @@ from datetime import time
 
 import pytest
 
-from music_librarian import importer, organize, watch
+from music_librarian import organize, watch
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, STOP
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
-from music_librarian.web.passes import DONE, QUEUED, Requests, passes
+from music_librarian.web.passes import DONE, QUEUED, Requests
 
 EN = {"Accept-Language": "en"}
 
@@ -148,17 +148,11 @@ def test_request_that_found_the_lock_taken(tmp_path, requests, fake):
 
 
 @pytest.fixture
-def library(tmp_path, make_track):
-    lib, inbox, state = tmp_path / "Music", tmp_path / "Inbox", tmp_path / "state"
-    inbox.mkdir()
+def library(tmp_path, make_track, serve):
+    lib = tmp_path / "Music"
     make_track(lib / "vrac/1.m4a", title="Un", artist="A", album="B", track=1)
-    import_opts = importer.Options(inbox=inbox, root=lib, state_dir=state)
-    organize_opts = organize.Options(root=lib, since=True, state_dir=state)
-    requests = Requests(passes(import_opts, organize_opts, None, Log()), watch.safe)
-    ctx = web.Context(root=lib, inbox=inbox, state_dir=state, apply=True, requests=requests)
-    client = web.create_app(ctx).test_client()
-    token = re.search(r'name="csrf" value="([^"]+)"', client.get("/", headers=EN).get_data(as_text=True))[1]
-    return lib, state, requests, client, token
+    d = serve(lib, tmp_path / "state", tmp_path / "Inbox")
+    return lib, d.state, d.requests, d.client, d.token
 
 
 def test_dry_run_then_apply_then_undo(library):

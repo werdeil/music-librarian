@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-    <p class="muted">{{ t.not_found }}</p>
+    <p class="muted">{{ message or t.not_found }}</p>
+    {% if message %}
+    <p><a href="{{ url_for('library_page') }}">{{ t.library }}</a></p>
+    {% else %}
     <p><a href="{{ url_for('history') }}">{{ t.all_runs }}</a></p>
+    {% endif %}
 </section>
 {% endblock %}

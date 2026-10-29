@@ -1,10 +1,12 @@
-"""The dashboard's pages: the recent runs, their output, the schedule and the Inbox, and the
-forms that queue a pass for watch to run.
+"""The dashboard's pages: the recent runs, their output, the schedule and the Inbox, the
+library's albums, and the forms that queue a pass for watch to run.
 
 Everything shown is read from the state folder and the Inbox on each request; the pages
 themselves change nothing.
 """
 import hmac
+import json
+import math
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -16,10 +18,13 @@ from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.importer import ERRORS, list_items
+from music_librarian.media import fields
 from music_librarian.split import decisions
 from music_librarian.split.rules import PENDING
+from music_librarian.tag import genre_list
+from music_librarian.web import library
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import DONE, OPTIONS, journal_path
+from music_librarian.web.passes import DONE, FORMS, OPTIONS, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
@@ -161,13 +166,15 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", running=[r for r in recent if r["status"] == runs.RUNNING],
             recent=recent[:10], latest=latest, schedule=schedule, inbox=inbox_state(ctx.inbox),
-            pending=pending_decisions(ctx.state_dir), options=OPTIONS,
+            pending=pending_decisions(ctx.state_dir), options=FORMS,
             queued=ctx.requests.pending() if ctx.requests else [])
 
     @app.post("/passes")
     def new_pass():
         command = request.form.get("command", "")
-        names = OPTIONS.get(command, ())
+        if command not in FORMS and command != "undo":
+            abort(403)
+        names = OPTIONS[command]
         options = {name: True for name in names if name != "journal" and request.form.get(name)}
         if "journal" in names:
             options["journal"] = request.form.get("journal", "")
@@ -232,6 +239,60 @@ def create_app(ctx: Context):
         if runs.get(ctx.state_dir, run_id) is None or not path.exists():
             abort(404)
         return send_file(path, mimetype="text/plain; charset=utf-8")
+
+    index = library.Index(ctx.root, ctx.state_dir)
+
+    @app.get("/library")
+    def library_page():
+        query = request.args.get("q", "").strip()
+        albums = index.search(query) if query else index.get()
+        pages = max(math.ceil(len(albums) / library.PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
+                               albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
+                               empty=not index.get())
+
+    @app.get("/library/album")
+    def album_page():
+        rel = request.args.get("folder", "")
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
+            t = TRANSLATIONS[pick_lang(request.accept_languages)]
+            return render_template("not_found.html", message=t["album_gone"]), 404
+        tracks = library.tracks_of(folder)
+        mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
+        return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
+                               seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
+                               unchanged=request.args.get("unchanged") == "1")
+
+    @app.post("/library/album")
+    def edit_album():
+        rel = request.form.get("folder", "")
+        if library.album_folder(ctx.root, rel) is None:
+            abort(404)
+        try:
+            asked = library.edits(rel, request.form, json.loads(request.form.get("seen", "")))
+        except (ValueError, KeyError, TypeError):
+            abort(400)
+        if not asked:
+            return redirect(url_for("album_page", folder=rel, unchanged="1"))
+        for _, name, value, _ in asked:
+            try:
+                fields.check(name, [value])
+            except fields.FieldError as e:
+                t = TRANSLATIONS[pick_lang(request.accept_languages)]
+                return render_template("not_found.html", message=t["bad_value"].format(error=e)), 400
+        return submit("tag", {"edits": asked}, False)
+
+    @app.get("/library/cover")
+    def album_cover():
+        folder = library.album_folder(ctx.root, request.args.get("folder", ""))
+        found = library.cover(folder) if folder else None
+        if found is None:
+            abort(404)
+        response = app.response_class(found[0], mimetype=found[1])
+        response.headers["Cache-Control"] = "max-age=300"
+        return response
 
     @app.errorhandler(404)
     def not_found(_error):

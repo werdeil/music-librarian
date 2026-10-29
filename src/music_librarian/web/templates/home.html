@@ -17,7 +17,7 @@
         <p class="muted">{{ t.queued }} {% for asked in queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
     {% endif %}
     <div class="pass-forms">
-    {% for command, names in options.items() if command != 'undo' %}
+    {% for command, names in options.items() %}
         <form method="post" action="{{ url_for('new_pass') }}" class="pass-form">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="command" value="{{ command }}">

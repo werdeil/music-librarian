@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ common.album or folder }} · music-librarian{% endblock %}
+{% block content %}
+<section class="album-head">
+    <img src="{{ url_for('album_cover', folder=folder) }}" alt="" width="160" height="160">
+    <div>
+        <h2>{{ common.album or folder }}</h2>
+        <p class="muted">{{ common.albumartist or '' }}</p>
+        <p><code class="muted">{{ folder }}</code></p>
+    </div>
+</section>
+
+{% if unchanged %}<p class="warning">{{ t.nothing_changed }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('edit_album') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="folder" value="{{ folder }}">
+    <input type="hidden" name="seen" value="{{ seen }}">
+
+    <section>
+        <h2>{{ t.album_fields }}</h2>
+        <div class="album-fields">
+        {% for name in ('albumartist', 'album', 'year', 'genre', 'disctotal') %}
+            <label>{{ t['field_' ~ name] }}
+                <input name="album.{{ name }}" value="{{ common[name] or '' }}"
+                       {% if common[name] is none %}placeholder="{{ t.mixed }}"{% endif %}
+                       {% if name == 'genre' and genres %}list="genres"{% endif %}
+                       {% if name == 'disctotal' %}inputmode="numeric" class="number"{% endif %}>
+            </label>
+        {% endfor %}
+            <label>{{ t.field_compilation }}
+                <select name="album.compilation">
+                    {% if common.compilation is none %}<option value="" selected>{{ t.mixed }}</option>{% endif %}
+                    <option value="1"{% if common.compilation == '1' %} selected{% endif %}>{{ t.yes }}</option>
+                    <option value="0"{% if common.compilation == '' %} selected{% endif %}>{{ t.no }}</option>
+                </select>
+            </label>
+        </div>
+        {% if genres %}
+        <datalist id="genres">{% for genre in genres %}<option value="{{ genre }}"></option>{% endfor %}</datalist>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>{{ t.tracks }}</h2>
+        <div class="table-wrap">
+        <table class="tracks">
+            <thead>
+                <tr>
+                    <th>{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.file }}</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% set ns = namespace(i=0) %}
+            {% for file, values in tracks %}
+                <tr>
+                {% if values %}
+                    {% for name in ('disc', 'track') %}
+                    <td><input class="number" name="t{{ ns.i }}.{{ name }}" value="{{ values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
+                    {% endfor %}
+                    {% for name in ('title', 'artist', 'composer') %}
+                    <td><input name="t{{ ns.i }}.{{ name }}" value="{{ values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"></td>
+                    {% endfor %}
+                    {% set ns.i = ns.i + 1 %}
+                {% else %}
+                    <td colspan="5" class="warning">{{ t.unreadable }}</td>
+                {% endif %}
+                    <td><code class="muted">{{ file }}</code></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    {% if ctx.requests %}
+    <div class="actions">
+        <button type="submit" class="primary">{{ t.preview_button }}</button>
+    </div>
+    <p class="muted">{{ t.edit_hint }}</p>
+    {% endif %}
+</form>
+{% endblock %}

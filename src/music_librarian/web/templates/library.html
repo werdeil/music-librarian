@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t.library }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.library }}</h2>
+    <form method="get" action="{{ url_for('library_page') }}" class="search">
+        <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
+        <button type="submit">{{ t.search_button }}</button>
+    </form>
+    {% if empty %}
+        <p class="muted">{{ t.library_empty }}</p>
+    {% elif not albums %}
+        <p class="muted">{{ t.no_album }}</p>
+    {% else %}
+        <p class="muted">{{ t.albums_found.format(n=total) }}</p>
+        <ul class="albums">
+        {% for album in albums %}
+            <li>
+                <a href="{{ url_for('album_page', folder=album.folder) }}">
+                    <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                    <span class="album-title">{{ album.title or album.folder }}</span>
+                    <span class="muted">{{ album.artist }}</span>
+                    <span class="muted">{{ t.tracks_count.format(n=album.tracks) }}</span>
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+        {% if pages > 1 %}
+        <p class="filters">
+            {% if page > 1 %}<a href="{{ url_for('library_page', q=query or None, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+            <span class="muted">{{ page }} / {{ pages }}</span>
+            {% if page < pages %}<a href="{{ url_for('library_page', q=query or None, page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+        </p>
+        {% endif %}
+    {% endif %}
+</section>
+{% endblock %}
