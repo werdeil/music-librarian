@@ -5,7 +5,9 @@ For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion and its checks (media/convert.py);
   2. filing with organize, all or nothing: on any problem the whole item
      goes to _failed/;
-  3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only;
+  3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only,
+     then the split of their credits holding several names (split/) and the
+     spellings decided in the artist aliases (dedupe/);
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
@@ -34,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from music_librarian import enrich, organize
+from music_librarian import dedupe, enrich, organize, split
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Buffer, Log
@@ -60,13 +62,15 @@ OK, FAILED, STOPPED = "ok", "failed", "stopped"  # outcome of an item
 
 
 @dataclass
-class Options:
+class Options:  # pylint: disable=too-many-instance-attributes  # one per command-line option
     inbox: Path
     root: Path
     apply: bool = False
     settle: float = 10
     keep_days: int = 7
     enrich: bool = True
+    split: bool = True
+    dedupe: bool = True
     state_dir: Path = field(default_factory=state_path)
     syslog: bool = False
     lyrion: Lyrion | None = None
@@ -158,6 +162,19 @@ def enrich_targets(dirs, log):
             log(f"STOP     enrichment {name} stopped: caught up by the weekly pass")
         if failed:
             log(f"FAILED   enrichment {name}: caught up by the weekly pass")
+            ok = False
+    return ok
+
+
+def fix_credits(opts, dirs, log):
+    """Splits, then unifies, the credits of `dirs`, under the lock import already holds."""
+    ok = True
+    for name, wanted, tag_pass, pass_options in (
+            ("credit split", opts.split, split.split_pass, split.Options),
+            ("artist aliases", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):
+        if wanted and not STOP.is_set() and tag_pass(
+                pass_options(root=opts.root, paths=dirs, apply=True, state_dir=opts.state_dir), log):
+            log(f"FAILED   {name}: caught up by the weekly pass")
             ok = False
     return ok
 
@@ -354,6 +371,8 @@ def parser():
                     help="seconds without change before handling an item")
     ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
     ap.add_argument("--no-enrich", action="store_true", help="without genres/ReplayGain/cover/lyrics")
+    ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
+    ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--syslog", action="store_true",
                     help="also send the lines to syslog/journald (tag music-import)")
@@ -364,8 +383,8 @@ def parser():
 def options(args):
     """Options from the arguments of `parser()`."""
     opts = Options(inbox=args.inbox, root=args.root, apply=args.apply, settle=args.settle,
-                   keep_days=args.keep_days, enrich=not args.no_enrich,
-                   state_dir=state_path(args.state_dir), syslog=args.syslog)
+                   keep_days=args.keep_days, enrich=not args.no_enrich, split=not args.no_split,
+                   dedupe=not args.no_dedupe, state_dir=state_path(args.state_dir), syslog=args.syslog)
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     return opts
 
@@ -433,6 +452,9 @@ def import_all(opts, log):
             log("STOP     enrichment skipped: caught up by the weekly pass")
         else:
             enrich_ok = enrich_targets(sorted(targets), log)
+    if targets and not STOP.is_set():
+        log("")
+        enrich_ok = fix_credits(opts, sorted(targets), log) and enrich_ok
 
     log("\n--- Import summary ---")
     for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),

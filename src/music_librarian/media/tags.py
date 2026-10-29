@@ -303,7 +303,6 @@ def write_replaygain(path, gain, peak):
         raise ReplayGainTagError(f"write failed: {exc}") from exc
 
 
-# lyrics and embedded pictures are kept as a flag and a hash, never as text
 def _mp4_compilation(tags, key):
     cpil = tags.get("cpil")
     if isinstance(cpil, list):
@@ -313,10 +312,13 @@ def _mp4_compilation(tags, key):
     return ["1"]
 
 
-# mutagen's easy MP4 view has no compilation flag, which organize files by
+# mutagen's easy MP4 view has no compilation flag nor composer, which organize and split read
 if "compilation" not in EasyMP4Tags.Get:
     EasyMP4Tags.RegisterKey("compilation", getter=_mp4_compilation)
+if "composer" not in EasyMP4Tags.Get:
+    EasyMP4Tags.RegisterTextKey("composer", "\xa9wrt")
 
+# lyrics and embedded pictures are kept as a flag and a hash, never as text
 _BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
 
 

@@ -2,11 +2,12 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import ID3, TALB, TCMP, TIT2, TPE1, TPE2, TPOS, TRCK
+from mutagen.id3 import ID3, TALB, TCMP, TCOM, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4
 
 from music_librarian import watch
@@ -76,7 +77,7 @@ def make_track(templates):
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def make(path, title=None, artist=None, albumartist=None, album=None,
              track=None, disc=None, disctotal=None, compilation=False, extra=None,
-             cover=None):
+             cover=None, composer=None):
         """extra: additional FLAC tags; cover: bytes of a JPEG cover (FLAC)."""
         p = os.fsdecode(path)
         ext = os.path.splitext(p)[1].lower()
@@ -85,7 +86,7 @@ def make_track(templates):
         if ext == ".m4a":
             f = MP4(p)
             for k, v in (("\xa9nam", title), ("\xa9ART", artist), ("aART", albumartist),
-                         ("\xa9alb", album)):
+                         ("\xa9alb", album), ("\xa9wrt", composer)):
                 if v:
                     f[k] = [v]
             if track:
@@ -97,7 +98,8 @@ def make_track(templates):
             f.save()
         elif ext == ".mp3":
             f = ID3()
-            for frame, v in ((TIT2, title), (TPE1, artist), (TPE2, albumartist), (TALB, album)):
+            for frame, v in ((TIT2, title), (TPE1, artist), (TPE2, albumartist), (TALB, album),
+                             (TCOM, composer)):
                 if v:
                     f.add(frame(encoding=3, text=v))
             if track:
@@ -110,7 +112,7 @@ def make_track(templates):
         else:
             f = FLAC(p)
             for k, v in (("title", title), ("artist", artist), ("albumartist", albumartist),
-                         ("album", album)):
+                         ("album", album), ("composer", composer)):
                 if v:
                     f[k] = v
             if track:
@@ -149,3 +151,18 @@ def make_slow_m4a(make_track):
         return Path(path)
 
     return make
+
+
+@pytest.fixture
+def answers(monkeypatch):
+    """Feed the replies of a --review, then end the input as Ctrl-D does."""
+    def feed(*replies):
+        todo = list(replies)
+
+        def ask(_prompt=""):
+            if not todo:
+                raise EOFError
+            return todo.pop(0)
+        monkeypatch.setattr("builtins.input", ask)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    return feed
