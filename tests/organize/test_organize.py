@@ -225,3 +225,23 @@ def test_files_outside_the_library_are_not_cached(tmp_path, lib, run, make_track
     monkeypatch.setattr(tags, "read_snapshot", cached.append)
     assert run(str(inbox.parent), "--apply") == 0
     assert not cached and (lib / "A/B/01 T.m4a").exists()
+
+
+def test_case_variant_folder_joins_its_exact_twin(lib, run, make_track):
+    make_track(lib / "Walk of the Earth/A/01 T.m4a", title="T", albumartist="Walk of the Earth", album="A",
+               track=1)
+    make_track(lib / "Walk Of The Earth/B/01 U.m4a", title="U", albumartist="Walk of the Earth", album="B",
+               track=1)
+    (lib / "Walk Of The Earth/B/folder.jpg").write_bytes(b"jpg")
+    assert run("--apply") == 0
+    assert files(lib) == ["Walk of the Earth/A/01 T.m4a", "Walk of the Earth/B/01 U.m4a",
+                          "Walk of the Earth/B/folder.jpg"]
+
+
+def test_case_variant_folder_alone_stays(lib, run, make_track):
+    make_track(lib / "Abd al Malik/Gibraltar/01 T.m4a", title="T", albumartist="Abd Al Malik",
+               album="Gibraltar", track=1)
+    make_track(lib / "Alicia Keys/The Element of Freedom/01 T.m4a", title="T", albumartist="Alicia Keys",
+               album="The Element Of Freedom", track=1)
+    assert run("--apply") == 0
+    assert files(lib) == ["Abd al Malik/Gibraltar/01 T.m4a", "Alicia Keys/The Element of Freedom/01 T.m4a"]

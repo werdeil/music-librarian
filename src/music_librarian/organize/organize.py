@@ -160,6 +160,17 @@ def file_tags(path: Path, root, cache):
     return tags_from_snapshot(snap)
 
 
+def exact_folder_elsewhere(root, cur_rel, tgt_rel):
+    """True when a folder of the target path exists as written and is not the file's own folder
+    at that depth: a tolerated variant (case, NFD, truncation) then joins it."""
+    for depth in range(1, len(tgt_rel.parts)):
+        want = root.joinpath(*tgt_rel.parts[:depth])
+        have = root.joinpath(*cur_rel.parts[:depth])
+        if want != have and want.is_dir() and not want.samefile(have):
+            return True
+    return False
+
+
 def organize_pass(opts: Options, log):
     """A filing pass, without taking the lock: the caller holds it when `opts.apply`."""
     started = time.time()
@@ -232,7 +243,8 @@ def organize_pass(opts: Options, log):
         except ValueError:
             cur_rel = None  # file outside the library (Inbox)
 
-        if cur_rel is not None and is_in_place(cur_rel, tgt, opts.strict_case):
+        if cur_rel is not None and is_in_place(cur_rel, tgt, opts.strict_case) \
+                and not exact_folder_elsewhere(root, cur_rel, tgt):
             stats["in place"] += 1
             dir_targets[p.parent].add(p.parent)
             continue
