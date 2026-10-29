@@ -78,12 +78,16 @@ def run(opts: Options, log):
     return run_locked(split_pass, opts, log)
 
 
+def known_from(tracks):
+    """The known names of these tracks' credits (credit_tags.read() dicts)."""
+    return known_names([v for t in tracks for v in t["albumartist"]],
+                       [v for t in tracks for f in FIELDS for v in t[f]])
+
+
 def library_names(root, state_dir):
     """The known names of every file under `root`, as the metadata cache last read it."""
     with MetadataCache(state_dir) as cache:
-        tracks = [c for _, snap in cache.cached(root) if (c := credit_tags.from_snapshot(snap))]
-    return known_names([v for t in tracks for v in t["albumartist"]],
-                       [v for t in tracks for f in FIELDS for v in t[f]])
+        return known_from([c for _, snap in cache.cached(root) if (c := credit_tags.from_snapshot(snap))])
 
 
 def plan(tracks, known, decided):

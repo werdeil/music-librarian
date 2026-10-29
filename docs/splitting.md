@@ -57,7 +57,7 @@ REVIEW   [1/534] Angus Young/Malcolm Young  (42 track(s))
 
 The guarded credits come after the others, marked `album artist, kept unless split here`, with `keep` as the suggestion: Enter keeps them whole, **s** splits them. Either answer is a decision, so the credit is not asked about again. The album artist tag itself is never split.
 
-Each answer is written to the decisions file at once, so a review can stop at any point and resume where it left off. Since an answer vouches for names, the credits it settles further down are not asked about. The review only writes the decisions file: the tags are rewritten by the next `split --apply` or weekly `enrich`. It needs a terminal, so in Docker it runs with `docker compose run --rm music-librarian split --review`.
+Each answer is written to the decisions file at once, so a review can stop at any point and resume where it left off. Since an answer vouches for names, the credits it settles further down are not asked about. The review only writes the decisions file: the tags are rewritten by the next `split --apply` or weekly `enrich`. In a terminal it runs with `docker compose run --rm music-librarian split --review` in Docker; the dashboard asks the same questions on its Reviews page (see [web.md](web.md)).
 
 ## When it runs
 

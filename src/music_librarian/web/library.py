@@ -41,6 +41,25 @@ def first(track, *keys):
     return next((easy[k][0] for k in keys if easy.get(k)), "")
 
 
+def cache_stamp(state_dir: Path):
+    """What changes when the metadata cache does: the times of metadata.db and of its WAL, the
+    first None while there is no cache."""
+    out = []
+    for name in (metadata_cache.FILE, metadata_cache.FILE + "-wal"):
+        try:
+            out.append(os.stat(state_dir / name).st_mtime_ns)
+        except OSError:
+            out.append(None)
+    return tuple(out)
+
+
+def cached_files(root: Path, state_dir: Path):
+    """(path, snapshot) of the readable files under `root` in the cache that are still there."""
+    with MetadataCache(state_dir) as cache:
+        return [(Path(path), snap) for path, snap in cache.cached(root)
+                if snap is not None and os.path.exists(path)]
+
+
 class Index:
     """The albums of the metadata cache, one per folder holding tracks, rebuilt when the cache
     changes. A file gone from the library since it was cached is left out."""
@@ -50,18 +69,9 @@ class Index:
         self.stamp, self.albums = None, []
         self.lock = threading.Lock()
 
-    def _stamp(self):
-        out = []
-        for name in (metadata_cache.FILE, metadata_cache.FILE + "-wal"):
-            try:
-                out.append(os.stat(self.state_dir / name).st_mtime_ns)
-            except OSError:
-                out.append(None)
-        return tuple(out)
-
     def get(self):
         with self.lock:
-            stamp = self._stamp()
+            stamp = cache_stamp(self.state_dir)
             if stamp != self.stamp:
                 self.albums = self._build() if stamp[0] is not None else []
                 self.stamp = stamp
@@ -69,10 +79,8 @@ class Index:
 
     def _build(self):
         folders = defaultdict(list)
-        with MetadataCache(self.state_dir) as cache:
-            for path, snap in cache.cached(self.root):
-                if snap is not None and os.path.exists(path):
-                    folders[Path(path).parent].append(snap["tags"])
+        for path, snap in cached_files(self.root, self.state_dir):
+            folders[path.parent].append(snap["tags"])
         albums = []
         for folder, tracks in folders.items():
             artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),

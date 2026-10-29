@@ -1,5 +1,6 @@
 """The dashboard's pages: the recent runs, their output, the schedule and the Inbox, the
-library's albums, and the forms that queue a pass for watch to run.
+library's albums, and the forms that queue a pass for watch to run (the reviews of split and
+dedupe are in reviews.py).
 
 Everything shown is read from the state folder and the Inbox on each request; the pages
 themselves change nothing.
@@ -22,7 +23,7 @@ from music_librarian.media import fields
 from music_librarian.split import decisions
 from music_librarian.split.rules import PENDING
 from music_librarian.tag import genre_list
-from music_librarian.web import library
+from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import DONE, FORMS, OPTIONS, journal_path
 
@@ -241,6 +242,7 @@ def create_app(ctx: Context):
         return send_file(path, mimetype="text/plain; charset=utf-8")
 
     index = library.Index(ctx.root, ctx.state_dir)
+    reviews.register(app, ctx)
 
     @app.get("/library")
     def library_page():

@@ -384,3 +384,71 @@ table.tracks input.number,
     min-width: 3.5rem;
     width: 4rem;
 }
+
+a.button {
+    display: inline-block;
+    text-decoration: none;
+    border-radius: 6px;
+    padding: 0.3rem 0.9rem;
+    border: 1px solid var(--border-color);
+    color: var(--text-bright);
+    background: var(--surface);
+}
+
+a.button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #111;
+}
+
+form.inline {
+    display: inline;
+}
+
+.question .credit,
+.names-choice .credit {
+    font-size: 1.15rem;
+    color: var(--text-bright);
+}
+
+.part {
+    display: inline-block;
+    margin: 0 0.3rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--surface);
+}
+
+.part.known {
+    color: var(--ok);
+}
+
+.answer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+}
+
+.answer .names {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.names-choice {
+    display: grid;
+    gap: 0.5rem;
+    border: none;
+    padding: 0;
+    margin: 0 0 0.5rem;
+    width: 100%;
+}
+
+.recorded {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: var(--fs-sm);
+}
