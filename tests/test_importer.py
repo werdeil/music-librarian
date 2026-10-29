@@ -1,6 +1,7 @@
 """Import from the Inbox, on real files created by ffmpeg."""
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 # pylint: disable=attribute-defined-outside-init  # fixture environment objects
+import struct
 import subprocess
 import sys
 from datetime import date
@@ -39,6 +40,16 @@ def files(root):
     return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
 
 
+def top_atoms(p):
+    names, data = [], p.read_bytes()
+    pos = 0
+    while pos < len(data):
+        size, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        names.append(kind.decode())
+        pos += size
+    return names
+
+
 def flac_album(env, make_track, name="Album", **kw):
     d = env.inbox / name
     base = dict(artist="A", albumartist="A", album="B")
@@ -74,6 +85,8 @@ def test_flac_album_imported(env, make_track):
     assert bytes(t["----:com.apple.iTunes:MUSICBRAINZ_TRACKID"][0]) == b"abc"
     assert not any("REPLAYGAIN" in k.upper() for k in t.keys())
     assert importer.probe(env.lib / "A/B/01 Un.m4a")[0] == "alac"
+    atoms = top_atoms(env.lib / "A/B/01 Un.m4a")
+    assert atoms.index("moov") < atoms.index("mdat")
 
     # the original, FLAC included, is kept in _done/; the Inbox stays
     assert files(env.inbox) == [f"_done/{TODAY}/Album/folder.jpg",

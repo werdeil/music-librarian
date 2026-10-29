@@ -31,7 +31,8 @@ src/music_librarian/
 │   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), artwork.py (image sizes), convert.py (FLAC → ALAC
-│                    and its checks)
+│                    and its checks), atoms.py (where moov sits in an MP4 file), faststart.py
+│                    (moov moved ahead of mdat in existing MP4 files)
 └── integrations/    lyrion.py, see lyrion.md
 ```
 
@@ -62,11 +63,12 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 ### organize: filing the Apple Music way
 
 1. **Pick the files to read**: the whole root, the paths given, or with `--since` only the folders where a file's ctime is newer than `last_run`, then the whole folder.
-2. **Read the tags and compute the target** (see [naming-rules.md](naming-rules.md)). A file without enough tags is `SKIPPED` and its folder blocked.
+2. **Read the tags through the metadata cache and compute the target** (see [naming-rules.md](naming-rules.md)). A file without enough tags is `SKIPPED` and its folder blocked.
 3. **Hold back what is doubtful**: an album whose tracks disagree on the compilation flag, or a target already taken, is a `CONFLICT` and stays where it is.
-4. **Leave alone what is already in place**, tolerating accents (NFC/NFD), case and truncated names.
-5. **Move files one by one**, each move written to the journal right after it happens, so an interrupted pass can still be undone. Side files follow their album only when every track of the folder goes to the same place and none was held back.
-6. **Carry the Lyrion history over** for the moved files (see [lyrion.md](lyrion.md)); a failure leaves the moves done and exits with code 5.
+4. **Leave alone what is already in place**, tolerating accents (NFC/NFD), case and truncated names, unless a folder spelled exactly as the target exists next to the variant: the file then joins it.
+5. **Put the MP4 index first**: an `.m4a` file whose `moov` atom comes after `mdat` is rewritten in place with `moov` first, without re-encoding and without a journal entry, so Lyrion streams it as `alc`.
+6. **Move files one by one**, each move written to the journal right after it happens, so an interrupted pass can still be undone. Side files follow their album only when every track of the folder goes to the same place and none was held back.
+7. **Carry the Lyrion history over** for the moved files (see [lyrion.md](lyrion.md)); a failure leaves the moves done and exits with code 5.
 
 `last_run` only moves forward after a complete pass over the whole root.
 
@@ -87,7 +89,7 @@ On a stop request the current batch finishes and the rest waits for the next pas
 
 ### The metadata cache
 
-The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags, duration, whether it has lyrics and ReplayGain, and the hash of its embedded cover. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) the enrichment tools only open the files that changed. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
+The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags, duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
 
 ## Conventions
 

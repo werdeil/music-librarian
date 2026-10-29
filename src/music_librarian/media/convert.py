@@ -79,9 +79,10 @@ CHECKED = ("albumartist", "artist", "album", "title", "track", "disc", "disctota
 def convert(src: Path, dst: Path):
     """FLAC → ALAC, then checks. Raises ConversionError if anything is off."""
     dst.parent.mkdir(parents=True, exist_ok=True)
+    # moov ahead of mdat: Lyrion types an ALAC file with a leading mdat as alcx and transcodes it.
     r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
                         "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
-                        "-fflags", "+bitexact", str(dst)],
+                        "-fflags", "+bitexact", "-movflags", "+faststart", str(dst)],
                        capture_output=True, text=True, check=False)
     if r.returncode:
         raise ConversionError(f"ffmpeg failed on {src.name}: {r.stderr.strip()[-300:]}")
