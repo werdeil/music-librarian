@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from music_librarian.organize.naming import clean, is_in_place, target_rel
-from music_librarian.organize.scan import read_tags
+from music_librarian.media.tags import read_snapshot
+from music_librarian.organize.scan import read_tags, tags_from_snapshot
 
 
 def tags(**kw):
@@ -154,3 +155,22 @@ def test_read_tags_all_formats(tmp_path, make_track, ext):
 
 def test_read_tags_without_compilation(tmp_path, make_track):
     assert read_tags(make_track(tmp_path / "x.m4a", title="T"))["compilation"] is False
+
+
+@pytest.mark.parametrize("ext", [".m4a", ".mp3", ".flac"])
+@pytest.mark.parametrize("tags", [
+    dict(title="T", artist="A", albumartist="AA", album="B", track=4, disc=2, disctotal=3, compilation=True),
+    dict(title="T", artist="A", album="B", track=12),
+    dict(title=" T ", disc=1),
+    dict(artist="A"),
+    dict(),
+])
+def test_snapshot_reads_as_read_tags(tmp_path, make_track, ext, tags):
+    p = make_track(tmp_path / f"x{ext}", **tags)
+    assert tags_from_snapshot(read_snapshot(p)) == (read_tags(p) or tags_from_snapshot({"tags": {}}))
+
+
+def test_snapshot_reads_flac_disc_totals(tmp_path, make_track):
+    for extra in ({"totaldiscs": "2"}, {"disctotal": "2"}, {"album artist": "AA"}):
+        p = make_track(tmp_path / "x.flac", title="T", track=1, disc=1, extra=extra)
+        assert tags_from_snapshot(read_snapshot(p)) == read_tags(p)
