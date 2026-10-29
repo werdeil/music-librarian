@@ -33,6 +33,7 @@ from pathlib import Path
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.dedupe import aliases as aliases_file
 from music_librarian.dedupe.aliases import canonical
@@ -63,7 +64,9 @@ def main(argv=None):
     opts = Options(root=args.root, paths=args.paths, apply=args.apply,
                    state_dir=state_path(args.state_dir), aliases=args.aliases)
     log = Log(args.syslog)
-    return run_review(review_pass, opts, log) if args.review else run(opts, log)
+    if args.review:
+        return run_review(review_pass, opts, log)
+    return recorded(lambda: run(opts, log), log, opts.state_dir, "dedupe", opts.apply)
 
 
 def run(opts: Options, log):

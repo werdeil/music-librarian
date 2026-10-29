@@ -50,6 +50,7 @@ from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
 from music_librarian.core.journal import Journal, move_file
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
@@ -131,7 +132,13 @@ def main(argv=None):
                    since=args.since, state_dir=state_path(args.state_dir))
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     if not (args.undo or args.lyrion_replay):
-        return run(opts, log).code
+        return recorded(lambda: run(opts, log).code, log, opts.state_dir, "organize", opts.apply)
+    command = "lyrion-replay" if args.lyrion_replay else "undo"
+    return recorded(lambda: replay(args, opts, log), log, opts.state_dir, command, opts.apply)
+
+
+def replay(args, opts: Options, log):
+    """--undo or --lyrion-replay, under the lock with `apply`."""
     try:
         with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
             if args.lyrion_replay:

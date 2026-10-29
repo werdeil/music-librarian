@@ -14,7 +14,8 @@ src/music_librarian/
 │   ├── files.py     audio extensions, junk files, emptied folders
 │   ├── journal.py   one JSON line per move or tag change, so a pass can be undone
 │   ├── lock.py      one --apply pass at a time, clean stop on SIGTERM/Ctrl-C, exit codes
-│   ├── log.py       stdout, plus journald with --syslog
+│   ├── log.py       stdout, plus journald with --syslog, plus the run history
+│   ├── runs.py      the run history: each pass's output and summary
 │   └── state.py     where journals, the last pass date, the lock and the metadata cache live
 ├── organize/        organize and undo
 │   ├── naming.py    target paths, see naming-rules.md
@@ -115,6 +116,10 @@ On a stop request the current batch finishes and the rest waits for the next pas
 ### The metadata cache
 
 The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags, duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
+
+### The run history
+
+Each pass is kept in the state folder, whichever way it was started: one row in `runs.db` (command, origin `cli` or `watch`, apply, start and end, exit code, summary) and its output in `runs/<id>.log`, the 200 latest only. The commands' `main` and the jobs of `watch` run their pass through `runs.recorded`, which tees the pass's `Log` into the file; the passes called within it (`scan` under `enrich --rescan`, `organize_pass` under `import`, `split_pass` and `dedupe_pass`) write to the same run, and `enrich` passes on the output of its tool processes line by line. The summary is the `key: value` lines of the last `--- … ---` section that has any. A pass that found the lock taken did nothing and is not kept; one that crashed keeps its traceback and no exit code. The `--review` modes are not recorded: they only write the decisions and aliases files.
 
 ## Conventions
 

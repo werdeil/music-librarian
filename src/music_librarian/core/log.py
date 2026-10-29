@@ -4,11 +4,13 @@ import unicodedata
 
 
 class Log:
-    """stdout, plus journald (tag music-librarian) with --syslog."""
+    """stdout, plus journald (tag music-librarian) with --syslog, plus `tee` when set
+    (the run history, see runs.py)."""
 
     def __init__(self, use_syslog=False, ident="music-librarian"):
         self.syslog = None
         self.ident = ident
+        self.tee = None
         # a non-UTF-8 file name (e.g. \x92) must not crash the output
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(errors="backslashreplace")
@@ -20,13 +22,21 @@ class Log:
         # invisible control characters (e.g. U+0092) shown escaped
         msg = "".join(f"\\x{ord(c):02x}" if unicodedata.category(c) == "Cc" and c != "\n"
                       else c for c in msg)
-        print(msg, flush=True)   # in order with the subcommands' output
+        print(msg, flush=True)
+        if self.tee:
+            self.tee(msg)
         if self.syslog and msg.strip():
             line = " ".join(part.strip() for part in msg.splitlines() if part.strip())
             # reopened on every line: import and organize each have their own tag
             self.syslog.openlog(self.ident)
             # a non-UTF-8 file name (e.g. \x92) must not crash the log
             self.syslog.syslog(line.encode("utf-8", "backslashreplace").decode())
+
+    def child(self, ident):
+        """A Log under another syslog tag, writing to the same tee."""
+        out = Log(self.syslog is not None, ident)
+        out.tee = self.tee
+        return out
 
 
 class Buffer:

@@ -7,7 +7,9 @@ import pytest
 
 from music_librarian import enrich, importer, organize, watch
 from music_librarian.organize import Report
+from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP
+from music_librarian.core.state import state_path
 
 
 @pytest.fixture
@@ -51,6 +53,12 @@ def test_empty_inbox_runs_once_per_day(inbox_dir, calls, ticks, monkeypatch):
     assert ticks(inbox_dir, [nothing, nothing, nothing]) == 0
     # at startup (purge), then when the day changes
     assert len(calls) == 2
+
+
+def test_passes_recorded_as_started_by_watch(inbox_dir, calls, ticks):
+    assert ticks(inbox_dir, [nothing]) == 0
+    [record] = runs.recent(state_path())
+    assert (record["command"], record["origin"], record["apply"]) == ("import", "watch", False)
 
 
 def test_waits_until_content_is_stable(inbox_dir, calls, ticks):
