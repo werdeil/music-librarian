@@ -10,6 +10,7 @@ import pytest
 from music_librarian import enrich, importer, watch
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
 from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.media import credit_tags
 
 
 @pytest.fixture
@@ -50,7 +51,7 @@ def tools(tmp_path, monkeypatch):
 
 
 def run(lib, state, *a):
-    return enrich.main(["--root", str(lib), "--state-dir", str(state), *a])
+    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-split", "--no-dedupe", *a])
 
 
 def test_album_dirs(lib):
@@ -134,6 +135,21 @@ def test_refused_while_locked(lib, tools, tmp_path):
         assert run(lib, state, "--apply") == EXIT_LOCKED
     assert tools.calls() == []
     assert run(lib, state) == 0                        # a dry run does not take the lock
+
+
+def test_split_after_the_tools(tools, tmp_path, make_track, capsys):
+    root = tmp_path / "Music"
+    track = make_track(root / "The Beatles/Help!/01 Help!.m4a", title="Help!", artist="The Beatles",
+                       albumartist="The Beatles", composer="John Lennon, Paul McCartney")
+    make_track(root / "John Lennon/Imagine/01 Imagine.m4a", title="Imagine", composer="John Lennon",
+               albumartist="John Lennon")
+    make_track(root / "Paul McCartney/Ram/01 Ram On.m4a", title="Ram On", composer="Paul McCartney",
+               albumartist="Paul McCartney")
+    state = tmp_path / "state"
+    assert enrich.main(["--root", str(root), "--state-dir", str(state)]) == 0
+    assert "SPLIT    composer: John Lennon, Paul McCartney" in capsys.readouterr().out
+    assert enrich.main(["--root", str(root), "--state-dir", str(state), "--apply"]) == 0
+    assert credit_tags.read(track)["composer"] == ["John Lennon; Paul McCartney"]
 
 
 # ---------- weekly slot in watch ----------

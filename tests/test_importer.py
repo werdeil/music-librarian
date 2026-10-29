@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 from mutagen.mp4 import MP4
 
-from music_librarian import enrich, importer
+from music_librarian import enrich, importer, scan
 from music_librarian.media import convert
 
 TODAY = date.today().isoformat()
@@ -30,7 +30,7 @@ def env(tmp_path, monkeypatch):
         pass
 
     e = Env()
-    e.inbox, e.lib, e.calls = inbox_dir, lib, calls
+    e.inbox, e.lib, e.calls, e.state = inbox_dir, lib, calls, state
     e.run = lambda *a: importer.main(["--inbox", str(inbox_dir), "--root", str(lib),
                                           "--state-dir", str(state), "--settle", "0", *a])
     return e
@@ -255,3 +255,27 @@ def test_refused_by_organize_shows_why(env, make_track, capsys):
     assert "CONFLICT" in out and "refused by organize" in out
     assert files(env.inbox) == ["_failed/Album/1.m4a"]
     assert files(env.lib) == ["A/B/01 Un.m4a"]
+
+
+def test_credits_split_after_filing(env, make_track, capsys):
+    base = dict(artist="A", albumartist="A", album="B")
+    make_track(env.inbox / "Album/1.flac", title="Un", track=1, composer="Jean/Paul", **base)
+    make_track(env.inbox / "Album/2.flac", title="Deux", track=2, composer="Jean; Paul", **base)
+    make_track(env.inbox / "Album/3.flac", title="Trois", track=3, composer="Jean, Pierre", **base)
+    assert env.run("--apply") == 0
+    assert MP4(env.lib / "A/B/01 Un.m4a").tags["\xa9wrt"] == ["Jean; Paul"]
+    assert MP4(env.lib / "A/B/03 Trois.m4a").tags["\xa9wrt"] == ["Jean, Pierre"]
+    assert "REVIEW   Jean, Pierre" in capsys.readouterr().out
+
+
+def test_names_known_from_earlier_imports(env, make_track):
+    make_track(env.lib / "Iggy Pop/Lust for Life/01 T.m4a", title="T", artist="Iggy Pop",
+               albumartist="Iggy Pop")
+    scan.run(env.lib, env.state, print)
+    make_track(env.inbox / "Absolution/1.flac", title="T", artist="Muse", albumartist="Muse",
+               album="Absolution", track=1)
+    assert env.run("--apply") == 0
+    make_track(env.inbox / "Single/1.flac", title="X", artist="Iggy Pop, Muse",
+               albumartist="Various Artists", album="X", track=1)
+    assert env.run("--apply") == 0
+    assert MP4(env.lib / "Various Artists/X/01 X.m4a").tags["\xa9ART"] == ["Iggy Pop; Muse"]

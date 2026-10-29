@@ -7,12 +7,12 @@ music-librarian is a single Python package, `music_librarian`, with one command-
 ```
 src/music_librarian/
 ├── cli.py           music-librarian <command>: dispatches to the modules below
-├── importer.py      import: Inbox items → conversion → organize → enrich
+├── importer.py      import: Inbox items → conversion → organize → enrich → split → dedupe
 ├── watch.py         watch: the long-running loop of the container
 ├── scan.py          scan: the whole library's metadata read into the cache
 ├── core/            what every command shares
 │   ├── files.py     audio extensions, junk files, emptied folders
-│   ├── journal.py   one JSON line per move, so a pass can be undone
+│   ├── journal.py   one JSON line per move or tag change, so a pass can be undone
 │   ├── lock.py      one --apply pass at a time, clean stop on SIGTERM/Ctrl-C, exit codes
 │   ├── log.py       stdout, plus journald with --syslog
 │   └── state.py     where journals, the last pass date, the lock and the metadata cache live
@@ -21,6 +21,15 @@ src/music_librarian/
 │   ├── scan.py      which files a pass reads, and their tags
 │   ├── organize.py  the filing pass
 │   └── undo.py      replaying a journal backwards
+├── split/           split: credits holding several names, see splitting.md
+│   ├── rules.py     which credits are split, kept or left for a decision
+│   ├── review.py    --review: one credit at a time
+│   ├── library.py   reading (through the metadata cache) and rewriting credits, the command frame
+│   └── decisions.py the decisions file
+├── dedupe/          dedupe: one artist spelled several ways, see dedupe.md
+│   ├── similar.py   which names are grouped
+│   ├── aliases.py   the aliases file
+│   └── review.py    --review: one group at a time
 ├── enrich/          enrich: genres, ReplayGain, covers, lyrics on the whole library
 │   ├── common.py    album folders under the targets, summary and exit code
 │   ├── covers.py    folder.jpg embedded into the tracks
@@ -30,9 +39,10 @@ src/music_librarian/
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
 │   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
-│                    tags kept between passes), artwork.py (image sizes), convert.py (FLAC → ALAC
-│                    and its checks), atoms.py (where moov sits in an MP4 file), faststart.py
-│                    (moov moved ahead of mdat in existing MP4 files)
+│                    tags kept between passes), credit_tags.py (album artist, artist, composer),
+│                    artwork.py (image sizes), convert.py (FLAC → ALAC and its checks), atoms.py
+│                    (where moov sits in an MP4 file), faststart.py (moov moved ahead of mdat in
+│                    existing MP4 files)
 └── integrations/    lyrion.py, see lyrion.md
 ```
 
@@ -40,11 +50,12 @@ src/music_librarian/
 
 | Trigger | Command | What it does |
 |---|---|---|
-| a drop in the Inbox has settled | `import` | files and enriches that drop |
+| a drop in the Inbox has settled | `import` | files and enriches that drop, then splits and unifies its credits |
 | every night (`--organize-at`) | `organize --since` | refiles the folders changed since the last full pass |
-| every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics |
+| every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
-| by hand | `undo JOURNAL` | replays a pass backwards |
+| by hand | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
+| by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 
 The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
 
@@ -59,6 +70,7 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 5. **File it** through `organize_pass`, not interruptible: a stop request lets the whole item finish.
 6. **Move the original** to `_done/YYYY-MM-DD/`, purged after `--keep-days` (7 by default).
 7. **Enrich the target folders only** (genres, ReplayGain, cover, lyrics). A failed tool does not fail the import: the weekly pass catches it up.
+8. **Split, then unify, their credits** with `split` and `dedupe`, applying the decisions and aliases already taken (`--no-split`, `--no-dedupe` to skip them).
 
 ### organize: filing the Apple Music way
 
@@ -81,11 +93,24 @@ The album folders are handed in batches of 20 to four modules run as subprocesse
 3. **`enrich.covers`** embeds `folder.jpg` into the tracks whose embedded cover differs from it, byte for byte.
 4. **`enrich.lyrics`** looks up the files without lyrics (LRCLIB, then NetEase, Musixmatch if enabled) and writes them only when the provider's title, artist and duration (within 3 s) match the file.
 
-On a stop request the current batch finishes and the rest waits for the next pass. A complete pass then drops the files gone from the library from the metadata cache.
+On a stop request the current batch finishes and the rest waits for the next pass. `split` and `dedupe` then run over the whole library. A complete pass then drops the files gone from the library from the metadata cache.
+
+### split: credits holding several names
+
+1. **Read the credits through the metadata cache**: album artist, artist and composer of every file under the paths given (the whole root by default).
+2. **Gather the known names** from every file of the library in the cache: each album artist, and each artist or composer without a comma or slash, plus the names the decisions file vouches for.
+3. **Settle each credit holding a comma or slash** (see [splitting.md](splitting.md)): a decision wins; a known name is kept (`GUARDED` when its fragments are all known too); a credit whose fragments are all known is split; any other waits for a decision.
+4. **Rewrite the tags** with `--apply`, each change journaled with its old value, and write the credits newly awaiting a decision to the decisions file. `--review` asks about them instead, writing the decisions file only.
+
+### dedupe: one artist spelled several ways
+
+1. **Read the credits through the metadata cache**, cut on `;` as Lyrion does, each name rewritten by the aliases file.
+2. **Group the likely duplicates** (see [dedupe.md](dedupe.md)): same name once normalized, same MusicBrainz id, one typo apart, or a partial name. Names with different MusicBrainz ids, or declared different, are never grouped.
+3. **Rewrite the variants** the aliases file names with `--apply`, each change journaled. `--review` asks about the groups instead, writing the aliases file only. A renamed album artist is moved by the next `organize` pass.
 
 ### undo
 
-`undo JOURNAL` replays a journal backwards. A file that is missing, or whose original place is taken, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
+`undo JOURNAL` replays a journal backwards: moves, then tag changes. A file that is missing, whose original place is taken, or whose tag changed since, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
 
 ### The metadata cache
 
@@ -94,8 +119,8 @@ The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder
 ## Conventions
 
 - Everything is a dry run without `--apply`.
-- `organize`, `import` and `enrich` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
-- Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself.
+- `organize`, `import`, `enrich`, `split` and `dedupe` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
+- Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself, and `import` and `enrich` call `split_pass` and `dedupe_pass` the same way.
 - A stop request (SIGTERM from `docker stop`, or Ctrl-C) lets the current file operation finish, then stops. A second Ctrl-C stops at once.
 - Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed.
 - Imports inside the package are absolute: `from music_librarian.core.lock import STOP`.
