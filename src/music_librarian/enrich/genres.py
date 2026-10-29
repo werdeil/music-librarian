@@ -66,7 +66,66 @@ def key(name):
 
 
 def default_list():
-    return Path(os.environ.get("MUSIC_LIBRARIAN_GENRES") or state_path() / "genres.txt")
+    return list_path(state_path())
+
+
+def list_path(state_dir: Path):
+    """The validated list: $MUSIC_LIBRARIAN_GENRES, else genres.txt in the state folder."""
+    return Path(os.environ.get("MUSIC_LIBRARIAN_GENRES") or Path(state_dir) / "genres.txt")
+
+
+def _lines(path):
+    try:
+        return Path(path).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+
+
+def _line_of(lines, genre):
+    return next((i for i, line in enumerate(lines) if line.strip() and not line.lstrip().startswith("#")
+                 and key(line.partition(":")[0]) == key(genre)), None)
+
+
+def _save(path, lines):
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _names(name):
+    # the list's own separators; key() ignores punctuation, so a space stands for them
+    return re.sub(r"[:,]", " ", name).strip()
+
+
+def add_to_list(path, genre, alias=None):
+    """Add `alias` to the line of `genre` in the list at `path`, or the line `genre` itself when
+    the list has none."""
+    lines = _lines(path)
+    i = _line_of(lines, genre)
+    alias = _names(alias) if alias else None
+    if i is None:
+        lines.append(f"{_names(genre)}: {alias}" if alias else _names(genre))
+    elif alias:
+        name, _, aliases = lines[i].partition(":")
+        names = [a.strip() for a in aliases.split(",") if a.strip()] + [alias]
+        lines[i] = f"{name.strip()}: {', '.join(names)}"
+    _save(path, lines)
+
+
+def remove_from_list(path, genre, alias=None):
+    """Take back add_to_list(path, genre, alias)."""
+    lines = _lines(path)
+    i = _line_of(lines, genre)
+    if i is None:
+        return
+    if alias is None:
+        del lines[i]
+    else:
+        name, _, aliases = lines[i].partition(":")
+        kept = [a.strip() for a in aliases.split(",") if a.strip() and key(a) != key(alias)]
+        lines[i] = f"{name.strip()}: {', '.join(kept)}" if kept else name.strip()
+    _save(path, lines)
 
 
 def load(path):

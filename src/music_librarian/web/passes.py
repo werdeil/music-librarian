@@ -29,6 +29,7 @@ OPTIONS = {
     "dedupe": (),
     "undo": ("journal",),
     "tag": ("edits",),
+    "genres": (),
 }
 FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag")}
 
@@ -136,6 +137,10 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                            lyrion=import_opts.lyrion)
         return kept("tag", lambda: tag.run(opts, log), log, r)
 
+    def run_genres(r, log):
+        opts = replace(enrich_opts, apply=r.apply)
+        return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
+
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag}
+            "undo": run_undo, "tag": run_tag, "genres": run_genres}

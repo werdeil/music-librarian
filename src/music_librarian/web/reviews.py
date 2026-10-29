@@ -1,5 +1,7 @@
 """split --review and dedupe --review on the dashboard: the queues of the terminal reviews, one
-question per page, each answer written at once to the decisions or the aliases file.
+question per page, each answer written at once to the decisions or the aliases file. And the
+genres the validated list does not know, each added to it as a name of a validated genre or as a
+genre of its own.
 
 The queues are built from the metadata cache, again whenever it changes; whether an item still
 needs an answer is checked against the files on each page, as the terminal review does, so an
@@ -7,6 +9,7 @@ answer that settles other items skips them. Like the terminal review, it takes n
 """
 import json
 import threading
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from flask import abort, redirect, render_template, request, url_for
@@ -15,7 +18,9 @@ from music_librarian import dedupe, split
 from music_librarian.dedupe import aliases as aliases_file
 from music_librarian.dedupe.review import pending, suggestion
 from music_librarian.dedupe.similar import find_groups
-from music_librarian.media import credit_tags
+from music_librarian.enrich import genres
+from music_librarian.lyrics.matching import fold_name
+from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
@@ -100,14 +105,125 @@ class Reviews:
             aliases_file.update(self.aliases, add=add, drop=drop)
 
 
+class GenreReview:
+    """The genres of the library the validated list does not know, the most tracks first."""
+
+    def __init__(self, root: Path, state_dir: Path):
+        self.root, self.state_dir = root, state_dir
+        self.path = genres.list_path(state_dir)
+        self.lookups = state_dir / genres.LOOKUP_CACHE
+        self.lock = threading.Lock()
+        self.stamp, self.items = None, []
+
+    def _load(self):
+        stamp = cache_stamp(self.state_dir)
+        if stamp == self.stamp:
+            return
+        found = defaultdict(lambda: dict(tracks=0, example=None, albums=Counter()))
+        for path, snap in cached_files(self.root, self.state_dir):
+            values = metadata_cache.genres(snap)
+            if values:
+                entry = found["; ".join(values)]
+                entry["tracks"] += 1
+                entry["values"] = values
+                entry["example"] = entry["example"] or str(path.relative_to(self.root))
+                entry["albums"][genres.album_of(snap)] += 1
+        self.items = sorted(found.items(), key=lambda kv: (-kv[1]["tracks"], kv[0]))
+        self.stamp = stamp
+
+    def mapping(self):
+        """The validated list as genres.load reads it, or None without a readable one."""
+        try:
+            return genres.load(self.path) if self.path.exists() else None
+        except genres.GenreListError:
+            return None
+
+    def apple(self, albums):
+        """The genre iTunes gives most of these albums, from what enrich.genres looked up."""
+        try:
+            answers = json.loads(self.lookups.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        seen = Counter()
+        for album, n in albums.items():
+            hit = answers.get(f"{fold_name(album[0])}\t{fold_name(album[1])}") if album else None
+            if hit and hit.get("genre"):
+                seen[hit["genre"]] += n
+        return seen.most_common(1)[0][0] if seen else None
+
+    def item(self, start=0):
+        """The first genre from position `start` the list still does not know, as a dict for the
+        page, or None; and the count of those left. None, 0 without a list."""
+        with self.lock:
+            self._load()
+            mapping = self.mapping()
+            if mapping is None:
+                return None, 0
+            left = [i for i, (_, entry) in enumerate(self.items)
+                    if genres.resolve(entry["values"], mapping) is None]
+            nxt = next((i for i in left if i >= start), None)
+            if nxt is None:
+                return None, len(left)
+            shown, entry = self.items[nxt]
+            apple = self.apple(entry["albums"])
+            return dict(position=nxt, total=len(self.items), genre=shown, tracks=entry["tracks"],
+                        example=entry["example"], apple=apple,
+                        suggested=genres.resolve([apple], mapping) if apple else None,
+                        validated=sorted(set(mapping.values()), key=str.casefold)), len(left)
+
+    def add(self, genre, alias=None):
+        with self.lock:
+            genres.add_to_list(self.path, genre, alias)
+
+    def remove(self, genre, alias=None):
+        with self.lock:
+            genres.remove_from_list(self.path, genre, alias)
+
+
 def register(app, ctx):
     reviews = Reviews(ctx.root, ctx.state_dir)
+    genre_review = GenreReview(ctx.root, ctx.state_dir)
 
     @app.get("/reviews")
     def reviews_page():
         _, waiting = reviews.credit()
         _, groups = reviews.group()
-        return render_template("reviews.html", credits=waiting, groups=groups)
+        _, unknown = genre_review.item()
+        return render_template("reviews.html", credits=waiting, groups=groups, genres=unknown,
+                               genre_list=genre_review.mapping() is not None, list_path=genre_review.path)
+
+    @app.get("/reviews/genres")
+    def review_genres():
+        item, left = genre_review.item(request.args.get("from", 0, type=int))
+        return render_template("review_genres.html", item=item, left=left, done=done_of(request.args),
+                               genre_list=genre_review.mapping() is not None, list_path=genre_review.path)
+
+    @app.post("/reviews/genres")
+    def answer_genre():
+        mapping = genre_review.mapping()
+        shown, choice = request.form.get("genre", "").strip(), request.form.get("choice")
+        if mapping is None or not shown:
+            abort(404)
+        if choice == "alias":
+            genre, alias = request.form.get("validated", ""), shown
+            if genre not in mapping.values():
+                abort(400)
+        else:
+            genre, alias = (request.form.get("name") or shown).strip(), None
+            if mapping.get(genres.key(genre), genre) != genre:
+                abort(400)
+        genre_review.add(genre, alias)
+        done = json.dumps(dict(genre=genre, alias=alias))
+        return redirect(url_for("review_genres", **{"from": request.form.get("position", 0, type=int)},
+                                done=done))
+
+    @app.post("/reviews/genres/undo")
+    def undo_genre():
+        genre = request.form.get("genre", "")
+        if not genre:
+            abort(400)
+        genre_review.remove(genre, request.form.get("alias") or None)
+        return redirect(url_for("review_genres", **{"from": request.form.get("position", 0, type=int)}))
 
     @app.get("/reviews/split")
     def review_split():

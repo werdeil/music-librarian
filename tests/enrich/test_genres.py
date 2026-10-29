@@ -237,3 +237,17 @@ def test_itunes_down_is_not_a_failure(genre_list, album, lookup, capsys):
     out = capsys.readouterr().out
     assert out.count("OFFLINE  iTunes: HTTP 403") == 1 and len(fake.calls) == 1
     assert "unknown genre: 6" in out
+
+
+def test_list_edited_and_taken_back(tmp_path):
+    path = tmp_path / "genres.txt"
+    path.write_text("# comment\nRock: hard rock\nJazz\n", encoding="utf-8")
+    genres.add_to_list(path, "rock", "Rock, Pop")
+    genres.add_to_list(path, "Jazz", "Bebop")
+    genres.add_to_list(path, "Zydeco")
+    assert path.read_text(encoding="utf-8") == "# comment\nRock: hard rock, Rock  Pop\nJazz: Bebop\nZydeco\n"
+    assert genres.load(path)[genres.key("rock pop")] == "Rock"
+    genres.remove_from_list(path, "Rock", "Rock, Pop")
+    genres.remove_from_list(path, "Jazz", "Bebop")
+    genres.remove_from_list(path, "Zydeco")
+    assert path.read_text(encoding="utf-8") == "# comment\nRock: hard rock\nJazz\n"

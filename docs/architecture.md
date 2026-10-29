@@ -51,7 +51,7 @@ src/music_librarian/
     ├── server.py    waitress in a thread of watch
     ├── passes.py    the passes asked for, queued for the watch loop, and how each is built
     ├── library.py   the albums from the metadata cache, an album's fields and the edits of its form
-    ├── reviews.py   the split and dedupe reviews, one question per page
+    ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
