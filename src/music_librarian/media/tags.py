@@ -21,6 +21,7 @@ from mutagen.oggvorbis import OggVorbis
 from mutagen.oggopus import OggOpus
 
 from music_librarian.core.files import AUDIO_EXT
+from music_librarian.media.atoms import leading_mdat
 
 # the library's formats, plus the other ones these functions can tag
 MUSIC_EXTENSIONS = AUDIO_EXT | {".ogg", ".opus", ".mp4", ".aiff", ".aif", ".wav"}
@@ -323,7 +324,8 @@ def read_snapshot(path):
     """Everything the tools check in one read, or None if the file is unreadable.
 
     {"tags": {easy key: [str]}, "duration": seconds or None, "lyrics": bool,
-     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None}
+     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None,
+     "leading_mdat": bool, true for an MP4 file whose moov atom comes after mdat}
     """
     try:
         audio = mutagen.File(path)
@@ -340,6 +342,7 @@ def read_snapshot(path):
         "lyrics": bool(_read_lyrics(audio)),
         "replaygain": _has_replaygain(audio),
         "cover": cover_hash(cover) if cover else None,
+        "leading_mdat": isinstance(audio, MP4) and leading_mdat(path),
     }
 
 

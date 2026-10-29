@@ -12,7 +12,8 @@ from mutagen.mp4 import MP4
 from music_librarian import watch
 from music_librarian.core.lock import STOP
 
-CODECS = {".m4a": ["-c:a", "alac"], ".mp3": ["-c:a", "libmp3lame"], ".flac": ["-c:a", "flac"]}
+CODECS = {".m4a": ["-c:a", "alac", "-movflags", "+faststart"], ".mp3": ["-c:a", "libmp3lame"],
+          ".flac": ["-c:a", "flac"]}
 
 
 @pytest.fixture(autouse=True)
@@ -128,5 +129,23 @@ def make_track(templates):
                 f.add_picture(pic)
             f.save()
         return Path(p)
+
+    return make
+
+
+@pytest.fixture
+def make_slow_m4a(make_track):
+    """make_track for an .m4a with mdat ahead of moov, as ffmpeg writes it by default."""
+
+    def make(path, **tags):
+        good = make_track(Path(path).with_name("good.m4a"), **tags)
+        subprocess.run(["ffmpeg", "-v", "error", "-i", str(good), "-c", "copy", "-map_metadata", "-1",
+                        str(path)], check=True)
+        f = MP4(path)
+        f.tags.clear()
+        f.tags.update(MP4(good).tags)
+        f.save()
+        good.unlink()
+        return Path(path)
 
     return make
