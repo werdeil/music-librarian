@@ -53,7 +53,8 @@ from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.organize.naming import is_in_place, nfc, target_rel
-from music_librarian.organize.scan import collect, read_tags
+from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.organize.scan import collect, read_tags, tags_from_snapshot
 from music_librarian.organize.undo import undo
 
 LAST_RUN = "last_run"  # --since state file
@@ -148,6 +149,17 @@ def run(opts: Options, log):
         return Report(EXIT_LOCKED)
 
 
+def file_tags(path: Path, root, cache):
+    """read_tags(path), through the metadata cache for a file of the library; raises for an
+    unreadable one. Files outside the library (the Inbox) are read directly, never cached."""
+    if not path.is_relative_to(root):
+        return read_tags(path)
+    snap = cache.snapshot(path)
+    if snap is None:
+        raise ValueError("no readable tags")
+    return tags_from_snapshot(snap)
+
+
 def organize_pass(opts: Options, log):
     """A filing pass, without taking the lock: the caller holds it when `opts.apply`."""
     started = time.time()
@@ -169,27 +181,28 @@ def organize_pass(opts: Options, log):
     junk = []
     blocked = set()               # folders whose side files must not move
 
-    for p in collect(scan, since):
-        if is_junk(p):
-            junk.append(p)
-            continue
-        if p.suffix.lower() not in AUDIO_EXT:
-            continue
-        stats["scanned"] += 1
-        try:
-            tags = read_tags(p)
-        except Exception as e:
-            log(f"SKIPPED  (unreadable: {e})  {p}")
-            stats["skipped"] += 1
-            blocked.add(p.parent)
-            continue
-        tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
-        if tgt is None:
-            log(f"SKIPPED  (not enough tags)  {p}")
-            stats["skipped"] += 1
-            blocked.add(p.parent)
-            continue
-        entries.append((p, tags, tgt))
+    with MetadataCache(state_dir) as cache:
+        for p in collect(scan, since):
+            if is_junk(p):
+                junk.append(p)
+                continue
+            if p.suffix.lower() not in AUDIO_EXT:
+                continue
+            stats["scanned"] += 1
+            try:
+                tags = file_tags(p, root, cache)
+            except Exception as e:
+                log(f"SKIPPED  (unreadable: {e})  {p}")
+                stats["skipped"] += 1
+                blocked.add(p.parent)
+                continue
+            tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
+            if tgt is None:
+                log(f"SKIPPED  (not enough tags)  {p}")
+                stats["skipped"] += 1
+                blocked.add(p.parent)
+                continue
+            entries.append((p, tags, tgt))
 
     # Compilation safeguard: an album (same folder, same album tag) whose cpil
     # flag differs between tracks would be split between Compilations/ and an

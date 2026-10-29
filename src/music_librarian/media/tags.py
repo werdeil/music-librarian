@@ -12,6 +12,7 @@ import re
 import mutagen
 from mutagen.id3 import APIC, TXXX, USLT
 from mutagen.flac import FLAC, Picture
+from mutagen.easymp4 import EasyMP4Tags
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from mutagen.mp3 import MP3
 from mutagen.aiff import AIFF
@@ -302,6 +303,19 @@ def write_replaygain(path, gain, peak):
 
 
 # lyrics and embedded pictures are kept as a flag and a hash, never as text
+def _mp4_compilation(tags, key):
+    cpil = tags.get("cpil")
+    if isinstance(cpil, list):
+        cpil = cpil[0] if cpil else False
+    if not cpil:
+        raise KeyError(key)
+    return ["1"]
+
+
+# mutagen's easy MP4 view has no compilation flag, which organize files by
+if "compilation" not in EasyMP4Tags.Get:
+    EasyMP4Tags.RegisterKey("compilation", getter=_mp4_compilation)
+
 _BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
 
 
