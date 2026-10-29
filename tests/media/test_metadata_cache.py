@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from music_librarian.media import metadata_cache, tags
+from music_librarian.media import credit_tags, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
 COVER = b"\xff\xd8\xff\xe0 not really a jpeg"
@@ -102,3 +102,9 @@ def test_prune(tmp_path, make_track, reads):
         for p in (kept, gone, outside):
             cache.snapshot(p)
     assert len(reads) == 4
+
+
+def test_credits_of_a_snapshot(make_track, tmp_path):
+    for ext in (".m4a", ".mp3", ".flac"):
+        p = make_track(tmp_path / f"t{ext}", title="T", artist="A", albumartist="AA", composer="C")
+        assert credit_tags.from_snapshot(tags.read_snapshot(p)) == credit_tags.read(p)

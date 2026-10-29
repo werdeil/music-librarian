@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t.history }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.history }}</h2>
+    <p class="filters">
+        <a href="{{ url_for('history', problems='1' if problems else None) }}"{% if not command %} aria-current="true"{% endif %}>{{ t.filter_all }}</a>
+        {% for c in commands %}
+            <a href="{{ url_for('history', command=c, problems='1' if problems else None) }}"{% if c == command %} aria-current="true"{% endif %}><code>{{ c }}</code></a>
+        {% endfor %}
+        <span class="separator"></span>
+        <a href="{{ url_for('history', command=command, problems=None if problems else '1') }}"{% if problems %} aria-current="true"{% endif %}>{{ t.filter_problems }}</a>
+    </p>
+    {% if runs %}
+        {{ m.runs_table(t, runs) }}
+    {% else %}
+        <p class="muted">{{ t.no_runs }}</p>
+    {% endif %}
+</section>
+{% endblock %}

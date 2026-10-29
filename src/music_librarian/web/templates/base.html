@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}music-librarian{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header class="top">
+        <a class="brand" href="{{ url_for('home') }}">
+            <img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="24" height="24">
+            music-librarian
+        </a>
+        <nav>
+            <a href="{{ url_for('home') }}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}>{{ t.overview }}</a>
+            <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
+            <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
+            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe') %} aria-current="page"{% endif %}>{{ t.reviews }}</a>
+        </nav>
+        <span class="mode {{ 'mode-apply' if ctx.apply else 'mode-dry' }}">{{ t.mode_apply if ctx.apply else t.mode_dry_run }}</span>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <span>{{ t.library }} <code>{{ ctx.root }}</code></span>
+        <span>music-librarian {{ version }}</span>
+    </footer>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "_apply_answers.html" as a %}
+{% block title %}{{ t.reviews }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.reviews }}</h2>
+    <p class="muted">{{ t.reviews_intro }}</p>
+</section>
+<section>
+    <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>
+    <p>{{ t.credits_waiting.format(n=credits) }}</p>
+    <div class="actions">
+        {% if credits %}<a class="button primary" href="{{ url_for('review_split') }}">{{ t.start_review }}</a>{% endif %}
+        {{ a.apply_form(t, ctx, csrf, 'split') }}
+    </div>
+</section>
+<section>
+    <h2>{{ t.dedupe_review }} <code class="aside">dedupe --review</code></h2>
+    <p>{{ t.groups_waiting.format(n=groups) }}</p>
+    <div class="actions">
+        {% if groups %}<a class="button primary" href="{{ url_for('review_dedupe') }}">{{ t.start_review }}</a>{% endif %}
+        {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
+    </div>
+</section>
+{% endblock %}

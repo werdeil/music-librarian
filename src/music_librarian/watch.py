@@ -23,12 +23,19 @@ slot, unless it already ran since (state/enrich_last_run). It first reads every
 file again into the metadata cache (enrich --rescan). Without a known
 pass, the first one runs at the next slot, not at startup.
 
+With --listen [HOST:]PORT, the dashboard (web/) is served on that address
+(every interface without a host): the recent runs and their output, the
+schedule and the Inbox. The passes it asks for are queued and run by this
+loop, between its other jobs; it can only apply them when watch does.
+
 The import options (--settle, --no-enrich…) apply to every import; --root,
 --state-dir and the Lyrion ones to organize too.
 On SIGTERM or Ctrl-C, the current pass stops cleanly, then the loop.
 """
 import argparse
+import os
 import sys
+import time
 import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -36,6 +43,9 @@ from pathlib import Path
 from music_librarian import enrich, importer, organize
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core import runs
+from music_librarian.core.runs import recorded
+from music_librarian.web.passes import Requests, passes
 
 
 def signature(inbox_dir: Path):
@@ -54,6 +64,7 @@ def hhmm(s):
         raise argparse.ArgumentTypeError(f"expected a time as HH:MM: {s!r}") from None
 
 
+WAKE_CHECK = 0.5  # seconds between two checks for a dashboard request during a pause
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 FRENCH_DAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]  # accepted too
 
@@ -70,6 +81,15 @@ def weekly(s):
         ) from None
 
 
+def address(s):
+    """'[HOST:]PORT' -> (host, port), every interface without a host."""
+    host, _, port = s.rpartition(":")
+    try:
+        return host or "0.0.0.0", int(port)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected [HOST:]PORT: {s!r}") from None
+
+
 def last_slot(t: datetime, day, at):
     """Last weekly slot passed (or in progress) at time t."""
     slot = datetime.combine(t.date() - timedelta(days=(t.weekday() - day) % 7), at)
@@ -78,6 +98,11 @@ def last_slot(t: datetime, day, at):
 
 def now():
     return datetime.now()
+
+
+def watched(fn, log, command, opts):
+    """fn()'s exit code, kept in the run history as a pass started by watch."""
+    return recorded(fn, log, opts.state_dir, command, opts.apply, origin="watch")
 
 
 def safe(fn, log, what):
@@ -129,7 +154,8 @@ class NightlyOrganize:
         else:
             log(f"ORGANIZE nightly (folders changed since "
                 f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-            if safe(lambda: organize.run(self.opts, log).code, log, "organize") != EXIT_LOCKED:
+            if safe(lambda: watched(lambda: organize.run(self.opts, log).code, log, "organize", self.opts),
+                    log, "organize") != EXIT_LOCKED:
                 self.day = t.date()
             log("")
 
@@ -147,9 +173,27 @@ class WeeklyEnrich:
         last = enrich.last_run(self.opts.state_dir) or self.started
         if last < slot.timestamp() and self.slot != slot:
             log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-            if safe(lambda: enrich.run(self.opts, log), log, "enrich") != EXIT_LOCKED:
+            if safe(lambda: watched(lambda: enrich.run(self.opts, log), log, "enrich", self.opts),
+                    log, "enrich") != EXIT_LOCKED:
                 self.slot = slot
             log("")
+
+
+def start_dashboard(args, import_opts, requests, log):
+    from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
+    ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
+                         apply=args.apply, interval=args.interval, organize_at=args.organize_at,
+                         enrich_at=args.enrich_at, requests=requests)
+    return server.serve(ctx, args.listen, log)
+
+
+def pause(seconds, wake):
+    """Wait `seconds`, or less once a stop is requested or `wake` is set."""
+    end = time.monotonic() + seconds
+    while True:
+        STOP.wait(min(WAKE_CHECK, max(end - time.monotonic(), 0)))
+        if STOP.is_set() or wake.is_set() or time.monotonic() >= end:
+            return
 
 
 def main(argv=None):
@@ -161,6 +205,9 @@ def main(argv=None):
                     help="run organize --since every day from this time")
     ap.add_argument("--enrich-at", type=weekly, metavar="DAY HH:MM",
                     help="enrich the whole library every week from this slot (e.g. 'sun 03:00')")
+    ap.add_argument("--listen", type=address, metavar="[HOST:]PORT",
+                    default=os.environ.get("MUSIC_LIBRARIAN_LISTEN"),
+                    help="serve the dashboard on this address (default: $MUSIC_LIBRARIAN_LISTEN)")
     args = ap.parse_args(argv)
     import_opts = importer.options(args)
     state_dir = import_opts.state_dir
@@ -169,13 +216,19 @@ def main(argv=None):
     enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
                                  rescan=True)
     import_log = importer.new_log(import_opts)
-    jobs = [Imports(args.inbox, lambda: importer.run(import_opts, import_log))]
+    jobs = [Imports(args.inbox, lambda: watched(lambda: importer.run(import_opts, import_log),
+                                                import_log, "import", import_opts))]
     if args.organize_at:
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:
         jobs.append(WeeklyEnrich(args.enrich_at, enrich_opts, now().timestamp()))
+    requests = Requests(passes(import_opts, organize_opts, enrich_opts, import_log), safe)
+    if args.listen:
+        jobs.insert(0, requests)
 
     log = Log()
+    runs.close_stale(state_dir)
+    server = start_dashboard(args, import_opts, requests, log) if args.listen else None
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] watching {args.inbox} "
         f"every {args.interval:g} s"
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
@@ -186,7 +239,9 @@ def main(argv=None):
             if STOP.is_set():
                 break
             job.tick(log)
-        STOP.wait(args.interval)
+        pause(args.interval, requests.wake)
+    if server:
+        server.close()
     log("STOP     watch ended")
     return 0
 

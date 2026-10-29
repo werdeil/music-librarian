@@ -1,5 +1,6 @@
 # Lint and tests on every pull request and every push to main.
-#   lint  : pylint (rules and exceptions documented in pyproject.toml);
+#   lint  : pylint (rules and exceptions documented in pyproject.toml), and ESLint
+#           on the dashboard's scripts (eslint.config.mjs);
 #   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
 #   image : Docker image build, which reruns the tests in the container and
 #           checks the tools (a file really gets a ReplayGain, --help of the
@@ -32,6 +33,10 @@ jobs:
             pyproject.toml
       - run: pip install -r requirements-dev.txt -e .
       - run: pylint src tests
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: npx --yes eslint@9 src/music_librarian/web/static/*.js
 
   tests:
     runs-on: ubuntu-latest

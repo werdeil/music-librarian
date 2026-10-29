@@ -12,6 +12,7 @@ import re
 import mutagen
 from mutagen.id3 import APIC, TXXX, USLT
 from mutagen.flac import FLAC, Picture
+from mutagen.easymp4 import EasyMP4Tags
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from mutagen.mp3 import MP3
 from mutagen.aiff import AIFF
@@ -20,6 +21,7 @@ from mutagen.oggvorbis import OggVorbis
 from mutagen.oggopus import OggOpus
 
 from music_librarian.core.files import AUDIO_EXT
+from music_librarian.media.atoms import leading_mdat
 
 # the library's formats, plus the other ones these functions can tag
 MUSIC_EXTENSIONS = AUDIO_EXT | {".ogg", ".opus", ".mp4", ".aiff", ".aif", ".wav"}
@@ -301,6 +303,21 @@ def write_replaygain(path, gain, peak):
         raise ReplayGainTagError(f"write failed: {exc}") from exc
 
 
+def _mp4_compilation(tags, key):
+    cpil = tags.get("cpil")
+    if isinstance(cpil, list):
+        cpil = cpil[0] if cpil else False
+    if not cpil:
+        raise KeyError(key)
+    return ["1"]
+
+
+# mutagen's easy MP4 view has no compilation flag nor composer, which organize and split read
+if "compilation" not in EasyMP4Tags.Get:
+    EasyMP4Tags.RegisterKey("compilation", getter=_mp4_compilation)
+if "composer" not in EasyMP4Tags.Get:
+    EasyMP4Tags.RegisterTextKey("composer", "\xa9wrt")
+
 # lyrics and embedded pictures are kept as a flag and a hash, never as text
 _BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
 
@@ -309,7 +326,8 @@ def read_snapshot(path):
     """Everything the tools check in one read, or None if the file is unreadable.
 
     {"tags": {easy key: [str]}, "duration": seconds or None, "lyrics": bool,
-     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None}
+     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None,
+     "leading_mdat": bool, true for an MP4 file whose moov atom comes after mdat}
     """
     try:
         audio = mutagen.File(path)
@@ -326,6 +344,7 @@ def read_snapshot(path):
         "lyrics": bool(_read_lyrics(audio)),
         "replaygain": _has_replaygain(audio),
         "cover": cover_hash(cover) if cover else None,
+        "leading_mdat": isinstance(audio, MP4) and leading_mdat(path),
     }
 
 

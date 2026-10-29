@@ -77,6 +77,19 @@ def read_tags(path: Path):
     return None
 
 
+def tags_from_snapshot(snap):
+    """read_tags() taken from a metadata cache snapshot (media/tags.read_snapshot)."""
+    easy = {k.lower(): v for k, v in snap["tags"].items()}
+    g = lambda *keys: next((first(easy[k]) for k in keys if first(easy.get(k))), None)
+    tr, _ = parse_pair(g("tracknumber"))
+    d, dt = parse_pair(g("discnumber"))
+    return dict(
+        albumartist=g("albumartist", "album artist"), artist=g("artist"), album=g("album"),
+        title=g("title"), track=tr, disc=d, disctotal=dt or to_int(g("disctotal", "totaldiscs")),
+        compilation=g("compilation") == "1",
+    )
+
+
 def changed_since(p: Path, since):
     try:
         return os.lstat(p).st_ctime > since

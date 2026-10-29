@@ -1,0 +1,9 @@
+{% macro apply_form(t, ctx, csrf, command) -%}
+{% if ctx.requests %}
+<form method="post" action="{{ url_for('new_pass') }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="command" value="{{ command }}">
+    <button type="submit">{{ t.apply_answers }} (<code>{{ command }}</code>)</button>
+</form>
+{% endif %}
+{%- endmacro %}

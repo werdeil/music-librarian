@@ -11,7 +11,7 @@ from pathlib import Path
 from music_librarian.media import tags
 
 FILE = "metadata.db"
-VERSION = 1  # bumped when read_snapshot returns other fields
+VERSION = 4  # bumped when read_snapshot returns other fields
 COMMIT_EVERY = 200
 
 
@@ -59,6 +59,13 @@ class MetadataCache:
         if self.pending >= COMMIT_EVERY:
             self.commit()
         return snap
+
+    def cached(self, root):
+        """(path, snapshot) of every file under `root` in the cache, as last read; None if unreadable."""
+        prefix = os.fsencode(os.path.join(os.path.abspath(root), ""))
+        for key, snap in self.db.execute("SELECT path, snapshot FROM files"):
+            if key.startswith(prefix):
+                yield os.fsdecode(key), json.loads(snap)
 
     def prune(self, root, files):
         """Drop the files under `root` that are not in `files` (moved or deleted); return how many."""

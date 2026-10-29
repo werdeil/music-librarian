@@ -8,7 +8,11 @@ Each tool only handles what is missing or off:
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
                 cover;
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
-                catches lyrics published after the import).
+                catches lyrics published after the import);
+  - split:      split/, the credits holding several names, decisions taken in
+                state/split-decisions.txt included (--no-split to leave them);
+  - dedupe:     dedupe/, the spellings decided in state/artist-aliases.txt
+                (--no-dedupe to leave them).
 
 Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
 current batch completes (no tag write is cut short) and the rest is done on
@@ -36,9 +40,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_librarian import scan
+from music_librarian import dedupe, scan, split
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.enrich.common import album_folders
 from music_librarian.media.metadata_cache import MetadataCache
@@ -56,6 +61,15 @@ def enrichers():
     ]
 
 
+def run_tool(cmd, env, log):
+    """The tool's exit code, its output passed on to `log` line by line."""
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                          encoding="utf-8", errors="backslashreplace") as p:
+        for line in p.stdout:
+            log(line.rstrip("\n"))
+    return p.returncode
+
+
 def album_dirs(root: Path):
     """(folders holding at least one music file, in order, and those files)."""
     found = list(album_folders([str(root)]))
@@ -69,6 +83,8 @@ class Options:
     state_dir: Path = field(default_factory=state_path)
     batch: int = BATCH
     rescan: bool = False
+    split: bool = True
+    dedupe: bool = True
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -87,10 +103,14 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
+    ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
+    ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
-                   batch=args.batch, rescan=args.rescan)
-    return run(opts, Log())
+                   batch=args.batch, rescan=args.rescan, split=not args.no_split,
+                   dedupe=not args.no_dedupe)
+    log = Log()
+    return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
 
 def run(opts: Options, log):
@@ -108,7 +128,8 @@ def enrich_all(opts, log):
     if opts.rescan and scan.run(opts.root, opts.state_dir, log, force=True) == EXIT_STOPPED:
         return EXIT_STOPPED
     dirs, files = album_dirs(opts.root)
-    env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir)}
+    env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir), "PYTHONIOENCODING": "utf-8",
+           "PYTHONUNBUFFERED": "1"}
     batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{len(dirs)} folders, {len(batches)} batches")
@@ -123,14 +144,25 @@ def enrich_all(opts, log):
                     f"resumed on the next pass")
                 return EXIT_STOPPED
             try:
-                r = subprocess.run([*cmd, *map(str, batch)], check=False, env=env)
-                ok = r.returncode in (0, EXIT_STOPPED)   # what a stopped tool left is done next pass
+                # what a stopped tool left is done next pass
+                ok = run_tool([*cmd, *map(str, batch)], env, log) in (0, EXIT_STOPPED)
             except OSError as e:
                 log(f"         {e}")
                 ok = False
             if not ok:
                 log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
                 failed.append(name)
+    for name, wanted, tag_pass, pass_options in (
+            ("split", opts.split, split.split_pass, split.Options),
+            ("dedupe", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):
+        if not wanted:
+            continue
+        log(f"ENRICH   ({name})")
+        code = tag_pass(pass_options(root=opts.root, apply=opts.apply, state_dir=opts.state_dir), log)
+        if code == EXIT_STOPPED:
+            return EXIT_STOPPED
+        if code:
+            failed.append(name)
     with MetadataCache(opts.state_dir) as cache:
         removed = cache.prune(opts.root, files)
     log("\n--- Enrichment summary ---")

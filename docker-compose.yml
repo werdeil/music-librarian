@@ -5,7 +5,8 @@
 #   (with BUILD_NETWORK=host: docker buildx bake -f docker-compose.yml --allow network.host)
 #
 # Continuously, the container watches the Inbox and imports, and files the
-# changed folders every night (music-librarian watch):
+# changed folders every night (music-librarian watch), with its dashboard on
+# http://<host>:8080 (WEB_PORT in .env):
 #   docker compose up -d
 #   journalctl -t music-librarian -f     # logs
 #   docker compose down                  # stop (finishes the current operation)
@@ -15,6 +16,9 @@
 #   docker compose run --rm music-librarian organize --since
 #   docker compose run --rm music-librarian enrich
 #   docker compose run --rm music-librarian scan   # refresh the metadata cache
+#   docker compose run --rm music-librarian split
+#   docker compose run --rm music-librarian dedupe --review
+#   docker compose run --rm music-librarian tag <album folder> --set albumartist=<name>
 #   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
 # Create ./state BEFORE the first start (mkdir state): otherwise Docker creates
@@ -29,8 +33,16 @@ services:
     image: music-librarian:local
     # import on every drop, nightly filing of the changed folders, Sunday
     # enrichment of what is missing
-    command: [watch, --apply, --organize-at, "02:00", --enrich-at, "sun 03:00"]
+    command: [watch, --apply, --organize-at, "02:00", --enrich-at, "sun 03:00", --listen, "8080"]
     restart: unless-stopped
+    # the dashboard has no authentication: keep this port on the home network
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       - TZ=${TZ:-UTC}  # date of the _done/YYYY-MM-DD folders

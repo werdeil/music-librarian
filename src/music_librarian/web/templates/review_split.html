@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "_apply_answers.html" as a %}
+{% block title %}{{ t.split_review }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>
+    {% if done %}
+    <form method="post" action="{{ url_for('undo_split') }}" class="recorded">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="credit" value="{{ done.credit }}">
+        <input type="hidden" name="before" value="{{ done.before or '' }}">
+        <input type="hidden" name="position" value="{{ item.position if item else 0 }}">
+        <span class="muted">{{ t.recorded }}</span> <code>{{ done.credit }} =&gt; {{ done.decision }}</code>
+        <button type="submit">{{ t.undo_answer }}</button>
+    </form>
+    {% endif %}
+    {% if item %}
+    <p class="muted">{{ t.question_of.format(i=item.position + 1, n=item.total) }} · {{ t.credits_waiting.format(n=left) }}</p>
+    <div class="question">
+        <p class="credit">{{ item.credit }}</p>
+        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <code>{{ item.example }}</code></p>
+        <p>{{ t.split_into }}
+            {% for part in item.parts %}<span class="part{{ ' known' if part in item.known }}">{{ part }}</span>{% endfor %}
+            {% if item.known %}<span class="muted">({{ t.known_names }} — {{ item.known | join(', ') }})</span>{% endif %}
+        </p>
+        {% if item.protected %}<p class="warning">{{ t.protected_note }}</p>{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('answer_split') }}" class="answer">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="credit" value="{{ item.credit }}">
+        <input type="hidden" name="position" value="{{ item.position }}">
+        <button type="submit" name="choice" value="split"{% if item.suggested == 'split' %} class="primary" autofocus{% endif %}>{{ t.split_button }}{% if item.suggested == 'split' %} ({{ t.suggested }}){% endif %}</button>
+        <button type="submit" name="choice" value="keep"{% if item.suggested == 'keep' %} class="primary" autofocus{% endif %}>{{ t.keep_button }}{% if item.suggested == 'keep' %} ({{ t.suggested }}){% endif %}</button>
+        <span class="names">
+            <input name="names" placeholder="{{ t.names_placeholder }}" aria-label="{{ t.names_button }}">
+            <button type="submit" name="choice" value="names">{{ t.names_button }}</button>
+        </span>
+        <a href="{{ url_for('review_split', **{'from': item.position + 1}) }}">{{ t.later }}</a>
+    </form>
+    {% else %}
+    <p>{{ t.review_done }}</p>
+    <div class="actions">{{ a.apply_form(t, ctx, csrf, 'split') }}</div>
+    {% endif %}
+</section>
+{% endblock %}

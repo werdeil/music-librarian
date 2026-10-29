@@ -19,6 +19,7 @@ from collections import Counter
 
 from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders
 from music_librarian.media import metadata_cache
@@ -67,9 +68,9 @@ def main(argv=None):
     ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
     ap.add_argument("--force", action="store_true", help="read every file again, ignoring the cache")
     args = ap.parse_args(argv)
-    log = Log()
+    log, state_dir = Log(), state_path(args.state_dir)
     log(f"[SCAN{' --force' if args.force else ''}] {args.root}")
-    return run(args.root, state_path(args.state_dir), log, args.force)
+    return recorded(lambda: run(args.root, state_dir, log, args.force), log, state_dir, "scan", False)
 
 
 if __name__ == "__main__":
