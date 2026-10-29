@@ -11,8 +11,10 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 # Exact pins for the image and CI are in requirements.txt
 dependencies = [
+    "flask>=3.1",
     "mutagen>=1.47",
     "requests>=2.31",
+    "waitress>=3.0",
 ]
 dynamic = ["version"]
 classifiers = [
@@ -30,6 +32,9 @@ music-librarian = "music_librarian.cli:run"
 
 [tool.setuptools.dynamic]
 version = { attr = "music_librarian.__version__" }
+
+[tool.setuptools.package-data]
+"music_librarian.web" = ["templates/*.html", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

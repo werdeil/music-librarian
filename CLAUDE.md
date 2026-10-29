@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
+A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. `watch --listen` also serves a read-only dashboard of the recent runs (Flask). Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
 
 ## Commands
 
@@ -15,6 +15,7 @@ pip install -r requirements-dev.txt -e .
 
 python -m pytest -q          # tests (CI: tests job)
 pylint src tests             # lint, must stay at 10/10 (CI: lint job)
+npx --yes eslint@9 src/music_librarian/web/static/*.js   # the dashboard's scripts (CI: lint job)
 docker compose build         # the image, which runs the tests again inside it (CI: image job)
 
 music-librarian organize --root /path/to/library     # dry run
@@ -25,7 +26,7 @@ Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-e
 
 ## Architecture
 
-[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `scan.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md).
+[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
 
 Imports inside the package are absolute (`from music_librarian.core.lock import STOP`). The tests mirror the package under `tests/` and run with `--import-mode=importlib`.
 
@@ -37,7 +38,7 @@ Imports inside the package are absolute (`from music_librarian.core.lock import 
 
 ## Documentation
 
-**`README.md` and `README.fr.md` are kept in lockstep**: a change to one lands in the other in the same PR. The pages under `docs/` are in English only, and every link to them from the French README is flagged "(en anglais)".
+**`README.md` and `README.fr.md` are kept in lockstep**: a change to one lands in the other in the same PR. The pages under `docs/` are in English only, and every link to them from the French README is flagged "(en anglais)". The dashboard is bilingual too: every string it shows lives in `web/i18n.py`, in `fr` and `en` with the same keys, never hardcoded in a template or a script.
 
 ## Code style & comments
 
@@ -59,7 +60,7 @@ Rules for the comments that do survive:
 
 ## Commits and pull requests
 
-**Commit subjects and PR titles follow Conventional Commits: `type(scope): summary`.** PRs are squash-merged, so the title becomes the commit subject on `main` and a line of the release notes. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. The scope is the area touched (`organize`, `import`, `watch`, `enrich`, `split`, `dedupe`, `lyrics`, `lyrion`, `docker`, `ci`, `deps`), dropped when the change is repo-wide. Lowercase after the colon, imperative, no trailing period, short enough to read in `git log --oneline`. The `Pull request` workflow fails a title that breaks this form and labels the PR with its type and the areas its files touch (`.github/labeler.yml`); the release notes are grouped by those labels (`.github/release.yml`).
+**Commit subjects and PR titles follow Conventional Commits: `type(scope): summary`.** PRs are squash-merged, so the title becomes the commit subject on `main` and a line of the release notes. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. The scope is the area touched (`organize`, `import`, `watch`, `enrich`, `split`, `dedupe`, `lyrics`, `lyrion`, `web`, `docker`, `ci`, `deps`), dropped when the change is repo-wide. Lowercase after the colon, imperative, no trailing period, short enough to read in `git log --oneline`. The `Pull request` workflow fails a title that breaks this form and labels the PR with its type and the areas its files touch (`.github/labeler.yml`); the release notes are grouped by those labels (`.github/release.yml`).
 
 **PR titles, PR descriptions and commit messages are written in English.** Only the READMEs are bilingual.
 
