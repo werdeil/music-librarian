@@ -10,6 +10,7 @@ src/music_librarian/
 ├── importer.py      import: Inbox items → conversion → organize → enrich → split → dedupe
 ├── watch.py         watch: the long-running loop of the container, and the dashboard's server
 ├── scan.py          scan: the whole library's metadata read into the cache
+├── tag.py           tag: tag fields rewritten, then the tracks filed again
 ├── core/            what every command shares
 │   ├── files.py     audio extensions, junk files, emptied folders
 │   ├── journal.py   one JSON line per move or tag change, so a pass can be undone
@@ -40,10 +41,10 @@ src/music_librarian/
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
 │   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
-│                    tags kept between passes), credit_tags.py (album artist, artist, composer),
-│                    artwork.py (image sizes), convert.py (FLAC → ALAC and its checks), atoms.py
-│                    (where moov sits in an MP4 file), faststart.py (moov moved ahead of mdat in
-│                    existing MP4 files)
+│                    tags kept between passes), fields.py (every field tag and undo rewrite, in each
+│                    format), credit_tags.py (album artist, artist, composer), artwork.py (image
+│                    sizes), convert.py (FLAC → ALAC and its checks), atoms.py (where moov sits in
+│                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files)
 ├── integrations/    lyrion.py, see lyrion.md
 └── web/             the dashboard served by watch --listen, see web.md
     ├── app.py       the pages, read from the state folder and the Inbox on each request
@@ -62,6 +63,7 @@ src/music_librarian/
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
+| by hand | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
@@ -116,9 +118,15 @@ On a stop request the current batch finishes and the rest waits for the next pas
 2. **Group the likely duplicates** (see [dedupe.md](dedupe.md)): same name once normalized, same MusicBrainz id, one typo apart, or a partial name. Names with different MusicBrainz ids, or declared different, are never grouped.
 3. **Rewrite the variants** the aliases file names with `--apply`, each change journaled. `--review` asks about the groups instead, writing the aliases file only. A renamed album artist is moved by the next `organize` pass.
 
+### tag: fields rewritten, then filed again
+
+1. **Read each track** given (or under each folder given) directly, not through the cache, and plan its changes: a value already there is left, a genre takes the validated list's spelling, and an edit made against values the track no longer holds (`seen`, which the dashboard passes) is `REFUSED`. Tracks outside the library are skipped.
+2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values.
+3. **File the folders of the edited tracks** with `organize_pass`, in the same journal, all or nothing like import. A dry run hands organize the tags as they will be (`Options.overrides`), so it lists the exact moves, conflicts included.
+
 ### undo
 
-`undo JOURNAL` replays a journal backwards: moves, then tag changes. A file that is missing, whose original place is taken, or whose tag changed since, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
+`undo JOURNAL` replays a journal backwards: moves, then tag changes. A tag change followed by a move of the same file, as `tag` journals them, is checked where the file went, and restored where the undone moves bring it back. A file that is missing, whose original place is taken, or whose tag changed since, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
 
 ### The metadata cache
 

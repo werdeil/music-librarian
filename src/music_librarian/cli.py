@@ -9,12 +9,13 @@ music-librarian — single entry point.
   music-librarian split [options]             split credits holding several names (split/)
   music-librarian dedupe [options]            unify one artist spelled several ways (dedupe/)
   music-librarian scan [options]              read the library's metadata into the cache (scan.py)
+  music-librarian tag PATH... --set F=V       rewrite tags, then file the tracks again (tag.py)
 
 Everything is a dry run without --apply. `music-librarian <command> --help` for the options.
 """
 import sys
 
-from music_librarian import dedupe, enrich, importer, organize, scan, split, watch
+from music_librarian import dedupe, enrich, importer, organize, scan, split, tag, watch
 from music_librarian.core.lock import handle_stop_signals
 
 
@@ -30,7 +31,8 @@ def main(argv=None):
             return 2
         return organize.main(["--undo", rest[0], *rest[1:]])
     commands = {"organize": organize.main, "import": importer.main, "watch": watch.main,
-                "enrich": enrich.main, "scan": scan.main, "split": split.main, "dedupe": dedupe.main}
+                "enrich": enrich.main, "scan": scan.main, "split": split.main, "dedupe": dedupe.main,
+                "tag": tag.main}
     if cmd in commands:
         return commands[cmd](rest)
     print(f"unknown command: {cmd}\n\n{__doc__.strip()}", file=sys.stderr)
