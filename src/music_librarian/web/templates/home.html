@@ -78,7 +78,7 @@
         {% endif %}
         {% if failed %}<p class="warning">{{ t.inbox_failed.format(n=failed) }}</p>{% endif %}
     {% endif %}
-    {% if pending %}<p class="warning">{{ t.pending_decisions.format(n=pending) }}</p>{% endif %}
+    {% if pending %}<p class="warning"><a href="{{ url_for('review_split') }}">{{ t.pending_decisions.format(n=pending) }}</a></p>{% endif %}
 </section>
 
 <section>

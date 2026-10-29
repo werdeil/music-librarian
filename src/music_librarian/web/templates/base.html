@@ -18,6 +18,7 @@
             <a href="{{ url_for('home') }}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}>{{ t.overview }}</a>
             <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
             <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
+            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe') %} aria-current="page"{% endif %}>{{ t.reviews }}</a>
         </nav>
         <span class="mode {{ 'mode-apply' if ctx.apply else 'mode-dry' }}">{{ t.mode_apply if ctx.apply else t.mode_dry_run }}</span>
     </header>

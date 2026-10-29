@@ -46,7 +46,7 @@ REVIEW   [1/87] same name once normalized
 - **Enter** keeps the suggested spelling: the most used one, the `First Last` and longer one on a tie, and a name of several words when a partial name is involved. **1-n** picks another one, **e** types a new one.
 - **d** declares the names of the group different. **n** leaves the group for later, **u** takes back the previous answer, **q** (or Ctrl-D) stops.
 
-Each answer is written to the aliases file at once, so a review can stop at any point and resume where it left off. A review only writes the aliases file. It needs a terminal: `docker compose run --rm music-librarian dedupe --review`.
+Each answer is written to the aliases file at once, so a review can stop at any point and resume where it left off. A review only writes the aliases file. In a terminal it runs with `docker compose run --rm music-librarian dedupe --review` in Docker; the dashboard asks the same questions on its Reviews page (see [web.md](web.md)).
 
 ## Rewriting the tags
 
