@@ -70,7 +70,7 @@ With a validated genre list, `import` and `enrich` rewrite each track's genre to
 
 - [Naming rules](docs/naming-rules.md): how target paths are built, and when a file counts as in place
 - [Lyrion history carry-over](docs/lyrion.md)
-- [Architecture](docs/architecture.md): the package layout, for contributors
+- [Architecture](docs/architecture.md): the package layout and how each command runs, step by step
 
 ## Development
 

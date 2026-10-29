@@ -36,13 +36,60 @@ src/music_librarian/
 └── integrations/    lyrion.py, see lyrion.md
 ```
 
+## Who runs what
+
+| Trigger | Command | What it does |
+|---|---|---|
+| a drop in the Inbox has settled | `import` | files and enriches that drop |
+| every night (`--organize-at`) | `organize --since` | refiles the folders changed since the last full pass |
+| every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics |
+| by hand | `scan` | fills the metadata cache and prints the track count per genre |
+| by hand | `undo JOURNAL` | replays a pass backwards |
+
+The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
+
 ## How a pass runs
 
-- **organize** walks the library (or only the folders changed since the last full pass with `--since`), computes each file's target, holds back conflicts, then moves files one by one. Each move is written to the journal right after it happens, so an interrupted pass can still be undone.
-- **import** never files from the Inbox directly. It builds a work folder in `_processing/` with the FLAC files converted to ALAC and the others hard-linked (copied across disks), checks that `organize` would file all of it, then files it in one pass. On success the original goes to `_done/`; on any problem the whole item goes to `_failed/`.
-- **enrich** hands album folders in batches to the `enrich.genres`, `enrich.replaygain`, `enrich.covers` and `enrich.lyrics` modules, run as subprocesses. Each tool only touches what is missing. A complete pass then drops the files gone from the library from the metadata cache.
-- **The metadata cache** (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags, duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
-- **watch** reads the Inbox root every `--interval` seconds and runs `import` once a drop has stopped changing. It also runs `organize --since` every night and `enrich` every week when asked to. Each of the three is a job with its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) that the loop ticks in turn.
+### import: Inbox to library, all or nothing
+
+1. **Wait for the copy to finish.** An item (an album folder or a loose file) must not have changed for `--settle` seconds (10 by default), otherwise it is reported `WAITING` and left for the next pass.
+2. **Sort its files** into FLAC, ALAC or MP3, side files (jpg, pdf, lrc, cue) and junk. Any other audio format sends the item to `_failed/`.
+3. **Build a work folder** in `_processing/`: FLAC converted to ALAC (`media/convert.py`: codec, duration within 0.1 s, tags and cover checked), the other files hard-linked (copied across disks), `cover.jpg` or `front.jpg` renamed `folder.jpg`. A failed check sends the item to `_failed/`.
+4. **Ask organize, in a dry run, whether it would file all of it.** A single conflict or missing tag sends the whole item to `_failed/`.
+5. **File it** through `organize_pass`, not interruptible: a stop request lets the whole item finish.
+6. **Move the original** to `_done/YYYY-MM-DD/`, purged after `--keep-days` (7 by default).
+7. **Enrich the target folders only** (genres, ReplayGain, cover, lyrics). A failed tool does not fail the import: the weekly pass catches it up.
+
+### organize: filing the Apple Music way
+
+1. **Pick the files to read**: the whole root, the paths given, or with `--since` only the folders where a file's ctime is newer than `last_run`, then the whole folder.
+2. **Read the tags through the metadata cache and compute the target** (see [naming-rules.md](naming-rules.md)). A file without enough tags is `SKIPPED` and its folder blocked.
+3. **Hold back what is doubtful**: an album whose tracks disagree on the compilation flag, or a target already taken, is a `CONFLICT` and stays where it is.
+4. **Leave alone what is already in place**, tolerating accents (NFC/NFD), case and truncated names, unless a folder spelled exactly as the target exists next to the variant: the file then joins it.
+5. **Put the MP4 index first**: an `.m4a` file whose `moov` atom comes after `mdat` is rewritten in place with `moov` first, without re-encoding and without a journal entry, so Lyrion streams it as `alc`.
+6. **Move files one by one**, each move written to the journal right after it happens, so an interrupted pass can still be undone. Side files follow their album only when every track of the folder goes to the same place and none was held back.
+7. **Carry the Lyrion history over** for the moved files (see [lyrion.md](lyrion.md)); a failure leaves the moves done and exits with code 5.
+
+`last_run` only moves forward after a complete pass over the whole root.
+
+### enrich: only what is missing or off
+
+The album folders are handed in batches of 20 to four modules run as subprocesses, in this order:
+
+1. **`enrich.genres`** rewrites each genre to the spelling of the validated list (`genres.txt` in the state folder), aliases included. A genre the list does not know is reported `UNKNOWN` and left as is.
+2. **`enrich.replaygain`** measures the files without gain with ffmpeg (EBU R128) and writes ReplayGain 2.0 tags referenced to -18 LUFS.
+3. **`enrich.covers`** embeds `folder.jpg` into the tracks whose embedded cover differs from it, byte for byte.
+4. **`enrich.lyrics`** looks up the files without lyrics (LRCLIB, then NetEase, Musixmatch if enabled) and writes them only when the provider's title, artist and duration (within 3 s) match the file.
+
+On a stop request the current batch finishes and the rest waits for the next pass. A complete pass then drops the files gone from the library from the metadata cache.
+
+### undo
+
+`undo JOURNAL` replays a journal backwards. A file that is missing, or whose original place is taken, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
+
+### The metadata cache
+
+The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags, duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
 
 ## Conventions
 
