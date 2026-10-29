@@ -46,6 +46,8 @@ A file whose current path already matches its target is not moved, even when the
 
 The extension must match, case aside.
 
+These tolerances only keep a file where it is. When a folder of its target path also exists exactly as written, next to the variant the file sits in (`Walk of the Earth/` beside `Walk Of The Earth/`), the file joins it, so two folders that only differ in case, normalization or truncation become one. A folder with no such twin stays as it is.
+
 ## Around the audio files
 
 - **Side files** (`folder.jpg`, booklets, `.lrc`, anything that is not audio) follow their album, but only when every track of the folder goes to the same target folder and none stayed behind because of a conflict or missing tags. A side file whose target already exists is a conflict.
