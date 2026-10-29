@@ -2,36 +2,17 @@
 comes first as alcx (AAC as mp4x) and transcodes it instead of streaming it."""
 import contextlib
 import os
-import struct
 import subprocess
 from pathlib import Path
 
 from mutagen.mp4 import MP4
 
+from music_librarian.media.atoms import leading_mdat
 from music_librarian.media.convert import MAX_DRIFT, probe
-
-MP4_EXT = {".m4a"}
 
 
 class RewriteError(Exception):
     """The remux failed or its result does not match the original."""
-
-
-def leading_mdat(p: Path):
-    """True when the top-level mdat atom comes before moov. Reads only the atom headers."""
-    with open(p, "rb") as f:
-        while (head := f.read(8)) and len(head) == 8:
-            size, kind = struct.unpack(">I4s", head)
-            if kind in (b"moov", b"mdat"):
-                return kind == b"mdat"
-            if size == 1:
-                if len(large := f.read(8)) < 8:
-                    return False
-                size = struct.unpack(">Q", large)[0] - 8
-            elif size == 0:
-                return False
-            f.seek(size - 8, os.SEEK_CUR)
-    return False
 
 
 def packets_md5(p: Path):

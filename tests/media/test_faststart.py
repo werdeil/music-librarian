@@ -3,6 +3,7 @@
 import pytest
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
+from music_librarian.media import atoms
 from music_librarian.media import faststart as fs
 
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
@@ -19,17 +20,10 @@ def slow(tmp_path, make_slow_m4a):
     return p
 
 
-def test_leading_mdat(slow, make_track, tmp_path):
-    assert fs.leading_mdat(slow)
-    assert not fs.leading_mdat(make_track(tmp_path / "x.m4a", title="T"))
-    (tmp_path / "short").write_bytes(b"\x00\x00")
-    assert not fs.leading_mdat(tmp_path / "short")
-
-
 def test_faststart_keeps_audio_tags_and_mode(slow):
     tags, md5 = dict(MP4(slow).tags), fs.packets_md5(slow)
     fs.faststart(slow)
-    assert not fs.leading_mdat(slow)
+    assert not atoms.leading_mdat(slow)
     assert dict(MP4(slow).tags) == tags and fs.packets_md5(slow) == md5
     assert slow.stat().st_mode & 0o777 == 0o640
     assert sorted(p.name for p in slow.parent.iterdir()) == ["slow.m4a"]
