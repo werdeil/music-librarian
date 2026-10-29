@@ -10,6 +10,7 @@ import pytest
 from mutagen.mp4 import MP4
 
 from music_librarian import enrich, importer, scan
+from music_librarian.core import runs
 from music_librarian.media import convert
 
 TODAY = date.today().isoformat()
@@ -71,6 +72,15 @@ def test_dry_run_changes_nothing(env, make_track, capsys):
     assert "CONVERT  x1.flac" in out
     assert "A/B/01 Un.m4a" in out
     assert not env.calls.exists()
+
+
+def test_filing_in_the_import_run_log(env, make_track):
+    flac_album(env, make_track)
+    assert env.run("--apply") == 0
+    [record] = runs.recent(env.state)
+    text = runs.log_path(env.state, record["id"]).read_text(encoding="utf-8")
+    assert "MOVE     " in text and "DONE     Album" in text
+    assert record["command"] == "import" and "imported: 1" in record["summary"]
 
 
 def test_flac_album_imported(env, make_track):

@@ -24,11 +24,13 @@ Docker is the intended way. ffmpeg comes with the image, and the test suite runs
 
 ```bash
 cp .env.example .env      # set the library, Inbox and (optionally) Lyrion paths
-mkdir state               # journals, last run, lock and metadata cache; must exist before the first start
+mkdir state               # journals, last run, lock, metadata cache and run history; must exist before the first start
 docker compose build
 docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on Sundays at 03:00
 journalctl -t music-librarian -f
 ```
+
+Each pass also keeps its output in the state folder, wherever it was started from (`watch`, `docker compose run` or a shell): `state/runs/<id>.log`, with the 200 latest passes listed in `state/runs.db` (command, start and end, exit code, summary).
 
 To use the published image instead of building it, replace the `build:` section and the `image:` line of `docker-compose.yml` with `image: ghcr.io/werdeil/music-librarian:0.1` (or `latest`), then `docker compose pull`. The `dev` tag follows `main` between releases, untested beyond the CI. Images are built for amd64 and arm64.
 
@@ -55,7 +57,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Library root (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Drop folder, outside the library so a music server does not index it (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journals, last run date, lock, metadata cache, the credit split decisions and the artist aliases (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
+| `MUSIC_LIBRARIAN_STATE` | Journals, last run date, lock, metadata cache, run history, the credit split decisions and the artist aliases (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |

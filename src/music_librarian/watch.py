@@ -36,6 +36,7 @@ from pathlib import Path
 from music_librarian import enrich, importer, organize
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 
 
 def signature(inbox_dir: Path):
@@ -78,6 +79,11 @@ def last_slot(t: datetime, day, at):
 
 def now():
     return datetime.now()
+
+
+def watched(fn, log, command, opts):
+    """fn()'s exit code, kept in the run history as a pass started by watch."""
+    return recorded(fn, log, opts.state_dir, command, opts.apply, origin="watch")
 
 
 def safe(fn, log, what):
@@ -129,7 +135,8 @@ class NightlyOrganize:
         else:
             log(f"ORGANIZE nightly (folders changed since "
                 f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-            if safe(lambda: organize.run(self.opts, log).code, log, "organize") != EXIT_LOCKED:
+            if safe(lambda: watched(lambda: organize.run(self.opts, log).code, log, "organize", self.opts),
+                    log, "organize") != EXIT_LOCKED:
                 self.day = t.date()
             log("")
 
@@ -147,7 +154,8 @@ class WeeklyEnrich:
         last = enrich.last_run(self.opts.state_dir) or self.started
         if last < slot.timestamp() and self.slot != slot:
             log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-            if safe(lambda: enrich.run(self.opts, log), log, "enrich") != EXIT_LOCKED:
+            if safe(lambda: watched(lambda: enrich.run(self.opts, log), log, "enrich", self.opts),
+                    log, "enrich") != EXIT_LOCKED:
                 self.slot = slot
             log("")
 
@@ -169,7 +177,8 @@ def main(argv=None):
     enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
                                  rescan=True)
     import_log = importer.new_log(import_opts)
-    jobs = [Imports(args.inbox, lambda: importer.run(import_opts, import_log))]
+    jobs = [Imports(args.inbox, lambda: watched(lambda: importer.run(import_opts, import_log),
+                                                import_log, "import", import_opts))]
     if args.organize_at:
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:

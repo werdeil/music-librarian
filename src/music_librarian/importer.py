@@ -40,6 +40,7 @@ from music_librarian import dedupe, enrich, organize, split
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Buffer, Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
@@ -313,7 +314,7 @@ def process(opts, item, log):
 
     # 2. Actual filing.
     # organize logs under its own syslog tag
-    report = organize_paths(opts, [work], True, Log(opts.syslog))
+    report = organize_paths(opts, [work], True, log.child("music-librarian"))
     if report.code:
         log(f"ERROR    {item.name}: filing incomplete, item and {work} left "
             f"in place (journal: {report.journal})")
@@ -395,7 +396,8 @@ def new_log(opts):
 
 def main(argv=None):
     opts = options(parser().parse_args(argv))
-    return run(opts, new_log(opts))
+    log = new_log(opts)
+    return recorded(lambda: run(opts, log), log, opts.state_dir, "import", opts.apply)
 
 
 def run(opts: Options, log):

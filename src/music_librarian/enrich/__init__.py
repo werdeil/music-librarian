@@ -43,6 +43,7 @@ from pathlib import Path
 from music_librarian import dedupe, scan, split
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
+from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.enrich.common import album_folders
 from music_librarian.media.metadata_cache import MetadataCache
@@ -58,6 +59,15 @@ def enrichers():
         (name, [sys.executable, "-m", f"music_librarian.enrich.{name}"])
         for name in ("genres", "replaygain", "covers", "lyrics")
     ]
+
+
+def run_tool(cmd, env, log):
+    """The tool's exit code, its output passed on to `log` line by line."""
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                          encoding="utf-8", errors="backslashreplace") as p:
+        for line in p.stdout:
+            log(line.rstrip("\n"))
+    return p.returncode
 
 
 def album_dirs(root: Path):
@@ -99,7 +109,8 @@ def main(argv=None):
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
                    dedupe=not args.no_dedupe)
-    return run(opts, Log())
+    log = Log()
+    return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
 
 def run(opts: Options, log):
@@ -117,7 +128,8 @@ def enrich_all(opts, log):
     if opts.rescan and scan.run(opts.root, opts.state_dir, log, force=True) == EXIT_STOPPED:
         return EXIT_STOPPED
     dirs, files = album_dirs(opts.root)
-    env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir)}
+    env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir), "PYTHONIOENCODING": "utf-8",
+           "PYTHONUNBUFFERED": "1"}
     batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{len(dirs)} folders, {len(batches)} batches")
@@ -132,8 +144,8 @@ def enrich_all(opts, log):
                     f"resumed on the next pass")
                 return EXIT_STOPPED
             try:
-                r = subprocess.run([*cmd, *map(str, batch)], check=False, env=env)
-                ok = r.returncode in (0, EXIT_STOPPED)   # what a stopped tool left is done next pass
+                # what a stopped tool left is done next pass
+                ok = run_tool([*cmd, *map(str, batch)], env, log) in (0, EXIT_STOPPED)
             except OSError as e:
                 log(f"         {e}")
                 ok = False

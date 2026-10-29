@@ -8,6 +8,7 @@ from datetime import datetime, time
 import pytest
 
 from music_librarian import enrich, importer, watch
+from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.media import credit_tags
@@ -114,17 +115,29 @@ def test_stopped_tool_is_not_a_failure(lib, tools, tmp_path, capsys):
 
 def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
     state = tmp_path / "state"
-    real = enrich.subprocess.run
+    real = enrich.run_tool
 
-    def run_then_stop(cmd, **kw):
-        r = real(cmd, **kw)  # pylint: disable=subprocess-run-check  # check passed by enrich
+    def run_then_stop(cmd, env, log):
+        code = real(cmd, env, log)
         STOP.set()          # docker stop during the first batch
-        return r
+        return code
 
-    monkeypatch.setattr(enrich.subprocess, "run", run_then_stop)
+    monkeypatch.setattr(enrich, "run_tool", run_then_stop)
     assert run(lib, state, "--apply", "--batch", "2") == EXIT_STOPPED
     assert len(tools.calls()) == 1                    # the current batch finished, not the others
     assert enrich.last_run(state) is None             # picked up on the next pass
+
+
+def test_tool_output_in_the_run_log(lib, tmp_path, monkeypatch, capsys):
+    script = "print('LYRICS   Beyoncé — Halo'); print('--- Lyrics summary ---'); print('   written: 1')"
+    monkeypatch.setattr(enrich, "enrichers", lambda: [("lyrics", [sys.executable, "-c", script])])
+    state = tmp_path / "state"
+    assert run(lib, state) == 0
+    [record] = runs.recent(state)
+    text = runs.log_path(state, record["id"]).read_text(encoding="utf-8")
+    assert text.count("LYRICS   Beyoncé — Halo") == 1
+    assert text == capsys.readouterr().out
+    assert record["command"] == "enrich" and record["summary"][0] == "folders: 4"
 
 
 def test_refused_while_locked(lib, tools, tmp_path):

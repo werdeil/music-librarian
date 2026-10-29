@@ -24,11 +24,13 @@ Docker est la voie prévue. ffmpeg est dans l'image, et les tests tournent au bu
 
 ```bash
 cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
-mkdir state               # journaux, dernier passage, verrou et cache des métadonnées ; à créer avant le premier lancement
+mkdir state               # journaux, dernier passage, verrou, cache des métadonnées et historique des passages ; à créer avant le premier lancement
 docker compose build
 docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00
 journalctl -t music-librarian -f
 ```
+
+Chaque passage garde aussi sa sortie dans le dossier d'état, d'où qu'il soit lancé (`watch`, `docker compose run` ou un shell) : `state/runs/<id>.log`, les 200 derniers passages étant listés dans `state/runs.db` (commande, début et fin, code de sortie, résumé).
 
 Pour utiliser l'image publiée plutôt que de la construire, remplacer la section `build:` et la ligne `image:` de `docker-compose.yml` par `image: ghcr.io/werdeil/music-librarian:0.1` (ou `latest`), puis `docker compose pull`. Le tag `dev` suit `main` entre deux versions, sans autre test que la CI. Les images sont construites pour amd64 et arm64.
 
@@ -55,7 +57,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 |---|---|
 | `MUSIC_LIBRARIAN_ROOT` | Racine de la bibliothèque (`--root`) |
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
-| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage, verrou, cache des métadonnées, décisions de découpage des crédits et alias d'artistes (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
+| `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage, verrou, cache des métadonnées, historique des passages, décisions de découpage des crédits et alias d'artistes (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |

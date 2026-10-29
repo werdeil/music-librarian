@@ -42,7 +42,7 @@ def test_dry_run_changes_nothing(lib, run, make_track, capsys):
     before = files(lib)
     assert run() == 0
     assert files(lib) == before
-    assert not [p for p in run.state.iterdir() if not p.name.startswith("metadata.db")]
+    assert not [p for p in run.state.iterdir() if not p.name.startswith(("metadata.db", "runs"))]
     assert "MOVE" in capsys.readouterr().out
 
 
