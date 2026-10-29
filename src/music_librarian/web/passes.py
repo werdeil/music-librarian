@@ -10,7 +10,7 @@ import re
 import threading
 from dataclasses import dataclass, field, replace
 
-from music_librarian import dedupe, enrich, importer, organize, scan, split
+from music_librarian import dedupe, enrich, importer, organize, scan, split, tag
 from music_librarian.core.lock import STOP
 from music_librarian.core.runs import recorded
 
@@ -18,7 +18,8 @@ QUEUED, STARTED, DONE = "queued", "started", "done"
 KEPT = 50
 JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
 
-# the options each command takes from the dashboard, all booleans but undo's journal
+# the options each command takes from the dashboard: booleans, but undo's journal and tag's
+# edits, [[path relative to the root, field, value, values seen]]
 OPTIONS = {
     "import": (),
     "organize": ("since",),
@@ -27,7 +28,9 @@ OPTIONS = {
     "split": (),
     "dedupe": (),
     "undo": ("journal",),
+    "tag": ("edits",),
 }
+FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag")}
 
 
 @dataclass
@@ -127,6 +130,12 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
             return organize.replay(args, replace(organize_opts, apply=r.apply), log)
         return kept("undo", undo_journal, log, r)
 
+    def run_tag(r, log):
+        edits = [tag.Edit(root / rel, name, value, seen) for rel, name, value, seen in r.options["edits"]]
+        opts = tag.Options(root=root, edits=edits, apply=r.apply, state_dir=state_dir,
+                           lyrion=import_opts.lyrion)
+        return kept("tag", lambda: tag.run(opts, log), log, r)
+
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo}
+            "undo": run_undo, "tag": run_tag}

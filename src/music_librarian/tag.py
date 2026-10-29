@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian import organize
-from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import EXIT_STOPPED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
@@ -36,6 +36,7 @@ from music_librarian.enrich import genres
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.media import fields
+from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
 from music_librarian.split.library import run_locked
 
@@ -169,13 +170,21 @@ def tag_pass(opts: Options, log):
             state_dir=opts.state_dir, lyrion=opts.lyrion, interruptible=False,
             overrides={} if opts.apply else planned), log, journal)
     journal.close()
+    if report and opts.apply:
+        with MetadataCache(opts.state_dir) as cache:
+            for _, dst in report.done:
+                if dst.suffix.lower() in AUDIO_EXT:
+                    cache.snapshot(dst)
+        # organize keeps the folders it is given, which the edited tracks may have emptied
+        for folder in sorted({src.parent for src, _ in report.done}, key=lambda d: -len(d.parts)):
+            stats["folders removed"] += prune_empty(folder, {opts.root})
 
     stats["tags to write"] = len(writes)
     if report:
         stats["moved" if opts.apply else "to move"] = len(report.done if opts.apply else report.moves)
     log("\n--- Tag summary ---")
-    for k in ("tracks", "tags to write", "written", "unchanged", "to move", "moved", "refused",
-              "skipped", "errors"):
+    for k in ("tracks", "tags to write", "written", "unchanged", "to move", "moved", "folders removed",
+              "refused", "skipped", "errors"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     if journal.path:

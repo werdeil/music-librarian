@@ -290,3 +290,97 @@ button.primary {
     border-color: var(--accent);
     color: #111;
 }
+
+.search {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+input,
+select {
+    font: inherit;
+    color: var(--text-bright);
+    background: #181818;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+    min-width: 0;
+}
+
+.search input {
+    flex: 1;
+    max-width: 28rem;
+}
+
+.albums {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1.2rem 1rem;
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+}
+
+.albums a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    text-decoration: none;
+    color: var(--text);
+    font-size: var(--fs-sm);
+}
+
+.albums img,
+.album-head img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: var(--surface);
+    border-radius: 6px;
+}
+
+.album-title {
+    color: var(--text-bright);
+}
+
+.album-head {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.album-head img {
+    width: 120px;
+    flex: none;
+}
+
+.album-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.6rem 1rem;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+}
+
+.album-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+table.tracks td {
+    padding-right: 0.4rem;
+}
+
+table.tracks input {
+    width: 100%;
+    min-width: 9rem;
+}
+
+table.tracks input.number,
+.album-fields input.number {
+    min-width: 3.5rem;
+    width: 4rem;
+}

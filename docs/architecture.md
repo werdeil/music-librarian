@@ -50,6 +50,7 @@ src/music_librarian/
     ├── app.py       the pages, read from the state folder and the Inbox on each request
     ├── server.py    waitress in a thread of watch
     ├── passes.py    the passes asked for, queued for the watch loop, and how each is built
+    ├── library.py   the albums from the metadata cache, an album's fields and the edits of its form
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
@@ -63,7 +64,7 @@ src/music_librarian/
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
-| by hand | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them |
+| by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
