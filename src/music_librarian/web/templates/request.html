@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block head %}{% if not locked %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
+{% block content %}
+<section>
+    <h2><code>{{ asked.command }}</code> {{ t.apply if asked.apply else t.dry_run }}</h2>
+    {% if locked %}
+        <p class="warning">{{ t.request_locked }}</p>
+    {% else %}
+        <p class="muted">{{ t.request_waiting }}</p>
+    {% endif %}
+    <p><a href="{{ url_for('home') }}">{{ t.overview }}</a></p>
+</section>
+{% endblock %}

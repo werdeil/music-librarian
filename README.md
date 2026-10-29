@@ -16,7 +16,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`dedupe`** finds the names of one artist spelled several ways: the same once case, accents, punctuation and a leading `The` are set aside (`Beyonce` / `Beyoncé`), the same MusicBrainz id, a close spelling (`Mettalica`), or a partial name (`Bach` / `Johann Sebastian Bach`). `dedupe --review` asks about each group one at a time and keeps the answers in `state/artist-aliases.txt` (`Beyonce => Beyoncé`, or `John Lennon != Julian Lennon`), and `--apply` rewrites the variants in the tags. `import` and `enrich` then apply the aliases by themselves; details in [docs/dedupe.md](docs/dedupe.md).
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich --rescan` weekly (`--enrich-at "sun 03:00"`), so the metadata cache is read again in full once a week.
 - **`undo JOURNAL`** replays a run's journal in reverse, moves and tag changes alike.
-- **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the credits awaiting a decision, in English or French. It only reads; details in [docs/web.md](docs/web.md).
+- **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the credits awaiting a decision, in English or French. It also runs any command, as a dry run first, then applies it or undoes an applied pass from its page, provided `watch` itself runs with `--apply`; details in [docs/web.md](docs/web.md).
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
 ## Running it
@@ -77,7 +77,7 @@ With a validated genre list, `import` and `enrich` rewrite each track's genre to
 
 ## Security
 
-The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale.
+The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass, and can run any command on the library. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale.
 
 ## Documentation
 

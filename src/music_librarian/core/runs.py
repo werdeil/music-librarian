@@ -1,4 +1,5 @@
 """Run history: one row per pass in state/runs.db, and the pass's output in state/runs/<id>.log."""
+import json
 import os
 import re
 import socket
@@ -24,10 +25,10 @@ def connect(state_dir: Path):
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, command TEXT, "
                "origin TEXT, apply INTEGER, started REAL, ended REAL, code INTEGER, summary TEXT, "
-               "host TEXT, pid INTEGER)")
-    # a runs.db of version 0.1 has no host nor pid
+               "host TEXT, pid INTEGER, options TEXT)")
+    # a runs.db of version 0.1 has none of the last three
     columns = {row[1] for row in db.execute("PRAGMA table_info(runs)")}
-    for name, kind in (("host", "TEXT"), ("pid", "INTEGER")):
+    for name, kind in (("host", "TEXT"), ("pid", "INTEGER"), ("options", "TEXT")):
         if name not in columns:
             db.execute(f"ALTER TABLE runs ADD COLUMN {name} {kind}")
     return db
@@ -60,18 +61,22 @@ class Output:
         self.f.close()
 
 
-def recorded(fn, log, state_dir: Path, command, apply, origin="cli"):
+def recorded(fn, log, state_dir: Path, command, apply, origin="cli", request=None):
     """fn()'s exit code, the pass being kept in the run history with what `log` prints meanwhile.
 
     A pass that found the lock taken did nothing and is not kept. The oldest runs beyond KEEP
-    are dropped, their log files with them.
+    are dropped, their log files with them. A dashboard `request` gets the run's id as soon as it
+    is recorded, and its options are kept with the run.
     """
+    options = json.dumps(request.options) if request else None
     db = connect(state_dir)
     with db:
-        run_id = db.execute("INSERT INTO runs (command, origin, apply, started, host, pid) "
-                            "VALUES (?, ?, ?, ?, ?, ?)",
+        run_id = db.execute("INSERT INTO runs (command, origin, apply, started, host, pid, options) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
                             (command, origin, int(apply), time.time(), socket.gethostname(),
-                             os.getpid())).lastrowid
+                             os.getpid(), options)).lastrowid
+    if request:
+        request.run_id = run_id
     out = Output(log_path(state_dir, run_id))
     previous, log.tee = log.tee, out
     code = None
@@ -152,13 +157,14 @@ def _select(state_dir: Path, where="", args=(), limit=None):
                           + (" LIMIT ?" if limit else ""), (*args, *([limit] if limit else []))).fetchall()
     finally:
         db.close()
-    return [dict(r, apply=bool(r["apply"]), summary=(r["summary"] or "").splitlines()) for r in rows]
+    return [dict(r, apply=bool(r["apply"]), summary=(r["summary"] or "").splitlines(),
+                 options=json.loads(r["options"]) if r["options"] else None) for r in rows]
 
 
 def recent(state_dir: Path, limit=20, command=None):
     """The latest runs, newest first, of one command or all: dicts of the runs table's columns,
-    `summary` as a list of lines. `ended` and `code` are None while a run is going on, `code`
-    alone for a pass that crashed."""
+    `summary` as a list of lines, `options` those of a dashboard request or None. `ended` and
+    `code` are None while a run is going on, `code` alone for a pass that crashed."""
     if command:
         return _select(state_dir, "WHERE command = ?", (command,), limit)
     return _select(state_dir, limit=limit)

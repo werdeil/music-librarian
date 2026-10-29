@@ -236,3 +236,57 @@ footer {
     font-size: 0.8rem;
     color: var(--text-muted);
 }
+
+.pass-forms {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.pass-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: var(--fs-sm);
+}
+
+.pass-command {
+    min-width: 6rem;
+}
+
+.pass-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    flex: 1;
+    color: var(--text-muted);
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+button {
+    font: inherit;
+    color: var(--text-bright);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.3rem 0.9rem;
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--accent);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #111;
+}

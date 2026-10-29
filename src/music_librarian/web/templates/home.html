@@ -10,6 +10,31 @@
     {% endif %}
 </section>
 
+{% if ctx.requests %}
+<section>
+    <h2>{{ t.run_a_pass }}</h2>
+    {% if queued %}
+        <p class="muted">{{ t.queued }} {% for asked in queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
+    {% endif %}
+    <div class="pass-forms">
+    {% for command, names in options.items() if command != 'undo' %}
+        <form method="post" action="{{ url_for('new_pass') }}" class="pass-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="command" value="{{ command }}">
+            <code class="pass-command">{{ command }}</code>
+            <span class="pass-options">
+            {% for name in names %}
+                <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
+            {% endfor %}
+            </span>
+            <button type="submit">{{ t.run_button if command == 'scan' else t.dry_run_button }}</button>
+        </form>
+    {% endfor %}
+    </div>
+    <p class="muted">{{ t.dry_run_first if ctx.apply else t.watch_dry_run }}</p>
+</section>
+{% endif %}
+
 <section>
     <h2>{{ t.schedule }}</h2>
     <div class="table-wrap">

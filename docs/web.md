@@ -2,7 +2,7 @@
 
 `watch --listen [HOST:]PORT` serves a dashboard on that address while it watches the Inbox: the passes running and the recent ones with their output, the schedule, the Inbox and the credits awaiting a decision. The compose file serves it on port 8080 (`WEB_PORT` in `.env` to change the host's port); without a host, every interface is listened on. `MUSIC_LIBRARIAN_LISTEN` sets the address when `--listen` is not given.
 
-The dashboard only reads: the run history and the decisions file in the state folder, and the Inbox root. It changes nothing, so it shows the same whether `watch` runs with `--apply` or not; the badge at the top says which.
+The pages read the run history and the decisions file in the state folder, and the Inbox root, on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. The badge at the top says whether `watch` runs with `--apply`.
 
 ## Pages
 
@@ -11,6 +11,14 @@ The dashboard only reads: the run history and the decisions file in the state fo
 - **A run**: its mode, who started it (`watch`, the command line), its duration and exit code, its summary, and its whole output, each line coloured by its tag (`ERROR`, `CONFLICT` and `FAILED` in red, `SKIPPED`, `WARNING`, `REFUSED`, `UNKNOWN`, `GUARDED`, `REVIEW`, `STOP` and `LOCKED` in yellow). While the run goes on, the new lines are appended every 2 seconds, and the page reloads with the summary once it ends. "Plain text" gives the output as a file.
 
 Times are the container's (`TZ` in `.env`).
+
+## Running a pass
+
+The overview has a form per command: `import`, `organize` (`--since` ticked by default), `enrich` (`--rescan`, `--no-split`, `--no-dedupe`), `scan` (`--force`), `split` and `dedupe`. Each starts as a dry run and opens the run's page, which follows it live once `watch` gets to it; while a pass is running, the request waits in the queue, listed on the overview.
+
+The page of a dry run started from the dashboard then offers **Apply this pass**: the same command with the same options, applied. It is a new pass, which plans again from the library as it then is. The page of an applied pass that left a journal offers **Undo this pass**, again as a dry run first. Nothing is applied from the dashboard unless `watch` runs with `--apply`: without it, the dashboard runs dry runs only.
+
+A request that finds the lock taken (a command run by hand, `docker compose run`) is not kept, and its page says so. The queue lives in `watch`: a restart drops the requests not yet started. The `--review` modes of `split` and `dedupe` ask questions and stay on the command line.
 
 ## Statuses
 
@@ -31,7 +39,7 @@ The pages are in French or English, after the browser's preferred language, Engl
 
 ## Security
 
-The dashboard has **no authentication**: it is meant for a trusted home network. Anyone who can reach its port sees the library's paths, the names in the Inbox and the output of every pass. Never expose the port to the Internet (no port forwarding, no public reverse proxy); for remote access, join the home network through a VPN such as WireGuard or Tailscale.
+The dashboard has **no authentication**: it is meant for a trusted home network. Anyone who can reach its port sees the library's paths, the names in the Inbox and the output of every pass, and can run any command, applied when `watch` runs with `--apply`. Each form carries a token of the page, so another website open in a browser of the network cannot post to it. Never expose the port to the Internet (no port forwarding, no public reverse proxy); for remote access, join the home network through a VPN such as WireGuard or Tailscale.
 
 ## Endpoints
 
@@ -42,11 +50,14 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/runs/<id>` | a run |
 | `/runs/<id>/log.txt` | its output as plain text |
 | `/runs/<id>/log.json?from=<offset>&kind=<kind>` | the complete lines written since byte `offset`, each with its style (`error`, `warning`, `section` or empty), the offset to ask from next, and the run's status; `kind` is the style of the line before `offset`, which an indented line continues |
+| `POST /passes` | queues a dry run (`command`, its options, and `journal` for `undo`), or the pass applied with `apply=1`; redirects to the request |
+| `POST /runs/<id>/apply` | queues a dashboard dry run again, applied |
+| `/requests/<id>` | waits for a queued request, then redirects to its run |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
 
 ## For contributors
 
-The package is `web/`: `app.py` (the pages, read on each request), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
+The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, and how each command is built from the options of `watch`), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
 
 - Every string shown lives in `web/i18n.py`, in `fr` and `en` with the same keys; a test checks they match.
 - The Content Security Policy is `default-src 'self'`: no inline script or style, everything from `static/`.
