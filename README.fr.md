@@ -16,6 +16,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`dedupe`** repère les noms d'un même artiste écrits de plusieurs façons : identiques une fois la casse, les accents, la ponctuation et un `The` initial mis de côté (`Beyonce` / `Beyoncé`), même identifiant MusicBrainz, orthographe proche (`Mettalica`), ou nom partiel (`Bach` / `Johann Sebastian Bach`). `dedupe --review` présente chaque groupe un par un et garde les réponses dans `state/artist-aliases.txt` (`Beyonce => Beyoncé`, ou `John Lennon != Julian Lennon`), et `--apply` réécrit les variantes dans les tags. `import` et `enrich` appliquent ensuite les alias d'eux-mêmes ; détails dans [docs/dedupe.md](docs/dedupe.md) (en anglais).
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich --rescan` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français) : le cache des métadonnées est ainsi relu en entier une fois par semaine.
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers, déplacements comme changements de tags.
+- **Le dashboard**, servi par `watch --listen` (sur le port 8080 avec le fichier compose), montre les passages en cours et les derniers avec leur sortie suivie en direct, la programmation, l'Inbox et les crédits en attente de décision, en français ou en anglais. Il ne fait que lire ; détails dans [docs/web.md](docs/web.md) (en anglais).
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
 
 ## Lancement
@@ -26,7 +27,7 @@ Docker est la voie prévue. ffmpeg est dans l'image, et les tests tournent au bu
 cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
 mkdir state               # journaux, dernier passage, verrou, cache des métadonnées et historique des passages ; à créer avant le premier lancement
 docker compose build
-docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00
+docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00, dashboard sur :8080
 journalctl -t music-librarian -f
 ```
 
@@ -62,6 +63,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
+| `MUSIC_LIBRARIAN_LISTEN` | Adresse du dashboard, `[HÔTE:]PORT` (`watch --listen` ; le fichier compose fixe `8080`, et `WEB_PORT` le port de l'hôte) |
 
 Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
 
@@ -73,10 +75,15 @@ Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les do
 
 Avec une liste de genres validés, `import` et `enrich` réécrivent le genre de chaque piste dans l'orthographe de la liste. Copier [`genres.example.txt`](genres.example.txt) en `state/genres.txt` et l'adapter : un genre validé par ligne, suivi au besoin de deux-points et des noms qui le désignent (`Rock Dur: hard rock, metal`). Les noms sont comparés sans tenir compte de la casse, des accents, des espaces ni de la ponctuation, et un tag qui porte plusieurs genres (`Rock; Pop`) prend le premier que la liste connaît. Un genre inconnu de la liste est laissé tel quel et signalé `UNKNOWN` : l'ajouter à la liste, et le prochain `enrich` hebdomadaire l'aligne. Sans liste, les genres ne sont pas touchés.
 
+## Sécurité
+
+Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port voit les chemins de la bibliothèque, l'Inbox et la sortie de chaque passage. Gardez-le sur le réseau de la maison : pas de redirection de port, pas de reverse proxy public. Pour y accéder de l'extérieur, rejoignez le réseau par un VPN comme WireGuard ou Tailscale.
+
 ## Documentation
 
 En anglais :
 
+- [Dashboard](docs/web.md) : ses pages, les états d'un passage, et ses routes
 - [Règles de nommage](docs/naming-rules.md) : construction des chemins cibles, et quand un fichier est considéré en place
 - [Découpage des crédits](docs/splitting.md) : quels compositeurs et artistes sont découpés, et le fichier de décisions
 - [Unification des noms d'artistes](docs/dedupe.md) : quels noms sont regroupés, et le fichier d'alias

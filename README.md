@@ -16,6 +16,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`dedupe`** finds the names of one artist spelled several ways: the same once case, accents, punctuation and a leading `The` are set aside (`Beyonce` / `Beyoncé`), the same MusicBrainz id, a close spelling (`Mettalica`), or a partial name (`Bach` / `Johann Sebastian Bach`). `dedupe --review` asks about each group one at a time and keeps the answers in `state/artist-aliases.txt` (`Beyonce => Beyoncé`, or `John Lennon != Julian Lennon`), and `--apply` rewrites the variants in the tags. `import` and `enrich` then apply the aliases by themselves; details in [docs/dedupe.md](docs/dedupe.md).
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich --rescan` weekly (`--enrich-at "sun 03:00"`), so the metadata cache is read again in full once a week.
 - **`undo JOURNAL`** replays a run's journal in reverse, moves and tag changes alike.
+- **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the credits awaiting a decision, in English or French. It only reads; details in [docs/web.md](docs/web.md).
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
 ## Running it
@@ -26,7 +27,7 @@ Docker is the intended way. ffmpeg comes with the image, and the test suite runs
 cp .env.example .env      # set the library, Inbox and (optionally) Lyrion paths
 mkdir state               # journals, last run, lock, metadata cache and run history; must exist before the first start
 docker compose build
-docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on Sundays at 03:00
+docker compose up -d      # watch --apply, organize nightly at 02:00, enrich on Sundays at 03:00, dashboard on :8080
 journalctl -t music-librarian -f
 ```
 
@@ -62,6 +63,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
+| `MUSIC_LIBRARIAN_LISTEN` | Address of the dashboard, `[HOST:]PORT` (`watch --listen`; the compose file sets `8080`, and `WEB_PORT` the host's port) |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
 
@@ -73,8 +75,13 @@ The compose file reads its own variables from `.env`; `.env.example` documents t
 
 With a validated genre list, `import` and `enrich` rewrite each track's genre to the list's spelling. Copy [`genres.example.txt`](genres.example.txt) to `state/genres.txt` and adapt it: one validated genre per line, optionally followed by a colon and the names that stand for it (`Rock Dur: hard rock, metal`). Names are compared without case, accents, spaces or punctuation, and a tag holding several genres (`Rock; Pop`) takes the first one the list knows. A genre the list does not know is left as is and reported as `UNKNOWN`: add it to the list and the next weekly `enrich` aligns it. Without a list, genres are left alone.
 
+## Security
+
+The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale.
+
 ## Documentation
 
+- [Dashboard](docs/web.md): its pages, the statuses of a run, and its routes
 - [Naming rules](docs/naming-rules.md): how target paths are built, and when a file counts as in place
 - [Splitting credits](docs/splitting.md): which composer and artist credits are split, and the decisions file
 - [Unifying artist names](docs/dedupe.md): which names are grouped, and the aliases file

@@ -23,11 +23,16 @@ slot, unless it already ran since (state/enrich_last_run). It first reads every
 file again into the metadata cache (enrich --rescan). Without a known
 pass, the first one runs at the next slot, not at startup.
 
+With --listen [HOST:]PORT, the dashboard (web/) is served on that address
+(every interface without a host): the recent runs and their output, the
+schedule and the Inbox. It only reads the state folder and the Inbox.
+
 The import options (--settle, --no-enrich…) apply to every import; --root,
 --state-dir and the Lyrion ones to organize too.
 On SIGTERM or Ctrl-C, the current pass stops cleanly, then the loop.
 """
 import argparse
+import os
 import sys
 import traceback
 from datetime import date, datetime, timedelta
@@ -36,6 +41,7 @@ from pathlib import Path
 from music_librarian import enrich, importer, organize
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
+from music_librarian.core import runs
 from music_librarian.core.runs import recorded
 
 
@@ -69,6 +75,15 @@ def weekly(s):
         raise argparse.ArgumentTypeError(
             f"expected a slot as 'DAY HH:MM' (DAY among {', '.join(DAYS)}): {s!r}"
         ) from None
+
+
+def address(s):
+    """'[HOST:]PORT' -> (host, port), every interface without a host."""
+    host, _, port = s.rpartition(":")
+    try:
+        return host or "0.0.0.0", int(port)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected [HOST:]PORT: {s!r}") from None
 
 
 def last_slot(t: datetime, day, at):
@@ -160,6 +175,14 @@ class WeeklyEnrich:
             log("")
 
 
+def start_dashboard(args, import_opts, log):
+    from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
+    ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
+                         apply=args.apply, interval=args.interval, organize_at=args.organize_at,
+                         enrich_at=args.enrich_at)
+    return server.serve(ctx, args.listen, log)
+
+
 def main(argv=None):
     ap = importer.parser()
     ap.description = "Watch the Inbox and run the import."
@@ -169,6 +192,9 @@ def main(argv=None):
                     help="run organize --since every day from this time")
     ap.add_argument("--enrich-at", type=weekly, metavar="DAY HH:MM",
                     help="enrich the whole library every week from this slot (e.g. 'sun 03:00')")
+    ap.add_argument("--listen", type=address, metavar="[HOST:]PORT",
+                    default=os.environ.get("MUSIC_LIBRARIAN_LISTEN"),
+                    help="serve the dashboard on this address (default: $MUSIC_LIBRARIAN_LISTEN)")
     args = ap.parse_args(argv)
     import_opts = importer.options(args)
     state_dir = import_opts.state_dir
@@ -185,6 +211,8 @@ def main(argv=None):
         jobs.append(WeeklyEnrich(args.enrich_at, enrich_opts, now().timestamp()))
 
     log = Log()
+    runs.close_stale(state_dir)
+    server = start_dashboard(args, import_opts, log) if args.listen else None
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] watching {args.inbox} "
         f"every {args.interval:g} s"
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
@@ -196,6 +224,8 @@ def main(argv=None):
                 break
             job.tick(log)
         STOP.wait(args.interval)
+    if server:
+        server.close()
     log("STOP     watch ended")
     return 0
 

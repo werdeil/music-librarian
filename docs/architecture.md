@@ -8,7 +8,7 @@ music-librarian is a single Python package, `music_librarian`, with one command-
 src/music_librarian/
 ├── cli.py           music-librarian <command>: dispatches to the modules below
 ├── importer.py      import: Inbox items → conversion → organize → enrich → split → dedupe
-├── watch.py         watch: the long-running loop of the container
+├── watch.py         watch: the long-running loop of the container, and the dashboard's server
 ├── scan.py          scan: the whole library's metadata read into the cache
 ├── core/            what every command shares
 │   ├── files.py     audio extensions, junk files, emptied folders
@@ -44,7 +44,12 @@ src/music_librarian/
 │                    artwork.py (image sizes), convert.py (FLAC → ALAC and its checks), atoms.py
 │                    (where moov sits in an MP4 file), faststart.py (moov moved ahead of mdat in
 │                    existing MP4 files)
-└── integrations/    lyrion.py, see lyrion.md
+├── integrations/    lyrion.py, see lyrion.md
+└── web/             the dashboard served by watch --listen, see web.md
+    ├── app.py       the pages, read from the state folder and the Inbox on each request
+    ├── server.py    waitress in a thread of watch
+    ├── i18n.py      the strings shown, in French and English
+    └── templates/, static/
 ```
 
 ## Who runs what
@@ -57,6 +62,7 @@ src/music_librarian/
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
+| `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; reads only |
 
 The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
 
@@ -119,7 +125,7 @@ The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder
 
 ### The run history
 
-Each pass is kept in the state folder, whichever way it was started: one row in `runs.db` (command, origin `cli` or `watch`, apply, start and end, exit code, summary) and its output in `runs/<id>.log`, the 200 latest only. The commands' `main` and the jobs of `watch` run their pass through `runs.recorded`, which tees the pass's `Log` into the file; the passes called within it (`scan` under `enrich --rescan`, `organize_pass` under `import`, `split_pass` and `dedupe_pass`) write to the same run, and `enrich` passes on the output of its tool processes line by line. The summary is the `key: value` lines of the last `--- … ---` section that has any. A pass that found the lock taken did nothing and is not kept; one that crashed keeps its traceback and no exit code. The `--review` modes are not recorded: they only write the decisions and aliases files.
+Each pass is kept in the state folder, whichever way it was started: one row in `runs.db` (command, origin `cli` or `watch`, apply, start and end, exit code, summary, host and pid) and its output in `runs/<id>.log`, the 200 latest only. The commands' `main` and the jobs of `watch` run their pass through `runs.recorded`, which tees the pass's `Log` into the file; the passes called within it (`scan` under `enrich --rescan`, `organize_pass` under `import`, `split_pass` and `dedupe_pass`) write to the same run, and `enrich` passes on the output of its tool processes line by line. The summary is the `key: value` lines of the last `--- … ---` section that has any. Each row also keeps the host and pid of its process: a run with no end whose process is gone from this host shows as interrupted, and `watch` closes the unfinished runs of its host as it starts, since its pid may be the one of the watch killed before it. A pass that found the lock taken did nothing and is not kept; one that crashed keeps its traceback and no exit code. The `--review` modes are not recorded: they only write the decisions and aliases files.
 
 ## Conventions
 

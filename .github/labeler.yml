@@ -22,6 +22,10 @@ dedupe:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/dedupe/**"]
 
+web:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/web/**", "eslint.config.mjs"]
+
 lyrics:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/lyrics/**", "src/music_librarian/enrich/lyrics.py"]
