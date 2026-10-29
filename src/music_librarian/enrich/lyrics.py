@@ -32,7 +32,7 @@ Several targets are accepted, and shell-style wildcards work even when quoted
 Each target may be a directory (scanned recursively) or a single music file.
 
 A file looked up in vain is not looked up again for LYRICS_RETRY_DAYS (default 30),
-unless its artist, title or album changes or --force is given (lyrics/misses.py).
+unless its artist, title or album changes or --force or --retry is given (lyrics/misses.py).
 
 A stop request lets the current file finish, then stops (exit code 4); a tag that
 could not be written gives exit code 2. A miss, a rejected match or an unreachable
@@ -82,6 +82,10 @@ def parse_args(argv):
         "--force", action="store_true",
         help="Overwrite the lyrics tag even when one is already present, and look up "
              "the files found in vain recently too.",
+    )
+    parser.add_argument(
+        "--retry", action="store_true",
+        help="Look up the files found in vain recently too, without waiting LYRICS_RETRY_DAYS.",
     )
     parser.add_argument(
         "--clear", action="store_true",
@@ -158,7 +162,7 @@ def handle(path, rel, args, log, cache, misses):
         if args.verbose:
             log(f"SKIPPED  (has lyrics)  {rel}")
         return "already"
-    if not already and not args.force and misses.recent(path, meta):
+    if not already and not (args.force or args.retry) and misses.recent(path, meta):
         if args.verbose:
             log(f"SKIPPED  (looked up in vain recently)  {rel}")
         return "searched recently"

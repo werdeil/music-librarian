@@ -3,7 +3,7 @@
 import pytest
 
 from music_librarian.lyrics import misses
-from music_librarian.lyrics.misses import Misses
+from music_librarian.lyrics.misses import Misses, recorded
 
 META = {"artist": "Nirvana", "title": "Titre", "album": "Album"}
 DAY = 86400
@@ -57,3 +57,13 @@ def test_retry_days_from_env(monkeypatch, value, days):
     else:
         monkeypatch.setenv("LYRICS_RETRY_DAYS", value)
     assert misses.retry_days() == days
+
+
+def test_recorded_lists_the_misses_within_the_delay(tmp_path):
+    clock = [1000.0]
+    with Misses(tmp_path, days=30, now=lambda: clock[0]) as misses:
+        misses.record(tmp_path / "old.m4a", {"artist": "A", "title": "T"})
+        clock[0] += 31 * 86400
+        misses.record(tmp_path / "new.m4a", {"artist": "A", "title": "U"})
+    assert recorded(tmp_path, days=30, now=lambda: clock[0]) == {tmp_path / "new.m4a": clock[0]}
+    assert recorded(tmp_path / "nothing", days=30) == {}

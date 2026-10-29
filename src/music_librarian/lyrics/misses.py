@@ -62,3 +62,18 @@ class Misses:
 
 def _key(path):
     return os.fsencode(os.path.abspath(path))
+
+
+def recorded(state_dir: Path, days=None, now=time.time):
+    """{path: time of its last lookup} of the files looked up in vain within the retry delay,
+    read without changing the file."""
+    path = Path(state_dir) / FILE
+    if not path.exists():
+        return {}
+    cutoff = now() - (retry_days() if days is None else days) * 86400
+    db = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=60)
+    try:
+        rows = db.execute("SELECT path, checked_at FROM misses WHERE checked_at > ?", (cutoff,)).fetchall()
+    finally:
+        db.close()
+    return {Path(os.fsdecode(key)): at for key, at in rows}

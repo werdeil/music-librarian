@@ -48,7 +48,7 @@
             <thead>
                 <tr>
                     <th>{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
-                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.file }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.file }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -66,6 +66,9 @@
                 {% else %}
                     <td colspan="5" class="warning">{{ t.unreadable }}</td>
                 {% endif %}
+                    {% set state = lyrics.get(file) %}
+                    <td class="{{ 'warning' if state and state is not sameas true else 'muted' if not state }}">
+                        {{ t.lyrics_present if state is sameas true else t.lyrics_missed.format(date=state) if state else t.lyrics_none }}</td>
                     <td><code class="muted">{{ file }}</code></td>
                 </tr>
             {% endfor %}
@@ -81,4 +84,16 @@
     <p class="muted">{{ t.edit_hint }}</p>
     {% endif %}
 </form>
+
+{% if ctx.requests %}
+<section>
+    <h2>{{ t.lyrics }}</h2>
+    <form method="post" action="{{ url_for('album_lyrics') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="folder" value="{{ folder }}">
+        <button type="submit">{{ t.lyrics_button }}</button>
+    </form>
+    <p class="muted">{{ t.lyrics_hint }}</p>
+</section>
+{% endif %}
 {% endblock %}

@@ -160,3 +160,12 @@ def test_unreachable_not_recorded(album, web, capsys):
     run(d)
     assert len(calls) == 6
     assert "searched recently: 0" in capsys.readouterr().out
+
+
+def test_retry_looks_up_a_recent_miss_without_overwriting(album, web):
+    d, _ = album
+    calls, answer = web
+    answer.update(synced=None, source="none")
+    run(d)
+    assert run(d, "--retry") == 0
+    assert len(calls) == 6

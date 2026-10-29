@@ -104,6 +104,20 @@ TRANSLATIONS = {
         "nothing_changed": "Rien n'a changé.",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
+        "lyrics": "Paroles",
+        "lyrics_present": "oui",
+        "lyrics_missed": "cherchées en vain le {date}",
+        "lyrics_none": "—",
+        "lyrics_button": "Chercher les paroles de l'album (dry run)",
+        "lyrics_hint": ("Sans attendre le délai avant une nouvelle recherche : la page du passage "
+                        "montre ce qui a été trouvé et propose de l'écrire."),
+        "lyrics_not_found": "Paroles introuvables",
+        "lyrics_missed_albums": "paroles introuvables : {n} album(s)",
+        "lyrics_page_intro": ("Les albums dont des pistes ont été cherchées en vain ces {days} derniers "
+                              "jours : enrich les cherche à nouveau ensuite, ou tout de suite depuis la "
+                              "page de l'album."),
+        "lyrics_none_missed": "Aucune piste cherchée en vain récemment.",
+        "last_lookup": "Dernière recherche",
         "reviews": "Revues",
         "reviews_intro": ("Les questions de split et de dedupe, une à la fois : chaque réponse est "
                           "enregistrée aussitôt dans le fichier de décisions ou d'alias du dossier d'état, "
@@ -234,6 +248,19 @@ TRANSLATIONS = {
         "nothing_changed": "Nothing changed.",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
+        "lyrics": "Lyrics",
+        "lyrics_present": "yes",
+        "lyrics_missed": "not found on {date}",
+        "lyrics_none": "—",
+        "lyrics_button": "Look up the album's lyrics (dry run)",
+        "lyrics_hint": ("Without waiting for the delay before a new lookup: the run's page shows what "
+                        "was found and offers to write it."),
+        "lyrics_not_found": "Lyrics not found",
+        "lyrics_missed_albums": "lyrics not found: {n} album(s)",
+        "lyrics_page_intro": ("The albums whose tracks were looked up in vain over the last {days} days: "
+                              "enrich looks them up again after that, or right away from the album's page."),
+        "lyrics_none_missed": "No track looked up in vain lately.",
+        "last_lookup": "Last lookup",
         "reviews": "Reviews",
         "reviews_intro": ("The questions of split and dedupe, one at a time: each answer is saved at once "
                           "in the decisions or aliases file of the state folder, and holds for the passes "

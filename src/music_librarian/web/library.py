@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.lyrics import misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -172,3 +173,27 @@ def cover(folder: Path):
             if data:
                 return data, "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
     return None
+
+
+def lyrics_state(state_dir: Path, folder: Path, names):
+    """{file name: True when it carries lyrics, the time of a lookup in vain within the retry
+    delay, else None}."""
+    missed = misses.recorded(state_dir)
+    out = {}
+    for name in names:
+        try:
+            has = tags.has_lyrics(folder / name)
+        except Exception:
+            has = False
+        out[name] = True if has else missed.get(folder / name)
+    return out
+
+
+def missed_albums(root: Path, state_dir: Path):
+    """[(folder relative to the root, tracks looked up in vain, last lookup)] of the albums of
+    the library, the most tracks first."""
+    folders = defaultdict(list)
+    for path, at in misses.recorded(state_dir).items():
+        if path.is_relative_to(root) and path.exists():
+            folders[str(path.parent.relative_to(root))].append(at)
+    return sorted(((f, len(ats), max(ats)) for f, ats in folders.items()), key=lambda a: (-a[1], a[0]))
