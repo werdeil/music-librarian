@@ -16,7 +16,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`dedupe`** repère les noms d'un même artiste écrits de plusieurs façons : identiques une fois la casse, les accents, la ponctuation et un `The` initial mis de côté (`Beyonce` / `Beyoncé`), même identifiant MusicBrainz, orthographe proche (`Mettalica`), ou nom partiel (`Bach` / `Johann Sebastian Bach`). `dedupe --review` présente chaque groupe un par un et garde les réponses dans `state/artist-aliases.txt` (`Beyonce => Beyoncé`, ou `John Lennon != Julian Lennon`), et `--apply` réécrit les variantes dans les tags. `import` et `enrich` appliquent ensuite les alias d'eux-mêmes ; détails dans [docs/dedupe.md](docs/dedupe.md) (en anglais).
 - **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée, et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich --rescan` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français) : le cache des métadonnées est ainsi relu en entier une fois par semaine.
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers, déplacements comme changements de tags.
-- **Le dashboard**, servi par `watch --listen` (sur le port 8080 avec le fichier compose), montre les passages en cours et les derniers avec leur sortie suivie en direct, la programmation, l'Inbox et les crédits en attente de décision, en français ou en anglais. Il ne fait que lire ; détails dans [docs/web.md](docs/web.md) (en anglais).
+- **Le dashboard**, servi par `watch --listen` (sur le port 8080 avec le fichier compose), montre les passages en cours et les derniers avec leur sortie suivie en direct, la programmation, l'Inbox et les crédits en attente de décision, en français ou en anglais. Il lance aussi n'importe quelle commande, d'abord en dry run, puis l'applique ou annule un passage appliqué depuis sa page, à condition que `watch` tourne lui-même avec `--apply` ; détails dans [docs/web.md](docs/web.md) (en anglais).
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
 
 ## Lancement
@@ -77,7 +77,7 @@ Avec une liste de genres validés, `import` et `enrich` réécrivent le genre de
 
 ## Sécurité
 
-Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port voit les chemins de la bibliothèque, l'Inbox et la sortie de chaque passage. Gardez-le sur le réseau de la maison : pas de redirection de port, pas de reverse proxy public. Pour y accéder de l'extérieur, rejoignez le réseau par un VPN comme WireGuard ou Tailscale.
+Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port voit les chemins de la bibliothèque, l'Inbox et la sortie de chaque passage, et peut lancer n'importe quelle commande sur la bibliothèque. Gardez-le sur le réseau de la maison : pas de redirection de port, pas de reverse proxy public. Pour y accéder de l'extérieur, rejoignez le réseau par un VPN comme WireGuard ou Tailscale.
 
 ## Documentation
 

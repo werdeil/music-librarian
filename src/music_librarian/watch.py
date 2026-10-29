@@ -25,7 +25,8 @@ pass, the first one runs at the next slot, not at startup.
 
 With --listen [HOST:]PORT, the dashboard (web/) is served on that address
 (every interface without a host): the recent runs and their output, the
-schedule and the Inbox. It only reads the state folder and the Inbox.
+schedule and the Inbox. The passes it asks for are queued and run by this
+loop, between its other jobs; it can only apply them when watch does.
 
 The import options (--settle, --no-enrich…) apply to every import; --root,
 --state-dir and the Lyrion ones to organize too.
@@ -34,6 +35,7 @@ On SIGTERM or Ctrl-C, the current pass stops cleanly, then the loop.
 import argparse
 import os
 import sys
+import time
 import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -43,6 +45,7 @@ from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
 from music_librarian.core.log import Log
 from music_librarian.core import runs
 from music_librarian.core.runs import recorded
+from music_librarian.web.passes import Requests, passes
 
 
 def signature(inbox_dir: Path):
@@ -61,6 +64,7 @@ def hhmm(s):
         raise argparse.ArgumentTypeError(f"expected a time as HH:MM: {s!r}") from None
 
 
+WAKE_CHECK = 0.5  # seconds between two checks for a dashboard request during a pause
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 FRENCH_DAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]  # accepted too
 
@@ -175,12 +179,21 @@ class WeeklyEnrich:
             log("")
 
 
-def start_dashboard(args, import_opts, log):
+def start_dashboard(args, import_opts, requests, log):
     from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
     ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
                          apply=args.apply, interval=args.interval, organize_at=args.organize_at,
-                         enrich_at=args.enrich_at)
+                         enrich_at=args.enrich_at, requests=requests)
     return server.serve(ctx, args.listen, log)
+
+
+def pause(seconds, wake):
+    """Wait `seconds`, or less once a stop is requested or `wake` is set."""
+    end = time.monotonic() + seconds
+    while True:
+        STOP.wait(min(WAKE_CHECK, max(end - time.monotonic(), 0)))
+        if STOP.is_set() or wake.is_set() or time.monotonic() >= end:
+            return
 
 
 def main(argv=None):
@@ -209,10 +222,13 @@ def main(argv=None):
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:
         jobs.append(WeeklyEnrich(args.enrich_at, enrich_opts, now().timestamp()))
+    requests = Requests(passes(import_opts, organize_opts, enrich_opts, import_log), safe)
+    if args.listen:
+        jobs.insert(0, requests)
 
     log = Log()
     runs.close_stale(state_dir)
-    server = start_dashboard(args, import_opts, log) if args.listen else None
+    server = start_dashboard(args, import_opts, requests, log) if args.listen else None
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] watching {args.inbox} "
         f"every {args.interval:g} s"
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
@@ -223,7 +239,7 @@ def main(argv=None):
             if STOP.is_set():
                 break
             job.tick(log)
-        STOP.wait(args.interval)
+        pause(args.interval, requests.wake)
     if server:
         server.close()
     log("STOP     watch ended")
