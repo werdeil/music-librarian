@@ -72,7 +72,9 @@ SINCE_MARGIN = 2.0
 @dataclass
 class Options:
     """A filing pass. `paths` defaults to the whole root; with `interruptible`
-    False a stop request does not cut the moves short (import files an item entirely or not at all)."""
+    False a stop request does not cut the moves short (import files an item entirely or not at all).
+    `overrides` ({path: tags as read_tags returns them}) files those files by these tags instead
+    of theirs, for a dry run of tags not written yet."""
     root: Path
     paths: list = field(default_factory=list)
     apply: bool = False
@@ -82,6 +84,7 @@ class Options:
     state_dir: Path = field(default_factory=state_path)
     lyrion: Lyrion | None = None
     interruptible: bool = True
+    overrides: dict = field(default_factory=dict)
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -191,8 +194,9 @@ def exact_folder_elsewhere(root, cur_rel, tgt_rel):
     return False
 
 
-def organize_pass(opts: Options, log):
-    """A filing pass, without taking the lock: the caller holds it when `opts.apply`."""
+def organize_pass(opts: Options, log, journal=None):
+    """A filing pass, without taking the lock: the caller holds it when `opts.apply`. Its moves
+    go to `journal` when given, which the caller then closes, else to a journal of its own."""
     started = time.time()
     root, state_dir = opts.root, opts.state_dir
     scan = opts.paths or [root]
@@ -222,7 +226,7 @@ def organize_pass(opts: Options, log):
                 continue
             stats["scanned"] += 1
             try:
-                tags = file_tags(p, root, cache)
+                tags = opts.overrides.get(p) or file_tags(p, root, cache)
             except Exception as e:
                 log(f"SKIPPED  (unreadable: {e})  {p}")
                 stats["skipped"] += 1
@@ -308,7 +312,9 @@ def organize_pass(opts: Options, log):
     for src, dst in moves + extra:
         log(f"MOVE     {src}\n         → {dst}")
 
-    journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
+    own_journal = journal is None
+    if own_journal:
+        journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
     done = []
     stopped = False
     if opts.apply:
@@ -340,7 +346,8 @@ def organize_pass(opts: Options, log):
         # next full pass, or as soon as their folder is touched.
         if scan == [root] and not stopped:
             write_stamp(state_dir, LAST_RUN, started - SINCE_MARGIN)
-    journal.close()
+    if own_journal:
+        journal.close()
 
     stats["to rewrite"] = len(rewrites)
     stats["to move"] = len(moves)
@@ -352,7 +359,7 @@ def organize_pass(opts: Options, log):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else moves, opts.apply, log)
-    if journal.path:
+    if own_journal and journal.path:
         log(f"{'journal':>20}: {journal.path}")
         log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
             f"--root {shlex.quote(str(root))} --apply")
