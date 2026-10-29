@@ -32,13 +32,14 @@ One --apply pass at a time (state/lock). On SIGTERM or Ctrl-C, the current
 move completes and the rest is left for the next pass (second Ctrl-C: stop
 at once).
 
-Exit codes: 0 = OK, 2 = conflicts, skipped files or refused undos,
+Exit codes: 0 = OK, 2 = conflicts, skipped files, failed rewrites or refused undos,
 3 = another pass is running, 4 = stopped before the end, 5 = Lyrion carry-over failed.
 """
 import argparse
 import contextlib
 import os
 import shlex
+import subprocess
 import sys
 import time
 from collections import defaultdict
@@ -52,6 +53,7 @@ from music_librarian.core.log import Log
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
+from music_librarian.media.faststart import MP4_EXT, RewriteError, faststart, leading_mdat
 from music_librarian.organize.naming import is_in_place, nfc, target_rel
 from music_librarian.organize.scan import collect, read_tags
 from music_librarian.organize.undo import undo
@@ -167,6 +169,7 @@ def organize_pass(opts: Options, log):
     entries = []                  # (file, tags, relative target path)
     stats = defaultdict(int)
     junk = []
+    rewrites = []
     blocked = set()               # folders whose side files must not move
 
     for p in collect(scan, since):
@@ -183,6 +186,8 @@ def organize_pass(opts: Options, log):
             stats["skipped"] += 1
             blocked.add(p.parent)
             continue
+        if p.suffix.lower() in MP4_EXT and leading_mdat(p):
+            rewrites.append(p)
         tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
         if tgt is None:
             log(f"SKIPPED  (not enough tags)  {p}")
@@ -255,6 +260,8 @@ def organize_pass(opts: Options, log):
                 else:
                     extra.append((p, dst))
 
+    for p in rewrites:
+        log(f"REWRITE  (moov after mdat)  {p}")
     for src, dst in moves + extra:
         log(f"MOVE     {src}\n         → {dst}")
 
@@ -262,8 +269,9 @@ def organize_pass(opts: Options, log):
     done = []
     stopped = False
     if opts.apply:
+        stopped = rewrite_all(rewrites, opts.interruptible, stats, log)
         touched = set()
-        for i, (src, dst) in enumerate(moves + extra):
+        for i, (src, dst) in enumerate([] if stopped else moves + extra):
             if opts.interruptible and STOP.is_set():
                 log(f"STOP     requested: {len(moves) + len(extra) - i} move(s) not done,"
                     " left for the next pass")
@@ -291,12 +299,13 @@ def organize_pass(opts: Options, log):
             write_stamp(state_dir, LAST_RUN, started - SINCE_MARGIN)
     journal.close()
 
+    stats["to rewrite"] = len(rewrites)
     stats["to move"] = len(moves)
     stats["side files to move"] = len(extra)
     stats["junk files"] = len(junk)
     log("\n--- Summary ---")
-    for k in ("scanned", "in place", "to move", "side files to move", "moved",
-              "skipped", "conflicts", "junk files", "folders removed"):
+    for k in ("scanned", "in place", "to rewrite", "rewritten", "to move", "side files to move",
+              "moved", "skipped", "conflicts", "errors", "junk files", "folders removed"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else moves, opts.apply, log)
@@ -308,10 +317,26 @@ def organize_pass(opts: Options, log):
             log(f"{'Lyrion retry':>20}: music-librarian organize --lyrion-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
 
-    code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] else 0
+    code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] or stats["errors"] else 0
     if code == 0 and not lyrion_ok:
         code = lyrion.EXIT_LYRION
     return Report(code, moves + extra, done, journal.path)
+
+
+def rewrite_all(rewrites, interruptible, stats, log):
+    """Puts moov ahead of mdat in place, before the moves. True when stopped."""
+    for i, p in enumerate(rewrites):
+        if interruptible and STOP.is_set():
+            log(f"STOP     requested: {len(rewrites) - i} rewrite(s) and the moves not done,"
+                " left for the next pass")
+            return True
+        try:
+            faststart(p)
+            stats["rewritten"] += 1
+        except (RewriteError, OSError, subprocess.CalledProcessError) as e:
+            log(f"ERROR    {e}  {p}")
+            stats["errors"] += 1
+    return False
 
 
 if __name__ == "__main__":

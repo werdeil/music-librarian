@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from music_librarian.media import faststart
 from music_librarian.organize import organize
 
 
@@ -204,3 +205,31 @@ def test_autoadd_folder_is_harmless(lib, run):
     (d / "fr.strings").write_text("x")
     assert run("--apply") == 0
     assert (d / "fr.strings").exists()
+
+
+def test_moov_moved_ahead_of_mdat(lib, run, make_slow_m4a, capsys):
+    placed = make_slow_m4a(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
+    stray = make_slow_m4a(lib / "vrac/2.m4a", title="Deux", artist="A", album="B", track=2)
+    before = placed.read_bytes()
+    assert run() == 0
+    assert "REWRITE  (moov after mdat)" in capsys.readouterr().out
+    assert placed.read_bytes() == before
+
+    assert run("--apply") == 0
+    out = capsys.readouterr().out
+    assert "rewritten: 2" in out and "moved: 1" in out
+    assert not any(faststart.leading_mdat(p) for p in (placed, lib / "A/B/02 Deux.m4a"))
+    assert not stray.exists()
+    assert run() == 0 and "REWRITE" not in capsys.readouterr().out
+
+
+def test_failed_rewrite_reported(lib, run, make_slow_m4a, monkeypatch, capsys):
+    p = make_slow_m4a(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
+
+    def fail(_):
+        raise faststart.RewriteError("tags differ after rewriting 01 Un.m4a")
+
+    monkeypatch.setattr(organize, "faststart", fail)
+    assert run("--apply") == 2
+    assert "ERROR    tags differ" in capsys.readouterr().out
+    assert faststart.leading_mdat(p)

@@ -31,7 +31,7 @@ src/music_librarian/
 │   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), artwork.py (image sizes), convert.py (FLAC → ALAC
-│                    and its checks)
+│                    and its checks), faststart.py (moov ahead of mdat in existing MP4 files)
 └── integrations/    lyrion.py, see lyrion.md
 ```
 
