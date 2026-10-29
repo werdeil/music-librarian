@@ -8,8 +8,10 @@ from datetime import datetime, time
 import pytest
 
 from music_librarian import enrich, importer, watch
+from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
 from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.media import credit_tags
 
 
 @pytest.fixture
@@ -50,7 +52,7 @@ def tools(tmp_path, monkeypatch):
 
 
 def run(lib, state, *a):
-    return enrich.main(["--root", str(lib), "--state-dir", str(state), *a])
+    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-split", "--no-dedupe", *a])
 
 
 def test_album_dirs(lib):
@@ -113,17 +115,29 @@ def test_stopped_tool_is_not_a_failure(lib, tools, tmp_path, capsys):
 
 def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
     state = tmp_path / "state"
-    real = enrich.subprocess.run
+    real = enrich.run_tool
 
-    def run_then_stop(cmd, **kw):
-        r = real(cmd, **kw)  # pylint: disable=subprocess-run-check  # check passed by enrich
+    def run_then_stop(cmd, env, log):
+        code = real(cmd, env, log)
         STOP.set()          # docker stop during the first batch
-        return r
+        return code
 
-    monkeypatch.setattr(enrich.subprocess, "run", run_then_stop)
+    monkeypatch.setattr(enrich, "run_tool", run_then_stop)
     assert run(lib, state, "--apply", "--batch", "2") == EXIT_STOPPED
     assert len(tools.calls()) == 1                    # the current batch finished, not the others
     assert enrich.last_run(state) is None             # picked up on the next pass
+
+
+def test_tool_output_in_the_run_log(lib, tmp_path, monkeypatch, capsys):
+    script = "print('LYRICS   Beyoncé — Halo'); print('--- Lyrics summary ---'); print('   written: 1')"
+    monkeypatch.setattr(enrich, "enrichers", lambda: [("lyrics", [sys.executable, "-c", script])])
+    state = tmp_path / "state"
+    assert run(lib, state) == 0
+    [record] = runs.recent(state)
+    text = runs.log_path(state, record["id"]).read_text(encoding="utf-8")
+    assert text.count("LYRICS   Beyoncé — Halo") == 1
+    assert text == capsys.readouterr().out
+    assert record["command"] == "enrich" and record["summary"][0] == "folders: 4"
 
 
 def test_refused_while_locked(lib, tools, tmp_path):
@@ -134,6 +148,21 @@ def test_refused_while_locked(lib, tools, tmp_path):
         assert run(lib, state, "--apply") == EXIT_LOCKED
     assert tools.calls() == []
     assert run(lib, state) == 0                        # a dry run does not take the lock
+
+
+def test_split_after_the_tools(tools, tmp_path, make_track, capsys):
+    root = tmp_path / "Music"
+    track = make_track(root / "The Beatles/Help!/01 Help!.m4a", title="Help!", artist="The Beatles",
+                       albumartist="The Beatles", composer="John Lennon, Paul McCartney")
+    make_track(root / "John Lennon/Imagine/01 Imagine.m4a", title="Imagine", composer="John Lennon",
+               albumartist="John Lennon")
+    make_track(root / "Paul McCartney/Ram/01 Ram On.m4a", title="Ram On", composer="Paul McCartney",
+               albumartist="Paul McCartney")
+    state = tmp_path / "state"
+    assert enrich.main(["--root", str(root), "--state-dir", str(state)]) == 0
+    assert "SPLIT    composer: John Lennon, Paul McCartney" in capsys.readouterr().out
+    assert enrich.main(["--root", str(root), "--state-dir", str(state), "--apply"]) == 0
+    assert credit_tags.read(track)["composer"] == ["John Lennon; Paul McCartney"]
 
 
 # ---------- weekly slot in watch ----------

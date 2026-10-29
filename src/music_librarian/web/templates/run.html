@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ run.command }} {{ run.when }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2><code>{{ run.command }}</code> {{ run.when }} <span id="run-status">{{ m.status(t, run) }}</span></h2>
+    <dl class="facts">
+        <dt>{{ t.mode }}</dt><dd>{{ t.apply if run.apply else t.dry_run }}</dd>
+        <dt>{{ t.origin }}</dt><dd>{{ t['origin_' ~ run.origin] }}</dd>
+        {% if run.duration %}<dt>{{ t.duration }}</dt><dd>{{ run.duration }}</dd>{% endif %}
+        {% if run.code is not none %}<dt>{{ t.exit_code }}</dt><dd>{{ run.code }}</dd>{% endif %}
+    </dl>
+    {% if run.status != 'running' and (can_apply or journal) %}
+    <div class="actions">
+        {% if can_apply %}
+        <form method="post" action="{{ url_for('apply_run', run_id=run.id) }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button type="submit" class="primary">{{ t.apply_button }}</button>
+        </form>
+        {% endif %}
+        {% if journal and ctx.requests %}
+        <form method="post" action="{{ url_for('new_pass') }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="command" value="undo">
+            <input type="hidden" name="journal" value="{{ journal }}">
+            <button type="submit">{{ t.undo_button }}</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+{% if run.status != 'running' %}
+<section>
+    <h2>{{ t.summary }}</h2>
+    {% if run.summary %}
+        <dl class="summary">
+        {% for entry in run.summary %}
+            {% set key, value = entry.split(': ', 1) %}
+            <dt>{{ key }}</dt><dd>{{ value }}</dd>
+        {% endfor %}
+        </dl>
+    {% else %}
+        <p class="muted">{{ t.no_summary }}</p>
+    {% endif %}
+</section>
+{% endif %}
+
+<section>
+    <h2>{{ t.output }} <a class="aside" href="{{ url_for('run_text', run_id=run.id) }}">{{ t.plain_text }}</a>
+        {% if run.status == 'running' %}<span class="aside live">{{ t.live }}</span>{% endif %}</h2>
+    <pre class="log" id="log"
+         {% if run.status == 'running' %}data-live="{{ url_for('run_log', run_id=run.id) }}" data-from="{{ offset }}" data-kind="{{ lines[-1][1] if lines else '' }}"{% endif %}>
+{%- for text, kind in lines %}<span class="line{{ ' ' ~ kind if kind }}">{{ text }}</span>
+{% endfor -%}
+</pre>
+</section>
+{% endblock %}

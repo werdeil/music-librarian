@@ -1,5 +1,7 @@
 """Inbox watching (watch.py): when the import runs, and stopping."""
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+import re
+import urllib.request
 from datetime import date, datetime, timedelta
 from datetime import time as dtime
 
@@ -7,7 +9,9 @@ import pytest
 
 from music_librarian import enrich, importer, organize, watch
 from music_librarian.organize import Report
+from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP
+from music_librarian.core.state import state_path
 
 
 @pytest.fixture
@@ -51,6 +55,31 @@ def test_empty_inbox_runs_once_per_day(inbox_dir, calls, ticks, monkeypatch):
     assert ticks(inbox_dir, [nothing, nothing, nothing]) == 0
     # at startup (purge), then when the day changes
     assert len(calls) == 2
+
+
+def test_passes_recorded_as_started_by_watch(inbox_dir, calls, ticks):
+    assert ticks(inbox_dir, [nothing]) == 0
+    [record] = runs.recent(state_path())
+    assert (record["command"], record["origin"], record["apply"]) == ("import", "watch", False)
+
+
+def test_dashboard_served_while_watching(inbox_dir, calls, ticks, capsys):
+    pages = {}
+
+    def fetch():
+        url = re.search(r"WEB      dashboard on (http://\S+)", capsys.readouterr().out)[1]
+        for path in ("/health", "/", "/runs"):
+            with urllib.request.urlopen(url + path, timeout=10) as response:
+                pages[path] = response.read().decode()
+
+    assert ticks(inbox_dir, [fetch], "--listen", "127.0.0.1:0") == 0
+    assert '"status":"ok"' in pages["/health"].replace(" ", "")
+    assert "<code>import</code>" in pages["/"] and "<code>import</code>" in pages["/runs"]
+
+
+def test_listen_format(inbox_dir):
+    with pytest.raises(SystemExit):
+        watch.main(["--inbox", str(inbox_dir), "--root", "lib", "--listen", "localhost:http"])
 
 
 def test_waits_until_content_is_stable(inbox_dir, calls, ticks):

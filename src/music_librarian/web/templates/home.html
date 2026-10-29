@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+<section>
+    <h2>{{ t.running_now }}</h2>
+    {% if running %}
+        {{ m.runs_table(t, running) }}
+    {% else %}
+        <p class="muted">{{ t.nothing_running }}</p>
+    {% endif %}
+</section>
+
+{% if ctx.requests %}
+<section>
+    <h2>{{ t.run_a_pass }}</h2>
+    {% if queued %}
+        <p class="muted">{{ t.queued }} {% for asked in queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
+    {% endif %}
+    <div class="pass-forms">
+    {% for command, names in options.items() %}
+        <form method="post" action="{{ url_for('new_pass') }}" class="pass-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="command" value="{{ command }}">
+            <code class="pass-command">{{ command }}</code>
+            <span class="pass-options">
+            {% for name in names %}
+                <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
+            {% endfor %}
+            </span>
+            <button type="submit">{{ t.run_button if command == 'scan' else t.dry_run_button }}</button>
+        </form>
+    {% endfor %}
+    </div>
+    <p class="muted">{{ t.dry_run_first if ctx.apply else t.watch_dry_run }}</p>
+</section>
+{% endif %}
+
+<section>
+    <h2>{{ t.schedule }}</h2>
+    <div class="table-wrap">
+    <table class="schedule">
+        <thead>
+            <tr><th>{{ t.command }}</th><th></th><th>{{ t.last_run }}</th><th>{{ t.next_run }}</th></tr>
+        </thead>
+        <tbody>
+        {% for command, text, next in schedule %}
+            {% set last = latest.get(command) %}
+            <tr>
+                <td><code>{{ command }}</code></td>
+                <td>{{ text }}</td>
+                <td>
+                    {% if last %}
+                        <a href="{{ url_for('run_page', run_id=last.id) }}">{{ last.when }}</a> {{ m.status(t, last) }}
+                    {% else %}
+                        <span class="muted">{{ t.never }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ next or '' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<section>
+    <h2>{{ t.inbox }} <code class="muted">{{ ctx.inbox }}</code></h2>
+    {% if inbox is none %}
+        <p class="muted">{{ t.inbox_missing }}</p>
+    {% else %}
+        {% set items, failed = inbox %}
+        {% if items %}
+            <ul class="inbox">
+            {% for name in items %}<li>{{ name }}</li>{% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">{{ t.inbox_empty }}</p>
+        {% endif %}
+        {% if failed %}<p class="warning">{{ t.inbox_failed.format(n=failed) }}</p>{% endif %}
+    {% endif %}
+    {% if pending %}<p class="warning"><a href="{{ url_for('review_split') }}">{{ t.pending_decisions.format(n=pending) }}</a></p>{% endif %}
+</section>
+
+<section>
+    <h2>{{ t.recent_runs }}</h2>
+    {% if recent %}
+        {{ m.runs_table(t, recent) }}
+        <p><a href="{{ url_for('history') }}">{{ t.all_runs }}</a></p>
+    {% else %}
+        <p class="muted">{{ t.no_runs }}</p>
+    {% endif %}
+</section>
+{% endblock %}
