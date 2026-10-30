@@ -3,6 +3,7 @@
 import html
 import json
 import re
+import threading
 
 import pytest
 
@@ -10,6 +11,8 @@ from music_librarian import scan
 from music_librarian.core.log import Log
 from music_librarian.dedupe import aliases
 from music_librarian.split import decisions
+from music_librarian.web import app as web
+from music_librarian.web import library, reviews
 
 EN = {"Accept-Language": "en"}
 
@@ -138,3 +141,18 @@ def test_apply_the_answers_as_a_dry_run(d):
     d.client.post("/passes", data={"csrf": d.token, "command": "split"})
     [asked] = d.requests.pending()
     assert (asked.command, asked.apply) == ("split", False)
+
+
+def test_counts_while_the_first_build_runs(d, monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.01)
+    release = threading.Event()
+    monkeypatch.setattr(reviews.Reviews, "_build", lambda self: release.wait(5) and None)
+    client = web.create_app(d.ctx).test_client()
+    try:
+        text = client.get("/reviews", headers=EN).get_data(as_text=True)
+        assert "Still being worked out" in text and "Credits awaiting" not in text
+        assert "Still being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
+        assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
+        assert client.get("/", headers=EN).status_code == 200
+    finally:
+        release.set()

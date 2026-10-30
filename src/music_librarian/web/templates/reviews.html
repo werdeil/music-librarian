@@ -8,7 +8,7 @@
 </section>
 <section>
     <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>
-    <p>{{ t.credits_waiting.format(n=credits) }}</p>
+    <p>{{ t.still_building if credits is none else t.credits_waiting.format(n=credits) }}</p>
     <div class="actions">
         {% if credits %}<a class="button primary" href="{{ url_for('review_split') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'split') }}
@@ -16,7 +16,7 @@
 </section>
 <section>
     <h2>{{ t.dedupe_review }} <code class="aside">dedupe --review</code></h2>
-    <p>{{ t.groups_waiting.format(n=groups) }}</p>
+    <p>{{ t.still_building if groups is none else t.groups_waiting.format(n=groups) }}</p>
     <div class="actions">
         {% if groups %}<a class="button primary" href="{{ url_for('review_dedupe') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
@@ -25,7 +25,7 @@
 <section>
     <h2>{{ t.genre_review }} <code class="aside">genres.txt</code></h2>
     {% if genre_list %}
-    <p>{{ t.genres_waiting.format(n=genres) }}</p>
+    <p>{{ t.still_building if genres is none else t.genres_waiting.format(n=genres) }}</p>
     <div class="actions">
         {% if genres %}<a class="button primary" href="{{ url_for('review_genres') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'genres') }}
