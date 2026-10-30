@@ -190,7 +190,8 @@ def main(argv=None):
     args = parse_args(argv)
     log = Log()
     if not enabled_providers():
-        log(f"SKIPPED  lyrics: LYRICS_PROVIDERS={os.getenv('LYRICS_PROVIDERS', '')!r} names no known provider")
+        providers = os.getenv("LYRICS_PROVIDERS", "")
+        log(f"SKIPPED  lyrics: LYRICS_PROVIDERS={providers!r} names no known provider")
         return 0
     counts = dict.fromkeys(("scanned", "written", "cleared", "already", "not found", "rejected",
                             "unreachable", "searched recently", "no metadata", "failed"), 0)
