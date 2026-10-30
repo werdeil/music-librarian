@@ -69,7 +69,7 @@ def test_retagged_with_mtime_kept(genre_list, album, capsys):
     assert all(tags.read_genres(str(t)) == ["Rap / Hip-hop / RnB"] for t in tracks)
     assert os.stat(tracks[0]).st_mtime == 1_000_000_001
     out = capsys.readouterr().out
-    assert 'GENRE    Artiste/Album  "hip hop" → "Rap / Hip-hop / RnB" (3 track(s))' in out
+    assert 'GENRE    Artiste/Album  "hip hop" → "Rap / Hip-hop / RnB" (3 tracks)' in out
     assert "re-tagged: 3" in out
 
 
@@ -77,7 +77,7 @@ def test_already_aligned_left_alone(genre_list, album, capsys):
     d, tracks = album("Rock")
     assert run(genre_list, d) == 0
     assert os.stat(tracks[0]).st_mtime == 1_000_000_000
-    assert "re-tagged: 0" in capsys.readouterr().out
+    assert "re-tagged:" not in capsys.readouterr().out
 
 
 def test_unknown_kept_and_reported(genre_list, album, capsys):
@@ -85,14 +85,14 @@ def test_unknown_kept_and_reported(genre_list, album, capsys):
     assert run(genre_list, d) == 0
     assert tags.read_genres(str(tracks[0])) == ["Shoegaze"]
     out = capsys.readouterr().out
-    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 track(s))' in out and "unknown genre: 3" in out
+    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 tracks)' in out and "unknown genre: 3" in out
 
 
 def test_without_genre_reported(genre_list, album, capsys):
     d, _ = album()
     assert run(genre_list, d) == 0
     out = capsys.readouterr().out
-    assert "NOGENRE  Artiste/Album  (3 track(s))" in out and "without genre: 3" in out
+    assert "NOGENRE  Artiste/Album  (3 tracks)" in out and "without genre: 3" in out
 
 
 def test_dry_run_writes_nothing(genre_list, album, capsys):
@@ -143,7 +143,7 @@ def test_second_pass_reads_from_cache(genre_list, album, monkeypatch, capsys):
     assert run(genre_list, d, dry=True) == 0
     monkeypatch.setattr(tags, "read_snapshot", lambda path: pytest.fail(f"{path} read again"))
     assert run(genre_list, d, dry=True) == 0
-    assert capsys.readouterr().out.count('"rock" → "Rock" (3 track(s))') == 2
+    assert capsys.readouterr().out.count('"rock" → "Rock" (3 tracks)') == 2
 
 
 # ---------- iTunes lookup ----------
@@ -179,7 +179,7 @@ def test_unknown_takes_itunes_genre(genre_list, album, lookup, capsys):
     assert fake.calls == [("Artiste", "Album")]
     out = capsys.readouterr().out
     assert ('ITUNES   Artiste/Album  "Shoegaze" → "Rap / Hip-hop / RnB" '
-            '(iTunes "Hip-Hop/Rap", 3 track(s))') in out
+            '(iTunes "Hip-Hop/Rap", 3 tracks)') in out
     assert "from iTunes: 3" in out
 
 
@@ -204,7 +204,7 @@ def test_itunes_genre_unknown_to_the_list(genre_list, album, lookup, capsys):
     d, tracks = album("Shoegaze")
     assert run(genre_list, d) == 0
     assert tags.read_genres(str(tracks[0])) == ["Shoegaze"]
-    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 track(s), iTunes "Shoegaze Revival")' in \
+    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 tracks, iTunes "Shoegaze Revival")' in \
         capsys.readouterr().out
 
 
@@ -222,7 +222,7 @@ def test_dry_run_writes_no_cache(genre_list, album, lookup, capsys):
     assert run(genre_list, d, dry=True) == 0
     assert tags.read_genres(str(tracks[0])) == ["Shoegaze"] and not cache.exists()
     out = capsys.readouterr().out
-    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 track(s))' in out
+    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 tracks)' in out
 
 
 def test_itunes_down_is_not_a_failure(genre_list, album, lookup, capsys):

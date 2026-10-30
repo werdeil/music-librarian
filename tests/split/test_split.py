@@ -42,7 +42,7 @@ def test_dry_run_changes_nothing(lib, tmp_path, capsys):
     assert run(lib, tmp_path) == 0
     out = capsys.readouterr().out
     assert "SPLIT    composer: John Lennon/Paul McCartney\n         → John Lennon; Paul McCartney" in out
-    assert "REVIEW   Angus Young/Malcolm Young  (1 track(s))" in out
+    assert "REVIEW   Angus Young/Malcolm Young  (1 track)" in out
     assert {p: credit_tags.read(p) for p in lib.rglob("*.*")} == before
     state = tmp_path / "state"
     assert not (state / decisions.FILE).exists() and not (state / "journal").exists()

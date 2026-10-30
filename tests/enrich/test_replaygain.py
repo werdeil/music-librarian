@@ -128,4 +128,4 @@ def test_stop_finishes_current_files(album, capsys, monkeypatch):
     monkeypatch.setattr(replaygain, "tag", tag_then_stop)
     assert replaygain.main([str(d), "--jobs", "1"]) == EXIT_STOPPED
     out = capsys.readouterr().out
-    assert "tagged: 1" in out and "2 file(s) left" in out
+    assert "tagged: 1" in out and "2 files left" in out

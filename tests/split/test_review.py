@@ -36,7 +36,7 @@ def test_an_answer_settles_the_credits_it_vouches_for(lib, tmp_path, answers, ca
     answers("")                                                      # Enter: the suggested split
     assert run(lib, tmp_path, "--review") == 0
     out = capsys.readouterr().out
-    assert "REVIEW   [1/3] Angus Young/Malcolm Young  (3 track(s))" in out
+    assert "REVIEW   [1/3] Angus Young/Malcolm Young  (3 tracks)" in out
     assert "Angus Young, Malcolm Young, Bon Scott" not in out        # all its names known now
     assert "REVIEW   [2/3] Bach, Johann Sebastian" in out
     assert decided(tmp_path) == {"angus young/malcolm young": "split"}
@@ -93,7 +93,7 @@ def collab(lib, make_track):
 def test_dry_run_shows_the_guarded_credits(collab, tmp_path, capsys):
     assert run(collab, tmp_path, "--apply") == 0
     out = capsys.readouterr().out
-    assert "GUARDED  Iggy Pop, Muse  (2 track(s)): an album artist" in out
+    assert "GUARDED  Iggy Pop, Muse  (2 tracks): an album artist" in out
     assert "protected: 1" in out
     assert "Iggy Pop, Muse" not in (tmp_path / "state" / decisions.FILE).read_text(encoding="utf-8")
 
@@ -102,7 +102,7 @@ def test_guarded_credits_come_last_and_enter_keeps_them(collab, tmp_path, answer
     answers("", "", "")
     run(collab, tmp_path, "--review")
     out = capsys.readouterr().out
-    assert "REVIEW   [4/4] Iggy Pop, Muse  (2 track(s))  album artist, kept unless split here" in out
+    assert "REVIEW   [4/4] Iggy Pop, Muse  (2 tracks)  album artist, kept unless split here" in out
     assert decided(tmp_path)["iggy pop, muse"] == "keep"
 
 

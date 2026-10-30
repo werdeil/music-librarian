@@ -8,6 +8,7 @@ from pathlib import Path
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, locked
+from music_librarian.core.log import count
 from music_librarian.core.state import state_path
 from music_librarian.media import credit_tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -52,7 +53,7 @@ def rewrite_tags(writes, journal, log, stats):
     """Write each (path, field, old, new) and journal it; True if a stop request cut it short."""
     for i, (p, field, old, new) in enumerate(writes):
         if STOP.is_set():
-            log(f"STOP     requested: {len(writes) - i} tag(s) not rewritten, left for the next pass")
+            log(f"STOP     requested: {count(len(writes) - i, 'tag')} not rewritten, left for the next pass")
             return True
         try:
             credit_tags.write(p, field, new)

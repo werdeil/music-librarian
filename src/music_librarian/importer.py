@@ -37,9 +37,9 @@ from pathlib import Path
 
 from music_librarian import dedupe, enrich, organize, split
 from music_librarian.core import arguments
-from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from music_librarian.core.log import Buffer, Log
+from music_librarian.core.log import Buffer, Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.integrations import lyrion
@@ -152,7 +152,7 @@ def free_name(d: Path, name, is_dir=True):
 def enrich_targets(dirs, log):
     ok = True
     for name, cmd in enrich.enrichers():
-        log(f"ENRICH   ({name})  {len(dirs)} folder(s)")
+        log(f"ENRICH   ({name})  {count(len(dirs), 'folder')}")
         try:
             r = subprocess.run([*cmd, *map(str, dirs)], check=False)
             failed = r.returncode not in (0, EXIT_STOPPED)
@@ -254,7 +254,7 @@ def process(opts, item, log):
         return FAILED, set()
 
     log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
-        f"{len(annexes)} side file(s))")
+        f"{count(len(annexes), 'side file')})")
     names = annex_names(item, annexes)
     for p, rel in names.items():
         if rel.name != p.name:
@@ -278,7 +278,7 @@ def process(opts, item, log):
                 dst = dst.with_suffix(".m4a")
             elif src in names:
                 dst = dst.with_name(names[src].name)
-            log(f"ORGANIZE {item.rel(src)}\n         → {dst}")
+            log(f"ORGANIZE {item.rel(src)}\n         → {relative(dst, opts.root)}")
         return OK, set()
 
     work = opts.inbox / WORK / item.name
@@ -334,7 +334,7 @@ def process(opts, item, log):
         rest = kept / UNFILED if kept.is_dir() else free_name(day, f"{item.name}{UNFILED}")
         for p in leftovers:
             link_or_copy(p, rest / p.relative_to(work))
-        log(f"NOTE     {len(leftovers)} unfiled file(s) kept in {rest}")
+        log(f"NOTE     {count(len(leftovers), 'unfiled file')} kept in {rest}")
     shutil.rmtree(work)
     with contextlib.suppress(OSError):
         work.parent.rmdir()
@@ -439,7 +439,7 @@ def import_all(opts, log):
     for i, it in enumerate(items):
         if STOP.is_set():
             counts["left (stopped)"] += len(items) - i
-            log(f"STOP     requested: {len(items) - i} item(s) left for the next pass")
+            log(f"STOP     requested: {count(len(items) - i, 'item')} left for the next pass")
             break
         status, t = process(opts, it, log)
         counts[status] += 1

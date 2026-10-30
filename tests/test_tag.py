@@ -39,7 +39,8 @@ def test_dry_run_shows_tags_and_moves(lib, run, capsys):
     out = capsys.readouterr().out
     assert files(lib) == before and fields.read(lib / "Beyonce/4/01 Run the World.m4a")["year"] == []
     assert 'TAG      albumartist: "Beyonce" → "Beyoncé"' in out and 'TAG      year: "(none)" → "2011"' in out
-    assert f"→ {lib}/Beyoncé/4/01 Run the World.m4a" in out and f"→ {lib}/Beyoncé/4/folder.jpg" in out
+    assert "MOVE     Beyonce/4/01 Run the World.m4a\n         → Beyoncé/4/01 Run the World.m4a" in out
+    assert "→ Beyoncé/4/folder.jpg" in out
     assert "tags to write: 4" in out and "to move: 3" in out
 
 

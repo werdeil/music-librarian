@@ -21,3 +21,11 @@ def prune_empty(d: Path, stops):
         n += 1
         d = d.parent
     return n
+
+
+def relative(path, root):
+    """`path` as the log shows it: relative to `root` when under it, else whole."""
+    try:
+        return str(Path(path).relative_to(root))
+    except ValueError:
+        return str(path)

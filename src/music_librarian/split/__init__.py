@@ -35,7 +35,7 @@ from pathlib import Path
 
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.media import credit_tags
@@ -149,11 +149,11 @@ def split_pass(opts: Options, log):
     changes, pending = plan(tracks, known | decided_names(decided), decided)
 
     for (field, old, new), files in sorted(changes.items()):
-        log(f"SPLIT    {field}: {old}\n         → {new}  ({len(files)} track(s))")
+        log(f"SPLIT    {field}: {old}\n         → {new}  ({count(len(files), 'track')})")
     for credit, n, _, _ in by_frequency(pending, PENDING):
-        log(f"REVIEW   {credit}  ({n} track(s))")
+        log(f"REVIEW   {credit}  ({count(n, 'track')})")
     for credit, n, _, _ in by_frequency(pending, PROTECTED):
-        log(f"GUARDED  {credit}  ({n} track(s)): an album artist, kept unless decided otherwise")
+        log(f"GUARDED  {credit}  ({count(n, 'track')}): an album artist, kept unless decided otherwise")
 
     writes = [(p, field, old, new) for (field, old, new), files in sorted(changes.items())
               for p in files]

@@ -6,6 +6,7 @@ point and resume where it left off. An answer vouches for names, which can settl
 the credits further down: those are not asked about.
 """
 from music_librarian.core.lock import STOP
+from music_librarian.core.log import count
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
@@ -17,7 +18,7 @@ def show(log, position, total, item, known):
     credit, tracks, example, status = item
     parts = fragments(credit)
     seen = [p for p in parts if key(p) in known]
-    log(f"REVIEW   [{position}/{total}] {credit}  ({tracks} track(s))"
+    log(f"REVIEW   [{position}/{total}] {credit}  ({count(tracks, 'track')})"
         + ("  album artist, kept unless split here" if status == PROTECTED else ""))
     log(f"         split: {' · '.join(parts)}"
         + (f"  (known: {', '.join(seen)})" if seen else ""))

@@ -53,7 +53,8 @@ def run(root, state_dir, log, force=False):
     log(f"\n--- Scan summary{' (stopped)' if stopped else ''} ---")
     for key, value in (("files", len(seen)), ("read", read), ("from cache", cached),
                        ("removed", removed), ("unreadable", unreadable)):
-        log(f"{key:>20}: {value}")
+        if value or key == "files":
+            log(f"{key:>20}: {value}")
     log("\n--- Tracks per genre ---")
     for genre, n in sorted(genres.items(), key=lambda kv: (-kv[1], kv[0])):
         log(f"{n:>8}  {genre}")
