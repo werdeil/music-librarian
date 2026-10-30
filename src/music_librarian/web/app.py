@@ -116,7 +116,7 @@ def journal_of(run):
 def create_app(ctx: Context):
     app = Flask(__name__)
     token = secrets.token_urlsafe(16)
-    waiting = reviews.register(app, ctx)
+    waiting, reviews_built = reviews.register(app, ctx)
 
     @app.context_processor
     def language():
@@ -179,6 +179,10 @@ def create_app(ctx: Context):
         """The passes running now, and those the dashboard queued, for the header."""
         running = [shown(r) for r in runs.recent(ctx.state_dir, 20) if runs.status(r) == runs.RUNNING]
         return dict(running=running, queued=ctx.requests.pending() if ctx.requests else [])
+
+    @app.get("/built")
+    def built():
+        return jsonify(ready=index.albums.ready() and reviews_built())
 
     @app.get("/activity")
     def activity_fragment():

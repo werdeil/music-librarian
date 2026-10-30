@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% import "_apply_answers.html" as a %}
 {% block title %}{{ t.split_review }} · music-librarian{% endblock %}
 {% block content %}
@@ -15,7 +16,7 @@
     </form>
     {% endif %}
     {% if left is none %}
-    <p class="muted">{{ t.still_building }}</p>
+    <p class="muted">{{ t.still_building }}{{ m.reload_when_built() }}</p>
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.position + 1, n=item.total) }} · {{ t.credits_waiting.format(n=left) }}</p>
     <div class="question">

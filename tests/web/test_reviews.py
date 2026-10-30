@@ -153,8 +153,9 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert "Still being worked out" in text and "Credits awaiting" not in text
-        assert "Still being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in text and "Credits awaiting" not in text
+        assert 'data-reload-when-built="/built"' in text
+        assert "Being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
         assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
         assert client.get("/", headers=EN).status_code == 200
     finally:

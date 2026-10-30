@@ -3,6 +3,7 @@
 import html
 import re
 import threading
+import time
 
 import pytest
 
@@ -118,12 +119,20 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
     ctx = dashboard.ctx
     client = web.create_app(ctx).test_client()
     try:
-        assert "Still being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
-        assert "Still being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
         assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
+        assert 'data-reload-when-built="/built"' in tiles
+        assert client.get("/built").get_json() == {"ready": False}
     finally:
         release.set()
+    for _ in range(100):
+        if client.get("/built").get_json()["ready"]:
+            break
+        time.sleep(0.05)
+    assert client.get("/built").get_json() == {"ready": True}
+    assert "data-reload-when-built" not in client.get("/library", headers=EN).get_data(as_text=True)
 
 
 def test_library_page(dashboard):

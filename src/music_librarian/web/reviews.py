@@ -207,7 +207,8 @@ class GenreReview:
 
 def register(app, ctx):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built."""
+    an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built, and
+    the one that tells whether every queue was built once."""
     reviews = Reviews(ctx.root, ctx.state_dir)
     genre_review = GenreReview(ctx.root, ctx.state_dir)
 
@@ -339,7 +340,7 @@ def register(app, ctx):
         reviews.write_aliases(drop=[aliases_file.identity(e) for e in entries])
         return redirect(url_for("review_dedupe", **{"from": request.form.get("position", 0, type=int)}))
 
-    return waiting
+    return waiting, lambda: reviews.queues.ready() and genre_review.queue.ready()
 
 
 def done_of(args):

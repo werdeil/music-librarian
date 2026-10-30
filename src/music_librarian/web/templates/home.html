@@ -6,6 +6,7 @@
     <span class="tile-value">{{ '—' if value is none else value }}{% if value == 0 and not info %} <span aria-hidden="true">✓</span>{% endif %}</span>
     <span class="tile-label">{{ label }}</span>
     {% if value is none %}<span class="tile-note">{{ none_text or t.tile_building }}</span>{% endif %}
+    {% if value is none and not none_text %}{{ m.reload_when_built() }}{% endif %}
 </a>
 {%- endmacro %}
 

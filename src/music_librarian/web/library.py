@@ -103,6 +103,10 @@ class Refreshed:
             building.join(PATIENCE)
         return self.value
 
+    def ready(self):
+        """Whether a first build has ended, without starting one."""
+        return self.value is not None
+
     def _run(self, stamp):
         try:
             value = self.build()

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% set title = {'genres': t.rules_genres, 'aliases': t.rules_aliases, 'decisions': t.rules_decisions}[kind] %}
 {% block title %}{{ title }} · music-librarian{% endblock %}
 {% block content %}
@@ -21,7 +22,7 @@
                 <tr>
                     <td>{{ genre }}</td>
                     <td class="muted">{{ names | join(', ') }}</td>
-                    <td class="{{ 'muted' if tracks and not tracks[genre] }}">{{ t.tile_building if tracks is none else tracks[genre] }}</td>
+                    <td class="{{ 'muted' if tracks and not tracks[genre] }}">{% if tracks is none %}{{ t.tile_building }}{{ m.reload_when_built() }}{% else %}{{ tracks[genre] }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>

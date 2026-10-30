@@ -37,6 +37,33 @@
     setTimeout(refresh, REFRESH_MS);
 }());
 
+// A page showing lists still being built reloads once they are.
+(function () {
+    "use strict";
+
+    var POLL_MS = 2000;
+    var marker = document.querySelector("[data-reload-when-built]");
+    if (!marker) {
+        return;
+    }
+    var url = marker.dataset.reloadWhenBuilt;
+
+    function poll() {
+        fetch(url)
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (data.ready) {
+                    window.location.reload();
+                } else {
+                    setTimeout(poll, POLL_MS);
+                }
+            })
+            .catch(function () { setTimeout(poll, POLL_MS * 5); });
+    }
+
+    setTimeout(poll, POLL_MS);
+}());
+
 // The output of a running pass, appended as it is written, until the pass ends.
 (function () {
     "use strict";
