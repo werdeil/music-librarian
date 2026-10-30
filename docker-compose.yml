@@ -53,6 +53,9 @@ services:
       - LYRION_MUSIC_ROOT=${LYRION_MUSIC_ROOT:-}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
+      # genres the list cannot align looked up on iTunes, off with GENRE_LOOKUP=none
+      - GENRE_LOOKUP=${GENRE_LOOKUP:-itunes}
+      - ITUNES_COUNTRY=${ITUNES_COUNTRY:-us}
     volumes:
       # Inbox and library under this single mount, at the same path as on the
       # host: moves stay renames and journal paths are valid on both sides.

@@ -123,13 +123,29 @@ def run(opts: Options, log):
         return EXIT_LOCKED
 
 
+def tool_env(opts):
+    return {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir), "PYTHONIOENCODING": "utf-8",
+            "PYTHONUNBUFFERED": "1"}
+
+
+def tool_pass(name, folders, opts: Options, log, *flags):
+    """One tool of enrichers() on `folders`, under the lock with `apply`; its exit code."""
+    cmd = [*dict(enrichers())[name], *flags, *([] if opts.apply else [DRY[name]])]
+    try:
+        with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
+            log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] {name}: {', '.join(map(str, folders))}")
+            return run_tool([*cmd, *map(str, folders)], tool_env(opts), log)
+    except Locked as e:
+        log(f"LOCKED   another pass is running ({e}), giving up")
+        return EXIT_LOCKED
+
+
 def enrich_all(opts, log):
     started = time.time()
     if opts.rescan and scan.run(opts.root, opts.state_dir, log, force=True) == EXIT_STOPPED:
         return EXIT_STOPPED
     dirs, files = album_dirs(opts.root)
-    env = {**os.environ, "MUSIC_LIBRARIAN_STATE": str(opts.state_dir), "PYTHONIOENCODING": "utf-8",
-           "PYTHONUNBUFFERED": "1"}
+    env = tool_env(opts)
     batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{len(dirs)} folders, {len(batches)} batches")

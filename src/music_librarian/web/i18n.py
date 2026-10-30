@@ -104,10 +104,16 @@ TRANSLATIONS = {
         "nothing_changed": "Rien n'a changé.",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
+        "genre_review": "Genres hors de la liste validée",
+        "genres_waiting": "Genres en attente de réponse : {n}",
+        "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
+        "itunes_hint": "iTunes classe ces albums en « {genre} ».",
+        "alias_button": "En faire un nom de ce genre",
+        "new_genre_button": "En faire un genre validé",
         "reviews": "Revues",
-        "reviews_intro": ("Les questions de split et de dedupe, une à la fois : chaque réponse est "
-                          "enregistrée aussitôt dans le fichier de décisions ou d'alias du dossier d'état, "
-                          "et vaut pour les passages suivants."),
+        "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
+                          "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
+                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
         "credits_waiting": "Crédits en attente de réponse : {n}",
@@ -234,10 +240,16 @@ TRANSLATIONS = {
         "nothing_changed": "Nothing changed.",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
+        "genre_review": "Genres outside the validated list",
+        "genres_waiting": "Genres awaiting an answer: {n}",
+        "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",
+        "itunes_hint": "iTunes files these albums under \u201c{genre}\u201d.",
+        "alias_button": "Make it a name of this genre",
+        "new_genre_button": "Make it a validated genre",
         "reviews": "Reviews",
-        "reviews_intro": ("The questions of split and dedupe, one at a time: each answer is saved at once "
-                          "in the decisions or aliases file of the state folder, and holds for the passes "
-                          "to come."),
+        "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does not "
+                          "know, one at a time: each answer is saved at once in the decisions, aliases or "
+                          "genres file, and holds for the passes to come."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
         "credits_waiting": "Credits awaiting an answer: {n}",

@@ -83,7 +83,7 @@ def filing_tags(values):
 
 def genre_list(state_dir, log):
     """The validated genre list as enrich.genres loads it, or None without one."""
-    path = Path(os.environ.get("MUSIC_LIBRARIAN_GENRES") or state_dir / "genres.txt")
+    path = genres.list_path(state_dir)
     if not path.exists():
         return None
     try:

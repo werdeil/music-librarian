@@ -6,6 +6,7 @@ import pytest
 
 from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.enrich import genres
+from music_librarian.integrations import itunes
 from music_librarian.media import tags
 
 LIST = """\
@@ -32,7 +33,7 @@ def album(tmp_path, make_track):
     def tag(*values):
         out = []
         for i, ext in enumerate((".m4a", ".mp3", ".flac"), 1):
-            p = make_track(d / f"0{i} Titre{ext}", title="Titre")
+            p = make_track(d / f"0{i} Titre{ext}", title="Titre", artist="Artiste", album="Album")
             if values:
                 tags.write_genre(str(p), values[0])
             os.utime(p, (1_000_000_000, 1_000_000_000))
@@ -143,3 +144,110 @@ def test_second_pass_reads_from_cache(genre_list, album, monkeypatch, capsys):
     monkeypatch.setattr(tags, "read_snapshot", lambda path: pytest.fail(f"{path} read again"))
     assert run(genre_list, d, dry=True) == 0
     assert capsys.readouterr().out.count('"rock" → "Rock" (3 track(s))') == 2
+
+
+# ---------- iTunes lookup ----------
+
+class FakeItunes:
+    def __init__(self, genre=None, down=False):
+        self.genre, self.down, self.calls = genre, down, []
+
+    def album_genre(self, artist, album):
+        self.calls.append((artist, album))
+        if self.down:
+            raise itunes.Unavailable("HTTP 403")
+        return self.genre
+
+
+@pytest.fixture
+def lookup(tmp_path, monkeypatch):
+    state = tmp_path / "state"
+    monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(state))
+
+    def use(fake):
+        monkeypatch.setattr(itunes, "from_env", lambda: fake)
+        return state / genres.LOOKUP_CACHE
+    return use
+
+
+def test_unknown_takes_itunes_genre(genre_list, album, lookup, capsys):
+    fake = FakeItunes("Hip-Hop/Rap")
+    lookup(fake)
+    d, tracks = album("Shoegaze")
+    assert run(genre_list, d) == 0
+    assert all(tags.read_genres(str(t)) == ["Rap / Hip-hop / RnB"] for t in tracks)
+    assert fake.calls == [("Artiste", "Album")]
+    out = capsys.readouterr().out
+    assert ('ITUNES   Artiste/Album  "Shoegaze" → "Rap / Hip-hop / RnB" '
+            '(iTunes "Hip-Hop/Rap", 3 track(s))') in out
+    assert "from iTunes: 3" in out
+
+
+def test_missing_takes_itunes_genre(genre_list, album, lookup, capsys):
+    lookup(FakeItunes("Rock"))
+    d, tracks = album()
+    assert run(genre_list, d) == 0
+    assert tags.read_genres(str(tracks[0])) == ["Rock"]
+    assert 'ITUNES   Artiste/Album  (no genre) → "Rock"' in capsys.readouterr().out
+
+
+def test_aligned_album_not_searched(genre_list, album, lookup):
+    fake = FakeItunes("Rock")
+    lookup(fake)
+    d, _ = album("hip hop")
+    assert run(genre_list, d) == 0
+    assert not fake.calls
+
+
+def test_itunes_genre_unknown_to_the_list(genre_list, album, lookup, capsys):
+    lookup(FakeItunes("Shoegaze Revival"))
+    d, tracks = album("Shoegaze")
+    assert run(genre_list, d) == 0
+    assert tags.read_genres(str(tracks[0])) == ["Shoegaze"]
+    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 track(s), iTunes "Shoegaze Revival")' in \
+        capsys.readouterr().out
+
+
+def test_answers_cached_between_passes(genre_list, album, lookup):
+    fake = FakeItunes(None)
+    cache = lookup(fake)
+    d, _ = album("Shoegaze")
+    assert run(genre_list, d) == 0 and run(genre_list, d) == 0
+    assert len(fake.calls) == 1 and cache.exists()
+
+
+def test_dry_run_writes_no_cache(genre_list, album, lookup, capsys):
+    cache = lookup(FakeItunes("Rock"))
+    d, tracks = album("Shoegaze")
+    assert run(genre_list, d, dry=True) == 0
+    assert tags.read_genres(str(tracks[0])) == ["Shoegaze"] and not cache.exists()
+    out = capsys.readouterr().out
+    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 track(s))' in out
+
+
+def test_itunes_down_is_not_a_failure(genre_list, album, lookup, capsys):
+    fake = FakeItunes(down=True)
+    lookup(fake)
+    d, _ = album("Shoegaze")
+    d2 = d.parent / "Autre"
+    for t in d.iterdir():
+        (d2 / t.name).parent.mkdir(exist_ok=True)
+        (d2 / t.name).write_bytes(t.read_bytes())
+    assert run(genre_list, d.parent) == 0
+    out = capsys.readouterr().out
+    assert out.count("OFFLINE  iTunes: HTTP 403") == 1 and len(fake.calls) == 1
+    assert "unknown genre: 6" in out
+
+
+def test_list_edited_and_taken_back(tmp_path):
+    path = tmp_path / "genres.txt"
+    path.write_text("# comment\nRock: hard rock\nJazz\n", encoding="utf-8")
+    genres.add_to_list(path, "rock", "Rock, Pop")
+    genres.add_to_list(path, "Jazz", "Bebop")
+    genres.add_to_list(path, "Zydeco")
+    assert path.read_text(encoding="utf-8") == "# comment\nRock: hard rock, Rock  Pop\nJazz: Bebop\nZydeco\n"
+    assert genres.load(path)[genres.key("rock pop")] == "Rock"
+    genres.remove_from_list(path, "Rock", "Rock, Pop")
+    genres.remove_from_list(path, "Jazz", "Bebop")
+    genres.remove_from_list(path, "Zydeco")
+    assert path.read_text(encoding="utf-8") == "# comment\nRock: hard rock\nJazz\n"
