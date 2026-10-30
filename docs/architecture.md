@@ -12,6 +12,7 @@ src/music_librarian/
 ├── scan.py          scan: the whole library's metadata read into the cache
 ├── tag.py           tag: tag fields rewritten, then the tracks filed again
 ├── core/            what every command shares
+│   ├── arguments.py the options every command takes: --root, --apply, --state-dir, --syslog
 │   ├── files.py     audio extensions, junk files, emptied folders
 │   ├── journal.py   one JSON line per move or tag change, so a pass can be undone
 │   ├── lock.py      one --apply pass at a time, clean stop on SIGTERM/Ctrl-C, exit codes

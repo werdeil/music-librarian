@@ -52,7 +52,7 @@ docker compose run --rm music-librarian dedupe --review  # interactive, writes t
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
-Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install -r requirements.txt .` for the tested versions), then `music-librarian {command} --help`.
+Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install -r requirements.txt .` for the tested versions), then `music-librarian {command} --help` (`music-librarian --version` for the version).
 
 ## Configuration
 

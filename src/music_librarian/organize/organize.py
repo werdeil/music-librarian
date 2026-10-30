@@ -37,7 +37,6 @@ Exit codes: 0 = OK, 2 = conflicts, skipped files, failed rewrites or refused und
 """
 import argparse
 import contextlib
-import os
 import shlex
 import subprocess
 import sys
@@ -46,6 +45,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
 from music_librarian.core.journal import Journal, move_file
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
@@ -105,30 +105,40 @@ def last_run(state_dir: Path):
 
 
 def parser():
-    ap = argparse.ArgumentParser(description="File the music library the way Apple Music does.")
-    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
-    ap.add_argument("--root", default=root_env, required=not root_env,
-                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
+    ap = arguments.parser("organize", "File the music library the way Apple Music does.")
+    arguments.add_root(ap)
     ap.add_argument("paths", nargs="*", help="folders to process (default: --root)")
-    ap.add_argument("--apply", action="store_true", help="do it (otherwise dry run)")
-    ap.add_argument("--compilations-dir", default="Compilations")
+    arguments.add_apply(ap)
+    ap.add_argument("--compilations-dir", default="Compilations",
+                    help="folder of the compilations, under the root (default: Compilations)")
     ap.add_argument("--strict-case", action="store_true",
                     help="also rename case-only differences")
     ap.add_argument("--since", action="store_true",
                     help="only process the folders changed since the last pass")
-    ap.add_argument("--undo", metavar="JOURNAL", help="undo the moves of a journal")
+    ap.add_argument("--undo", metavar="JOURNAL", help=argparse.SUPPRESS)
     ap.add_argument("--lyrion-replay", metavar="JOURNAL",
                     help="carry the Lyrion history over for the moves of a journal")
     lyrion.add_arguments(ap)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"),
-                    help="state folder (journals, last pass)")
-    ap.add_argument("--syslog", action="store_true",
-                    help="also send the lines to syslog/journald (tag music-librarian)")
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
     return ap
 
 
-def main(argv=None):
-    args = parser().parse_args(argv)
+def undo_parser():
+    ap = arguments.parser("undo", "Undo a pass: its moves and tag changes, in reverse.")
+    ap.add_argument("undo", metavar="JOURNAL", help="the journal the pass's summary names")
+    arguments.add_root(ap)
+    arguments.add_apply(ap)
+    lyrion.add_arguments(ap)
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
+    ap.set_defaults(paths=[], compilations_dir="Compilations", strict_case=False, since=False,
+                    lyrion_replay=None)
+    return ap
+
+
+def main(argv=None, ap=None):
+    args = (ap or parser()).parse_args(argv)
     log = Log(args.syslog)
     opts = Options(root=args.root, paths=args.paths, apply=args.apply,
                    compilations_dir=args.compilations_dir, strict_case=args.strict_case,
@@ -138,6 +148,10 @@ def main(argv=None):
         return recorded(lambda: run(opts, log).code, log, opts.state_dir, "organize", opts.apply)
     command = "lyrion-replay" if args.lyrion_replay else "undo"
     return recorded(lambda: replay(args, opts, log), log, opts.state_dir, command, opts.apply)
+
+
+def undo_main(argv=None):
+    return main(argv, undo_parser())
 
 
 def replay(args, opts: Options, log):

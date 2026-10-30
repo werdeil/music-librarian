@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian import dedupe, scan, split
+from music_librarian.core import arguments
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log
 from music_librarian.core.runs import recorded
@@ -95,21 +96,21 @@ def last_run(state_dir: Path):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Enrich the whole library.")
-    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
-    ap.add_argument("--root", default=root_env, required=not root_env)
-    ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
-    ap.add_argument("--batch", type=int, default=BATCH, help="folders per tool call")
+    ap = arguments.parser("enrich", "Enrich the whole library.")
+    arguments.add_root(ap)
+    arguments.add_apply(ap, "write the tags")
+    ap.add_argument("--batch", type=int, default=BATCH, help=f"folders per tool call (default: {BATCH})")
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
                    dedupe=not args.no_dedupe)
-    log = Log()
+    log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
 

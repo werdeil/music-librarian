@@ -17,7 +17,6 @@ Exit codes: 0 = OK, 2 = refused, skipped or failed edits (or organize conflicts)
 pass is running, 4 = stopped before the end, 5 = Lyrion carry-over failed.
 """
 import argparse
-import os
 import shlex
 import sys
 import time
@@ -26,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian import organize
+from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import EXIT_STOPPED, STOP, handle_stop_signals
@@ -231,19 +231,16 @@ def setting(s):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Rewrite tag fields of tracks, then file them again.")
-    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
-    ap.add_argument("--root", default=root_env, required=not root_env,
-                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
+    ap = arguments.parser("tag", "Rewrite tag fields of tracks, then file them again.")
+    arguments.add_root(ap)
     ap.add_argument("paths", nargs="+", help="tracks or folders of the library")
     ap.add_argument("--set", dest="settings", type=setting, action="append", required=True,
                     metavar="FIELD=VALUE", help="the value to write (empty: remove the field)")
     ap.add_argument("--no-refile", action="store_true", help="leave the edited tracks where they are")
-    ap.add_argument("--apply", action="store_true", help="write the tags (otherwise dry run)")
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
-    ap.add_argument("--syslog", action="store_true",
-                    help="also send the lines to syslog/journald (tag music-librarian)")
+    arguments.add_apply(ap, "write the tags")
     lyrion.add_arguments(ap)
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    refile=not args.no_refile,

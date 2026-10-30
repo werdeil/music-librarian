@@ -12,11 +12,10 @@ in the library is changed.
 
 Exit codes: 0 = OK, 4 = stopped before the end.
 """
-import argparse
-import os
 import sys
 from collections import Counter
 
+from music_librarian.core import arguments
 from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log
 from music_librarian.core.runs import recorded
@@ -62,13 +61,13 @@ def run(root, state_dir, log, force=False):
 
 
 def main(argv=None):
-    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
-    ap = argparse.ArgumentParser(description="Read the library's metadata into the metadata cache.")
-    ap.add_argument("--root", default=root_env, required=not root_env)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
+    ap = arguments.parser("scan", "Read the library's metadata into the metadata cache.")
+    arguments.add_root(ap)
     ap.add_argument("--force", action="store_true", help="read every file again, ignoring the cache")
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
     args = ap.parse_args(argv)
-    log, state_dir = Log(), state_path(args.state_dir)
+    log, state_dir = Log(args.syslog), state_path(args.state_dir)
     log(f"[SCAN{' --force' if args.force else ''}] {args.root}")
     return recorded(lambda: run(args.root, state_dir, log, args.force), log, state_dir, "scan", False)
 

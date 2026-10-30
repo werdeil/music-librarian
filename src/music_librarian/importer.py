@@ -24,7 +24,6 @@ following ones stay in the Inbox for the next pass.
 Exit codes: 0 = OK, 2 = at least one item failed or an enrichment failed,
 3 = another pass is running, 4 = stopped before the end.
 """
-import argparse
 import contextlib
 import os
 import shutil
@@ -37,6 +36,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from music_librarian import dedupe, enrich, organize, split
+from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Buffer, Log
@@ -360,24 +360,22 @@ def purge(opts, log):
 
 # ---------- main ----------
 
-def parser():
-    ap = argparse.ArgumentParser(description="Import the Inbox into the library.")
-    inbox_env, root_env = os.environ.get("MUSIC_LIBRARIAN_INBOX"), os.environ.get("MUSIC_LIBRARIAN_ROOT")
+def parser(command="import", description="Import the Inbox into the library."):
+    ap = arguments.parser(command, description)
+    inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
                     help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
-    ap.add_argument("--root", type=Path, default=root_env, required=not root_env,
-                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
-    ap.add_argument("--apply", action="store_true", help="do it (otherwise dry run)")
+    arguments.add_root(ap, type=Path)
+    arguments.add_apply(ap)
     ap.add_argument("--settle", type=float, default=10,
                     help="seconds without change before handling an item")
     ap.add_argument("--keep-days", type=int, default=7, help="days _done/ is kept")
     ap.add_argument("--no-enrich", action="store_true", help="without genres/ReplayGain/cover/lyrics")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
-    ap.add_argument("--syslog", action="store_true",
-                    help="also send the lines to syslog/journald (tag music-import)")
     lyrion.add_arguments(ap)
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap, "music-import")
     return ap
 
 

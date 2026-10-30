@@ -1,12 +1,11 @@
 """Reading and rewriting the credits of the library, shared by split and dedupe."""
-import argparse
 import contextlib
 import dataclasses
-import os
 import shlex
 import sys
 from pathlib import Path
 
+from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, locked
 from music_librarian.core.state import state_path
@@ -66,19 +65,16 @@ def rewrite_tags(writes, journal, log, stats):
     return False
 
 
-def parser(description, review_help):
+def parser(command, description, review_help):
     """Arguments shared by the credit commands: --root, paths, --apply or --review."""
-    ap = argparse.ArgumentParser(description=description)
-    root_env = os.environ.get("MUSIC_LIBRARIAN_ROOT")
-    ap.add_argument("--root", default=root_env, required=not root_env,
-                    help="library root (default: $MUSIC_LIBRARIAN_ROOT)")
+    ap = arguments.parser(command, description)
+    arguments.add_root(ap)
     ap.add_argument("paths", nargs="*", help="folders to process (default: --root)")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="rewrite the tags (otherwise dry run)")
     mode.add_argument("--review", action="store_true", help=review_help)
-    ap.add_argument("--state-dir", default=os.environ.get("MUSIC_LIBRARIAN_STATE"))
-    ap.add_argument("--syslog", action="store_true",
-                    help="also send the lines to syslog/journald (tag music-librarian)")
+    arguments.add_state_dir(ap)
+    arguments.add_syslog(ap)
     return ap
 
 

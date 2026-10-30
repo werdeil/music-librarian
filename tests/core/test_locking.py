@@ -157,7 +157,23 @@ def test_cli_dispatch(dirs, make_track, monkeypatch):
     assert cli.main(["import", "--inbox", str(inbox_dir), "--settle", "0"]) == 0
 
 
-@pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["oups"], 2), (["range"], 2),
-                                        (["undo"], 2)])
+@pytest.mark.parametrize("argv, code", [([], 2), (["--help"], 0), (["--version"], 0), (["oups"], 2),
+                                        (["range"], 2)])
 def test_cli_usage(argv, code):
     assert cli.main(argv) == code
+
+
+@pytest.mark.parametrize("command", ["organize", "import", "watch", "enrich", "scan", "split", "dedupe",
+                                     "tag", "undo"])
+def test_command_help_names_the_command(command, capsys):
+    with pytest.raises(SystemExit) as stop:
+        cli.main([command, "--help"])
+    out = capsys.readouterr().out
+    assert stop.value.code == 0 and out.startswith(f"usage: music-librarian {command} ")
+    assert "--state-dir" in out and "MUSIC_LIBRARIAN_ROOT" in out
+
+
+def test_undo_needs_a_journal(capsys):
+    with pytest.raises(SystemExit) as stop:
+        cli.main(["undo"])
+    assert stop.value.code == 2 and "JOURNAL" in capsys.readouterr().err

@@ -57,7 +57,7 @@ class Options(CreditOptions):
 
 
 def main(argv=None):
-    ap = parser("Unify the names of one artist spelled several ways.",
+    ap = parser("dedupe", "Unify the names of one artist spelled several ways.",
                 "answer the groups of likely duplicates, one at a time (writes the aliases file only)")
     ap.add_argument("--aliases", type=Path, help=f"aliases file (default: state/{aliases_file.FILE})")
     args = ap.parse_args(argv)
