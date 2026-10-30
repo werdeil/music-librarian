@@ -7,6 +7,7 @@ against by tag (seen).
 import json
 import os
 import threading
+import time
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from music_librarian.media.metadata_cache import MetadataCache
 ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilation")
 TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
 PAGE = 60
+REBUILD_EVERY = 60
 
 
 def fold(text):
@@ -55,6 +57,18 @@ def cache_stamp(state_dir: Path):
     return tuple(out)
 
 
+def changed(stamp, built):
+    """Whether a view of the cache, `built` as (its stamp, time.monotonic()) or None, is out of
+    date at `stamp` (a cache_stamp, and what else the view depends on): the cache changed, but
+    while a pass writes it (its WAL is there) at most every REBUILD_EVERY seconds."""
+    if built is None:
+        return True
+    if stamp == built[0]:
+        return False
+    writing = stamp[1:] == built[0][1:] and stamp[0][1] is not None
+    return not writing or time.monotonic() - built[1] >= REBUILD_EVERY
+
+
 def cached_files(root: Path, state_dir: Path):
     """(path, snapshot) of the readable files under `root` in the cache that are still there."""
     with MetadataCache(state_dir) as cache:
@@ -68,15 +82,15 @@ class Index:
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
-        self.stamp, self.albums = None, []
+        self.built, self.albums = None, []
         self.lock = threading.Lock()
 
     def get(self):
         with self.lock:
-            stamp = cache_stamp(self.state_dir)
-            if stamp != self.stamp:
-                self.albums = self._build() if stamp[0] is not None else []
-                self.stamp = stamp
+            stamp = (cache_stamp(self.state_dir),)
+            if changed(stamp, self.built):
+                self.albums = self._build() if stamp[0][0] is not None else []
+                self.built = stamp, time.monotonic()
             return self.albums
 
     def _build(self):

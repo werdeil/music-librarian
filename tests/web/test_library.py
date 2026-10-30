@@ -9,8 +9,9 @@ from music_librarian import scan
 from music_librarian.core import runs
 from music_librarian.core.log import Log
 from music_librarian.media import fields
+from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import app as web
-from music_librarian.web import library
+from music_librarian.web import library, reviews
 
 EN = {"Accept-Language": "en"}
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
@@ -183,3 +184,29 @@ def test_edit_refused_when_the_track_changed_meanwhile(dashboard, lib, capsys):
     dashboard.requests.tick(Log())
     assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["composer"] == ["Someone Else"]
     assert "REFUSED  (composer changed since" in capsys.readouterr().out
+
+
+def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, lib, tmp_path, monkeypatch):
+    reads = []
+    monkeypatch.setattr(library, "cached_files", lambda *a: reads.append(a) or [])
+    clock = [1000.0]
+    monkeypatch.setattr(library.time, "monotonic", lambda: clock[0])
+    with MetadataCache(tmp_path / "state", force=True) as cache:   # a pass rewriting the cache
+        for name in ("01 Run the World.m4a", "02 Best Thing.m4a"):
+            cache.snapshot(lib / "Beyonce/4" / name)
+            cache.commit()
+            dashboard.client.get("/library")
+            clock[0] += 5
+        assert len(reads) == 1
+        clock[0] += library.REBUILD_EVERY
+        cache.snapshot(lib / "Compilations/Hits/01 One.flac")
+        cache.commit()
+        dashboard.client.get("/library")
+        assert len(reads) == 2
+    dashboard.client.get("/library")                            # the pass ended: at once
+    assert len(reads) == 3
+
+
+def test_activity_counts_no_review(dashboard, monkeypatch):
+    monkeypatch.setattr(reviews.Reviews, "credit", lambda *a: pytest.fail("reviews counted"))
+    assert dashboard.client.get("/activity").status_code == 200

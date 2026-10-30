@@ -121,7 +121,7 @@ def create_app(ctx: Context):
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
-                    waiting_total=sum(n or 0 for n in waiting().values()), activity=activity())
+                    waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity())
 
     @app.before_request
     def same_origin_forms():

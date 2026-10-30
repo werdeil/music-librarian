@@ -18,7 +18,7 @@
             <a href="{{ url_for('home') }}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}>{{ t.overview }}</a>
             <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
             <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
-            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% if waiting_total %} <span class="count" title="{{ t.questions_waiting }}">{{ waiting_total }}</span>{% endif %}</a>
+            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% set questions = waiting_total() %}{% if questions %} <span class="count" title="{{ t.questions_waiting }}">{{ questions }}</span>{% endif %}</a>
         </nav>
         <div class="top-right">
             <div id="activity" data-url="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>

@@ -9,6 +9,7 @@ answer that settles other items skips them. Like the terminal review, it takes n
 """
 import json
 import threading
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
-from music_librarian.web.library import cache_stamp, cached_files
+from music_librarian.web.library import cache_stamp, cached_files, changed
 
 
 def quiet(_msg):
@@ -38,11 +39,11 @@ class Reviews:
         self.decisions = state_dir / decisions.FILE
         self.aliases = state_dir / aliases_file.FILE
         self.lock = threading.Lock()
-        self.stamp, self.known, self.credits, self.groups, self.names = None, set(), [], [], {}
+        self.built, self.known, self.credits, self.groups, self.names = None, set(), [], [], {}
 
     def _load(self):
-        stamp = cache_stamp(self.state_dir)
-        if stamp == self.stamp:
+        stamp = (cache_stamp(self.state_dir),)
+        if not changed(stamp, self.built):
             return
         tracks = [(path, found) for path, snap in cached_files(self.root, self.state_dir)
                   if (found := credit_tags.from_snapshot(snap))]
@@ -60,7 +61,7 @@ class Reviews:
             for name in {canonical(n, aliases) for f in dedupe.FIELDS for v in found[f] for n in names_of(v)}:
                 examples.setdefault(name, str(path.parent.relative_to(self.root)))
         self.names = {name: (n, examples.get(name)) for name, n in counts.items()}
-        self.stamp = stamp
+        self.built = stamp, time.monotonic()
 
     def credit(self, start=0):
         """The first credit from position `start` still awaiting an answer, as a dict for the
@@ -120,12 +121,12 @@ class GenreReview:
         self.path = genres.list_path(state_dir)
         self.lookups = state_dir / genres.LOOKUP_CACHE
         self.lock = threading.Lock()
-        self.stamp, self.items = None, []
+        self.built, self.items = None, []
 
     def _load(self):
         mapping = self.mapping()
         stamp = cache_stamp(self.state_dir), mapping is not None
-        if stamp == self.stamp:
+        if not changed(stamp, self.built):
             return
         found = defaultdict(lambda: dict(tracks=0, example=None, albums=Counter()))
         for path, snap in cached_files(self.root, self.state_dir):
@@ -138,7 +139,7 @@ class GenreReview:
                 entry["albums"][genres.album_of(snap)] += 1
         unknown = [kv for kv in found.items() if genres.resolve(kv[1]["values"], mapping or {}) is None]
         self.items = sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0]))
-        self.stamp = stamp
+        self.built = stamp, time.monotonic()
 
     def mapping(self):
         """The validated list as genres.load reads it, or None without a readable one."""
