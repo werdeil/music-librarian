@@ -229,9 +229,11 @@ def create_app(ctx: Context):
         commands = sorted(runs.latest(ctx.state_dir))
         pages = max(math.ceil(len(shown_runs) / HISTORY_PAGE), 1)
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        queued = [] if problems or page > 1 or not ctx.requests else \
+            [r for r in reversed(ctx.requests.pending()) if command in (None, r.command)]
         return render_template("runs.html", runs=shown_runs[(page - 1) * HISTORY_PAGE:page * HISTORY_PAGE],
-                               commands=commands, command=command, problems=problems, page=page,
-                               pages=pages)
+                               queued=queued, commands=commands, command=command, problems=problems,
+                               page=page, pages=pages)
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):

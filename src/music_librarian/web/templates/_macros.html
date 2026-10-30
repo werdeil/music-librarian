@@ -10,7 +10,7 @@
 {{ t['origin_' ~ run.origin] }}{% if run.trigger %} · {{ t['trigger_' ~ run.trigger] }}{% endif %}
 {%- endmacro %}
 
-{% macro runs_table(t, runs) -%}
+{% macro runs_table(t, runs, queued=()) -%}
 <div class="table-wrap">
 <table class="runs">
     <thead>
@@ -24,6 +24,16 @@
         </tr>
     </thead>
     <tbody>
+    {% for asked in queued %}
+        <tr>
+            <td class="muted">—</td>
+            <td><code>{{ asked.command }}</code></td>
+            <td>{{ t.apply if asked.apply else t.dry_run }}</td>
+            <td>{{ t.origin_web }}</td>
+            <td></td>
+            <td><span class="status status-queued">{{ t.status_queued }}</span></td>
+        </tr>
+    {% endfor %}
     {% for run in runs %}
         <tr>
             <td><a href="{{ url_for('run_page', run_id=run.id) }}">{{ run.when }}</a></td>

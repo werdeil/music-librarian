@@ -248,6 +248,10 @@ th {
     color: var(--ok);
 }
 
+.status-queued {
+    color: var(--text-muted);
+}
+
 .status-running {
     color: var(--accent);
 }

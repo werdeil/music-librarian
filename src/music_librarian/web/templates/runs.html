@@ -15,8 +15,8 @@
         <label><input type="checkbox" name="problems" value="1" data-autosubmit{% if problems %} checked{% endif %}> {{ t.filter_problems }}</label>
         <noscript><button type="submit">{{ t.filter_button }}</button></noscript>
     </form>
-    {% if runs %}
-        {{ m.runs_table(t, runs) }}
+    {% if runs or queued %}
+        {{ m.runs_table(t, runs, queued) }}
         {% if pages > 1 %}
         <p class="filters">
             {% if page > 1 %}<a href="{{ url_for('history', command=command, problems='1' if problems else None, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}

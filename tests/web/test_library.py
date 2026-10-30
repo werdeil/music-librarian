@@ -278,3 +278,14 @@ def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, l
 def test_activity_counts_no_review(dashboard, monkeypatch):
     monkeypatch.setattr(reviews.Reviews, "credit", lambda *a: pytest.fail("reviews counted"))
     assert dashboard.client.get("/activity").status_code == 200
+
+
+def test_queued_passes_head_the_history(dashboard):
+    dashboard.requests.submit("scan", {}, False)
+    dashboard.requests.submit("organize", {"since": True}, False)
+    page = dashboard.client.get("/runs", headers=EN).get_data(as_text=True)
+    rows = re.findall(r"<td><code>(\w+)</code></td>\s*<td>[^<]*</td>\s*<td>[^<]*</td>\s*<td></td>\s*"
+                      r'<td><span class="status status-queued">Queued</span>', page)
+    assert rows == ["organize", "scan"]                     # the next to run just above the runs
+    for filtered in ("/runs?command=import", "/runs?problems=1"):
+        assert "status-queued" not in dashboard.client.get(filtered, headers=EN).get_data(as_text=True)
