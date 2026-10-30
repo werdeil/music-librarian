@@ -39,6 +39,7 @@
             </dl>
         </details>
     </footer>
+    {% if rebuilding %}<span hidden data-reload-when-built="{{ url_for('built') }}"></span>{% endif %}
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

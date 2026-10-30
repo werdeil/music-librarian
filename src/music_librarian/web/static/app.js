@@ -37,7 +37,8 @@
     setTimeout(refresh, REFRESH_MS);
 }());
 
-// A page showing lists still being built reloads once they are.
+// A page showing lists still being built reloads once they are, unless something was typed,
+// ticked or unfolded meanwhile.
 (function () {
     "use strict";
 
@@ -47,11 +48,24 @@
         return;
     }
     var url = marker.dataset.reloadWhenBuilt;
+    var touched = false;
+
+    function touch() {
+        touched = true;
+    }
+    document.addEventListener("input", touch);
+    document.addEventListener("toggle", touch, true);
 
     function poll() {
+        if (touched) {
+            return;
+        }
         fetch(url)
             .then(function (response) { return response.json(); })
             .then(function (data) {
+                if (touched) {
+                    return;
+                }
                 if (data.ready) {
                     window.location.reload();
                 } else {

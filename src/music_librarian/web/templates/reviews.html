@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m %}
 {% import "_apply_answers.html" as a %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
 {% block content %}
@@ -9,7 +8,7 @@
 </section>
 <section>
     <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>
-    <p>{% if credits is none %}{{ t.still_building }}{{ m.reload_when_built() }}{% else %}{{ t.credits_waiting.format(n=credits) }}{% endif %}</p>
+    <p>{% if credits is none %}{{ t.still_building }}{% else %}{{ t.credits_waiting.format(n=credits) }}{% endif %}</p>
     <div class="actions">
         {% if credits %}<a class="button primary" href="{{ url_for('review_split') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'split') }}
@@ -18,7 +17,7 @@
 </section>
 <section>
     <h2>{{ t.dedupe_review }} <code class="aside">dedupe --review</code></h2>
-    <p>{% if groups is none %}{{ t.still_building }}{{ m.reload_when_built() }}{% else %}{{ t.groups_waiting.format(n=groups) }}{% endif %}</p>
+    <p>{% if groups is none %}{{ t.still_building }}{% else %}{{ t.groups_waiting.format(n=groups) }}{% endif %}</p>
     <div class="actions">
         {% if groups %}<a class="button primary" href="{{ url_for('review_dedupe') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
@@ -28,7 +27,7 @@
 <section>
     <h2>{{ t.genre_review }} <code class="aside">genres.txt</code></h2>
     {% if genre_list %}
-    <p>{% if genres is none %}{{ t.still_building }}{{ m.reload_when_built() }}{% else %}{{ t.genres_waiting.format(n=genres) }}{% endif %}</p>
+    <p>{% if genres is none %}{{ t.still_building }}{% else %}{{ t.genres_waiting.format(n=genres) }}{% endif %}</p>
     <div class="actions">
         {% if genres %}<a class="button primary" href="{{ url_for('review_genres') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'genres') }}

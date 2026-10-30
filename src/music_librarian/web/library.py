@@ -114,8 +114,9 @@ class Refreshed:
         return self.value
 
     def ready(self):
-        """Whether a first build has ended, without starting one."""
-        return self.value is not None
+        """Whether a build has ended and none runs, without starting one."""
+        with self.lock:
+            return self.value is not None and self.building is None
 
     def _run(self, stamp):
         try:

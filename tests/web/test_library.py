@@ -188,6 +188,38 @@ def test_home_waits_once_on_the_first_builds(dashboard, monkeypatch):
         release.set()
 
 
+def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, make_track, monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.01)
+    settled(lambda: dashboard.client.get("/library", headers=EN))
+    assert "data-reload-when-built" not in dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+    release = threading.Event()
+    build = library.Index._build
+    monkeypatch.setattr(library.Index, "_build", lambda self: release.wait(5) and build(self))
+    make_track(lib / "Moby/Play/01 Honey.m4a", title="Honey", artist="Moby", albumartist="Moby",
+               album="Play", track=1)
+    scan.run(lib, tmp_path / "state", Log())
+    try:
+        page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Beyonce/4" in page and "Moby/Play" not in page          # the previous list, at once
+        assert 'data-reload-when-built="/built"' in page
+        assert dashboard.client.get("/built").get_json() == {"ready": False}
+    finally:
+        release.set()
+    page = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
+    assert "Moby/Play" in page and "data-reload-when-built" not in page
+    assert dashboard.client.get("/built").get_json() == {"ready": True}
+
+
+def test_no_reload_on_a_page_without_the_lists(dashboard, monkeypatch):
+    release = threading.Event()
+    monkeypatch.setattr(library.Index, "_build", lambda self: release.wait(5) and [])
+    client = web.create_app(dashboard.ctx).test_client()
+    try:
+        assert "data-reload-when-built" not in client.get("/runs", headers=EN).get_data(as_text=True)
+    finally:
+        release.set()
+
+
 def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
