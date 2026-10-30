@@ -52,7 +52,7 @@ from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
-from music_librarian.lyrics import fetch_lyrics
+from music_librarian.lyrics import enabled_providers, fetch_lyrics
 from music_librarian.lyrics.misses import Misses
 from music_librarian.media import metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -189,6 +189,10 @@ def handle(path, rel, args, log, cache, misses):
 def main(argv=None):
     args = parse_args(argv)
     log = Log()
+    if not enabled_providers():
+        providers = os.getenv("LYRICS_PROVIDERS", "")
+        log(f"SKIPPED  lyrics: LYRICS_PROVIDERS={providers!r} names no known provider")
+        return 0
     counts = dict.fromkeys(("scanned", "written", "cleared", "already", "not found", "rejected",
                             "unreachable", "searched recently", "no metadata", "failed"), 0)
     stopped = False

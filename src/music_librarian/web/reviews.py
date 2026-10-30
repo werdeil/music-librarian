@@ -116,7 +116,8 @@ class GenreReview:
         self.stamp, self.items = None, []
 
     def _load(self):
-        stamp = cache_stamp(self.state_dir)
+        mapping = self.mapping()
+        stamp = cache_stamp(self.state_dir), mapping is not None
         if stamp == self.stamp:
             return
         found = defaultdict(lambda: dict(tracks=0, example=None, albums=Counter()))
@@ -128,7 +129,8 @@ class GenreReview:
                 entry["values"] = values
                 entry["example"] = entry["example"] or str(path.relative_to(self.root))
                 entry["albums"][genres.album_of(snap)] += 1
-        self.items = sorted(found.items(), key=lambda kv: (-kv[1]["tracks"], kv[0]))
+        unknown = [kv for kv in found.items() if genres.resolve(kv[1]["values"], mapping or {}) is None]
+        self.items = sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0]))
         self.stamp = stamp
 
     def mapping(self):
@@ -181,16 +183,20 @@ class GenreReview:
 
 
 def register(app, ctx):
+    """Add the review pages to the app; return the function that counts the questions awaiting
+    an answer, {"split": n, "dedupe": n, "genres": n}."""
     reviews = Reviews(ctx.root, ctx.state_dir)
     genre_review = GenreReview(ctx.root, ctx.state_dir)
 
+    def waiting():
+        return dict(split=reviews.credit()[1], dedupe=reviews.group()[1], genres=genre_review.item()[1])
+
     @app.get("/reviews")
     def reviews_page():
-        _, waiting = reviews.credit()
-        _, groups = reviews.group()
-        _, unknown = genre_review.item()
-        return render_template("reviews.html", credits=waiting, groups=groups, genres=unknown,
-                               genre_list=genre_review.mapping() is not None, list_path=genre_review.path)
+        left = waiting()
+        return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
+                               genres=left["genres"], genre_list=genre_review.mapping() is not None,
+                               list_path=genre_review.path)
 
     @app.get("/reviews/genres")
     def review_genres():
@@ -287,6 +293,8 @@ def register(app, ctx):
             abort(400)
         reviews.write_aliases(drop=[aliases_file.identity(e) for e in entries])
         return redirect(url_for("review_dedupe", **{"from": request.form.get("position", 0, type=int)}))
+
+    return waiting
 
 
 def done_of(args):

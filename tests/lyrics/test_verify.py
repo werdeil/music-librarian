@@ -104,15 +104,15 @@ class MatchesRequestTest(unittest.TestCase):
 
 class FetchLyricsVerifyTest(unittest.TestCase):
     def setUp(self):
-        self._orig = L._enabled_providers
+        self._orig = L.enabled_providers
 
     def tearDown(self):
-        L._enabled_providers = self._orig
+        L.enabled_providers = self._orig
 
     def _stub_provider(self, meta):
         def provider(_artist, _title, _album, _duration):
             return {"lyrics": "la la la", "synced": None, "meta": meta}
-        L._enabled_providers = lambda: [("fake", provider)]
+        L.enabled_providers = lambda: [("fake", provider)]
 
     def test_verify_accepts_matching_candidate(self):
         self._stub_provider({"artist": "Muse", "title": "Space Debris", "album": None, "duration": 247})

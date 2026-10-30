@@ -143,6 +143,12 @@ def test_covers(dashboard):
     assert dashboard.client.get("/library/cover?folder=../").status_code == 404
 
 
+def test_placeholder_without_a_cover(dashboard, lib):
+    (lib / "Bare").mkdir()
+    response = dashboard.client.get("/library/cover?folder=Bare")
+    assert response.status_code == 200 and response.mimetype == "image/svg+xml"
+
+
 def test_edit_previewed_then_applied(dashboard, lib):
     form = album_form(dashboard, "Beyonce/4", **{"album.albumartist": "Beyoncé", "album.year": "2011"})
     dashboard.client.post("/library/album", data=form)

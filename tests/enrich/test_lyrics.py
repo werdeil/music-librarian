@@ -169,3 +169,12 @@ def test_retry_looks_up_a_recent_miss_without_overwriting(album, web):
     run(d)
     assert run(d, "--retry") == 0
     assert len(calls) == 6
+
+
+def test_no_provider_enabled_records_no_miss(album, web, monkeypatch, tmp_path):
+    monkeypatch.setenv("LYRICS_PROVIDERS", "none")
+    monkeypatch.setenv("MUSIC_LIBRARIAN_STATE", str(tmp_path / "state"))
+    d, _ = album
+    assert run(d) == 0
+    calls, _ = web
+    assert calls == [] and not (tmp_path / "state" / "lyrics-misses.db").exists()

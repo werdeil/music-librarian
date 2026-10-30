@@ -45,7 +45,9 @@ def test_overview_and_question(d):
     assert "Genres awaiting an answer: 2" in page(d, "/reviews")
     text = page(d, "/reviews/genres")
     assert "Hip Hop" in text and "Tracks: 2" in text and "iTunes files these albums under" in text
-    assert '<option value="Rap / Hip-hop" selected>' in text
+    assert '<option value="Rap / Hip-hop" selected>' in text and "Question 1 of 2" in text
+    text = page(d, "/reviews/genres?from=1")
+    assert "Zydeco" in text and "Question 2 of 2" in text      # the known Rock is not counted
 
 
 def test_alias_then_undo(d):
