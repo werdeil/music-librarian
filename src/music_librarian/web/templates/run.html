@@ -6,7 +6,7 @@
     <h2><code>{{ run.command }}</code> {{ run.when }} <span id="run-status">{{ m.status(t, run) }}</span></h2>
     <dl class="facts">
         <dt>{{ t.mode }}</dt><dd>{{ t.apply if run.apply else t.dry_run }}</dd>
-        <dt>{{ t.origin }}</dt><dd>{{ t['origin_' ~ run.origin] }}</dd>
+        <dt>{{ t.origin }}</dt><dd>{{ m.origin(t, run) }}</dd>
         {% if run.duration %}<dt>{{ t.duration }}</dt><dd>{{ run.duration }}</dd>{% endif %}
         {% if run.code is not none %}<dt>{{ t.exit_code }}</dt><dd>{{ run.code }}</dd>{% endif %}
     </dl>

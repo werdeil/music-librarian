@@ -100,9 +100,10 @@ def now():
     return datetime.now()
 
 
-def watched(fn, log, command, opts):
-    """fn()'s exit code, kept in the run history as a pass started by watch."""
-    return recorded(fn, log, opts.state_dir, command, opts.apply, origin="watch")
+def watched(fn, log, command, opts, trigger):
+    """fn()'s exit code, kept in the run history as a pass started by watch: at its start,
+    for new items in the Inbox, for the day's import, or on its schedule."""
+    return recorded(fn, log, opts.state_dir, command, opts.apply, origin="watch", trigger=trigger)
 
 
 def safe(fn, log, what):
@@ -114,7 +115,8 @@ def safe(fn, log, what):
 
 
 class Imports:
-    """The import, once the Inbox content has settled and was not handled as is, and once a day."""
+    """The import, once the Inbox content has settled and was not handled as is, and once a day.
+    `run(trigger)` runs it."""
 
     def __init__(self, inbox: Path, run):
         self.inbox, self.run = inbox, run
@@ -122,9 +124,10 @@ class Imports:
 
     def tick(self, log):
         current = signature(self.inbox)
-        if date.today() != self.day or (current is not None and current == self.previous
-                                        and current != self.handled):
-            if safe(self.run, log, "import") != EXIT_LOCKED:
+        settled = current is not None and current == self.previous and current != self.handled
+        if date.today() != self.day or settled:
+            trigger = "start" if self.day is None else "inbox" if settled else "daily"
+            if safe(lambda: self.run(trigger), log, "import") != EXIT_LOCKED:
                 # an item left in place is only retried once it changes
                 self.handled, self.day = signature(self.inbox), date.today()
             log("")
@@ -154,7 +157,8 @@ class NightlyOrganize:
         else:
             log(f"ORGANIZE nightly (folders changed since "
                 f"{datetime.fromtimestamp(last):%Y-%m-%d %H:%M})")
-            if safe(lambda: watched(lambda: organize.run(self.opts, log).code, log, "organize", self.opts),
+            if safe(lambda: watched(lambda: organize.run(self.opts, log).code, log, "organize", self.opts,
+                                    "schedule"),
                     log, "organize") != EXIT_LOCKED:
                 self.day = t.date()
             log("")
@@ -173,7 +177,7 @@ class WeeklyEnrich:
         last = enrich.last_run(self.opts.state_dir) or self.started
         if last < slot.timestamp() and self.slot != slot:
             log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-            if safe(lambda: watched(lambda: enrich.run(self.opts, log), log, "enrich", self.opts),
+            if safe(lambda: watched(lambda: enrich.run(self.opts, log), log, "enrich", self.opts, "schedule"),
                     log, "enrich") != EXIT_LOCKED:
                 self.slot = slot
             log("")
@@ -215,8 +219,8 @@ def main(argv=None):
     enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
                                  rescan=True)
     import_log = importer.new_log(import_opts)
-    jobs = [Imports(args.inbox, lambda: watched(lambda: importer.run(import_opts, import_log),
-                                                import_log, "import", import_opts))]
+    jobs = [Imports(args.inbox, lambda trigger: watched(lambda: importer.run(import_opts, import_log),
+                                                        import_log, "import", import_opts, trigger))]
     if args.organize_at:
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:

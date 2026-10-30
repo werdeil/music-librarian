@@ -131,6 +131,13 @@ def test_run_page(client, ctx):
     assert "data-live" not in page
 
 
+def test_trigger_shown_with_the_origin(client, ctx):
+    runs.recorded(lambda: 0, Log(), ctx.state_dir, "import", True, origin="watch", trigger="start")
+    run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
+    assert "watch · at startup" in client.get("/", headers=EN).get_data(as_text=True)
+    assert "watch · au démarrage" in client.get(f"/runs/{run_id}", headers=FR).get_data(as_text=True)
+
+
 def test_run_summary_in_french(client, ctx):
     run_id = record(ctx, "organize", summary=(("to move", 1), ("Lyrion renamed", 1), ("new key", 2)))
     page = client.get(f"/runs/{run_id}", headers=FR).get_data(as_text=True)

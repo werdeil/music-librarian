@@ -55,6 +55,7 @@ def test_empty_inbox_runs_once_per_day(inbox_dir, calls, ticks, monkeypatch):
     assert ticks(inbox_dir, [nothing, nothing, nothing]) == 0
     # at startup (purge), then when the day changes
     assert len(calls) == 2
+    assert [r["trigger"] for r in runs.recent(state_path())] == ["daily", "start"]
 
 
 def test_passes_recorded_as_started_by_watch(inbox_dir, calls, ticks):
@@ -95,6 +96,7 @@ def test_waits_until_content_is_stable(inbox_dir, calls, ticks):
     ticks(inbox_dir, [start_copy, copy_more, nothing, nothing, nothing])
     # 1 at startup, 1 once the copy is stable, no rerun afterwards
     assert len(calls) == 2
+    assert [r["trigger"] for r in runs.recent(state_path())] == ["inbox", "start"]
 
 
 def test_item_left_in_place_not_retried_until_changed(inbox_dir, calls, ticks):
@@ -285,3 +287,4 @@ def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
           "--organize-at", "02:00")
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()
     assert float((state / organize.LAST_RUN).read_text()) > before
+    assert runs.latest(state)["organize"]["trigger"] == "schedule"

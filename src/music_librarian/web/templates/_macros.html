@@ -2,6 +2,10 @@
 <span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
 {%- endmacro %}
 
+{% macro origin(t, run) -%}
+{{ t['origin_' ~ run.origin] }}{% if run.trigger %} · {{ t['trigger_' ~ run.trigger] }}{% endif %}
+{%- endmacro %}
+
 {% macro runs_table(t, runs) -%}
 <div class="table-wrap">
 <table class="runs">
@@ -21,7 +25,7 @@
             <td><a href="{{ url_for('run_page', run_id=run.id) }}">{{ run.when }}</a></td>
             <td><code>{{ run.command }}</code></td>
             <td>{{ t.apply if run.apply else t.dry_run }}</td>
-            <td>{{ t['origin_' ~ run.origin] }}</td>
+            <td>{{ origin(t, run) }}</td>
             <td>{{ run.duration or '' }}</td>
             <td>{{ status(t, run) }}</td>
         </tr>
