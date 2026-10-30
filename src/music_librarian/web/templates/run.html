@@ -37,7 +37,7 @@
         <dl class="summary">
         {% for entry in run.summary %}
             {% set key, value = entry.split(': ', 1) %}
-            <dt>{{ key }}</dt><dd>{{ value }}</dd>
+            <dt>{{ t.summary_keys.get(key, key) }}</dt><dd>{{ value }}</dd>
         {% endfor %}
         </dl>
     {% else %}

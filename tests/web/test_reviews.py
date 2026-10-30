@@ -50,6 +50,12 @@ def test_overview(d):
     assert "/reviews/split" in text and 'value="dedupe"' in text
 
 
+def test_home_counts_the_same_questions(d):
+    text = page(d, "/")
+    assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
+    assert "/reviews/split" in text and "/reviews/dedupe" in text
+
+
 def test_split_question_then_an_answer_that_settles_another(d):
     text = page(d, "/reviews/split")
     assert "Question 1 of 2" in text and "Brian May/Roger Taylor" in text and "Tracks: 3" in text

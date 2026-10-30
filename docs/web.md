@@ -1,13 +1,13 @@
 # Dashboard
 
-`watch --listen [HOST:]PORT` serves a dashboard on that address while it watches the Inbox: the passes running and the recent ones with their output, the schedule, the Inbox and the credits awaiting a decision. The compose file serves it on port 8080 (`WEB_PORT` in `.env` to change the host's port); without a host, every interface is listened on. `MUSIC_LIBRARIAN_LISTEN` sets the address when `--listen` is not given.
+`watch --listen [HOST:]PORT` serves a dashboard on that address while it watches the Inbox: the passes running and the recent ones with their output, the schedule, the Inbox and the review questions awaiting an answer. The compose file serves it on port 8080 (`WEB_PORT` in `.env` to change the host's port); without a host, every interface is listened on. `MUSIC_LIBRARIAN_LISTEN` sets the address when `--listen` is not given.
 
-The pages read the run history and the decisions file in the state folder, and the Inbox root, on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. The badge at the top says whether `watch` runs with `--apply`.
+The pages read the run history in the state folder and the Inbox root on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. When `watch` runs without `--apply`, a badge at the top says the dashboard is read-only.
 
 ## Pages
 
-- **Overview**: the passes running now, the schedule of `watch` (how often the Inbox is read, the nightly `organize` and the weekly `enrich`) with each command's last run and next slot, the items waiting in the Inbox and in `_failed/`, the number of credits awaiting a decision in `split-decisions.txt`, and the ten latest runs.
-- **Library**: the albums of the metadata cache, one per folder holding tracks, with their cover (`folder.jpg`, else the first embedded one), searched by artist, album, title or folder without case or accents. A library never scanned shows nothing until a `scan`; a file moved or deleted since it was cached is left out.
+- **Overview**: the passes running now, the schedule of `watch` (how often the Inbox is read, the nightly `organize` and the weekly `enrich`) with each command's last run and next slot, the items waiting in the Inbox and in `_failed/`, the number of questions each review still awaits, as the Reviews page counts them, and the ten latest runs.
+- **Library**: the albums of the metadata cache, one per folder holding tracks, with their cover (`folder.jpg`, else the first embedded one, else a placeholder), searched by artist, album, title or folder without case or accents. A library never scanned shows nothing until a `scan`; a file moved or deleted since it was cached is left out.
 - **An album**: its fields shared by every track (album artist, album, year, genre, number of discs, compilation flag) and a grid of its tracks (disc, number, title, artist, composer), read from the files themselves, with each track's lyrics: present, looked up in vain on a date, or neither. See below for editing them. **Look up the album's lyrics** queues a dry run of `enrich.lyrics` on its folder with `--retry`, which looks up the tracks found in vain without waiting for `LYRICS_RETRY_DAYS`; the run's page offers to write what it found.
 - **Lyrics not found**, linked from the library: the albums whose tracks were looked up in vain within `LYRICS_RETRY_DAYS`, the most tracks first, with their last lookup.
 - **Reviews**: the questions split and dedupe cannot settle, see below.
@@ -74,7 +74,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `POST /runs/<id>/apply` | queues a dashboard dry run again, applied |
 | `/library?q=<words>&page=<n>` | the albums, searched |
 | `/library/album?folder=<folder>` | an album, its folder relative to the library root; `POST` queues a dry run of its edits |
-| `/library/cover?folder=<folder>` | the album's cover |
+| `/library/cover?folder=<folder>` | the album's cover, or a placeholder without one |
 | `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
 | `/library/lyrics` | the albums whose lyrics were not found |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |

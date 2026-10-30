@@ -38,18 +38,22 @@ def _finds():
 
 class UnavailableProvidersTest(unittest.TestCase):
     def setUp(self):
-        self._orig = L._enabled_providers
+        self._orig = L.enabled_providers
 
     def tearDown(self):
-        L._enabled_providers = self._orig
+        L.enabled_providers = self._orig
 
     def _use(self, *providers):
-        L._enabled_providers = lambda: [(f"p{i}", p) for i, p in enumerate(providers)]
+        L.enabled_providers = lambda: [(f"p{i}", p) for i, p in enumerate(providers)]
 
     def test_all_providers_unreachable_reports_unavailable(self):
         self._use(_unreachable("a"), _unreachable("b"))
         res = L.fetch_lyrics("Muse", "Space Debris")
         self.assertEqual(res, {"lyrics": None, "synced": None, "source": "unavailable"})
+
+    def test_no_provider_enabled_reports_unavailable(self):
+        self._use()
+        self.assertEqual(L.fetch_lyrics("Muse", "Space Debris")["source"], "unavailable")
 
     def test_a_reachable_provider_with_no_match_is_a_miss(self):
         self._use(_unreachable("a"), _silent())

@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, url_for
+from flask import (Flask, abort, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, url_for)
 
 from music_librarian import __version__
 from music_librarian.core import runs
@@ -21,8 +22,6 @@ from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
 from music_librarian.media import fields
-from music_librarian.split import decisions
-from music_librarian.split.rules import PENDING
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -103,11 +102,6 @@ def inbox_state(inbox: Path):
     return items, sum(1 for _ in failed.iterdir()) if failed.is_dir() else 0
 
 
-def pending_decisions(state_dir: Path):
-    decided = decisions.load(state_dir / decisions.FILE, lambda _msg: None)
-    return sum(1 for d in decided.values() if d == PENDING)
-
-
 def journal_of(run):
     """The file name of the journal a run's summary names, when it is still in the state folder."""
     for entry in run["summary"]:
@@ -120,6 +114,7 @@ def journal_of(run):
 def create_app(ctx: Context):
     app = Flask(__name__)
     token = secrets.token_urlsafe(16)
+    waiting = reviews.register(app, ctx)
 
     @app.context_processor
     def language():
@@ -168,7 +163,7 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", running=[r for r in recent if r["status"] == runs.RUNNING],
             recent=recent[:10], latest=latest, schedule=schedule, inbox=inbox_state(ctx.inbox),
-            pending=pending_decisions(ctx.state_dir), options=FORMS,
+            waiting=waiting(), options=FORMS,
             queued=ctx.requests.pending() if ctx.requests else [])
 
     @app.post("/passes")
@@ -243,7 +238,6 @@ def create_app(ctx: Context):
         return send_file(path, mimetype="text/plain; charset=utf-8")
 
     index = library.Index(ctx.root, ctx.state_dir)
-    reviews.register(app, ctx)
 
     @app.get("/library")
     def library_page():
@@ -305,10 +299,13 @@ def create_app(ctx: Context):
     @app.get("/library/cover")
     def album_cover():
         folder = library.album_folder(ctx.root, request.args.get("folder", ""))
-        found = library.cover(folder) if folder else None
-        if found is None:
+        if folder is None:
             abort(404)
-        response = app.response_class(found[0], mimetype=found[1])
+        found = library.cover(folder)
+        if found is None:
+            response = send_from_directory(app.static_folder, "no-cover.svg")
+        else:
+            response = app.response_class(found[0], mimetype=found[1])
         response.headers["Cache-Control"] = "max-age=300"
         return response
 

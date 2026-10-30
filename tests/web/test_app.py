@@ -9,7 +9,6 @@ import pytest
 
 from music_librarian.core import runs
 from music_librarian.core.log import Log
-from music_librarian.split import decisions
 from music_librarian.web import app as web
 from music_librarian.web.i18n import TRANSLATIONS
 
@@ -79,7 +78,12 @@ def test_home_without_history(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert "No pass running" in page and "No run recorded yet" in page
     assert "Every day at 02:00" in page and "Every Sunday at 03:00" in page
-    assert "The Inbox is empty" in page and "Dry run: changes nothing" in page
+    assert "The Inbox is empty" in page and "Read-only (dry run)" in page
+
+
+def test_no_mode_badge_when_watch_applies(client, ctx):
+    ctx.apply = True
+    assert "Read-only" not in client.get("/", headers=EN).get_data(as_text=True)
 
 
 def test_home_in_french(client, ctx):
@@ -90,16 +94,14 @@ def test_home_in_french(client, ctx):
     assert "Derniers passages" in page and "ligne de commande" in page
 
 
-def test_home_shows_latest_runs_inbox_and_decisions(client, ctx):
+def test_home_shows_latest_runs_and_inbox(client, ctx):
     first = record(ctx, "organize", code=2)
     last = record(ctx, "organize")
     (ctx.inbox / "New Album").mkdir()
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
-    decisions.append_pending(ctx.state_dir / decisions.FILE, ["A, B", "C/D"])
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert f"/runs/{last}" in page and f"/runs/{first}" in page
     assert "New Album" in page and "In _failed/: 1" in page
-    assert "Credits awaiting a decision: 2" in page
 
 
 def test_missing_inbox(client, ctx):
@@ -127,6 +129,13 @@ def test_run_page(client, ctx):
     assert '<span class="line section">--- Summary ---</span>' in page
     assert "<dt>journal</dt><dd>/state/journal/1.jsonl</dd>" in page
     assert "data-live" not in page
+
+
+def test_run_summary_in_french(client, ctx):
+    run_id = record(ctx, "organize", summary=(("to move", 1), ("Lyrion renamed", 1), ("new key", 2)))
+    page = client.get(f"/runs/{run_id}", headers=FR).get_data(as_text=True)
+    assert "<dt>à déplacer</dt>" in page and "<dt>Lyrion renommés</dt>" in page
+    assert "<dt>new key</dt>" in page and "<dd>appliqué</dd>" in page
 
 
 def test_plain_text_log(client, ctx):

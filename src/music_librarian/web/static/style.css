@@ -90,14 +90,7 @@ section {
     padding: 0.2rem 0.6rem;
     border-radius: 999px;
     border: 1px solid var(--border-color);
-}
-
-.mode-dry {
     color: var(--warning);
-}
-
-.mode-apply {
-    color: var(--ok);
 }
 
 .muted,

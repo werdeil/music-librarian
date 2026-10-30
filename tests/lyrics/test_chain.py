@@ -23,13 +23,13 @@ def _answers(found):
 
 class ProviderChainTest(unittest.TestCase):
     def setUp(self):
-        self._orig = L._enabled_providers
+        self._orig = L.enabled_providers
 
     def tearDown(self):
-        L._enabled_providers = self._orig
+        L.enabled_providers = self._orig
 
     def _use(self, *named):
-        L._enabled_providers = lambda: list(named)
+        L.enabled_providers = lambda: list(named)
 
     def test_the_first_usable_answer_ends_the_chain(self):
         second = _answers(SYNCED)

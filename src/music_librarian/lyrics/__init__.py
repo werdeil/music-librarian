@@ -23,7 +23,7 @@ def _elapsed_ms(started):
     return int((time.monotonic() - started) * 1000)
 
 
-def _enabled_providers():
+def enabled_providers():
     """Resolve the ordered provider list from `LYRICS_PROVIDERS`; unknown names are ignored."""
     raw = os.getenv("LYRICS_PROVIDERS", DEFAULT_PROVIDER_ORDER)
     names = [n.strip().lower() for n in raw.split(",") if n.strip()]
@@ -43,15 +43,15 @@ def fetch_lyrics(artist, title, album=None, duration=None, verify=False):
 
     Returns {"lyrics": str|None, "synced": str|None, "source": str}: `source` is the
     provider that answered, "none" when nothing was found, "rejected" when a candidate
-    failed verification, or "unavailable" when no provider could be reached, which
-    says nothing about what the providers carry.
+    failed verification, or "unavailable" when no provider could be reached or none is
+    enabled, which says nothing about what the providers carry.
 
     With `verify=True`, an answer is only accepted when its own metadata matches the
     requested track (see matches_request).
     """
     if not title or not artist:
         return {"lyrics": None, "synced": None, "source": "none"}
-    providers = _enabled_providers()
+    providers = enabled_providers()
     if not providers:
         log.info("lyrics: web search disabled, LYRICS_PROVIDERS=%r resolves to no provider",
                  os.getenv("LYRICS_PROVIDERS"))
@@ -80,6 +80,6 @@ def fetch_lyrics(artist, title, album=None, duration=None, verify=False):
         log.debug("lyrics: %s matched in %d ms", name, _elapsed_ms(started))
         return {"lyrics": found.get("lyrics"), "synced": found.get("synced"), "source": name}
 
-    if unreachable and unreachable == len(providers):
+    if unreachable == len(providers):
         return {"lyrics": None, "synced": None, "source": "unavailable"}
     return {"lyrics": None, "synced": None, "source": "rejected" if rejected else "none"}
