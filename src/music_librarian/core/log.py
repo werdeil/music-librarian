@@ -50,3 +50,8 @@ class Buffer:
 
     def text(self):
         return "\n".join(self.lines)
+
+
+def count(n, noun, plural=None):
+    """"1 track", "2 tracks"."""
+    return f"{n} {noun if n == 1 else plural or noun + 's'}"

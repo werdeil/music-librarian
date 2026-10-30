@@ -33,7 +33,7 @@ import os
 import sys
 
 from music_librarian.core.lock import STOP, handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.media import artwork, tags
@@ -79,11 +79,11 @@ def process(folder, files, data, dims, log):
             failures.append(f"{os.path.basename(path)}: {exc}")
     rel = label(folder)
     if failures:
-        log(f"FAILED   {rel}: {len(failures)}/{len(files)} tracks failed")
+        log(f"FAILED   {rel}: {len(failures)} of {count(len(files), 'track')} failed")
         for line in failures[:3]:
             log(f"         {line}")
     else:
-        log(f"COVER    {rel}  {dims[1]}x{dims[2]} into {len(files)} tracks")
+        log(f"COVER    {rel}  {dims[1]}x{dims[2]} into {count(len(files), 'track')}")
     return failures
 
 
@@ -141,14 +141,15 @@ def main(argv=None):
             added += len(data) * len(outdated)
             if args.dry_run:
                 counts["re-tagged"] += 1
-                log(f"WOULD    {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of {len(files)} tracks")
+                log(f"WOULD    {rel}  {dims[1]}x{dims[2]} into {len(outdated)} of "
+                    f"{count(len(files), 'track')}")
                 continue
 
             counts["failed" if process(folder, outdated, data, dims, log) else "re-tagged"] += 1
 
     if added:
         counts["audio growth (MB)"] = round(added / 1024 / 1024)
-    return finish("Covers", counts, args.dry_run, stopped, log)
+    return finish("Covers", counts, stopped, log)
 
 
 if __name__ == "__main__":

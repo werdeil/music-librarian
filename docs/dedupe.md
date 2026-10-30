@@ -38,8 +38,8 @@ Names match case and spaces aside. Lines starting with `#` are comments.
 
 ```
 REVIEW   [1/87] same name once normalized
-         1  The Beatles  (212 tag(s))
-         2  Beatles  (14 tag(s))
+         1  The Beatles  (212 tags)
+         2  Beatles  (14 tags)
          [Enter] → The Beatles · 1-2 pick · e edit · d different · n later · u undo · q quit >
 ```
 

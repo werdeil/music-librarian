@@ -89,7 +89,7 @@ def test_rescan_reads_everything_first(lib, tools, tmp_path, capsys):
         cache.snapshot(lib / "A/B/01.m4a")
     assert run(lib, state, "--rescan") == 0
     out = capsys.readouterr().out
-    assert "read: 4" in out and "from cache: 0" in out
+    assert "read: 4" in out and "from cache" not in out.split("Enrichment summary")[0]
     assert out.index("Scan summary") < out.index("Enrichment summary")
 
 

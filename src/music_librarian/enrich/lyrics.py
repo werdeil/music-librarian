@@ -205,7 +205,7 @@ def main(argv=None):
             counts["scanned"] += 1
             counts[handle(path, rel, args, log, cache, misses)] += 1
 
-    return finish("Lyrics", counts, args.dry_run, stopped, log)
+    return finish("Lyrics", counts, stopped, log)
 
 
 if __name__ == "__main__":

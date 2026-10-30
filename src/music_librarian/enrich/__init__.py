@@ -43,7 +43,7 @@ from pathlib import Path
 from music_librarian import dedupe, scan, split
 from music_librarian.core import arguments
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.enrich.common import album_folders
@@ -149,7 +149,7 @@ def enrich_all(opts, log):
     env = tool_env(opts)
     batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
-        f"{len(dirs)} folders, {len(batches)} batches")
+        f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
     failed = []
     for name, cmd in enrichers():
         if not opts.apply:
@@ -184,7 +184,8 @@ def enrich_all(opts, log):
         removed = cache.prune(opts.root, files)
     log("\n--- Enrichment summary ---")
     log(f"{'folders':>20}: {len(dirs)}")
-    log(f"{'gone from cache':>20}: {removed}")
+    if removed:
+        log(f"{'gone from cache':>20}: {removed}")
     if failed:
         log(f"{'failed batches':>20}: {len(failed)} ({', '.join(sorted(set(failed)))})")
     if opts.apply:

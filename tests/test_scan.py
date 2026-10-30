@@ -24,7 +24,7 @@ def test_second_scan_from_cache(lib, tmp_path, capsys):
     root, tracks = lib
     assert run(root, tmp_path) == 0
     out = capsys.readouterr().out
-    assert "files: 3" in out and "read: 3" in out and "from cache: 0" in out
+    assert "files: 3" in out and "read: 3" in out and "from cache:" not in out
     assert "       1  Rock" in out and "       2  (none)" in out
     tags.write_genre(str(tracks[1]), "Rock")
     assert run(root, tmp_path) == 0
@@ -37,7 +37,8 @@ def test_force_reads_everything(lib, tmp_path, capsys):
     run(root, tmp_path)
     assert cli.main(["scan", "--root", str(root), "--state-dir", str(tmp_path / "state"), "--force"]) == 0
     out = capsys.readouterr().out
-    assert "read: 3" in out.split("[SCAN --force]")[1] and "from cache: 0" in out.split("[SCAN --force]")[1]
+    forced = out.split("[SCAN --force]")[1]
+    assert "read: 3" in forced and "from cache:" not in forced
 
 
 def test_deleted_files_removed(lib, tmp_path, capsys):
@@ -54,4 +55,4 @@ def test_stop_keeps_the_cache(lib, tmp_path, capsys):
     run(root, tmp_path)
     STOP.set()
     assert run(root, tmp_path) == EXIT_STOPPED
-    assert "removed: 0" in capsys.readouterr().out
+    assert "removed:" not in capsys.readouterr().out

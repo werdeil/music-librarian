@@ -66,11 +66,13 @@ def label(folder):
     return os.sep.join(folder.rstrip(os.sep).split(os.sep)[-2:])
 
 
-def finish(title, counts, dry_run, stopped, log):
-    """Log the `key: value` summary and return the exit code: 4 when stopped, 2 on a failure."""
-    log(f"\n--- {title} summary{' (dry run)' if dry_run else ''} ---")
+def finish(title, counts, stopped, log):
+    """Log the `key: value` summary, zeros left out, and return the exit code: 4 when stopped,
+    2 on a failure."""
+    log(f"\n--- {title} summary ---")
     for key, value in counts.items():
-        log(f"{key:>20}: {value}")
+        if value:
+            log(f"{key:>20}: {value}")
     if stopped:
         return EXIT_STOPPED
-    return 2 if counts["failed"] else 0
+    return 2 if counts.get("failed") else 0

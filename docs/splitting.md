@@ -46,7 +46,7 @@ A decision wins over the library, and matches the credit case and spaces aside. 
 `music-librarian split --review` asks about the credits awaiting a decision, most frequent first, and shows each one with its fragments, the ones already known and an example track:
 
 ```
-REVIEW   [1/534] Angus Young/Malcolm Young  (42 track(s))
+REVIEW   [1/534] Angus Young/Malcolm Young  (42 tracks)
          split: Angus Young · Malcolm Young
          e.g. AC_DC/Back in Black/01 Hells Bells.m4a
          [Enter] split · s split · k keep · e edit · n later · u undo · q quit >

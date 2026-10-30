@@ -46,10 +46,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_librarian.core import arguments
-from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
+from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal, move_file
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
@@ -242,7 +242,7 @@ def organize_pass(opts: Options, log, journal=None):
             try:
                 tags = opts.overrides.get(p) or file_tags(p, root, cache)
             except Exception as e:
-                log(f"SKIPPED  (unreadable: {e})  {p}")
+                log(f"SKIPPED  (unreadable: {e})  {relative(p, root)}")
                 stats["skipped"] += 1
                 blocked.add(p.parent)
                 continue
@@ -250,7 +250,7 @@ def organize_pass(opts: Options, log, journal=None):
                 rewrites.append(p)
             tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
             if tgt is None:
-                log(f"SKIPPED  (not enough tags)  {p}")
+                log(f"SKIPPED  (not enough tags)  {relative(p, root)}")
                 stats["skipped"] += 1
                 blocked.add(p.parent)
                 continue
@@ -267,7 +267,7 @@ def organize_pass(opts: Options, log, journal=None):
         n = sum(e[1]["compilation"] for e in grp)
         if 0 < n < len(grp):
             log(f"CONFLICT (inconsistent cpil: {n}/{len(grp)} tracks flagged compilation)"
-                f"  {d}  [{grp[0][1]['album']}]")
+                f"  {relative(d, root)}  [{grp[0][1]['album']}]")
             stats["conflicts"] += len(grp)
             mixed.update(e[0] for e in grp)
             blocked.add(d)
@@ -294,7 +294,8 @@ def organize_pass(opts: Options, log, journal=None):
         key = nfc(str(dst)).casefold()
         if key in seen_targets or (dst.exists() and not dst.samefile(p)):
             other = seen_targets.get(key, dst)
-            log(f"CONFLICT {p}\n         → {dst}\n         (already taken by {other})")
+            log(f"CONFLICT {relative(p, root)}\n         → {relative(dst, root)}\n"
+                f"         (already taken by {relative(other, root)})")
             stats["conflicts"] += 1
             blocked.add(p.parent)
             continue
@@ -316,15 +317,15 @@ def organize_pass(opts: Options, log, journal=None):
             if p.is_file() and not is_junk(p) and p.suffix.lower() not in AUDIO_EXT:
                 dst = tdir / p.name
                 if dst.exists():
-                    log(f"CONFLICT (side file already there)  {dst}")
+                    log(f"CONFLICT (side file already there)  {relative(dst, root)}")
                     stats["conflicts"] += 1
                 else:
                     extra.append((p, dst))
 
     for p in rewrites:
-        log(f"REWRITE  (moov after mdat)  {p}")
+        log(f"REWRITE  (moov after mdat)  {relative(p, root)}")
     for src, dst in moves + extra:
-        log(f"MOVE     {src}\n         → {dst}")
+        log(f"MOVE     {relative(src, root)}\n         → {relative(dst, root)}")
 
     own_journal = journal is None
     if own_journal:
@@ -332,16 +333,16 @@ def organize_pass(opts: Options, log, journal=None):
     done = []
     stopped = False
     if opts.apply:
-        stopped = rewrite_all(rewrites, opts.interruptible, stats, log)
+        stopped = rewrite_all(rewrites, root, opts.interruptible, stats, log)
         touched = set()
         for i, (src, dst) in enumerate([] if stopped else moves + extra):
             if opts.interruptible and STOP.is_set():
-                log(f"STOP     requested: {len(moves) + len(extra) - i} move(s) not done,"
+                log(f"STOP     requested: {count(len(moves) + len(extra) - i, 'move')} not done,"
                     " left for the next pass")
                 stopped = True
                 break
             if dst.exists() and not dst.samefile(src):
-                log(f"CONFLICT (appeared during the pass)  {dst}")
+                log(f"CONFLICT (appeared during the pass)  {relative(dst, root)}")
                 stats["conflicts"] += 1
                 continue
             move_file(src, dst, journal)
@@ -367,7 +368,7 @@ def organize_pass(opts: Options, log, journal=None):
     stats["to move"] = len(moves)
     stats["side files to move"] = len(extra)
     stats["junk files"] = len(junk)
-    log("\n--- Summary ---")
+    log("\n--- Organize summary ---")
     for k in ("scanned", "in place", "to rewrite", "rewritten", "to move", "side files to move",
               "moved", "skipped", "conflicts", "errors", "junk files", "folders removed"):
         if stats[k]:
@@ -387,18 +388,18 @@ def organize_pass(opts: Options, log, journal=None):
     return Report(code, moves + extra, done, journal.path)
 
 
-def rewrite_all(rewrites, interruptible, stats, log):
+def rewrite_all(rewrites, root, interruptible, stats, log):
     """Puts moov ahead of mdat in place, before the moves. True when stopped."""
     for i, p in enumerate(rewrites):
         if interruptible and STOP.is_set():
-            log(f"STOP     requested: {len(rewrites) - i} rewrite(s) and the moves not done,"
+            log(f"STOP     requested: {count(len(rewrites) - i, 'rewrite')} and the moves not done,"
                 " left for the next pass")
             return True
         try:
             faststart(p)
             stats["rewritten"] += 1
         except (RewriteError, OSError, subprocess.CalledProcessError) as e:
-            log(f"ERROR    {e}  {p}")
+            log(f"ERROR    {e}  {relative(p, root)}")
             stats["errors"] += 1
     return False
 

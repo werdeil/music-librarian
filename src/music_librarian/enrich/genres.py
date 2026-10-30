@@ -42,7 +42,7 @@ from pathlib import Path
 
 from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP, handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.integrations import itunes
@@ -243,13 +243,13 @@ def process(folder, files, ctx):
         tag = "WOULD" if ctx.dry_run else "ITUNES" if source else "GENRE"
         via = f"iTunes \"{source}\", " if source else ""
         was = f"\"{old}\"" if old else "(no genre)"
-        ctx.log(f"{tag:<8} {rel}  {was} → \"{new}\" ({via}{n} track(s))")
+        ctx.log(f"{tag:<8} {rel}  {was} → \"{new}\" ({via}{count(n, 'track')})")
         ctx.counts["re-tagged"] += n
         ctx.counts["from iTunes"] += n if source else 0
     for old, n in unknown.items():
-        ctx.log(f"UNKNOWN  {rel}  \"{old}\" ({n} track(s){hint})")
+        ctx.log(f"UNKNOWN  {rel}  \"{old}\" ({count(n, 'track')}{hint})")
     if missing:
-        ctx.log(f"NOGENRE  {rel}  ({missing} track(s){hint})")
+        ctx.log(f"NOGENRE  {rel}  ({count(missing, 'track')}{hint})")
     ctx.counts["unknown genre"] += sum(unknown.values())
     ctx.counts["without genre"] += missing
 
@@ -310,7 +310,7 @@ def main(argv=None):
             process(folder, [p for p in files if os.path.splitext(p)[1].lower() in AUDIO_EXT], ctx)
     if not client:
         del ctx.counts["from iTunes"]
-    return finish("Genres", dict(ctx.counts), args.dry_run, stopped, log)
+    return finish("Genres", dict(ctx.counts), stopped, log)
 
 
 if __name__ == "__main__":

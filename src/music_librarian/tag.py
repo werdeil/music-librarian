@@ -26,10 +26,10 @@ from pathlib import Path
 
 from music_librarian import organize
 from music_librarian.core import arguments
-from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty
+from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import EXIT_STOPPED, STOP, handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.enrich import genres
@@ -102,14 +102,15 @@ def plan(opts, log, stats):
     writes, planned = [], {}
     for path, edits in by_path.items():
         stats["tracks"] += 1
+        rel = relative(path, opts.root)
         if not path.is_relative_to(opts.root) or path.suffix.lower() not in AUDIO_EXT:
-            log(f"SKIPPED  (not a track of the library)  {path}")
+            log(f"SKIPPED  (not a track of the library)  {rel}")
             stats["skipped"] += 1
             continue
         try:
             current = fields.read(path)
         except Exception as e:
-            log(f"SKIPPED  (unreadable: {e})  {path}")
+            log(f"SKIPPED  (unreadable: {e})  {rel}")
             stats["skipped"] += 1
             continue
         after = dict(current)
@@ -117,22 +118,22 @@ def plan(opts, log, stats):
             try:
                 new = fields.check(edit.field, [edit.value])
             except fields.FieldError as e:
-                log(f"ERROR    ({e})  {path}")
+                log(f"ERROR    ({e})  {rel}")
                 stats["errors"] += 1
                 continue
             if edit.field == "genre" and new and mapping:
                 validated = genres.resolve(new, mapping)
                 if validated is None:
-                    log(f"UNKNOWN  genre \"{new[0]}\" is not in the validated list  {path}")
+                    log(f"UNKNOWN  genre \"{new[0]}\" is not in the validated list  {rel}")
                 new = [validated] if validated else new
             if edit.seen is not None and current[edit.field] != [v.strip() for v in edit.seen if v.strip()]:
-                log(f"REFUSED  ({edit.field} changed since: \"{shown(current[edit.field])}\")  {path}")
+                log(f"REFUSED  ({edit.field} changed since: \"{shown(current[edit.field])}\")  {rel}")
                 stats["refused"] += 1
                 continue
             if new == current[edit.field]:
                 stats["unchanged"] += 1
                 continue
-            log(f"TAG      {edit.field}: \"{shown(current[edit.field])}\" → \"{shown(new)}\"  {path}")
+            log(f"TAG      {edit.field}: \"{shown(current[edit.field])}\" → \"{shown(new)}\"  {rel}")
             writes.append((path, edit.field, current[edit.field], new))
             after[edit.field] = new
         planned[path] = filing_tags(after)
@@ -150,13 +151,13 @@ def tag_pass(opts: Options, log):
     if opts.apply:
         for i, (path, name, old, new) in enumerate(writes):
             if STOP.is_set():
-                log(f"STOP     requested: {len(writes) - i} tag(s) not written, nor any track filed")
+                log(f"STOP     requested: {count(len(writes) - i, 'tag')} not written, nor any track filed")
                 stopped = True
                 break
             try:
                 fields.write(path, name, new)
             except Exception as e:
-                log(f"ERROR    ({e})  {path}")
+                log(f"ERROR    ({e})  {relative(path, opts.root)}")
                 stats["errors"] += 1
                 continue
             journal.tag(path, name, old, new)

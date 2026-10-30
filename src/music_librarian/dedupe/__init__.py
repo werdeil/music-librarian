@@ -32,7 +32,7 @@ from pathlib import Path
 
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.dedupe import aliases as aliases_file
@@ -141,7 +141,7 @@ def dedupe_pass(opts: Options, log):
     path = opts.aliases
     changes = plan(tracks, aliases_file.load(path, log)[0])
     for (field, old, new), files in sorted(changes.items()):
-        log(f"RENAME   {field}: {old}\n         → {new}  ({len(files)} track(s))")
+        log(f"RENAME   {field}: {old}\n         → {new}  ({count(len(files), 'track')})")
     groups = []
     if not opts.apply:
         groups, counts = open_groups(tracks, path, log)

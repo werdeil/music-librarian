@@ -24,9 +24,9 @@ import mutagen
 
 from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP, handle_stop_signals
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
-from music_librarian.enrich.common import album_folders, finish
+from music_librarian.enrich.common import album_folders, finish, label
 from music_librarian.media import tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -82,6 +82,10 @@ def cpus():
     return os.cpu_count() or 1
 
 
+def shown(path):
+    return os.path.join(label(os.path.dirname(path)), os.path.basename(path))
+
+
 def without_gain(targets, log):
     """The music files under `targets` whose snapshot has no track gain."""
     with MetadataCache(state_path()) as cache:
@@ -102,8 +106,8 @@ def main(argv=None):
     todo = without_gain(args.targets, log)
     if args.dry_run:
         for path in todo:
-            log(f"WOULD    {path}")
-        return finish("ReplayGain", {"without gain": len(todo), "failed": 0}, True, False, log)
+            log(f"WOULD    {shown(path)}")
+        return finish("ReplayGain", {"without gain": len(todo)}, False, log)
 
     counts = {"tagged": 0, "failed": 0}
     with ThreadPoolExecutor(max(1, args.jobs)) as pool:
@@ -113,13 +117,13 @@ def main(argv=None):
             result, error = outcome
             if error:
                 counts["failed"] += 1
-                log(f"ERROR    {path}: {error}")
+                log(f"ERROR    {shown(path)}: {error}")
             else:
                 counts["tagged"] += 1
-                log(f"GAIN     {path}  {result[0]:.2f} dB, peak {result[1]:.6f}")
+                log(f"GAIN     {shown(path)}  {result[0]:.2f} dB, peak {result[1]:.6f}")
     if STOP.is_set():
-        log(f"STOP     requested: {len(todo) - sum(counts.values())} file(s) left for the next pass")
-    return finish("ReplayGain", counts, False, STOP.is_set(), log)
+        log(f"STOP     requested: {count(len(todo) - sum(counts.values()), 'file')} left for the next pass")
+    return finish("ReplayGain", counts, STOP.is_set(), log)
 
 if __name__ == "__main__":
     handle_stop_signals()

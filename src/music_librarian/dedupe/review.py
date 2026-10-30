@@ -5,6 +5,7 @@ and resume where it left off."""
 from itertools import combinations
 
 from music_librarian.core.lock import STOP
+from music_librarian.core.log import count
 from music_librarian.dedupe import aliases as aliases_file
 from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.similar import PARTIAL, words
@@ -30,7 +31,7 @@ def pending(names, aliases, different):
 def show(log, position, total, names, reasons, counts):
     log(f"REVIEW   [{position}/{total}] {', '.join(sorted(reasons))}")
     for i, n in enumerate(names, 1):
-        log(f"         {i}  {n}  ({counts.get(n, 0)} tag(s))")
+        log(f"         {i}  {n}  ({count(counts.get(n, 0), 'tag')})")
 
 
 def answer(ask, names, hint):
