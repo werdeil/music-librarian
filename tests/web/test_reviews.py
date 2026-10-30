@@ -167,7 +167,7 @@ def test_recorded_answers_pages(d):
     decisions.record(d.state / decisions.FILE, "AC/DC", "keep")
     decisions.append_pending(d.state / decisions.FILE, ["A, B"])
     text = page(d, "/reviews")
-    assert "See the recorded answers (2)" in text and "See the recorded decisions (3)" in text
+    assert "Answers (2)</a>" in text and "Decisions (3)</a>" in text
     text = page(d, "/reviews/dedupe/aliases")
     assert "<td>Beyonce</td><td>Beyoncé</td>" in text and "<td>Queen</td>" in text and "Queens" in text
     text = page(d, "/reviews/split/decisions")

@@ -14,12 +14,13 @@ TRANSLATIONS = {
         "tile_no_genre_list": "pas de liste validée",
         "tile_building": "calcul en cours",
         "folders": "dossiers",
+        "see": "voir",
         "rules_genres": "Genres validés",
         "rules_aliases": "Orthographes d'artistes",
         "rules_decisions": "Décisions de découpe",
-        "rules_genres_link": "Voir les genres validés ({n})",
-        "rules_aliases_link": "Voir les réponses enregistrées ({n})",
-        "rules_decisions_link": "Voir les décisions enregistrées ({n})",
+        "rules_genres_link": "Genres validés ({n})",
+        "rules_aliases_link": "Réponses ({n})",
+        "rules_decisions_link": "Décisions ({n})",
         "rules_genres_intro": ("Chaque genre validé, les noms qui le désignent et les pistes de la "
                                "bibliothèque qu'il regroupe : import et enrich écrivent ces genres."),
         "rules_aliases_intro": ("Les orthographes réécrites sous un autre nom, et les artistes reconnus "
@@ -235,12 +236,13 @@ TRANSLATIONS = {
         "tile_no_genre_list": "no validated list",
         "tile_building": "being worked out",
         "folders": "folders",
+        "see": "see",
         "rules_genres": "Validated genres",
         "rules_aliases": "Artist spellings",
         "rules_decisions": "Split decisions",
-        "rules_genres_link": "See the validated genres ({n})",
-        "rules_aliases_link": "See the recorded answers ({n})",
-        "rules_decisions_link": "See the recorded decisions ({n})",
+        "rules_genres_link": "Validated genres ({n})",
+        "rules_aliases_link": "Answers ({n})",
+        "rules_decisions_link": "Decisions ({n})",
         "rules_genres_intro": ("Each validated genre, the names that stand for it and the tracks of the "
                                "library it gathers: import and enrich write these genres."),
         "rules_aliases_intro": ("The spellings rewritten as another name, and the artists known to differ: "

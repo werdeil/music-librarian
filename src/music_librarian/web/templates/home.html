@@ -63,7 +63,7 @@
     </table>
     </div>
     {% if problems %}
-    <p class="warning"><a href="{{ url_for('history', problems='1') }}">{{ t.recent_problems.format(n=problems) }}</a></p>
+    <p class="warning">{{ t.recent_problems.format(n=problems) }} · <a href="{{ url_for('history', problems='1') }}">{{ t.see }}</a></p>
     {% endif %}
 </section>
 

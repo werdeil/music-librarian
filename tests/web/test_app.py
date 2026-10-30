@@ -101,7 +101,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert f"/runs/{last}" in page and f"/runs/{first}" not in page        # the latest of each command
-    assert "Runs with problems over the last 7 days: 1" in page
+    assert 'Runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
     assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
     failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
     assert 'class="tile tile-todo"' in failed and '<span class="tile-value">1' in failed

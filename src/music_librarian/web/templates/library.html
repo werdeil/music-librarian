@@ -15,7 +15,7 @@
         <p class="muted">{{ t.no_album }}</p>
     {% else %}
         <p class="muted">{{ t.albums_found.format(n=total) }}
-            {% if without_lyrics %} · <a href="{{ url_for('missed_lyrics') }}">{{ t.tracks_without_lyrics.format(n=without_lyrics) }}</a>{% endif %}</p>
+            {% if without_lyrics %} · {{ t.tracks_without_lyrics.format(n=without_lyrics) }} <a href="{{ url_for('missed_lyrics') }}">{{ t.see }}</a>{% endif %}</p>
         <ul class="albums">
         {% for album in albums %}
             <li>

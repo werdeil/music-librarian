@@ -97,7 +97,7 @@ def test_genres_pass_queued_from_the_reviews(d, lib, tmp_path, monkeypatch):
 
 
 def test_validated_genres_page(d):
-    assert "See the validated genres (2)" in page(d, "/reviews")
+    assert "Validated genres (2)</a>" in page(d, "/reviews")
     text = page(d, "/reviews/genres/list")
     rows = re.findall(r"<tr>\s*<td>([^<]*)</td>\s*<td[^>]*>([^<]*)</td>\s*<td[^>]*>([^<]*)</td>", text)
     assert rows == [("Rock", "", "1"), ("Rap / Hip-hop", "rap", "0")]
