@@ -63,23 +63,27 @@
     </div>
 </section>
 
+{% set items, failed = inbox or ([], []) %}
+{% if inbox is none or items or failed %}
 <section>
     <h2>{{ t.inbox }}</h2>
-    <p class="muted"><code class="path">{{ ctx.inbox }}</code></p>
     {% if inbox is none %}
-        <p class="muted">{{ t.inbox_missing }}</p>
-    {% else %}
-        {% set items, failed = inbox %}
-        {% if items %}
-            <ul class="inbox">
-            {% for name in items %}<li>{{ name }}</li>{% endfor %}
-            </ul>
-        {% else %}
-            <p class="muted">{{ t.inbox_empty }}</p>
-        {% endif %}
-        {% if failed %}<p class="warning">{{ t.inbox_failed.format(n=failed) }}</p>{% endif %}
+        <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
+    {% endif %}
+    {% if failed %}
+        <p class="warning">{{ t.inbox_failed }}</p>
+        <ul class="inbox">
+        {% for name in failed %}<li>{{ name }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+    {% if items %}
+        <p>{{ t.inbox_waiting }}</p>
+        <ul class="inbox">
+        {% for name in items %}<li>{{ name }}</li>{% endfor %}
+        </ul>
     {% endif %}
 </section>
+{% endif %}
 
 {% if waiting.values() | sum %}
 <section>

@@ -78,7 +78,7 @@ def test_home_without_history(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert "No pass running" in page and "No run recorded yet" in page
     assert "Every day at 02:00" in page and "Every Sunday at 03:00" in page
-    assert "The Inbox is empty" in page and "Read-only (dry run)" in page
+    assert "<h2>Inbox</h2>" not in page and "Read-only (dry run)" in page
 
 
 def test_no_mode_badge_when_watch_applies(client, ctx):
@@ -101,7 +101,8 @@ def test_home_shows_latest_runs_and_inbox(client, ctx):
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert f"/runs/{last}" in page and f"/runs/{first}" in page
-    assert "New Album" in page and "In _failed/: 1" in page
+    assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
+    assert "Not imported, left in _failed/:" in page and "<li>Broken</li>" in page
 
 
 def test_missing_inbox(client, ctx):

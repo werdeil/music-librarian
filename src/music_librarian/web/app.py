@@ -93,13 +93,13 @@ def shown(run):
 
 
 def inbox_state(inbox: Path):
-    """(names of the Inbox items, entries in _failed/), or None for a missing Inbox."""
+    """(names of the Inbox items, names of the entries in _failed/), or None for a missing Inbox."""
     try:
         items = [it.name for it in list_items(inbox)]
     except OSError:
         return None
     failed = inbox / ERRORS
-    return items, sum(1 for _ in failed.iterdir()) if failed.is_dir() else 0
+    return items, sorted(p.name for p in failed.iterdir()) if failed.is_dir() else []
 
 
 def journal_of(run):
