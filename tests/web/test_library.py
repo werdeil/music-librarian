@@ -38,6 +38,15 @@ def dashboard(lib, tmp_path, serve):
     return serve(lib, tmp_path / "state", tmp_path / "Inbox")
 
 
+def settled(get):
+    """get(), called again once the builds its first call started have ended."""
+    get()
+    for thread in threading.enumerate():
+        if thread.name == "web-build":
+            thread.join()
+    return get()
+
+
 def album_form(d, folder, **changes):
     """The album page's form as a browser would post it, with `changes` ({input name: value})."""
     page = d.client.get(f"/library/album?folder={folder}", headers=EN).get_data(as_text=True)
@@ -67,6 +76,12 @@ def test_reading_the_cache_leaves_its_stamp_alone(lib, tmp_path):
     assert library.cache_stamp(state) == before
 
 
+def test_no_cache_created_by_the_dashboard(tmp_path, serve):
+    d = serve(tmp_path / "Music", tmp_path / "state", tmp_path / "Inbox")
+    settled(lambda: d.client.get("/", headers=EN))
+    assert not (tmp_path / "state" / "metadata.db").exists()
+
+
 def test_index_leaves_out_files_gone_and_follows_the_cache(lib, tmp_path, make_track):
     index = library.Index(lib, tmp_path / "state")
     assert len(index.get()) == 2
@@ -75,7 +90,7 @@ def test_index_leaves_out_files_gone_and_follows_the_cache(lib, tmp_path, make_t
     make_track(lib / "Moby/Play/01 Honey.m4a", title="Honey", artist="Moby", albumartist="Moby",
                album="Play", track=1)
     scan.run(lib, tmp_path / "state", Log())
-    assert [a.folder for a in index.get()] == ["Moby/Play", "Compilations/Hits"]
+    assert [a.folder for a in settled(index.get)] == ["Moby/Play", "Compilations/Hits"]
 
 
 def slow_build(release, values):
@@ -106,6 +121,30 @@ def test_refreshed_never_keeps_a_request_waiting(monkeypatch):
     assert value.get() == "second"
 
 
+def test_refreshed_waits_on_the_first_build_only(monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 5)
+    stamp, release = ["a"], threading.Event()
+    value = library.Refreshed(lambda: ((stamp[0], None),), slow_build(release, ["first", "second"]))
+    release.set()
+    assert value.get() == "first"
+    release.clear()
+    stamp[0] = "b"
+    began = time.monotonic()
+    assert value.get() == "first" and time.monotonic() - began < 1
+    release.set()
+
+
+def test_refreshed_patience_runs_from_the_build_start(monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.3)
+    release = threading.Event()
+    value = library.Refreshed(lambda: (("a", None),), slow_build(release, ["first"]))
+    value.start()
+    time.sleep(0.3)
+    began = time.monotonic()
+    assert value.get() is None and time.monotonic() - began < 0.1
+    release.set()
+
+
 def test_refreshed_builds_once_per_stamp():
     builds = []
     value = library.Refreshed(lambda: (("a", None),), lambda: builds.append(1) or len(builds))
@@ -133,6 +172,20 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
         time.sleep(0.05)
     assert client.get("/built").get_json() == {"ready": True}
     assert "data-reload-when-built" not in client.get("/library", headers=EN).get_data(as_text=True)
+
+
+def test_home_waits_once_on_the_first_builds(dashboard, monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.5)
+    release = threading.Event()
+    for cls in (library.Index, reviews.Reviews, reviews.GenreReview):
+        monkeypatch.setattr(cls, "_build", lambda self: release.wait(5) and None)
+    client = web.create_app(dashboard.ctx).test_client()
+    try:
+        began = time.monotonic()
+        assert client.get("/", headers=EN).status_code == 200
+        assert time.monotonic() - began < 1
+    finally:
+        release.set()
 
 
 def test_library_page(dashboard):
@@ -246,7 +299,7 @@ def test_edit_previewed_then_applied(dashboard, lib):
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()
-    albums = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+    albums = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     assert "folder=Beyonc%C3%A9/4" in albums and "folder=Beyonce/4" not in albums
 
 
@@ -268,15 +321,15 @@ def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, l
         for name in ("01 Run the World.m4a", "02 Best Thing.m4a"):
             cache.snapshot(lib / "Beyonce/4" / name)
             cache.commit()
-            dashboard.client.get("/library")
+            settled(lambda: dashboard.client.get("/library"))
             clock[0] += 5
         assert len(reads) == 1
         clock[0] += library.REBUILD_EVERY
         cache.snapshot(lib / "Compilations/Hits/01 One.flac")
         cache.commit()
-        dashboard.client.get("/library")
+        settled(lambda: dashboard.client.get("/library"))
         assert len(reads) == 2
-    dashboard.client.get("/library")                            # the pass ended: at once
+    settled(lambda: dashboard.client.get("/library"))                            # the pass ended: at once
     assert len(reads) == 3
 
 
@@ -302,7 +355,7 @@ def test_compilation_named_as_such(dashboard, lib, make_track, tmp_path):
     make_track(lib / "Compilations/Now/02 B.mp3", title="B", artist="U2", album="Now", track=2,
                compilation=True)
     scan.run(lib, tmp_path / "state", Log())
-    page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+    page = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     start = page.index("folder=Compilations/Now")
     now = page[start:page.index("</li>", start)]
     assert 'class="muted compilation">Compilation</span>' in now and "Moby" not in now

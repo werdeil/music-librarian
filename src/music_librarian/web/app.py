@@ -34,6 +34,7 @@ WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW",
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 HISTORY_PAGE = 50
+POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 
 
 @dataclass
@@ -118,13 +119,21 @@ def journal_of(run):
 def create_app(ctx: Context):
     app = Flask(__name__)
     token = secrets.token_urlsafe(16)
-    waiting, reviews_built = reviews.register(app, ctx)
+    waiting, queues = reviews.register(app, ctx)
+    index = library.Index(ctx.root, ctx.state_dir)
+    built_in_background = (index.albums, *queues)
 
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity())
+
+    @app.before_request
+    def start_builds():
+        if request.endpoint not in POLLED:
+            for value in built_in_background:
+                value.start()
 
     @app.before_request
     def same_origin_forms():
@@ -185,7 +194,7 @@ def create_app(ctx: Context):
 
     @app.get("/built")
     def built():
-        return jsonify(ready=index.albums.ready() and reviews_built())
+        return jsonify(ready=all(value.ready() for value in built_in_background))
 
     @app.get("/activity")
     def activity_fragment():
@@ -286,8 +295,6 @@ def create_app(ctx: Context):
         if runs.get(ctx.state_dir, run_id) is None or not path.exists():
             abort(404)
         return send_file(path, mimetype="text/plain; charset=utf-8")
-
-    index = library.Index(ctx.root, ctx.state_dir)
 
     @app.get("/library")
     def library_page():
