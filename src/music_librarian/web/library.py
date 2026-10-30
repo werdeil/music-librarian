@@ -1,8 +1,8 @@
 """The library as the dashboard browses and edits it.
 
-The album list comes from the metadata cache, never from a walk of the library; an album's
-page reads its tracks' fields from the files themselves, the values an edit is then checked
-against by tag (seen).
+The album list comes from the metadata cache, never from a walk of the library, and is built
+in the background (Refreshed); an album's page reads its tracks' fields from the files
+themselves, the values an edit is then checked against by tag (seen).
 """
 import json
 import os
@@ -21,6 +21,7 @@ from music_librarian.media.metadata_cache import MetadataCache
 ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilation")
 TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
 PAGE = 60
+PATIENCE = 1.0
 REBUILD_EVERY = 60
 
 
@@ -47,26 +48,17 @@ def first(track, *keys):
 
 def cache_stamp(state_dir: Path):
     """What changes when the metadata cache does: the times of metadata.db and of its WAL, the
-    first None while there is no cache."""
+    first None while there is no cache. A reader creates an empty WAL or deletes it on closing,
+    so an empty one counts as none."""
     out = []
     for name in (metadata_cache.FILE, metadata_cache.FILE + "-wal"):
         try:
-            out.append(os.stat(state_dir / name).st_mtime_ns)
+            st = os.stat(state_dir / name)
         except OSError:
             out.append(None)
+            continue
+        out.append(st.st_mtime_ns if st.st_size or name == metadata_cache.FILE else None)
     return tuple(out)
-
-
-def changed(stamp, built):
-    """Whether a view of the cache, `built` as (its stamp, time.monotonic()) or None, is out of
-    date at `stamp` (a cache_stamp, and what else the view depends on): the cache changed, but
-    while a pass writes it (its WAL is there) at most every REBUILD_EVERY seconds."""
-    if built is None:
-        return True
-    if stamp == built[0]:
-        return False
-    writing = stamp[1:] == built[0][1:] and stamp[0][1] is not None
-    return not writing or time.monotonic() - built[1] >= REBUILD_EVERY
 
 
 def cached_files(root: Path, state_dir: Path):
@@ -76,24 +68,67 @@ def cached_files(root: Path, state_dir: Path):
                 if snap is not None and os.path.exists(path)]
 
 
+def changed(stamp, built):
+    """Whether a value built at `built`, (its stamp, time.monotonic()) or None, is out of date at
+    `stamp` (a cache_stamp, then what else the value depends on): the cache changed, but while a
+    pass writes it (its WAL holds data) at most every REBUILD_EVERY seconds."""
+    if built is None:
+        return True
+    if stamp == built[0]:
+        return False
+    writing = stamp[1:] == built[0][1:] and stamp[0][1] is not None
+    return not writing or time.monotonic() - built[1] >= REBUILD_EVERY
+
+
+class Refreshed:
+    """The value `build()` returns for the current `stamp()` (a cache_stamp, then what else the
+    value depends on), built again in a thread of its own when the stamp changes (see changed),
+    so a request never waits on a build longer than PATIENCE seconds: get() returns None until a
+    first build ends, then the last value built, stale or not."""
+
+    def __init__(self, stamp, build):
+        self.stamp_of, self.build = stamp, build
+        self.built, self.value, self.building = None, None, None
+        self.lock = threading.Lock()
+
+    def get(self):
+        stamp = self.stamp_of()
+        with self.lock:
+            if self.building is None and changed(stamp, self.built):
+                self.building = threading.Thread(target=self._run, args=(stamp,), name="web-build",
+                                                 daemon=True)
+                self.building.start()
+            building = self.building
+        if building is not None:
+            building.join(PATIENCE)
+        return self.value
+
+    def _run(self, stamp):
+        try:
+            value = self.build()
+        except Exception:
+            with self.lock:
+                self.built, self.building = (stamp, time.monotonic()), None
+            raise
+        with self.lock:
+            self.built, self.value, self.building = (stamp, time.monotonic()), value, None
+
+
 class Index:
     """The albums of the metadata cache, one per folder holding tracks, rebuilt when the cache
     changes. A file gone from the library since it was cached is left out."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
-        self.built, self.albums = None, []
-        self.lock = threading.Lock()
+        self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
 
     def get(self):
-        with self.lock:
-            stamp = (cache_stamp(self.state_dir),)
-            if changed(stamp, self.built):
-                self.albums = self._build() if stamp[0][0] is not None else []
-                self.built = stamp, time.monotonic()
-            return self.albums
+        """The albums, [] without a cache, None until they are first built."""
+        return self.albums.get()
 
     def _build(self):
+        if cache_stamp(self.state_dir)[0] is None:
+            return []
         folders, bare = defaultdict(list), defaultdict(int)
         for path, snap in cached_files(self.root, self.state_dir):
             folders[path.parent].append(snap["tags"])
@@ -109,8 +144,9 @@ class Index:
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
-        words = fold(query).split()
-        return [a for a in self.get() if all(w in a.text for w in words)]
+        """The albums matching every word of `query`, None until they are first built."""
+        albums, words = self.get(), fold(query).split()
+        return None if albums is None else [a for a in albums if all(w in a.text for w in words)]
 
 
 def album_folder(root: Path, rel):

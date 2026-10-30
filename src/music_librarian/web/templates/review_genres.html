@@ -17,6 +17,8 @@
     {% endif %}
     {% if not genre_list %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
+    {% elif left is none %}
+    <p class="muted">{{ t.still_building }}</p>
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.position + 1, n=item.total) }} · {{ t.genres_waiting.format(n=left) }}</p>
     <div class="question">

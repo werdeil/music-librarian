@@ -3,15 +3,16 @@ question per page, each answer written at once to the decisions or the aliases f
 genres the validated list does not know, each added to it as a name of a validated genre or as a
 genre of its own.
 
-The queues are built from the metadata cache, again whenever it changes; whether an item still
-needs an answer is checked against the files on each page, as the terminal review does, so an
-answer that settles other items skips them. Like the terminal review, it takes no lock.
+The queues are built from the metadata cache in the background, again whenever it changes, and
+count as None until first built; whether an item still needs an answer is checked against the
+files on each page, as the terminal review does, so an answer that settles other items skips
+them. Like the terminal review, it takes no lock.
 """
 import json
 import threading
-import time
 from collections import Counter, defaultdict
 from pathlib import Path
+from types import SimpleNamespace
 
 from flask import abort, redirect, render_template, request, url_for
 
@@ -26,7 +27,7 @@ from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
-from music_librarian.web.library import cache_stamp, cached_files, changed
+from music_librarian.web.library import Refreshed, cache_stamp, cached_files
 
 
 def quiet(_msg):
@@ -39,46 +40,44 @@ class Reviews:
         self.decisions = state_dir / decisions.FILE
         self.aliases = state_dir / aliases_file.FILE
         self.lock = threading.Lock()
-        self.built, self.known, self.credits, self.groups, self.names = None, set(), [], [], {}
+        self.queues = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
 
-    def _load(self):
-        stamp = (cache_stamp(self.state_dir),)
-        if not changed(stamp, self.built):
-            return
+    def _build(self):
         tracks = [(path, found) for path, snap in cached_files(self.root, self.state_dir)
                   if (found := credit_tags.from_snapshot(snap))]
-        self.known = split.known_from([c for _, c in tracks])
+        known = split.known_from([c for _, c in tracks])
         decided = decisions.load(self.decisions, quiet)
-        _, waiting = split.plan(tracks, self.known | decided_names(decided), decided)
-        self.credits = [(credit, n, str(p.relative_to(self.root)), status)
-                        for status in (PENDING, PROTECTED)
-                        for credit, n, p, status in split.by_frequency(waiting, status)]
+        _, waiting = split.plan(tracks, known | decided_names(decided), decided)
+        asked = [(credit, n, str(p.relative_to(self.root)), status)
+                 for status in (PENDING, PROTECTED)
+                 for credit, n, p, status in split.by_frequency(waiting, status)]
         aliases, different = aliases_file.load(self.aliases, quiet)
         counts, mbids = dedupe.names_in(tracks, aliases)
-        self.groups = find_groups(counts, mbids, different)
         examples = {}
         for path, found in tracks:
             for name in {canonical(n, aliases) for f in dedupe.FIELDS for v in found[f] for n in names_of(v)}:
                 examples.setdefault(name, str(path.parent.relative_to(self.root)))
-        self.names = {name: (n, examples.get(name)) for name, n in counts.items()}
-        self.built = stamp, time.monotonic()
+        return SimpleNamespace(known=known, credits=asked, groups=find_groups(counts, mbids, different),
+                               names={name: (n, examples.get(name)) for name, n in counts.items()})
 
     def credit(self, start=0):
         """The first credit from position `start` still awaiting an answer, as a dict for the
-        page, or None; and the count of those left."""
+        page, or None; and the count of those left, None until the queue is first built."""
+        queues = self.queues.get()
+        if queues is None:
+            return None, None
         with self.lock:
-            self._load()
             decided = decisions.load(self.decisions, quiet)
-            current = self.known | decided_names(decided)
-            left = [i for i, item in enumerate(self.credits)
+            current = queues.known | decided_names(decided)
+            left = [i for i, item in enumerate(queues.credits)
                     if resolve(item[0], current, decided)[1] in (PENDING, PROTECTED)]
             nxt = next((i for i in left if i >= start), None)
             if nxt is None:
                 return None, len(left)
-            credit, tracks, example, status = self.credits[nxt]
+            credit, tracks, example, status = queues.credits[nxt]
             status = resolve(credit, current, decided)[1]
             parts = fragments(credit)
-            return dict(position=nxt, total=len(self.credits), credit=credit, tracks=tracks,
+            return dict(position=nxt, total=len(queues.credits), credit=credit, tracks=tracks,
                         example=example, protected=status == PROTECTED, parts=parts,
                         known=[p for p in parts if key(p) in current],
                         suggested=KEEP if status == PROTECTED else suggest(credit, current)), len(left)
@@ -92,20 +91,23 @@ class Reviews:
 
     def group(self, start=0):
         """The first group of likely duplicates from position `start` the aliases file does not
-        settle yet, as a dict for the page, or None; and the count of those left."""
+        settle yet, as a dict for the page, or None; and the count of those left, None until the
+        queue is first built."""
+        queues = self.queues.get()
+        if queues is None:
+            return None, None
         with self.lock:
-            self._load()
             aliases, different = aliases_file.load(self.aliases, quiet)
-            left = [(i, names) for i, (group, _) in enumerate(self.groups)
+            left = [(i, names) for i, (group, _) in enumerate(queues.groups)
                     if len(names := pending(group, aliases, different)) >= 2]
             nxt = next(((i, names) for i, names in left if i >= start), None)
             if nxt is None:
                 return None, len(left)
             i, names = nxt
-            reasons = self.groups[i][1]
-            return dict(position=i, total=len(self.groups), names=names, reasons=sorted(reasons),
-                        counts={n: self.names.get(n, (0, None))[0] for n in names},
-                        examples={n: self.names.get(n, (0, None))[1] for n in names},
+            reasons = queues.groups[i][1]
+            return dict(position=i, total=len(queues.groups), names=names, reasons=sorted(reasons),
+                        counts={n: queues.names.get(n, (0, None))[0] for n in names},
+                        examples={n: queues.names.get(n, (0, None))[1] for n in names},
                         suggested=suggestion(names, reasons)), len(left)
 
     def write_aliases(self, add=(), drop=()):
@@ -121,13 +123,10 @@ class GenreReview:
         self.path = genres.list_path(state_dir)
         self.lookups = state_dir / genres.LOOKUP_CACHE
         self.lock = threading.Lock()
-        self.built, self.items = None, []
+        self.queue = Refreshed(lambda: (cache_stamp(state_dir), self.mapping() is not None), self._build)
 
-    def _load(self):
+    def _build(self):
         mapping = self.mapping()
-        stamp = cache_stamp(self.state_dir), mapping is not None
-        if not changed(stamp, self.built):
-            return
         found = defaultdict(lambda: dict(tracks=0, example=None, albums=Counter()))
         for path, snap in cached_files(self.root, self.state_dir):
             values = metadata_cache.genres(snap)
@@ -138,8 +137,7 @@ class GenreReview:
                 entry["example"] = entry["example"] or str(path.relative_to(self.root))
                 entry["albums"][genres.album_of(snap)] += 1
         unknown = [kv for kv in found.items() if genres.resolve(kv[1]["values"], mapping or {}) is None]
-        self.items = sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0]))
-        self.built = stamp, time.monotonic()
+        return sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0]))
 
     def mapping(self):
         """The validated list as genres.load reads it, or None without a readable one."""
@@ -163,20 +161,23 @@ class GenreReview:
 
     def item(self, start=0):
         """The first genre from position `start` the list still does not know, as a dict for the
-        page, or None; and the count of those left. None, 0 without a list."""
+        page, or None; and the count of those left, None until the queue is first built. None, 0
+        without a list."""
+        items = self.queue.get()
         with self.lock:
-            self._load()
             mapping = self.mapping()
             if mapping is None:
                 return None, 0
-            left = [i for i, (_, entry) in enumerate(self.items)
+            if items is None:
+                return None, None
+            left = [i for i, (_, entry) in enumerate(items)
                     if genres.resolve(entry["values"], mapping) is None]
             nxt = next((i for i in left if i >= start), None)
             if nxt is None:
                 return None, len(left)
-            shown, entry = self.items[nxt]
+            shown, entry = items[nxt]
             apple = self.apple(entry["albums"])
-            return dict(position=nxt, total=len(self.items), genre=shown, tracks=entry["tracks"],
+            return dict(position=nxt, total=len(items), genre=shown, tracks=entry["tracks"],
                         example=entry["example"], apple=apple,
                         suggested=genres.resolve([apple], mapping) if apple else None,
                         validated=sorted(set(mapping.values()), key=str.casefold)), len(left)
@@ -192,19 +193,18 @@ class GenreReview:
 
 def register(app, ctx):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n, None without a genre list}."""
+    an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built."""
     reviews = Reviews(ctx.root, ctx.state_dir)
     genre_review = GenreReview(ctx.root, ctx.state_dir)
 
     def waiting():
-        unknown = genre_review.item()[1] if genre_review.mapping() is not None else None
-        return dict(split=reviews.credit()[1], dedupe=reviews.group()[1], genres=unknown)
+        return dict(split=reviews.credit()[1], dedupe=reviews.group()[1], genres=genre_review.item()[1])
 
     @app.get("/reviews")
     def reviews_page():
         left = waiting()
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
-                               genres=left["genres"] or 0, genre_list=genre_review.mapping() is not None,
+                               genres=left["genres"], genre_list=genre_review.mapping() is not None,
                                list_path=genre_review.path)
 
     @app.get("/reviews/genres")

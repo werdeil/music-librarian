@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import re
+import threading
 
 import pytest
 
@@ -56,6 +57,15 @@ def test_index_from_the_cache(lib, tmp_path):
     assert [a.folder for a in index.search("beyoncé run")] == ["Beyonce/4"]
 
 
+def test_reading_the_cache_leaves_its_stamp_alone(lib, tmp_path):
+    state = tmp_path / "state"
+    before = library.cache_stamp(state)
+    with MetadataCache(state):
+        library.cached_files(lib, state)
+        assert library.cache_stamp(state) == before
+    assert library.cache_stamp(state) == before
+
+
 def test_index_leaves_out_files_gone_and_follows_the_cache(lib, tmp_path, make_track):
     index = library.Index(lib, tmp_path / "state")
     assert len(index.get()) == 2
@@ -65,6 +75,55 @@ def test_index_leaves_out_files_gone_and_follows_the_cache(lib, tmp_path, make_t
                album="Play", track=1)
     scan.run(lib, tmp_path / "state", Log())
     assert [a.folder for a in index.get()] == ["Moby/Play", "Compilations/Hits"]
+
+
+def slow_build(release, values):
+    """A build that waits for `release`, then returns the next of `values`."""
+    values = iter(values)
+
+    def build():
+        release.wait(5)
+        return next(values)
+    return build
+
+
+def test_refreshed_never_keeps_a_request_waiting(monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.01)
+    stamp, release = ["a"], threading.Event()
+    value = library.Refreshed(lambda: ((stamp[0], None),), slow_build(release, ["first", "second"]))
+    assert value.get() is None                          # first build under way
+    building = value.building
+    release.set()
+    building.join()
+    assert value.get() == "first"
+    release.clear()
+    stamp[0] = "b"
+    assert value.get() == "first"                       # stale while the new one builds
+    building = value.building
+    release.set()
+    building.join()
+    assert value.get() == "second"
+
+
+def test_refreshed_builds_once_per_stamp():
+    builds = []
+    value = library.Refreshed(lambda: (("a", None),), lambda: builds.append(1) or len(builds))
+    assert value.get() == value.get() == 1 and len(builds) == 1
+
+
+def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
+    monkeypatch.setattr(library, "PATIENCE", 0.01)
+    release = threading.Event()
+    monkeypatch.setattr(library.Index, "_build", lambda self: release.wait(5) and [])
+    ctx = dashboard.ctx
+    client = web.create_app(ctx).test_client()
+    try:
+        assert "Still being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Still being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+        tiles = client.get("/", headers=EN).get_data(as_text=True)
+        assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
+    finally:
+        release.set()
 
 
 def test_library_page(dashboard):

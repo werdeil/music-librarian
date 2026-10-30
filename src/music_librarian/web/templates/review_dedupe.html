@@ -14,7 +14,9 @@
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
-    {% if item %}
+    {% if left is none %}
+    <p class="muted">{{ t.still_building }}</p>
+    {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.position + 1, n=item.total) }} · {{ t.groups_waiting.format(n=left) }}</p>
     <form method="post" action="{{ url_for('answer_dedupe') }}" class="answer">
         <input type="hidden" name="csrf" value="{{ csrf }}">

@@ -153,7 +153,9 @@ def create_app(ctx: Context):
         problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
                        if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
         items, failed = inbox_state(ctx.inbox) or ([], [])
-        todo = dict(waiting(), failed=len(failed), lyrics=sum(a.without_lyrics for a in index.get()))
+        albums = index.get()
+        todo = dict(waiting(), failed=len(failed),
+                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
@@ -167,7 +169,8 @@ def create_app(ctx: Context):
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
         return render_template(
-            "home.html", latest=latest, schedule=schedule, problems=problems, todo=todo,
+            "home.html", genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
+            latest=latest, schedule=schedule, problems=problems, todo=todo,
             inbox=inbox_state(ctx.inbox), waiting_items=items,
             passes={command: OPTIONS[command] for command in HOME_PASSES})
 
@@ -256,13 +259,16 @@ def create_app(ctx: Context):
     @app.get("/library")
     def library_page():
         query = request.args.get("q", "").strip()
-        albums = index.search(query) if query else index.get()
+        everything = index.get()
+        if everything is None:
+            return render_template("library.html", query=query, building=True)
+        albums = index.search(query) if query else everything
         pages = max(math.ceil(len(albums) / library.PAGE), 1)
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
                                albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
-                               empty=not index.get(),
-                               without_lyrics=sum(a.without_lyrics for a in index.get()))
+                               empty=not everything,
+                               without_lyrics=sum(a.without_lyrics for a in everything))
 
     @app.get("/library/album")
     def album_page():
@@ -289,8 +295,11 @@ def create_app(ctx: Context):
 
     @app.get("/library/lyrics")
     def missed_lyrics():
+        everything = index.get()
+        if everything is None:
+            return render_template("lyrics.html", building=True, days=f"{misses.retry_days():g}")
         albums = [(a, when(at) if at else None)
-                  for a, at in library.without_lyrics(index.get(), ctx.root, ctx.state_dir)]
+                  for a, at in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
         pages = max(math.ceil(len(albums) / library.PAGE), 1)
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
         return render_template("lyrics.html", albums=albums[(page - 1) * library.PAGE:page * library.PAGE],

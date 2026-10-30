@@ -4,7 +4,9 @@
 <section>
     <h2>{{ t.tracks_without_lyrics_title }}</h2>
     <p class="muted">{{ t.lyrics_page_intro.format(days=days) }}</p>
-    {% if albums %}
+    {% if building %}
+    <p class="muted">{{ t.still_building }}</p>
+    {% elif albums %}
     <p class="muted">{{ t.tracks_without_lyrics.format(n=tracks) }}</p>
     <div class="table-wrap">
     <table>
