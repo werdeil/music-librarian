@@ -116,6 +116,11 @@ def test_history_filters(client, ctx):
     assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
     assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page and "To check" in page
+    assert 'name="problems" value="1" data-autosubmit checked' in page
+    page = client.get("/runs?command=enrich", headers=EN).get_data(as_text=True)
+    assert 'name="command" value="enrich"' in page and "data-autosubmit>" in page
+    page = client.get("/runs?command=scan&problems=1", headers=EN).get_data(as_text=True)
+    assert "No run matches" in page
 
 
 def test_run_page(client, ctx):

@@ -9,13 +9,16 @@
         {% for c in commands %}
             <a href="{{ url_for('history', command=c, problems='1' if problems else None) }}"{% if c == command %} aria-current="true"{% endif %}><code>{{ c }}</code></a>
         {% endfor %}
-        <span class="separator"></span>
-        <a href="{{ url_for('history', command=command, problems=None if problems else '1') }}"{% if problems %} aria-current="true"{% endif %}>{{ t.filter_problems }}</a>
     </p>
+    <form method="get" action="{{ url_for('history') }}" class="filters">
+        {% if command %}<input type="hidden" name="command" value="{{ command }}">{% endif %}
+        <label><input type="checkbox" name="problems" value="1" data-autosubmit{% if problems %} checked{% endif %}> {{ t.filter_problems }}</label>
+        <noscript><button type="submit">{{ t.filter_button }}</button></noscript>
+    </form>
     {% if runs %}
         {{ m.runs_table(t, runs) }}
     {% else %}
-        <p class="muted">{{ t.no_runs }}</p>
+        <p class="muted">{{ t.no_matching_run if command or problems else t.no_runs }}</p>
     {% endif %}
 </section>
 {% endblock %}

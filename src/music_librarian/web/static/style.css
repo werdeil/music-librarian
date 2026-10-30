@@ -186,10 +186,6 @@ th {
     font-size: var(--fs-sm);
 }
 
-.separator {
-    border-left: 1px solid var(--border-color);
-}
-
 .inbox {
     margin: 0;
     padding-left: 1.2rem;

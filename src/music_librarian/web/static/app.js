@@ -1,3 +1,14 @@
+// A filter applied as soon as it changes.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-autosubmit]").forEach(function (input) {
+        input.addEventListener("change", function () {
+            input.form.submit();
+        });
+    });
+}());
+
 // The output of a running pass, appended as it is written, until the pass ends.
 (function () {
     "use strict";
