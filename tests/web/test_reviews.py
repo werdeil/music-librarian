@@ -53,7 +53,8 @@ def test_overview(d):
 def test_home_counts_the_same_questions(d):
     text = page(d, "/")
     assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
-    assert "/reviews/split" in text and "/reviews/dedupe" in text
+    assert "/reviews/split" in text and "/reviews/dedupe" in text and "Import the Inbox" in text
+    assert '<span class="count" title="Questions awaiting an answer">3</span>' in page(d, "/library")
 
 
 def test_split_question_then_an_answer_that_settles_another(d):
@@ -97,6 +98,7 @@ def names_shown(text):
 def test_dedupe_question_then_unify(d):
     text = page(d, "/reviews/dedupe")
     assert "same name once normalized" in text and 'value="Beyoncé" checked' in text
+    assert "<code>Beyoncé/Lemonade</code>" in text and "<code>Beyonce/Single</code>" in text
     response = d.client.post("/reviews/dedupe", data={"csrf": d.token, "position": "0", "choice": "unify",
                                                       "target": "Beyoncé", "names": names_shown(text)})
     assert aliases.load(d.state / aliases.FILE, print)[0] == {"beyonce": "Beyoncé"}

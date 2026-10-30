@@ -69,13 +69,26 @@ section {
 
 .top nav {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+}
+
+.top nav a {
+    white-space: nowrap;
 }
 
 .top nav a,
 .filters a {
     text-decoration: none;
     color: var(--text-muted);
+}
+
+.top nav .count {
+    font-size: 0.75rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    color: var(--base-bg);
+    background: var(--warning);
 }
 
 .top nav a[aria-current],
@@ -91,6 +104,15 @@ section {
     border-radius: 999px;
     border: 1px solid var(--border-color);
     color: var(--warning);
+}
+
+.path {
+    overflow-wrap: anywhere;
+}
+
+.back {
+    margin: 0 0 0.5rem;
+    font-size: var(--fs-sm);
 }
 
 .muted,
@@ -246,20 +268,24 @@ footer {
 }
 
 .pass-command {
-    min-width: 6rem;
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 16rem;
+    color: var(--text-bright);
 }
 
 .pass-options {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem 1rem;
-    flex: 1;
+    flex: 1 1 12rem;
     color: var(--text-muted);
 }
 
 .actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.6rem;
     margin-top: 1rem;
 }

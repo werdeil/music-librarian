@@ -70,6 +70,6 @@ def test_lookup_of_a_folder_outside_the_library(d, folder):
 
 def test_albums_looked_up_in_vain(d):
     page = d.client.get("/library", headers=EN).get_data(as_text=True)
-    assert "lyrics not found: 1 album(s)" in page
+    assert "albums whose lyrics were not found: 1" in page
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
     assert "/library/album?folder=Beyonce/4" in page and "<td>1</td>" in page

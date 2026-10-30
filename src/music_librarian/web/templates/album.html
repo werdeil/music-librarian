@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ common.album or folder }} · music-librarian{% endblock %}
 {% block content %}
+<p class="back"><a href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
 <section class="album-head">
     <img src="{{ url_for('album_cover', folder=folder) }}" alt="" width="160" height="160">
     <div>
@@ -47,7 +48,7 @@
         <table class="tracks">
             <thead>
                 <tr>
-                    <th>{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
+                    {% if discs %}<th>{{ t.field_disc }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
                     <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.file }}</th>
                 </tr>
             </thead>
@@ -56,7 +57,7 @@
             {% for file, values in tracks %}
                 <tr>
                 {% if values %}
-                    {% for name in ('disc', 'track') %}
+                    {% for name in (('disc', 'track') if discs else ('track',)) %}
                     <td><input class="number" name="t{{ ns.i }}.{{ name }}" value="{{ values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
                     {% endfor %}
                     {% for name in ('title', 'artist', 'composer') %}
@@ -64,7 +65,7 @@
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
                 {% else %}
-                    <td colspan="5" class="warning">{{ t.unreadable }}</td>
+                    <td colspan="{{ 5 if discs else 4 }}" class="warning">{{ t.unreadable }}</td>
                 {% endif %}
                     {% set state = lyrics.get(file) %}
                     <td class="{{ 'warning' if state and state is not sameas true else 'muted' if not state }}">

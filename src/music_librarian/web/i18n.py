@@ -55,6 +55,11 @@ TRANSLATIONS = {
         "live": "Mis à jour en direct",
         "not_found": "Passage introuvable : il a peut-être été purgé de l'historique",
         "run_a_pass": "Lancer un passage",
+        "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
+                   "enrich": "Compléter genres, gain, pochettes et paroles",
+                   "scan": "Relire les métadonnées", "split": "Découper les crédits à plusieurs noms",
+                   "dedupe": "Unifier les artistes écrits de plusieurs façons",
+                   "genres": "Aligner les genres sur la liste validée"},
         "queued": "En file",
         "dry_run_button": "Dry run",
         "run_button": "Lancer",
@@ -110,7 +115,7 @@ TRANSLATIONS = {
         "lyrics_hint": ("Sans attendre le délai avant une nouvelle recherche : la page du passage "
                         "montre ce qui a été trouvé et propose de l'écrire."),
         "lyrics_not_found": "Paroles introuvables",
-        "lyrics_missed_albums": "paroles introuvables : {n} album(s)",
+        "lyrics_missed_albums": "albums aux paroles introuvables : {n}",
         "lyrics_page_intro": ("Les albums dont des pistes ont été cherchées en vain ces {days} derniers "
                               "jours : enrich les cherche à nouveau ensuite, ou tout de suite depuis la "
                               "page de l'album."),
@@ -123,6 +128,7 @@ TRANSLATIONS = {
         "alias_button": "En faire un nom de ce genre",
         "new_genre_button": "En faire un genre validé",
         "reviews": "Revues",
+        "questions_waiting": "Questions en attente de réponse",
         "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
                           "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
                           "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants."),
@@ -233,6 +239,11 @@ TRANSLATIONS = {
         "live": "Updated live",
         "not_found": "No such run: it may have been dropped from the history",
         "run_a_pass": "Run a pass",
+        "passes": {"import": "Import the Inbox", "organize": "File the library",
+                   "enrich": "Fill in genres, gain, covers and lyrics",
+                   "scan": "Read the metadata again", "split": "Split the credits holding several names",
+                   "dedupe": "Unify the artists spelled several ways",
+                   "genres": "Align the genres with the validated list"},
         "queued": "Queued",
         "dry_run_button": "Dry run",
         "run_button": "Run",
@@ -287,7 +298,7 @@ TRANSLATIONS = {
         "lyrics_hint": ("Without waiting for the delay before a new lookup: the run's page shows what "
                         "was found and offers to write it."),
         "lyrics_not_found": "Lyrics not found",
-        "lyrics_missed_albums": "lyrics not found: {n} album(s)",
+        "lyrics_missed_albums": "albums whose lyrics were not found: {n}",
         "lyrics_page_intro": ("The albums whose tracks were looked up in vain over the last {days} days: "
                               "enrich looks them up again after that, or right away from the album's page."),
         "lyrics_none_missed": "No track looked up in vain lately.",
@@ -299,6 +310,7 @@ TRANSLATIONS = {
         "alias_button": "Make it a name of this genre",
         "new_genre_button": "Make it a validated genre",
         "reviews": "Reviews",
+        "questions_waiting": "Questions awaiting an answer",
         "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does not "
                           "know, one at a time: each answer is saved at once in the decisions, aliases or "
                           "genres file, and holds for the passes to come."),

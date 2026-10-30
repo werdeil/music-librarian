@@ -93,6 +93,15 @@ def test_album_page(dashboard):
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
     assert "Preview the changes" in page
+    assert 'href="/library">← Library</a>' in page and 'name="t0.disc"' not in page   # one disc
+
+
+def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_path):
+    make_track(lib / "Beyonce/4/03 Bonus.m4a", title="Bonus", artist="Beyonce", albumartist="Beyonce",
+               album="4", track=1, disc=2, disctotal=2)
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'name="t2.disc" value="2"' in page
 
 
 @pytest.mark.parametrize("folder", ["../", "Beyonce/9", "Beyonce/4/01 Run the World.m4a"])
