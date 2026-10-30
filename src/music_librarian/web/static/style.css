@@ -525,6 +525,10 @@ select {
     font-size: var(--fs-sm);
 }
 
+.compilation {
+    font-style: italic;
+}
+
 .cover {
     position: relative;
     display: block;

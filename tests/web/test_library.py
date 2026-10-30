@@ -139,6 +139,9 @@ def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
     assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
+    hits = page[page.index("folder=Compilations/Hits"):]
+    assert '<span class="muted">Beyonce</span>' in page
+    assert 'class="muted compilation">Compilation</span>' not in hits         # one track only flagged
     assert "Tracks: " not in page
     page = dashboard.client.get("/library?q=hits", headers=EN).get_data(as_text=True)
     assert "Albums: 1" in page and "Beyonce/4" not in page
@@ -291,3 +294,16 @@ def test_queued_passes_head_the_history(dashboard):
     assert rows == ["organize", "scan"]                     # the next to run just above the runs
     for filtered in ("/runs?command=import", "/runs?problems=1"):
         assert "status-queued" not in dashboard.client.get(filtered, headers=EN).get_data(as_text=True)
+
+
+def test_compilation_named_as_such(dashboard, lib, make_track, tmp_path):
+    make_track(lib / "Compilations/Now/01 A.m4a", title="A", artist="Moby", album="Now", track=1,
+               compilation=True)
+    make_track(lib / "Compilations/Now/02 B.mp3", title="B", artist="U2", album="Now", track=2,
+               compilation=True)
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+    start = page.index("folder=Compilations/Now")
+    now = page[start:page.index("</li>", start)]
+    assert 'class="muted compilation">Compilation</span>' in now and "Moby" not in now
+    assert "Compilations/Now" in dashboard.client.get("/library?q=moby", headers=EN).get_data(as_text=True)

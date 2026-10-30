@@ -27,7 +27,8 @@
                         <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ album.tracks }}</span>
                     </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>
-                    <span class="muted">{{ album.artist }}</span>
+                    {% if album.compilation %}<span class="muted compilation">{{ t.field_compilation }}</span>
+                    {% else %}<span class="muted">{{ album.artist }}</span>{% endif %}
                 </a>
             </li>
         {% endfor %}

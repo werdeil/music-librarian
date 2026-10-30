@@ -39,6 +39,7 @@ class Album:
     tracks: int
     text: str     # what a search matches, folded
     without_lyrics: int = 0
+    compilation: bool = False
 
 
 def first(track, *keys):
@@ -144,7 +145,8 @@ class Index:
             title = next((a for t in tracks if (a := first(t, "album"))), "")
             words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
             rel = str(folder.relative_to(self.root))
-            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder]))
+            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder],
+                                all(first(t, "compilation") == "1" for t in tracks)))
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
