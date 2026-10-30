@@ -16,6 +16,7 @@ from flask import abort, redirect, render_template, request, url_for
 
 from music_librarian import dedupe, split
 from music_librarian.dedupe import aliases as aliases_file
+from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.review import pending, suggestion
 from music_librarian.dedupe.similar import find_groups
 from music_librarian.enrich import genres
@@ -37,7 +38,7 @@ class Reviews:
         self.decisions = state_dir / decisions.FILE
         self.aliases = state_dir / aliases_file.FILE
         self.lock = threading.Lock()
-        self.stamp, self.known, self.credits, self.groups, self.counts = None, set(), [], [], {}
+        self.stamp, self.known, self.credits, self.groups, self.names = None, set(), [], [], {}
 
     def _load(self):
         stamp = cache_stamp(self.state_dir)
@@ -52,8 +53,13 @@ class Reviews:
                         for status in (PENDING, PROTECTED)
                         for credit, n, p, status in split.by_frequency(waiting, status)]
         aliases, different = aliases_file.load(self.aliases, quiet)
-        self.counts, mbids = dedupe.names_in(tracks, aliases)
-        self.groups = find_groups(self.counts, mbids, different)
+        counts, mbids = dedupe.names_in(tracks, aliases)
+        self.groups = find_groups(counts, mbids, different)
+        examples = {}
+        for path, found in tracks:
+            for name in {canonical(n, aliases) for f in dedupe.FIELDS for v in found[f] for n in names_of(v)}:
+                examples.setdefault(name, str(path.parent.relative_to(self.root)))
+        self.names = {name: (n, examples.get(name)) for name, n in counts.items()}
         self.stamp = stamp
 
     def credit(self, start=0):
@@ -97,7 +103,8 @@ class Reviews:
             i, names = nxt
             reasons = self.groups[i][1]
             return dict(position=i, total=len(self.groups), names=names, reasons=sorted(reasons),
-                        counts={n: self.counts.get(n, 0) for n in names},
+                        counts={n: self.names.get(n, (0, None))[0] for n in names},
+                        examples={n: self.names.get(n, (0, None))[1] for n in names},
                         suggested=suggestion(names, reasons)), len(left)
 
     def write_aliases(self, add=(), drop=()):

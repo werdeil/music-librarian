@@ -21,7 +21,7 @@
         <form method="post" action="{{ url_for('new_pass') }}" class="pass-form">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="command" value="{{ command }}">
-            <code class="pass-command">{{ command }}</code>
+            <span class="pass-command">{{ t.passes[command] }} <code class="muted">{{ command }}</code></span>
             <span class="pass-options">
             {% for name in names %}
                 <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
@@ -64,7 +64,8 @@
 </section>
 
 <section>
-    <h2>{{ t.inbox }} <code class="muted">{{ ctx.inbox }}</code></h2>
+    <h2>{{ t.inbox }}</h2>
+    <p class="muted"><code class="path">{{ ctx.inbox }}</code></p>
     {% if inbox is none %}
         <p class="muted">{{ t.inbox_missing }}</p>
     {% else %}

@@ -119,7 +119,8 @@ def create_app(ctx: Context):
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
-        return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token)
+        return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
+                    waiting_total=sum(waiting().values()))
 
     @app.before_request
     def same_origin_forms():
@@ -262,6 +263,7 @@ def create_app(ctx: Context):
         lyrics = {name: (when(v) if isinstance(v, float) else v)
                   for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
+                               discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                unchanged=request.args.get("unchanged") == "1", lyrics=lyrics)
 

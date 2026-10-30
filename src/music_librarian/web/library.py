@@ -128,6 +128,12 @@ def common(tracks):
     return out
 
 
+def several_discs(tracks):
+    """Whether the album page shows the disc numbers: not for one disc numbered 1 or not at all."""
+    return (any(values and values["disc"] not in ([], ["1"]) for _, values in tracks)
+            or common(tracks)["disctotal"] not in ("", "1"))
+
+
 def seen_state(tracks):
     """What the album page shows, carried by its form and compared on submit."""
     return json.dumps({"album": common(tracks),

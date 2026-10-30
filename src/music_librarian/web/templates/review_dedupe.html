@@ -25,7 +25,8 @@
         {% for name in item.names %}
             <label><input type="radio" name="target" value="{{ name }}"{% if name == item.suggested %} checked{% endif %}>
                 <span class="credit">{{ name }}</span> <span class="muted">{{ t.tag_count.format(n=item.counts[name]) }}</span>
-                {% if name == item.suggested %}<span class="muted">({{ t.suggested }})</span>{% endif %}</label>
+                {% if name == item.suggested %}<span class="muted">({{ t.suggested }})</span>{% endif %}
+                {% if item.examples[name] %}<span class="muted">· {{ t.example }} <a href="{{ url_for('album_page', folder=item.examples[name]) }}"><code>{{ item.examples[name] }}</code></a></span>{% endif %}</label>
         {% endfor %}
             <label class="names">{{ t.other_spelling }} <input name="other" aria-label="{{ t.other_spelling }}"></label>
         </fieldset>
