@@ -525,6 +525,24 @@ select {
     font-size: var(--fs-sm);
 }
 
+.cover {
+    position: relative;
+    display: block;
+}
+
+.track-count {
+    position: absolute;
+    right: 0.4rem;
+    bottom: 0.4rem;
+    min-width: 1.6rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 70%);
+    color: #fff;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
 .albums img,
 .album-head img {
     width: 100%;

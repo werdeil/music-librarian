@@ -138,6 +138,8 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
 def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
+    assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
+    assert "Tracks: " not in page
     page = dashboard.client.get("/library?q=hits", headers=EN).get_data(as_text=True)
     assert "Albums: 1" in page and "Beyonce/4" not in page
     assert "No album matches" in dashboard.client.get("/library?q=zz", headers=EN).get_data(as_text=True)

@@ -21,10 +21,13 @@
         {% for album in albums %}
             <li>
                 <a href="{{ url_for('album_page', folder=album.folder) }}">
-                    <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                    {% set count = (t.track_one if album.tracks == 1 else t.track_many).format(n=album.tracks) %}
+                    <span class="cover">
+                        <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                        <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ album.tracks }}</span>
+                    </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>
                     <span class="muted">{{ album.artist }}</span>
-                    <span class="muted">{{ t.tracks_count.format(n=album.tracks) }}</span>
                 </a>
             </li>
         {% endfor %}
