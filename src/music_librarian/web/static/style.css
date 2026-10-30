@@ -172,6 +172,23 @@ section {
     color: var(--warning);
 }
 
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+footer .folders summary {
+    cursor: pointer;
+}
+
+footer .folders .facts {
+    margin: 0.4rem 0 0;
+}
+
 .path {
     overflow-wrap: anywhere;
 }
@@ -250,6 +267,10 @@ th {
     flex-wrap: wrap;
     gap: 0.4rem 0.9rem;
     font-size: var(--fs-sm);
+}
+
+form.filters {
+    margin-bottom: 0.8rem;
 }
 
 .inbox {

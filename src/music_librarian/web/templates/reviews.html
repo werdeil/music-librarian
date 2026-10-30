@@ -3,7 +3,7 @@
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.reviews }}</h2>
+    <h1 class="visually-hidden">{{ t.reviews }}</h1>
     <p class="muted">{{ t.reviews_intro }}</p>
 </section>
 <section>
@@ -13,6 +13,7 @@
         {% if credits %}<a class="button primary" href="{{ url_for('review_split') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'split') }}
     </div>
+    <p><a href="{{ url_for('decisions_page') }}">{{ t.rules_decisions_link.format(n=rules.decisions) }}</a></p>
 </section>
 <section>
     <h2>{{ t.dedupe_review }} <code class="aside">dedupe --review</code></h2>
@@ -21,6 +22,7 @@
         {% if groups %}<a class="button primary" href="{{ url_for('review_dedupe') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
     </div>
+    <p><a href="{{ url_for('aliases_page') }}">{{ t.rules_aliases_link.format(n=rules.aliases) }}</a></p>
 </section>
 <section>
     <h2>{{ t.genre_review }} <code class="aside">genres.txt</code></h2>
@@ -30,6 +32,7 @@
         {% if genres %}<a class="button primary" href="{{ url_for('review_genres') }}">{{ t.start_review }}</a>{% endif %}
         {{ a.apply_form(t, ctx, csrf, 'genres') }}
     </div>
+    <p><a href="{{ url_for('genre_list_page') }}">{{ t.rules_genres_link.format(n=rules.genres) }}</a></p>
     {% else %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
     {% endif %}

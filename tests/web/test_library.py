@@ -248,7 +248,7 @@ def test_edit_refused_when_the_track_changed_meanwhile(dashboard, lib, capsys):
 def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, lib, tmp_path, monkeypatch):
     reads = []
     monkeypatch.setattr(library, "cached_files", lambda *a: reads.append(a) or [])
-    clock = [1000.0]
+    clock = [library.time.monotonic() + library.REBUILD_EVERY]        # long after the fixture's build
     monkeypatch.setattr(library.time, "monotonic", lambda: clock[0])
     with MetadataCache(tmp_path / "state", force=True) as cache:   # a pass rewriting the cache
         for name in ("01 Run the World.m4a", "02 Best Thing.m4a"):

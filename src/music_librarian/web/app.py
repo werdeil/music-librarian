@@ -31,6 +31,7 @@ ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HOME_PASSES = ("import", "organize", "enrich", "scan")
+HISTORY_PAGE = 50
 
 
 @dataclass
@@ -222,8 +223,11 @@ def create_app(ctx: Context):
         if problems:
             shown_runs = [r for r in shown_runs if r["status"] in PROBLEMS]
         commands = sorted(runs.latest(ctx.state_dir))
-        return render_template("runs.html", runs=shown_runs, commands=commands, command=command,
-                               problems=problems)
+        pages = max(math.ceil(len(shown_runs) / HISTORY_PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        return render_template("runs.html", runs=shown_runs[(page - 1) * HISTORY_PAGE:page * HISTORY_PAGE],
+                               commands=commands, command=command, problems=problems, page=page,
+                               pages=pages)
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):

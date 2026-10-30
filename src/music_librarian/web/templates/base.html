@@ -29,8 +29,15 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <span>{{ t.library }} <code class="path">{{ ctx.root }}</code> · {{ t.inbox }} <code class="path">{{ ctx.inbox }}</code></span>
         <span>music-librarian {{ version }}</span>
+        <details class="folders">
+            <summary>{{ t.folders }}</summary>
+            <dl class="facts">
+                <dt>{{ t.library }}</dt><dd><code class="path">{{ ctx.root }}</code></dd>
+                <dt>{{ t.inbox }}</dt><dd><code class="path">{{ ctx.inbox }}</code></dd>
+                <dt>{{ t.state }}</dt><dd><code class="path">{{ ctx.state_dir }}</code></dd>
+            </dl>
+        </details>
     </footer>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

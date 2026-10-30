@@ -2,7 +2,7 @@
 
 `watch --listen [HOST:]PORT` serves a dashboard on that address while it watches the Inbox: the passes running and the recent ones with their output, the schedule, the Inbox and the review questions awaiting an answer. The compose file serves it on port 8080 (`WEB_PORT` in `.env` to change the host's port); without a host, every interface is listened on. `MUSIC_LIBRARIAN_LISTEN` sets the address when `--listen` is not given.
 
-The pages read the run history in the state folder and the Inbox root on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. When `watch` runs without `--apply`, a badge at the top says the dashboard is read-only. While a pass runs or waits in the queue, a pill at the top of every page says so, refreshed every 5 s, and opens on a click onto the passes running, linked to their live output, and those queued. Its spinner stays still when the system asks for reduced motion.
+The pages read the run history in the state folder and the Inbox root on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. When `watch` runs without `--apply`, a badge at the top says the dashboard is read-only. The footer gives the version, and folds the library, Inbox and state folders under **folders**. While a pass runs or waits in the queue, a pill at the top of every page says so, refreshed every 5 s, and opens on a click onto the passes running, linked to their live output, and those queued. Its spinner stays still when the system asks for reduced motion.
 
 ## Pages
 
@@ -10,8 +10,8 @@ The pages read the run history in the state folder and the Inbox root on each re
 - **Library**: the albums of the metadata cache, one per folder holding tracks, with their cover (`folder.jpg`, else the first embedded one, else a placeholder), searched by artist, album, title or folder without case or accents. A library never scanned shows nothing until a `scan`; a file moved or deleted since it was cached is left out. The list is built in the background whenever the cache changes, so a page never waits on it: right after `watch` starts, it says it is still being worked out until the first build ends, and after a change it shows the previous list until the new one is ready. While a pass writes the cache, the list is built again at most once a minute, and at once when the pass ends.
 - **An album**: its fields shared by every track (album artist, album, year, genre, number of discs, compilation flag) and a grid of its tracks (disc, shown only for an album numbered beyond one disc, number, title, artist, composer), read from the files themselves, with each track's lyrics: present, looked up in vain on a date, or neither. See below for editing them. **Look up the album's lyrics** queues a dry run of `enrich.lyrics` on its folder with `--retry`, which looks up the tracks found in vain without waiting for `LYRICS_RETRY_DAYS`; the run's page offers to write what it found.
 - **Tracks without lyrics**, linked from the library and the overview: the albums whose tracks carry no lyrics according to the metadata cache, the most such tracks first, with the last time they were looked up in vain within `LYRICS_RETRY_DAYS`. Instrumentals and tracks no provider carries stay in it, so it never empties.
-- **Reviews**: the questions split and dedupe cannot settle, see below.
-- **History**: the runs kept in the history (the 200 latest), filtered by command, and with a checkbox to the runs that failed, stopped, were interrupted or need checking. A pass started by `watch` says why: at startup, for new items in the Inbox, as the day's import (which purges `_done/`), or on its schedule. The Inbox is read every 30 s, but an import runs, and shows in the history, only for one of those.
+- **Reviews**: the questions split and dedupe cannot settle, see below, and the files their answers are kept in.
+- **History**: the runs kept in the history (the 200 latest), 50 per page, filtered by command, and with a checkbox to the runs that failed, stopped, were interrupted or need checking. A pass started by `watch` says why: at startup, for new items in the Inbox, as the day's import (which purges `_done/`), or on its schedule. The Inbox is read every 30 s, but an import runs, and shows in the history, only for one of those.
 - **A run**: its mode, who started it (`watch`, the command line), its duration and exit code, its summary, and its whole output, each line coloured by its tag (`ERROR`, `CONFLICT` and `FAILED` in red, `SKIPPED`, `WARNING`, `REFUSED`, `UNKNOWN`, `GUARDED`, `REVIEW`, `STOP` and `LOCKED` in yellow). While the run goes on, the new lines are appended every 2 seconds, and the page reloads with the summary once it ends. "Plain text" gives the output as a file.
 
 Times are the container's (`TZ` in `.env`).
@@ -40,6 +40,8 @@ The Reviews page asks the questions of `split --review` and `dedupe --review` (s
 
 **Later** moves to the next question, and the page that follows an answer offers to undo it. Each answer is written at once to `state/split-decisions.txt`, `state/artist-aliases.txt` or the genre list (`state/genres.txt`, or `MUSIC_LIBRARIAN_GENRES`), as in the terminal, so the review stops and resumes at will, and an answer that settles questions further down skips them. The queues are built from the metadata cache in the background, again whenever it changes, like the album list: until the first build ends, the counts and the questions say they are still being worked out. While a pass writes the cache, they are built again at most once a minute, and at once when the pass ends. Answers rewrite no tag: **Dry run with these answers** queues `split`, `dedupe` or `enrich.genres` over the library, whose page then offers to apply it, and the weekly `enrich` applies them too.
 
+Each review links to the file its answers are kept in, shown read only: the split decisions (each credit and what is done with it, the ones awaiting an answer included), the artist spellings (the variants rewritten as another name, and the artists known to differ), and the validated genres with the names that stand for each and the tracks of the library it gathers, so a genre no track carries any more stands out. To change a line, edit the file in the state folder; the next pass applies it.
+
 ## Statuses
 
 | Status | Meaning |
@@ -66,7 +68,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | Route | Returns |
 |---|---|
 | `/` | the overview |
-| `/runs`, `/runs?command=enrich`, `/runs?problems=1` | the history |
+| `/runs`, `/runs?command=enrich`, `/runs?problems=1`, `/runs?page=2` | the history |
 | `/runs/<id>` | a run |
 | `/runs/<id>/log.txt` | its output as plain text |
 | `/runs/<id>/log.json?from=<offset>&kind=<kind>` | the complete lines written since byte `offset`, each with its style (`error`, `warning`, `section` or empty), the offset to ask from next, and the run's status; `kind` is the style of the line before `offset`, which an indented line continues |
@@ -78,6 +80,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
 | `/library/lyrics` | the albums with tracks without lyrics |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
+| `/reviews/split/decisions`, `/reviews/dedupe/aliases`, `/reviews/genres/list` | the decisions file, the aliases file and the validated genre list, read only |
 | `/requests/<id>` | waits for a queued request, then redirects to its run |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
 

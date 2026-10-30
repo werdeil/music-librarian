@@ -2,7 +2,7 @@
 {% block title %}{{ t.library }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.library }}</h2>
+    <h1 class="visually-hidden">{{ t.library }}</h1>
     <form method="get" action="{{ url_for('library_page') }}" class="search">
         <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
         <button type="submit">{{ t.search_button }}</button>

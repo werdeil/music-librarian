@@ -119,6 +119,23 @@ def test_missing_inbox(client, ctx):
     assert "Inbox not found" in client.get("/", headers=EN).get_data(as_text=True)
 
 
+def test_history_in_pages_of_fifty(client, ctx):
+    for _ in range(web.HISTORY_PAGE + 5):
+        record(ctx, "scan", code=2)
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
+    assert page.count('<td><code>scan</code></td>') == web.HISTORY_PAGE and "1 / 2" in page
+    assert 'href="/runs?problems=1&amp;page=2"' in page
+    page = client.get("/runs?problems=1&page=2", headers=EN).get_data(as_text=True)
+    assert page.count('<td><code>scan</code></td>') == 5 and "Previous" in page
+    assert '<h1 class="visually-hidden">History</h1>' in page
+
+
+def test_folders_folded_in_the_footer(client, ctx):
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    footer = page[page.index("<footer>"):]
+    assert "<summary>folders</summary>" in footer and str(ctx.inbox) in footer
+
+
 def test_history_filters(client, ctx):
     ok = record(ctx, "organize")
     issues = record(ctx, "enrich", code=2)

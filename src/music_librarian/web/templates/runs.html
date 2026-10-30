@@ -3,7 +3,7 @@
 {% block title %}{{ t.history }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.history }}</h2>
+    <h1 class="visually-hidden">{{ t.history }}</h1>
     <p class="filters">
         <a href="{{ url_for('history', problems='1' if problems else None) }}"{% if not command %} aria-current="true"{% endif %}>{{ t.filter_all }}</a>
         {% for c in commands %}
@@ -17,6 +17,13 @@
     </form>
     {% if runs %}
         {{ m.runs_table(t, runs) }}
+        {% if pages > 1 %}
+        <p class="filters">
+            {% if page > 1 %}<a href="{{ url_for('history', command=command, problems='1' if problems else None, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+            <span class="muted">{{ page }} / {{ pages }}</span>
+            {% if page < pages %}<a href="{{ url_for('history', command=command, problems='1' if problems else None, page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+        </p>
+        {% endif %}
     {% else %}
         <p class="muted">{{ t.no_matching_run if command or problems else t.no_runs }}</p>
     {% endif %}

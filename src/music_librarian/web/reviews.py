@@ -137,7 +137,20 @@ class GenreReview:
                 entry["example"] = entry["example"] or str(path.relative_to(self.root))
                 entry["albums"][genres.album_of(snap)] += 1
         unknown = [kv for kv in found.items() if genres.resolve(kv[1]["values"], mapping or {}) is None]
-        return sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0]))
+        return SimpleNamespace(unknown=sorted(unknown, key=lambda kv: (-kv[1]["tracks"], kv[0])),
+                               tags=[(entry["values"], entry["tracks"]) for entry in found.values()])
+
+    def tracks_per_genre(self, mapping):
+        """{validated genre: tracks whose genre the list aligns to it}, None until first built."""
+        built = self.queue.get()
+        if built is None:
+            return None
+        out = Counter()
+        for values, tracks in built.tags:
+            validated = genres.resolve(values, mapping)
+            if validated:
+                out[validated] += tracks
+        return out
 
     def mapping(self):
         """The validated list as genres.load reads it, or None without a readable one."""
@@ -163,7 +176,8 @@ class GenreReview:
         """The first genre from position `start` the list still does not know, as a dict for the
         page, or None; and the count of those left, None until the queue is first built. None, 0
         without a list."""
-        items = self.queue.get()
+        built = self.queue.get()
+        items = None if built is None else built.unknown
         with self.lock:
             mapping = self.mapping()
             if mapping is None:
@@ -205,7 +219,29 @@ def register(app, ctx):
         left = waiting()
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
-                               list_path=genre_review.path)
+                               list_path=genre_review.path,
+                               rules=dict(decisions=len(decisions.entries(reviews.decisions)),
+                                          aliases=len(aliases_file.entries(reviews.aliases)),
+                                          genres=len(genres.entries(genre_review.path))))
+
+    @app.get("/reviews/genres/list")
+    def genre_list_page():
+        mapping = genre_review.mapping()
+        return render_template("rules.html", kind="genres", path=genre_review.path,
+                               genres=genres.entries(genre_review.path) if mapping is not None else None,
+                               tracks=genre_review.tracks_per_genre(mapping) if mapping is not None else None)
+
+    @app.get("/reviews/dedupe/aliases")
+    def aliases_page():
+        entries = aliases_file.entries(reviews.aliases)
+        return render_template("rules.html", kind="aliases", path=reviews.aliases,
+                               unified=[(a, b) for a, kind, b in entries if kind == "=>"],
+                               different=[(a, b) for a, kind, b in entries if kind == "!="])
+
+    @app.get("/reviews/split/decisions")
+    def decisions_page():
+        return render_template("rules.html", kind="decisions", path=reviews.decisions,
+                               decided=decisions.entries(reviews.decisions))
 
     @app.get("/reviews/genres")
     def review_genres():

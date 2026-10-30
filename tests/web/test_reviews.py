@@ -159,3 +159,22 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         assert client.get("/", headers=EN).status_code == 200
     finally:
         release.set()
+
+
+def test_recorded_answers_pages(d):
+    aliases.update(d.state / aliases.FILE, add=[("Beyonce", "=>", "Beyoncé"), ("Queen", "!=", "Queens")])
+    decisions.record(d.state / decisions.FILE, "Brian May/Roger Taylor", "split")
+    decisions.record(d.state / decisions.FILE, "AC/DC", "keep")
+    decisions.append_pending(d.state / decisions.FILE, ["A, B"])
+    text = page(d, "/reviews")
+    assert "See the recorded answers (2)" in text and "See the recorded decisions (3)" in text
+    text = page(d, "/reviews/dedupe/aliases")
+    assert "<td>Beyonce</td><td>Beyoncé</td>" in text and "<td>Queen</td>" in text and "Queens" in text
+    text = page(d, "/reviews/split/decisions")
+    assert "<td>Brian May/Roger Taylor</td>" in text and "awaiting an answer" in text
+    assert re.search(r"<td>AC/DC</td>\s*<td>Keep whole</td>", text)
+
+
+def test_recorded_answers_pages_before_any_answer(d):
+    assert "No line yet." in page(d, "/reviews/dedupe/aliases")
+    assert "No line yet." in page(d, "/reviews/split/decisions")

@@ -33,6 +33,21 @@ def load(path: Path, log):
     return out
 
 
+def entries(path: Path):
+    """The file's (credit, decision) lines as written, in order, PENDING for an empty decision;
+    unreadable lines left out."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    out = []
+    for line in text.splitlines():
+        m = LINE.match(line.strip())
+        if m and m[1] and not line.lstrip().startswith("#"):
+            out.append((m[1].strip(), m[2].strip() or PENDING))
+    return out
+
+
 def append_pending(path: Path, pending):
     new = not path.exists()
     path.parent.mkdir(parents=True, exist_ok=True)
