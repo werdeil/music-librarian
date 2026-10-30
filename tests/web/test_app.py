@@ -109,7 +109,8 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert page.count('class="tile tile-ok"') == 4 and page.count('class="tile tile-none"') == 1
+    assert page.count('class="tile tile-ok"') == 3 and page.count('class="tile tile-none"') == 1
+    assert page.count('class="tile tile-info"') == 1
     assert "no validated list" in page
 
 

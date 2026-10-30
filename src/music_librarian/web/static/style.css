@@ -398,6 +398,10 @@ footer {
     color: var(--warning);
 }
 
+.tile-info .tile-value {
+    color: var(--text-bright);
+}
+
 .tile-ok .tile-value {
     color: var(--ok);
 }

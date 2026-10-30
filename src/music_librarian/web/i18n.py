@@ -13,7 +13,6 @@ TRANSLATIONS = {
         "tile_genres": "Genres hors de la liste",
         "tile_no_genre_list": "pas de liste validée",
         "tile_failed": "Imports en échec",
-        "tile_lyrics": "Albums aux paroles introuvables",
         "scheduled_passes": "Passages programmés",
         "recent_problems": "Passages à problème ces 7 derniers jours : {n}",
         "options": "options",
@@ -126,13 +125,15 @@ TRANSLATIONS = {
         "lyrics_button": "Chercher les paroles de l'album (dry run)",
         "lyrics_hint": ("Sans attendre le délai avant une nouvelle recherche : la page du passage "
                         "montre ce qui a été trouvé et propose de l'écrire."),
-        "lyrics_not_found": "Paroles introuvables",
-        "lyrics_missed_albums": "albums aux paroles introuvables : {n}",
-        "lyrics_page_intro": ("Les albums dont des pistes ont été cherchées en vain ces {days} derniers "
-                              "jours : enrich les cherche à nouveau ensuite, ou tout de suite depuis la "
-                              "page de l'album."),
-        "lyrics_none_missed": "Aucune piste cherchée en vain récemment.",
-        "last_lookup": "Dernière recherche",
+        "tracks_without_lyrics_title": "Morceaux sans paroles",
+        "tracks_without_lyrics": "Morceaux sans paroles : {n}",
+        "without_lyrics": "Sans paroles",
+        "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles, le plus d'abord. "
+                              "enrich les cherche chaque semaine ; un morceau cherché en vain n'est "
+                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album."),
+        "lyrics_none_missing": "Tous les morceaux ont des paroles.",
+        "tile_lyrics": "Morceaux sans paroles",
+        "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
         "genres_waiting": "Genres en attente de réponse : {n}",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
@@ -209,7 +210,6 @@ TRANSLATIONS = {
         "tile_genres": "Genres outside the list",
         "tile_no_genre_list": "no validated list",
         "tile_failed": "Failed imports",
-        "tile_lyrics": "Albums whose lyrics were not found",
         "scheduled_passes": "Scheduled passes",
         "recent_problems": "Runs with problems over the last 7 days: {n}",
         "options": "options",
@@ -321,12 +321,15 @@ TRANSLATIONS = {
         "lyrics_button": "Look up the album's lyrics (dry run)",
         "lyrics_hint": ("Without waiting for the delay before a new lookup: the run's page shows what "
                         "was found and offers to write it."),
-        "lyrics_not_found": "Lyrics not found",
-        "lyrics_missed_albums": "albums whose lyrics were not found: {n}",
-        "lyrics_page_intro": ("The albums whose tracks were looked up in vain over the last {days} days: "
-                              "enrich looks them up again after that, or right away from the album's page."),
-        "lyrics_none_missed": "No track looked up in vain lately.",
-        "last_lookup": "Last lookup",
+        "tracks_without_lyrics_title": "Tracks without lyrics",
+        "tracks_without_lyrics": "Tracks without lyrics: {n}",
+        "without_lyrics": "Without lyrics",
+        "lyrics_page_intro": ("The albums whose tracks have no lyrics, the most first. enrich looks them "
+                              "up every week; a track looked up in vain is only looked up again after "
+                              "{days} days, or right away from the album's page."),
+        "lyrics_none_missing": "Every track has lyrics.",
+        "tile_lyrics": "Tracks without lyrics",
+        "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",
         "genres_waiting": "Genres awaiting an answer: {n}",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",

@@ -35,6 +35,7 @@ class Album:
     title: str
     tracks: int
     text: str     # what a search matches, folded
+    without_lyrics: int = 0
 
 
 def first(track, *keys):
@@ -79,9 +80,10 @@ class Index:
             return self.albums
 
     def _build(self):
-        folders = defaultdict(list)
+        folders, bare = defaultdict(list), defaultdict(int)
         for path, snap in cached_files(self.root, self.state_dir):
             folders[path.parent].append(snap["tags"])
+            bare[path.parent] += not snap.get("lyrics")
         albums = []
         for folder, tracks in folders.items():
             artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),
@@ -89,7 +91,7 @@ class Index:
             title = next((a for t in tracks if (a := first(t, "album"))), "")
             words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
             rel = str(folder.relative_to(self.root))
-            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words]))))
+            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder]))
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
@@ -193,6 +195,14 @@ def lyrics_state(state_dir: Path, folder: Path, names):
             has = False
         out[name] = True if has else missed.get(folder / name)
     return out
+
+
+def without_lyrics(albums, root: Path, state_dir: Path):
+    """[(album, the time its tracks were last looked up in vain or None)] of the albums with
+    tracks without lyrics, the most such tracks first."""
+    missed = {folder: at for folder, _n, at in missed_albums(root, state_dir)}
+    bare = [a for a in albums if a.without_lyrics]
+    return [(a, missed.get(a.folder)) for a in sorted(bare, key=lambda a: (-a.without_lyrics, a.folder))]
 
 
 def missed_albums(root: Path, state_dir: Path):

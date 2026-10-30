@@ -1,5 +1,5 @@
 """Lyrics on the dashboard: each track's state on its album's page, a lookup of the album, the
-albums looked up in vain."""
+tracks without lyrics."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import sys
 
@@ -68,8 +68,11 @@ def test_lookup_of_a_folder_outside_the_library(d, folder):
     assert response.status_code == 404 and d.requests.pending() == []
 
 
-def test_albums_looked_up_in_vain(d):
-    page = d.client.get("/library", headers=EN).get_data(as_text=True)
-    assert "albums whose lyrics were not found: 1" in page
+def test_tracks_without_lyrics(d):
+    assert "Tracks without lyrics: 2" in d.client.get("/library", headers=EN).get_data(as_text=True)
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
-    assert "/library/album?folder=Beyonce/4" in page and "<td>1</td>" in page
+    assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 3</td>" in page
+    assert "<td>—</td>" not in page                         # one of them was looked up in vain
+    home = d.client.get("/", headers=EN).get_data(as_text=True)
+    tile = home[home.index("Tracks without lyrics") - 300:home.index("Tracks without lyrics")]
+    assert 'class="tile tile-info"' in tile and '<span class="tile-value">2' in tile

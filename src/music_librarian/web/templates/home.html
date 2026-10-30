@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
 
-{% macro tile(value, label, href, none_text=None) -%}
-<a class="tile {{ 'tile-none' if value is none else 'tile-todo' if value else 'tile-ok' }}" href="{{ href }}">
-    <span class="tile-value">{{ '—' if value is none else value }}{% if value == 0 %} <span aria-hidden="true">✓</span>{% endif %}</span>
+{% macro tile(value, label, href, none_text=None, info=False) -%}
+<a class="tile {{ 'tile-none' if value is none else 'tile-info' if info else 'tile-todo' if value else 'tile-ok' }}" href="{{ href }}">
+    <span class="tile-value">{{ '—' if value is none else value }}{% if value == 0 and not info %} <span aria-hidden="true">✓</span>{% endif %}</span>
     <span class="tile-label">{{ label }}</span>
     {% if value is none and none_text %}<span class="tile-note">{{ none_text }}</span>{% endif %}
 </a>
@@ -17,7 +17,7 @@
         {{ tile(todo.dedupe, t.tile_dedupe, url_for('review_dedupe')) }}
         {{ tile(todo.genres, t.tile_genres, url_for('review_genres'), t.tile_no_genre_list) }}
         {{ tile(todo.failed, t.tile_failed, url_for('history', command='import', problems='1')) }}
-        {{ tile(todo.lyrics, t.tile_lyrics, url_for('missed_lyrics')) }}
+        {{ tile(todo.lyrics, t.tile_lyrics, url_for('missed_lyrics'), info=True) }}
     </div>
 </section>
 

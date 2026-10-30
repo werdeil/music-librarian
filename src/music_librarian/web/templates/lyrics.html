@@ -1,26 +1,34 @@
 {% extends "base.html" %}
-{% block title %}{{ t.lyrics_not_found }} · music-librarian{% endblock %}
+{% block title %}{{ t.tracks_without_lyrics_title }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.lyrics_not_found }}</h2>
+    <h2>{{ t.tracks_without_lyrics_title }}</h2>
     <p class="muted">{{ t.lyrics_page_intro.format(days=days) }}</p>
     {% if albums %}
+    <p class="muted">{{ t.tracks_without_lyrics.format(n=tracks) }}</p>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>{{ t.file }}</th><th>{{ t.tracks }}</th><th>{{ t.last_lookup }}</th></tr></thead>
+        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.without_lyrics }}</th><th>{{ t.last_lookup }}</th></tr></thead>
         <tbody>
-        {% for folder, n, at in albums %}
+        {% for album, at in albums %}
             <tr>
-                <td><a href="{{ url_for('album_page', folder=folder) }}">{{ folder }}</a></td>
-                <td>{{ n }}</td>
-                <td>{{ at }}</td>
+                <td><a href="{{ url_for('album_page', folder=album.folder) }}">{{ album.folder }}</a></td>
+                <td>{{ album.without_lyrics }} / {{ album.tracks }}</td>
+                <td>{{ at or '—' }}</td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
     </div>
+    {% if pages > 1 %}
+    <p class="filters">
+        {% if page > 1 %}<a href="{{ url_for('missed_lyrics', page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+        <span class="muted">{{ page }} / {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('missed_lyrics', page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+    </p>
+    {% endif %}
     {% else %}
-    <p class="muted">{{ t.lyrics_none_missed }}</p>
+    <p class="muted">{{ t.lyrics_none_missing }}</p>
     {% endif %}
 </section>
 {% endblock %}

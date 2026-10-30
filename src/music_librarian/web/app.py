@@ -153,8 +153,7 @@ def create_app(ctx: Context):
         problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
                        if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
         items, failed = inbox_state(ctx.inbox) or ([], [])
-        todo = dict(waiting(), failed=len(failed),
-                    lyrics=len(library.missed_albums(ctx.root, ctx.state_dir)))
+        todo = dict(waiting(), failed=len(failed), lyrics=sum(a.without_lyrics for a in index.get()))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
@@ -263,7 +262,7 @@ def create_app(ctx: Context):
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
                                albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
                                empty=not index.get(),
-                               missed=len(library.missed_albums(ctx.root, ctx.state_dir)))
+                               without_lyrics=sum(a.without_lyrics for a in index.get()))
 
     @app.get("/library/album")
     def album_page():
@@ -290,8 +289,13 @@ def create_app(ctx: Context):
 
     @app.get("/library/lyrics")
     def missed_lyrics():
-        albums = [(folder, n, when(at)) for folder, n, at in library.missed_albums(ctx.root, ctx.state_dir)]
-        return render_template("lyrics.html", albums=albums, days=f"{misses.retry_days():g}")
+        albums = [(a, when(at) if at else None)
+                  for a, at in library.without_lyrics(index.get(), ctx.root, ctx.state_dir)]
+        pages = max(math.ceil(len(albums) / library.PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        return render_template("lyrics.html", albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
+                               tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
+                               days=f"{misses.retry_days():g}")
 
     @app.post("/library/album")
     def edit_album():
