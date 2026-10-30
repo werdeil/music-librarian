@@ -60,7 +60,7 @@ class Options(CreditOptions):
 
 
 def main(argv=None):
-    ap = parser("Split the credits that hold several names.",
+    ap = parser("split", "Split the credits that hold several names.",
                 "answer the credits awaiting a decision, one at a time (writes the decisions file only)")
     ap.add_argument("--decisions", type=Path,
                     help=f"decisions file (default: state/{decisions.FILE})")

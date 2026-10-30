@@ -11,11 +11,12 @@ music-librarian — single entry point.
   music-librarian scan [options]              read the library's metadata into the cache (scan.py)
   music-librarian tag PATH... --set F=V       rewrite tags, then file the tracks again (tag.py)
 
-Everything is a dry run without --apply. `music-librarian <command> --help` for the options.
+Everything is a dry run without --apply. `music-librarian <command> --help` for the options,
+`music-librarian --version` for the version.
 """
 import sys
 
-from music_librarian import dedupe, enrich, importer, organize, scan, split, tag, watch
+from music_librarian import __version__, dedupe, enrich, importer, organize, scan, split, tag, watch
 from music_librarian.core.lock import handle_stop_signals
 
 
@@ -24,15 +25,13 @@ def main(argv=None):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0 if argv else 2
+    if argv[0] == "--version":
+        print(f"music-librarian {__version__}")
+        return 0
     cmd, rest = argv[0], argv[1:]
-    if cmd == "undo":
-        if not rest or rest[0].startswith("-"):
-            print("usage: music-librarian undo JOURNAL [--apply] [options]", file=sys.stderr)
-            return 2
-        return organize.main(["--undo", rest[0], *rest[1:]])
     commands = {"organize": organize.main, "import": importer.main, "watch": watch.main,
                 "enrich": enrich.main, "scan": scan.main, "split": split.main, "dedupe": dedupe.main,
-                "tag": tag.main}
+                "tag": tag.main, "undo": organize.undo_main}
     if cmd in commands:
         return commands[cmd](rest)
     print(f"unknown command: {cmd}\n\n{__doc__.strip()}", file=sys.stderr)

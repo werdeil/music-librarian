@@ -197,8 +197,7 @@ def pause(seconds, wake):
 
 
 def main(argv=None):
-    ap = importer.parser()
-    ap.description = "Watch the Inbox and run the import."
+    ap = importer.parser("watch", "Watch the Inbox and run the import.")
     ap.add_argument("--interval", type=float, default=30,
                     help="seconds between two reads of the Inbox")
     ap.add_argument("--organize-at", type=hhmm, metavar="HH:MM",
