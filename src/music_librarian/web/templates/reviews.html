@@ -22,4 +22,16 @@
         {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
     </div>
 </section>
+<section>
+    <h2>{{ t.genre_review }} <code class="aside">genres.txt</code></h2>
+    {% if genre_list %}
+    <p>{{ t.genres_waiting.format(n=genres) }}</p>
+    <div class="actions">
+        {% if genres %}<a class="button primary" href="{{ url_for('review_genres') }}">{{ t.start_review }}</a>{% endif %}
+        {{ a.apply_form(t, ctx, csrf, 'genres') }}
+    </div>
+    {% else %}
+    <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
+    {% endif %}
+</section>
 {% endblock %}

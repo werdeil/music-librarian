@@ -35,9 +35,10 @@ Each edit carries the values the page showed: a track whose field changed in bet
 The Reviews page asks the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
 
 - a credit holding several names: **Split**, **Keep whole**, or the names to write separated by `;`;
-- a group of likely duplicates: the spelling to write them all as, picked among them or typed, or **Different artists**.
+- a group of likely duplicates: the spelling to write them all as, picked among them or typed, or **Different artists**;
+- a genre the validated list does not know, the one most tracks carry first: a name of a validated genre, added to its line of the list (the one iTunes suggests is picked, when `enrich.genres` looked the album up with `GENRE_LOOKUP=itunes`), or a validated genre of its own.
 
-**Later** moves to the next question, and the page that follows an answer offers to undo it. Each answer is written at once to `state/split-decisions.txt` or `state/artist-aliases.txt`, as in the terminal, so the review stops and resumes at will, and an answer that settles questions further down skips them. The queues are built from the metadata cache, again whenever it changes. Answers rewrite no tag: **Dry run with these answers** queues `split` or `dedupe`, whose page then offers to apply it, and the weekly `enrich` applies them too.
+**Later** moves to the next question, and the page that follows an answer offers to undo it. Each answer is written at once to `state/split-decisions.txt`, `state/artist-aliases.txt` or the genre list (`state/genres.txt`, or `MUSIC_LIBRARIAN_GENRES`), as in the terminal, so the review stops and resumes at will, and an answer that settles questions further down skips them. The queues are built from the metadata cache, again whenever it changes. Answers rewrite no tag: **Dry run with these answers** queues `split`, `dedupe` or `enrich.genres` over the library, whose page then offers to apply it, and the weekly `enrich` applies them too.
 
 ## Statuses
 
@@ -76,13 +77,13 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/library/cover?folder=<folder>` | the album's cover |
 | `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
 | `/library/lyrics` | the albums whose lyrics were not found |
-| `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
+| `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
 | `/requests/<id>` | waits for a queued request, then redirects to its run |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
 
 ## For contributors
 
-The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, and how each command is built from the options of `watch`), `library.py` (the albums from the cache, an album's fields, the edits of its form), `reviews.py` (the split and dedupe reviews and their routes), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
+The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, and how each command is built from the options of `watch`), `library.py` (the albums from the cache, an album's fields, the edits of its form), `reviews.py` (the split, dedupe and genre reviews and their routes), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
 
 - Every string shown lives in `web/i18n.py`, in `fr` and `en` with the same keys; a test checks they match.
 - The Content Security Policy is `default-src 'self'`: no inline script or style, everything from `static/`.

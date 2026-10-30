@@ -17,7 +17,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`watch`** is the container's long-running process: it imports whatever lands in the Inbox once the copy has settled, and can run `organize --since` nightly (`--organize-at`) and `enrich --rescan` weekly (`--enrich-at "sun 03:00"`), so the metadata cache is read again in full once a week.
 - **`tag PATH… --set FIELD=VALUE`** rewrites tag fields of tracks or of every track of a folder (title, artist, album artist, album, track and disc numbers and totals, year, genre, composer, compilation flag; an empty value removes the field), then files them where their new tags put them, the tag changes and the moves in one journal. The dry run lists both; a genre takes the validated list's spelling.
 - **`undo JOURNAL`** replays a run's journal in reverse, moves and tag changes alike.
-- **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the credits awaiting a decision, in English or French. It also runs any command, as a dry run first, then applies it or undoes an applied pass from its page, browses the library to edit an album's tags in a form, run as `tag`, or look up its lyrics again, and asks the questions of `split --review` and `dedupe --review` one page at a time; it applies only when `watch` itself runs with `--apply`; details in [docs/web.md](docs/web.md).
+- **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the credits awaiting a decision, in English or French. It also runs any command, as a dry run first, then applies it or undoes an applied pass from its page, browses the library to edit an album's tags in a form, run as `tag`, or look up its lyrics again, and asks the questions of `split --review` and `dedupe --review`, and about the genres the validated list does not know, one page at a time; it applies only when `watch` itself runs with `--apply`; details in [docs/web.md](docs/web.md).
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
 
 ## Running it
@@ -66,6 +66,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
 | `LYRICS_RETRY_DAYS` | Days before a track whose lyrics were not found is looked up again (default `30`, `0` to look it up on every pass) |
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
+| `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` to look up the genres the list cannot align (on in the compose file), and the store asked (default `us`) |
 | `MUSIC_LIBRARIAN_LISTEN` | Address of the dashboard, `[HOST:]PORT` (`watch --listen`; the compose file sets `8080`, and `WEB_PORT` the host's port) |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
@@ -76,7 +77,9 @@ The compose file reads its own variables from `.env`; `.env.example` documents t
 
 ### Genres
 
-With a validated genre list, `import` and `enrich` rewrite each track's genre to the list's spelling. Copy [`genres.example.txt`](genres.example.txt) to `state/genres.txt` and adapt it: one validated genre per line, optionally followed by a colon and the names that stand for it (`Rock Dur: hard rock, metal`). Names are compared without case, accents, spaces or punctuation, and a tag holding several genres (`Rock; Pop`) takes the first one the list knows. A genre the list does not know is left as is and reported as `UNKNOWN`: add it to the list and the next weekly `enrich` aligns it. Without a list, genres are left alone.
+With a validated genre list, `import` and `enrich` rewrite each track's genre to the list's spelling. Copy [`genres.example.txt`](genres.example.txt) to `state/genres.txt` and adapt it: one validated genre per line, optionally followed by a colon and the names that stand for it (`Rock Dur: hard rock, metal`). Names are compared without case, accents, spaces or punctuation, and a tag holding several genres (`Rock; Pop`) takes the first one the list knows. A genre the list does not know is left as is and reported as `UNKNOWN`: add it to the list, by hand or from the dashboard's Reviews page, and the next weekly `enrich` aligns it. Without a list, genres are left alone.
+
+With `GENRE_LOOKUP=itunes`, an album whose genre the list cannot align, or that has none, is searched on the [iTunes Search API](https://performance-partners.apple.com/search-api), free and without a key: when the list knows Apple's genre for that album (the example maps Apple's names), its tracks take it, logged as `ITUNES`. Otherwise Apple's genre is shown next to `UNKNOWN`, so it can be added to the list. Answers are kept in `state/genre_lookup.json`; an album Apple does not have is searched again after 30 days. Choose the store with `ITUNES_COUNTRY` (`fr` for French genre names).
 
 ## Security
 
