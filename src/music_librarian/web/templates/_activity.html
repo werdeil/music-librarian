@@ -1,0 +1,24 @@
+{% import "_macros.html" as m %}
+{% if activity.running or activity.queued %}
+<details class="activity">
+    <summary>
+        {% if activity.running %}<span class="spinner" aria-hidden="true"></span>{% endif %}
+        {% if activity.running | length == 1 %}{{ t.activity_one.format(command=activity.running[0].command) }}
+        {%- elif activity.running %}{{ t.activity_many.format(n=activity.running | length) }}
+        {%- else %}{{ t.activity_queued.format(n=activity.queued | length) }}{% endif %}
+    </summary>
+    <div class="activity-panel">
+        {% if activity.running %}
+        <ul>
+        {% for run in activity.running %}
+            <li><a href="{{ url_for('run_page', run_id=run.id) }}"><code>{{ run.command }}</code> {{ run.when }}</a>
+                <span class="muted">{{ m.origin(t, run) }} · {{ run.duration }}</span></li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+        {% if activity.queued %}
+        <p class="muted">{{ t.queued }} {% for asked in activity.queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
+        {% endif %}
+    </div>
+</details>
+{% endif %}

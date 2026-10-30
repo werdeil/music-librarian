@@ -191,18 +191,19 @@ class GenreReview:
 
 def register(app, ctx):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n}."""
+    an answer, {"split": n, "dedupe": n, "genres": n, None without a genre list}."""
     reviews = Reviews(ctx.root, ctx.state_dir)
     genre_review = GenreReview(ctx.root, ctx.state_dir)
 
     def waiting():
-        return dict(split=reviews.credit()[1], dedupe=reviews.group()[1], genres=genre_review.item()[1])
+        unknown = genre_review.item()[1] if genre_review.mapping() is not None else None
+        return dict(split=reviews.credit()[1], dedupe=reviews.group()[1], genres=unknown)
 
     @app.get("/reviews")
     def reviews_page():
         left = waiting()
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
-                               genres=left["genres"], genre_list=genre_review.mapping() is not None,
+                               genres=left["genres"] or 0, genre_list=genre_review.mapping() is not None,
                                list_path=genre_review.path)
 
     @app.get("/reviews/genres")

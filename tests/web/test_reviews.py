@@ -52,8 +52,11 @@ def test_overview(d):
 
 def test_home_counts_the_same_questions(d):
     text = page(d, "/")
-    assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
-    assert "/reviews/split" in text and "/reviews/dedupe" in text and "Import the Inbox" in text
+    tile = lambda label: text[text.index(label) - 300:text.index(label)]
+    assert '<span class="tile-value">2' in tile("Credits to split")
+    assert '/reviews/split"' in tile("Credits to split")
+    assert '<span class="tile-value">1' in tile("Artists to unify")
+    assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
     assert '<span class="count" title="Questions awaiting an answer">3</span>' in page(d, "/library")
 
 

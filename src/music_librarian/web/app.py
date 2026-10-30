@@ -30,6 +30,7 @@ from music_librarian.web.passes import DONE, FORMS, OPTIONS, journal_path
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
+HOME_PASSES = ("import", "organize", "enrich", "scan")
 
 
 @dataclass
@@ -120,7 +121,7 @@ def create_app(ctx: Context):
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
-                    waiting_total=sum(waiting().values()))
+                    waiting_total=sum(n or 0 for n in waiting().values()), activity=activity())
 
     @app.before_request
     def same_origin_forms():
@@ -147,8 +148,13 @@ def create_app(ctx: Context):
     def home():
         t = TRANSLATIONS[pick_lang(request.accept_languages)]
         now = datetime.now()
-        recent = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP)]
         latest = {c: shown(r) for c, r in runs.latest(ctx.state_dir).items()}
+        week_ago = (now - timedelta(days=7)).timestamp()
+        problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
+                       if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
+        items, failed = inbox_state(ctx.inbox) or ([], [])
+        todo = dict(waiting(), failed=len(failed),
+                    lyrics=len(library.missed_albums(ctx.root, ctx.state_dir)))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
@@ -162,10 +168,18 @@ def create_app(ctx: Context):
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
         return render_template(
-            "home.html", running=[r for r in recent if r["status"] == runs.RUNNING],
-            recent=recent[:10], latest=latest, schedule=schedule, inbox=inbox_state(ctx.inbox),
-            waiting=waiting(), options=FORMS,
-            queued=ctx.requests.pending() if ctx.requests else [])
+            "home.html", latest=latest, schedule=schedule, problems=problems, todo=todo,
+            inbox=inbox_state(ctx.inbox), waiting_items=items,
+            passes={command: OPTIONS[command] for command in HOME_PASSES})
+
+    def activity():
+        """The passes running now, and those the dashboard queued, for the header."""
+        running = [shown(r) for r in runs.recent(ctx.state_dir, 20) if runs.status(r) == runs.RUNNING]
+        return dict(running=running, queued=ctx.requests.pending() if ctx.requests else [])
+
+    @app.get("/activity")
+    def activity_fragment():
+        return render_template("_activity.html")
 
     @app.post("/passes")
     def new_pass():
