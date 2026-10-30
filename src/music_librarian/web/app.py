@@ -19,6 +19,7 @@ from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.importer import ERRORS, list_items
+from music_librarian.lyrics import misses
 from music_librarian.media import fields
 from music_librarian.split import decisions
 from music_librarian.split.rules import PENDING
@@ -252,7 +253,8 @@ def create_app(ctx: Context):
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
                                albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
-                               empty=not index.get())
+                               empty=not index.get(),
+                               missed=len(library.missed_albums(ctx.root, ctx.state_dir)))
 
     @app.get("/library/album")
     def album_page():
@@ -263,9 +265,23 @@ def create_app(ctx: Context):
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
+        lyrics = {name: (when(v) if isinstance(v, float) else v)
+                  for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
-                               unchanged=request.args.get("unchanged") == "1")
+                               unchanged=request.args.get("unchanged") == "1", lyrics=lyrics)
+
+    @app.post("/library/album/lyrics")
+    def album_lyrics():
+        rel = request.form.get("folder", "")
+        if library.album_folder(ctx.root, rel) is None:
+            abort(404)
+        return submit("lyrics", {"folder": rel}, False)
+
+    @app.get("/library/lyrics")
+    def missed_lyrics():
+        albums = [(folder, n, when(at)) for folder, n, at in library.missed_albums(ctx.root, ctx.state_dir)]
+        return render_template("lyrics.html", albums=albums, days=f"{misses.retry_days():g}")
 
     @app.post("/library/album")
     def edit_album():

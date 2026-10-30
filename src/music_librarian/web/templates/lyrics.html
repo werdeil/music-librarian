@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ t.lyrics_not_found }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.lyrics_not_found }}</h2>
+    <p class="muted">{{ t.lyrics_page_intro.format(days=days) }}</p>
+    {% if albums %}
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.file }}</th><th>{{ t.tracks }}</th><th>{{ t.last_lookup }}</th></tr></thead>
+        <tbody>
+        {% for folder, n, at in albums %}
+            <tr>
+                <td><a href="{{ url_for('album_page', folder=folder) }}">{{ folder }}</a></td>
+                <td>{{ n }}</td>
+                <td>{{ at }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">{{ t.lyrics_none_missed }}</p>
+    {% endif %}
+</section>
+{% endblock %}

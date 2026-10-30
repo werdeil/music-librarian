@@ -18,8 +18,8 @@ QUEUED, STARTED, DONE = "queued", "started", "done"
 KEPT = 50
 JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
 
-# the options each command takes from the dashboard: booleans, but undo's journal and tag's
-# edits, [[path relative to the root, field, value, values seen]]
+# the options each command takes from the dashboard: booleans, but undo's journal, tag's edits
+# ([[path relative to the root, field, value, values seen]]) and the lyrics' album folder
 OPTIONS = {
     "import": (),
     "organize": ("since",),
@@ -29,9 +29,10 @@ OPTIONS = {
     "dedupe": (),
     "undo": ("journal",),
     "tag": ("edits",),
+    "lyrics": ("folder",),
     "genres": (),
 }
-FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag")}
+FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag", "lyrics")}
 
 
 @dataclass
@@ -137,10 +138,20 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                            lyrion=import_opts.lyrion)
         return kept("tag", lambda: tag.run(opts, log), log, r)
 
+    def run_lyrics(r, log):
+        def look_up():
+            folder = (root / r.options.get("folder", "")).resolve()
+            if not folder.is_relative_to(root) or not folder.is_dir():
+                log(f"ERROR    not a folder of the library: {r.options.get('folder')!r}")
+                return 2
+            opts = replace(enrich_opts, apply=r.apply)
+            return enrich.tool_pass("lyrics", [folder], opts, log, "--retry")
+        return kept("lyrics", look_up, log, r)
+
     def run_genres(r, log):
         opts = replace(enrich_opts, apply=r.apply)
         return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "genres": run_genres}

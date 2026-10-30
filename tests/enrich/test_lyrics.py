@@ -1,5 +1,6 @@
 """enrich.lyrics: lyrics written into the tags, on real files, with mocked providers."""
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+import mutagen
 import pytest
 
 from music_librarian.core.lock import EXIT_STOPPED, STOP
@@ -123,3 +124,48 @@ def test_single_file_and_hidden_folder(album, web, make_track):
     assert run(tracks[1]) == 0
     calls, _ = web
     assert len(calls) == 1 and tags.has_lyrics(str(tracks[1]))
+
+
+def test_miss_not_looked_up_again(album, web, capsys):
+    d, _ = album
+    calls, answer = web
+    answer.update(synced=None, source="none")
+    assert run(d) == 0
+    assert run(d, "--dry-run") == 0
+    assert len(calls) == 3 and "searched recently: 3" in capsys.readouterr().out
+    assert run(d, "--force") == 0
+    assert len(calls) == 6
+
+
+def test_miss_retried_once_tags_change(album, web):
+    d, tracks = album
+    calls, answer = web
+    answer.update(synced=None, source="rejected")
+    run(d)
+    tags.write_genre(str(tracks[0]), "Rock")
+    run(d)
+    assert len(calls) == 3
+    t = mutagen.File(str(tracks[0]), easy=True)
+    t["title"] = "Autre titre"
+    t.save()
+    run(d)
+    assert len(calls) == 4
+
+
+def test_unreachable_not_recorded(album, web, capsys):
+    d, _ = album
+    calls, answer = web
+    answer.update(synced=None, source="unavailable")
+    run(d)
+    run(d)
+    assert len(calls) == 6
+    assert "searched recently: 0" in capsys.readouterr().out
+
+
+def test_retry_looks_up_a_recent_miss_without_overwriting(album, web):
+    d, _ = album
+    calls, answer = web
+    answer.update(synced=None, source="none")
+    run(d)
+    assert run(d, "--retry") == 0
+    assert len(calls) == 6

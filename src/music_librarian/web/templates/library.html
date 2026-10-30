@@ -12,7 +12,8 @@
     {% elif not albums %}
         <p class="muted">{{ t.no_album }}</p>
     {% else %}
-        <p class="muted">{{ t.albums_found.format(n=total) }}</p>
+        <p class="muted">{{ t.albums_found.format(n=total) }}
+            {% if missed %} · <a href="{{ url_for('missed_lyrics') }}">{{ t.lyrics_missed_albums.format(n=missed) }}</a>{% endif %}</p>
         <ul class="albums">
         {% for album in albums %}
             <li>

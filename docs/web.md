@@ -8,7 +8,8 @@ The pages read the run history and the decisions file in the state folder, and t
 
 - **Overview**: the passes running now, the schedule of `watch` (how often the Inbox is read, the nightly `organize` and the weekly `enrich`) with each command's last run and next slot, the items waiting in the Inbox and in `_failed/`, the number of credits awaiting a decision in `split-decisions.txt`, and the ten latest runs.
 - **Library**: the albums of the metadata cache, one per folder holding tracks, with their cover (`folder.jpg`, else the first embedded one), searched by artist, album, title or folder without case or accents. A library never scanned shows nothing until a `scan`; a file moved or deleted since it was cached is left out.
-- **An album**: its fields shared by every track (album artist, album, year, genre, number of discs, compilation flag) and a grid of its tracks (disc, number, title, artist, composer), read from the files themselves. See below for editing them.
+- **An album**: its fields shared by every track (album artist, album, year, genre, number of discs, compilation flag) and a grid of its tracks (disc, number, title, artist, composer), read from the files themselves, with each track's lyrics: present, looked up in vain on a date, or neither. See below for editing them. **Look up the album's lyrics** queues a dry run of `enrich.lyrics` on its folder with `--retry`, which looks up the tracks found in vain without waiting for `LYRICS_RETRY_DAYS`; the run's page offers to write what it found.
+- **Lyrics not found**, linked from the library: the albums whose tracks were looked up in vain within `LYRICS_RETRY_DAYS`, the most tracks first, with their last lookup.
 - **Reviews**: the questions split and dedupe cannot settle, see below.
 - **History**: the runs kept in the history (the 200 latest), filtered by command, or to the problems only.
 - **A run**: its mode, who started it (`watch`, the command line), its duration and exit code, its summary, and its whole output, each line coloured by its tag (`ERROR`, `CONFLICT` and `FAILED` in red, `SKIPPED`, `WARNING`, `REFUSED`, `UNKNOWN`, `GUARDED`, `REVIEW`, `STOP` and `LOCKED` in yellow). While the run goes on, the new lines are appended every 2 seconds, and the page reloads with the summary once it ends. "Plain text" gives the output as a file.
@@ -74,6 +75,8 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/library?q=<words>&page=<n>` | the albums, searched |
 | `/library/album?folder=<folder>` | an album, its folder relative to the library root; `POST` queues a dry run of its edits |
 | `/library/cover?folder=<folder>` | the album's cover |
+| `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
+| `/library/lyrics` | the albums whose lyrics were not found |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
 | `/requests/<id>` | waits for a queued request, then redirects to its run |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
