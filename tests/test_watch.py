@@ -10,7 +10,7 @@ import pytest
 from music_librarian import enrich, importer, organize, watch
 from music_librarian.organize import Report
 from music_librarian.core import runs
-from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, stop_pass
 from music_librarian.core.state import state_path
 
 
@@ -288,3 +288,9 @@ def test_real_nightly_organize(tmp_path, ticks, make_track, monkeypatch):
     assert (lib / "A/B/01 Un.m4a").exists() and not (lib / "vrac").exists()
     assert float((state / organize.LAST_RUN).read_text()) > before
     assert runs.latest(state)["organize"]["trigger"] == "schedule"
+
+
+def test_watch_goes_on_after_a_pass_stopped_alone(inbox_dir, calls, ticks):
+    went_on = []
+    assert ticks(inbox_dir, [stop_pass, lambda: went_on.append(True)]) == 0
+    assert went_on == [True]

@@ -41,7 +41,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from music_librarian import enrich, importer, organize
-from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals
+from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals, resume
 from music_librarian.core.log import Log
 from music_librarian.core import runs
 from music_librarian.core.runs import recorded
@@ -237,8 +237,12 @@ def main(argv=None):
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
         + (f", enrich every {DAYS[args.enrich_at[0]]} at {args.enrich_at[1]:%H:%M}"
            if args.enrich_at else ""))
-    while not STOP.is_set():
+    while True:
+        resume()
+        if STOP.is_set():
+            break
         for job in jobs:
+            resume()
             if STOP.is_set():
                 break
             job.tick(log)

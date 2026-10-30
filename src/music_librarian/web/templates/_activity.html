@@ -12,12 +12,19 @@
         <ul>
         {% for run in activity.running %}
             <li><a href="{{ url_for('run_page', run_id=run.id) }}"><code>{{ run.command }}</code> {{ run.when }}</a>
-                <span class="muted">{{ m.origin(t, run) }} · {{ run.duration }}</span></li>
+                <span class="muted">{{ m.origin(t, run) }} · {{ run.duration }}</span>
+                {% if run.stoppable %}{{ m.stop_form(t, csrf, run) }}{% endif %}</li>
         {% endfor %}
         </ul>
         {% endif %}
         {% if activity.queued %}
-        <p class="muted">{{ t.queued }} {% for asked in activity.queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
+        <p class="muted">{{ t.queued }}</p>
+        <ul>
+        {% for asked in activity.queued %}
+            <li><code>{{ asked.command }}</code> <span class="muted">{{ t.apply if asked.apply else t.dry_run }}</span>
+                {{ m.cancel_form(t, csrf, asked) }}</li>
+        {% endfor %}
+        </ul>
         {% endif %}
     </div>
 </details>

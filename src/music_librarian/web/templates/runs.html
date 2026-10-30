@@ -16,7 +16,7 @@
         <noscript><button type="submit">{{ t.filter_button }}</button></noscript>
     </form>
     {% if runs or queued %}
-        {{ m.runs_table(t, runs, queued) }}
+        {{ m.runs_table(t, runs, queued, csrf) }}
         {% if pages > 1 %}
         <p class="filters">
             {% if page > 1 %}<a href="{{ url_for('history', command=command, problems='1' if problems else None, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}

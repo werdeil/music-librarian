@@ -462,6 +462,11 @@ button {
     cursor: pointer;
 }
 
+button.small {
+    font-size: var(--fs-sm);
+    padding: 0.1rem 0.6rem;
+}
+
 button:hover {
     border-color: var(--accent);
 }

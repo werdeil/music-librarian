@@ -2,7 +2,9 @@
 
 `watch --listen [HOST:]PORT` serves a dashboard on that address while it watches the Inbox: the passes running and the recent ones with their output, the schedule, the Inbox and the review questions awaiting an answer. The compose file serves it on port 8080 (`WEB_PORT` in `.env` to change the host's port); without a host, every interface is listened on. `MUSIC_LIBRARIAN_LISTEN` sets the address when `--listen` is not given.
 
-The pages read the run history in the state folder and the Inbox root on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. When `watch` runs without `--apply`, a badge at the top says the dashboard is read-only. The footer gives the version, and folds the library, Inbox and state folders under **folders**. While a pass runs or waits in the queue, a pill at the top of every page says so, refreshed every 5 s, and opens on a click onto the passes running, linked to their live output, and those queued. Its spinner stays still when the system asks for reduced motion.
+The pages read the run history in the state folder and the Inbox root on each request. The passes the dashboard asks for are queued and run by `watch` itself, between its other jobs, so they never compete with them for the lock. When `watch` runs without `--apply`, a badge at the top says the dashboard is read-only. The footer gives the version, and folds the library, Inbox and state folders under **folders**. While a pass runs or waits in the queue, a pill at the top of every page says so, refreshed every 5 s, and opens on a click onto the passes running, linked to their live output, and those queued.
+
+A pass `watch` runs, from the dashboard or its schedule, can be stopped from its page or the pill: it ends the file it is on, as on `docker stop`, a tool of `enrich` included, then `watch` goes on with the rest of its queue; what the pass did is journaled, so it can be undone. A stopped scheduled pass runs again at its next slot. A request still queued can be cancelled from the history, the pill or its waiting page. A pass started by hand in another container cannot be stopped from here. Its spinner stays still when the system asks for reduced motion.
 
 ## Pages
 
@@ -69,7 +71,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 |---|---|
 | `/` | the overview |
 | `/runs`, `/runs?command=enrich`, `/runs?problems=1`, `/runs?page=2` | the history |
-| `/runs/<id>` | a run |
+| `/runs/<id>` | a run; `POST /runs/<id>/stop` stops it while `watch` runs it |
 | `/runs/<id>/log.txt` | its output as plain text |
 | `/runs/<id>/log.json?from=<offset>&kind=<kind>` | the complete lines written since byte `offset`, each with its style (`error`, `warning`, `section` or empty), the offset to ask from next, and the run's status; `kind` is the style of the line before `offset`, which an indented line continues |
 | `POST /passes` | queues a dry run (`command`, its options, and `journal` for `undo`), or the pass applied with `apply=1`; redirects to the request |
@@ -81,7 +83,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/library/lyrics` | the albums with tracks without lyrics |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
 | `/reviews/split/decisions`, `/reviews/dedupe/aliases`, `/reviews/genres/list` | the decisions file, the aliases file and the validated genre list, read only |
-| `/requests/<id>` | waits for a queued request, then redirects to its run |
+| `/requests/<id>` | waits for a queued request, then redirects to its run; `POST /requests/<id>/cancel` takes it out of the queue |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |
 | `/activity` | the header's pill of the passes running and queued, as an HTML fragment |
 | `/built` | `{"ready": …}`: whether the album list and the review queues were built once |

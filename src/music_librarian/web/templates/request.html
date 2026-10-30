@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% block head %}{% if not locked %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
+{% import "_macros.html" as m %}
+{% block head %}{% if not locked and not cancelled %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
 {% block content %}
 <section>
     <h2><code>{{ asked.command }}</code> {{ t.apply if asked.apply else t.dry_run }}</h2>
     {% if locked %}
         <p class="warning">{{ t.request_locked }}</p>
+    {% elif cancelled %}
+        <p class="muted">{{ t.request_cancelled }}</p>
     {% else %}
         <p class="muted">{{ t.request_waiting }}</p>
+        <div class="actions">{{ m.cancel_form(t, csrf, asked) }}</div>
     {% endif %}
     <p><a href="{{ url_for('home') }}">{{ t.overview }}</a></p>
 </section>

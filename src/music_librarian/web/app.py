@@ -8,7 +8,9 @@ themselves change nothing.
 import hmac
 import json
 import math
+import os
 import secrets
+import socket
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -18,14 +20,14 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request, se
 
 from music_librarian import __version__
 from music_librarian.core import runs
-from music_librarian.core.lock import EXIT_LOCKED
+from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import DONE, FORMS, OPTIONS, journal_path
+from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
@@ -177,7 +179,8 @@ def create_app(ctx: Context):
 
     def activity():
         """The passes running now, and those the dashboard queued, for the header."""
-        running = [shown(r) for r in runs.recent(ctx.state_dir, 20) if runs.status(r) == runs.RUNNING]
+        running = [dict(shown(r), stoppable=stoppable(r))
+                   for r in runs.recent(ctx.state_dir, 20) if runs.status(r) == runs.RUNNING]
         return dict(running=running, queued=ctx.requests.pending() if ctx.requests else [])
 
     @app.get("/built")
@@ -217,7 +220,26 @@ def create_app(ctx: Context):
             return render_template("request.html", asked=asked, locked=True)
         if asked.run_id is not None:
             return redirect(url_for("run_page", run_id=asked.run_id))
-        return render_template("request.html", asked=asked, locked=False)
+        return render_template("request.html", asked=asked, locked=False, cancelled=asked.state == CANCELLED)
+
+    @app.post("/requests/<int:request_id>/cancel")
+    def cancel_request(request_id):
+        if ctx.requests is None or not ctx.requests.cancel(request_id):
+            abort(404)
+        return redirect(url_for("request_page", request_id=request_id))
+
+    def stoppable(run):
+        """Whether the run is the pass this process is running, which only watch's runs can be."""
+        return bool(ctx.requests and runs.status(run) == runs.RUNNING and run["pid"] == os.getpid()
+                    and run["host"] == socket.gethostname())
+
+    @app.post("/runs/<int:run_id>/stop")
+    def stop_run(run_id):
+        run = runs.get(ctx.state_dir, run_id)
+        if run is None or not stoppable(run):
+            abort(404)
+        stop_pass()
+        return redirect(url_for("run_page", run_id=run_id))
 
     @app.get("/runs")
     def history():
@@ -245,6 +267,7 @@ def create_app(ctx: Context):
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
+            can_stop=stoppable(run),
             journal=journal if journal and journal_path(ctx.state_dir, journal) else None)
 
     @app.get("/runs/<int:run_id>/log.json")

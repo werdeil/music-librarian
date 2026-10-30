@@ -6,7 +6,7 @@ import json
 import pytest
 
 from music_librarian import cli, enrich, importer, organize
-from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, SIGNALLED, STOP, resume, stop_pass
 from music_librarian.organize import organize as organize_module, undo as undo_module
 
 
@@ -177,3 +177,17 @@ def test_undo_needs_a_journal(capsys):
     with pytest.raises(SystemExit) as stop:
         cli.main(["undo"])
     assert stop.value.code == 2 and "JOURNAL" in capsys.readouterr().err
+
+
+def test_a_pass_stopped_alone_lets_the_process_go_on():
+    stop_pass()
+    assert STOP.is_set()
+    resume()
+    assert not STOP.is_set()
+
+
+def test_a_signal_meanwhile_stops_the_process_too():
+    stop_pass()
+    SIGNALLED.set()
+    resume()
+    assert STOP.is_set()
