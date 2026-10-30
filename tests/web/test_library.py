@@ -161,7 +161,7 @@ def test_album_page(dashboard):
     assert 'name="album.albumartist" value=""' in page
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
-    assert "Preview the changes" in page
+    assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
     assert 'href="/library">← Library</a>' in page and 'name="t0.disc"' not in page   # one disc
 
 
