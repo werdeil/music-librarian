@@ -1,8 +1,30 @@
+{% macro reload_when_built() -%}
+<span hidden data-reload-when-built="{{ url_for('built') }}"></span>
+{%- endmacro %}
+
 {% macro status(t, run) -%}
 <span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
 {%- endmacro %}
 
-{% macro runs_table(t, runs) -%}
+{% macro origin(t, run) -%}
+{{ t['origin_' ~ run.origin] }}{% if run.trigger %} · {{ t['trigger_' ~ run.trigger] }}{% endif %}
+{%- endmacro %}
+
+{% macro cancel_form(t, csrf, asked) -%}
+<form method="post" action="{{ url_for('cancel_request', request_id=asked.id) }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="small">{{ t.cancel_button }}</button>
+</form>
+{%- endmacro %}
+
+{% macro stop_form(t, csrf, run) -%}
+<form method="post" action="{{ url_for('stop_run', run_id=run.id) }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="small">{{ t.stop_button }}</button>
+</form>
+{%- endmacro %}
+
+{% macro runs_table(t, runs, queued=(), csrf=None) -%}
 <div class="table-wrap">
 <table class="runs">
     <thead>
@@ -16,12 +38,22 @@
         </tr>
     </thead>
     <tbody>
+    {% for asked in queued %}
+        <tr>
+            <td class="muted">—</td>
+            <td><code>{{ asked.command }}</code></td>
+            <td>{{ t.apply if asked.apply else t.dry_run }}</td>
+            <td>{{ t.origin_web }}</td>
+            <td></td>
+            <td><span class="status status-queued">{{ t.status_queued }}</span>{% if csrf %} {{ cancel_form(t, csrf, asked) }}{% endif %}</td>
+        </tr>
+    {% endfor %}
     {% for run in runs %}
         <tr>
             <td><a href="{{ url_for('run_page', run_id=run.id) }}">{{ run.when }}</a></td>
             <td><code>{{ run.command }}</code></td>
             <td>{{ t.apply if run.apply else t.dry_run }}</td>
-            <td>{{ t['origin_' ~ run.origin] }}</td>
+            <td>{{ origin(t, run) }}</td>
             <td>{{ run.duration or '' }}</td>
             <td>{{ status(t, run) }}</td>
         </tr>

@@ -76,9 +76,9 @@ def test_translations_have_the_same_keys():
 
 def test_home_without_history(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert "No pass running" in page and "No run recorded yet" in page
+    assert 'class="activity"' not in page and "Never" in page
     assert "Every day at 02:00" in page and "Every Sunday at 03:00" in page
-    assert "The Inbox is empty" in page and "Read-only (dry run)" in page
+    assert "<h2>Inbox</h2>" not in page and "Read-only (dry run)" in page
 
 
 def test_no_mode_badge_when_watch_applies(client, ctx):
@@ -91,22 +91,49 @@ def test_home_in_french(client, ctx):
     page = client.get("/", headers=FR).get_data(as_text=True)
     assert '<html lang="fr">' in page
     assert "Tous les jours à 02:00" in page and "Chaque dimanche à 03:00" in page
-    assert "Derniers passages" in page and "ligne de commande" in page
+    assert "Passages programmés" in page and "À traiter" in page
 
 
-def test_home_shows_latest_runs_and_inbox(client, ctx):
+def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     first = record(ctx, "organize", code=2)
     last = record(ctx, "organize")
     (ctx.inbox / "New Album").mkdir()
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert f"/runs/{last}" in page and f"/runs/{first}" in page
-    assert "New Album" in page and "In _failed/: 1" in page
+    assert f"/runs/{last}" in page and f"/runs/{first}" not in page        # the latest of each command
+    assert 'Runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
+    assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
+    failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
+    assert 'class="tile tile-todo"' in failed and '<span class="tile-value">1' in failed
+
+
+def test_tiles_at_zero_and_without_a_genre_list(client):
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    assert page.count('class="tile tile-ok"') == 3 and page.count('class="tile tile-none"') == 1
+    assert page.count('class="tile tile-info"') == 1
+    assert "no validated list" in page
 
 
 def test_missing_inbox(client, ctx):
     ctx.inbox.rmdir()
     assert "Inbox not found" in client.get("/", headers=EN).get_data(as_text=True)
+
+
+def test_history_in_pages_of_fifty(client, ctx):
+    for _ in range(web.HISTORY_PAGE + 5):
+        record(ctx, "scan", code=2)
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
+    assert page.count('<td><code>scan</code></td>') == web.HISTORY_PAGE and "1 / 2" in page
+    assert 'href="/runs?problems=1&amp;page=2"' in page
+    page = client.get("/runs?problems=1&page=2", headers=EN).get_data(as_text=True)
+    assert page.count('<td><code>scan</code></td>') == 5 and "Previous" in page
+    assert '<h1 class="visually-hidden">History</h1>' in page
+
+
+def test_folders_folded_in_the_footer(client, ctx):
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    footer = page[page.index("<footer>"):]
+    assert "<summary>folders</summary>" in footer and str(ctx.inbox) in footer
 
 
 def test_history_filters(client, ctx):
@@ -116,6 +143,11 @@ def test_history_filters(client, ctx):
     assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
     assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page and "To check" in page
+    assert 'name="problems" value="1" data-autosubmit checked' in page
+    page = client.get("/runs?command=enrich", headers=EN).get_data(as_text=True)
+    assert 'name="command" value="enrich"' in page and "data-autosubmit>" in page
+    page = client.get("/runs?command=scan&problems=1", headers=EN).get_data(as_text=True)
+    assert "No run matches" in page
 
 
 def test_run_page(client, ctx):
@@ -129,6 +161,13 @@ def test_run_page(client, ctx):
     assert '<span class="line section">--- Summary ---</span>' in page
     assert "<dt>journal</dt><dd>/state/journal/1.jsonl</dd>" in page
     assert "data-live" not in page
+
+
+def test_trigger_shown_with_the_origin(client, ctx):
+    runs.recorded(lambda: 0, Log(), ctx.state_dir, "import", True, origin="watch", trigger="start")
+    run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
+    assert "watch · at startup" in client.get("/runs", headers=EN).get_data(as_text=True)
+    assert "watch · au démarrage" in client.get(f"/runs/{run_id}", headers=FR).get_data(as_text=True)
 
 
 def test_run_summary_in_french(client, ctx):
@@ -156,7 +195,9 @@ def test_running_run_followed_live(client, ctx):
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
     assert "Running" in page and f'data-live="/runs/{run_id}/log.json"' in page
     assert "NONE     A/B/01" not in page                     # its line is still being written
-    assert "Running now" in client.get("/", headers=EN).get_data(as_text=True)
+    header = client.get("/library", headers=EN).get_data(as_text=True)
+    assert "enrich running" in header and f'href="/runs/{run_id}"' in header
+    assert "enrich running" in client.get("/activity", headers=EN).get_data(as_text=True)
     with open(runs.log_path(ctx.state_dir, run_id), "a", encoding="utf-8") as f:
         f.write(" (no lyrics)\nERROR    lrclib\n")
     first = client.get(f"/runs/{run_id}/log.json?from=0").get_json()

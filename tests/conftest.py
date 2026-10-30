@@ -11,7 +11,7 @@ from mutagen.id3 import ID3, TALB, TCMP, TCOM, TIT2, TPE1, TPE2, TPOS, TRCK
 from mutagen.mp4 import MP4
 
 from music_librarian import watch
-from music_librarian.core.lock import STOP
+from music_librarian.core.lock import ONE_PASS, SIGNALLED, STOP
 
 CODECS = {".m4a": ["-c:a", "alac", "-movflags", "+faststart"], ".mp3": ["-c:a", "libmp3lame"],
           ".flac": ["-c:a", "flac"]}
@@ -29,9 +29,11 @@ def clean_env(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def no_stop():
     """The stop request is process-wide: reset between tests."""
-    STOP.clear()
+    for event in (STOP, SIGNALLED, ONE_PASS):
+        event.clear()
     yield
-    STOP.clear()
+    for event in (STOP, SIGNALLED, ONE_PASS):
+        event.clear()
 
 
 @pytest.fixture

@@ -1,6 +1,7 @@
 """The review of the genres the validated list does not know (web/reviews.py)."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import json
+import re
 import sys
 
 import pytest
@@ -93,3 +94,15 @@ def test_genres_pass_queued_from_the_reviews(d, lib, tmp_path, monkeypatch):
     d.client.post("/passes", data={"csrf": d.token, "command": "genres"})
     d.requests.tick(Log())
     assert calls.read_text(encoding="utf-8").splitlines() == [f"--dry-run {lib}"]
+
+
+def test_validated_genres_page(d):
+    assert "Validated genres (2)</a>" in page(d, "/reviews")
+    text = page(d, "/reviews/genres/list")
+    rows = re.findall(r"<tr>\s*<td>([^<]*)</td>\s*<td[^>]*>([^<]*)</td>\s*<td[^>]*>([^<]*)</td>", text)
+    assert rows == [("Rock", "", "1"), ("Rap / Hip-hop", "rap", "0")]
+
+
+def test_validated_genres_page_without_a_list(d):
+    (d.state / "genres.txt").unlink()
+    assert "No validated genre list" in page(d, "/reviews/genres/list")

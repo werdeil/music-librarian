@@ -18,16 +18,26 @@
             <a href="{{ url_for('home') }}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}>{{ t.overview }}</a>
             <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
             <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
-            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% if waiting_total %} <span class="count" title="{{ t.questions_waiting }}">{{ waiting_total }}</span>{% endif %}</a>
+            <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% set questions = waiting_total() %}{% if questions %} <span class="count" title="{{ t.questions_waiting }}">{{ questions }}</span>{% endif %}</a>
         </nav>
-        {% if not ctx.apply %}<span class="mode" title="{{ t.watch_dry_run }}">{{ t.mode_dry_run }}</span>{% endif %}
+        <div class="top-right">
+            <div id="activity" data-url="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>
+            {% if not ctx.apply %}<span class="mode" title="{{ t.watch_dry_run }}">{{ t.mode_dry_run }}</span>{% endif %}
+        </div>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <span>{{ t.library }} <code class="path">{{ ctx.root }}</code></span>
         <span>music-librarian {{ version }}</span>
+        <details class="folders">
+            <summary>{{ t.folders }}</summary>
+            <dl class="facts">
+                <dt>{{ t.library }}</dt><dd><code class="path">{{ ctx.root }}</code></dd>
+                <dt>{{ t.inbox }}</dt><dd><code class="path">{{ ctx.inbox }}</code></dd>
+                <dt>{{ t.state }}</dt><dd><code class="path">{{ ctx.state_dir }}</code></dd>
+            </dl>
+        </details>
     </footer>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

@@ -25,10 +25,10 @@ def connect(state_dir: Path):
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, command TEXT, "
                "origin TEXT, apply INTEGER, started REAL, ended REAL, code INTEGER, summary TEXT, "
-               "host TEXT, pid INTEGER, options TEXT)")
-    # a runs.db of version 0.1 has none of the last three
+               "host TEXT, pid INTEGER, options TEXT, trigger TEXT)")
+    # a runs.db of version 0.1 has none of the last four
     columns = {row[1] for row in db.execute("PRAGMA table_info(runs)")}
-    for name, kind in (("host", "TEXT"), ("pid", "INTEGER"), ("options", "TEXT")):
+    for name, kind in (("host", "TEXT"), ("pid", "INTEGER"), ("options", "TEXT"), ("trigger", "TEXT")):
         if name not in columns:
             db.execute(f"ALTER TABLE runs ADD COLUMN {name} {kind}")
     return db
@@ -61,20 +61,21 @@ class Output:
         self.f.close()
 
 
-def recorded(fn, log, state_dir: Path, command, apply, origin="cli", request=None):
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def recorded(fn, log, state_dir: Path, command, apply, origin="cli", request=None, trigger=None):
     """fn()'s exit code, the pass being kept in the run history with what `log` prints meanwhile.
 
     A pass that found the lock taken did nothing and is not kept. The oldest runs beyond KEEP
     are dropped, their log files with them. A dashboard `request` gets the run's id as soon as it
-    is recorded, and its options are kept with the run.
+    is recorded, and its options are kept with the run. `trigger` says why watch started it.
     """
     options = json.dumps(request.options) if request else None
     db = connect(state_dir)
     with db:
-        run_id = db.execute("INSERT INTO runs (command, origin, apply, started, host, pid, options) "
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        run_id = db.execute("INSERT INTO runs (command, origin, apply, started, host, pid, options, trigger) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                             (command, origin, int(apply), time.time(), socket.gethostname(),
-                             os.getpid(), options)).lastrowid
+                             os.getpid(), options, trigger)).lastrowid
     if request:
         request.run_id = run_id
     out = Output(log_path(state_dir, run_id))

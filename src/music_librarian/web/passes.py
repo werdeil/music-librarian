@@ -11,10 +11,10 @@ import threading
 from dataclasses import dataclass, field, replace
 
 from music_librarian import dedupe, enrich, importer, organize, scan, split, tag
-from music_librarian.core.lock import STOP
+from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
-QUEUED, STARTED, DONE = "queued", "started", "done"
+QUEUED, STARTED, DONE, CANCELLED = "queued", "started", "done", "cancelled"
 KEPT = 50
 JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
 
@@ -57,6 +57,7 @@ class Requests:
         self.wake = threading.Event()
         self.ids = itertools.count(1)
         self.known = {}
+        self.lock = threading.Lock()
 
     def submit(self, command, options, apply):
         request = Request(next(self.ids), command, dict(options), apply)
@@ -73,6 +74,15 @@ class Requests:
     def pending(self):
         return [r for r in self.known.values() if r.state == QUEUED]
 
+    def cancel(self, request_id):
+        """Take a request out of the queue before it starts; False once it started."""
+        with self.lock:
+            request = self.known.get(request_id)
+            if request is None or request.state != QUEUED:
+                return False
+            request.state = CANCELLED
+            return True
+
     def tick(self, log):
         self.wake.clear()
         while not STOP.is_set():
@@ -80,10 +90,14 @@ class Requests:
                 request = self.queue.get_nowait()
             except queue.Empty:
                 return
-            request.state = STARTED
+            with self.lock:
+                if request.state == CANCELLED:
+                    continue
+                request.state = STARTED
             request.code = self.guard(lambda r=request: self.runners[r.command](r, log), log, request.command)
             request.state = DONE
             log("")
+            resume()
 
 
 def journal_path(state_dir, name):

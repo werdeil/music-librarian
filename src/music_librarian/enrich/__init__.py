@@ -34,6 +34,7 @@ Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
 import argparse
 import contextlib
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -63,11 +64,16 @@ def enrichers():
 
 
 def run_tool(cmd, env, log):
-    """The tool's exit code, its output passed on to `log` line by line."""
+    """The tool's exit code, its output passed on to `log` line by line. A stop requested
+    meanwhile is passed on to the tool as SIGTERM, which ends the file it is on, then stops."""
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                           encoding="utf-8", errors="backslashreplace") as p:
+        stopping = False
         for line in p.stdout:
             log(line.rstrip("\n"))
+            if STOP.is_set() and not stopping:
+                p.send_signal(signal.SIGTERM)
+                stopping = True
     return p.returncode
 
 
@@ -169,6 +175,10 @@ def enrich_all(opts, log):
             if not ok:
                 log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
                 failed.append(name)
+            if STOP.is_set():
+                log(f"STOP     requested: {name} stopped after batch {i}/{len(batches)}, "
+                    f"resumed on the next pass")
+                return EXIT_STOPPED
     for name, wanted, tag_pass, pass_options in (
             ("split", opts.split, split.split_pass, split.Options),
             ("dedupe", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):

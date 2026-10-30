@@ -8,7 +8,9 @@ themselves change nothing.
 import hmac
 import json
 import math
+import os
 import secrets
+import socket
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -18,18 +20,20 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request, se
 
 from music_librarian import __version__
 from music_librarian.core import runs
-from music_librarian.core.lock import EXIT_LOCKED
+from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import DONE, FORMS, OPTIONS, journal_path
+from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
+HOME_PASSES = ("import", "organize", "enrich", "scan")
+HISTORY_PAGE = 50
 
 
 @dataclass
@@ -93,13 +97,13 @@ def shown(run):
 
 
 def inbox_state(inbox: Path):
-    """(names of the Inbox items, entries in _failed/), or None for a missing Inbox."""
+    """(names of the Inbox items, names of the entries in _failed/), or None for a missing Inbox."""
     try:
         items = [it.name for it in list_items(inbox)]
     except OSError:
         return None
     failed = inbox / ERRORS
-    return items, sum(1 for _ in failed.iterdir()) if failed.is_dir() else 0
+    return items, sorted(p.name for p in failed.iterdir()) if failed.is_dir() else []
 
 
 def journal_of(run):
@@ -114,13 +118,13 @@ def journal_of(run):
 def create_app(ctx: Context):
     app = Flask(__name__)
     token = secrets.token_urlsafe(16)
-    waiting = reviews.register(app, ctx)
+    waiting, reviews_built = reviews.register(app, ctx)
 
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
-                    waiting_total=sum(n or 0 for n in waiting().values()))
+                    waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity())
 
     @app.before_request
     def same_origin_forms():
@@ -147,8 +151,14 @@ def create_app(ctx: Context):
     def home():
         t = TRANSLATIONS[pick_lang(request.accept_languages)]
         now = datetime.now()
-        recent = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP)]
         latest = {c: shown(r) for c, r in runs.latest(ctx.state_dir).items()}
+        week_ago = (now - timedelta(days=7)).timestamp()
+        problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
+                       if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
+        items, failed = inbox_state(ctx.inbox) or ([], [])
+        albums = index.get()
+        todo = dict(waiting(), failed=len(failed),
+                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
@@ -162,10 +172,24 @@ def create_app(ctx: Context):
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
         return render_template(
-            "home.html", running=[r for r in recent if r["status"] == runs.RUNNING],
-            recent=recent[:10], latest=latest, schedule=schedule, inbox=inbox_state(ctx.inbox),
-            waiting=waiting(), options=FORMS,
-            queued=ctx.requests.pending() if ctx.requests else [])
+            "home.html", genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
+            latest=latest, schedule=schedule, problems=problems, todo=todo,
+            inbox=inbox_state(ctx.inbox), waiting_items=items,
+            passes={command: OPTIONS[command] for command in HOME_PASSES})
+
+    def activity():
+        """The passes running now, and those the dashboard queued, for the header."""
+        running = [dict(shown(r), stoppable=stoppable(r))
+                   for r in runs.recent(ctx.state_dir, 20) if runs.status(r) == runs.RUNNING]
+        return dict(running=running, queued=ctx.requests.pending() if ctx.requests else [])
+
+    @app.get("/built")
+    def built():
+        return jsonify(ready=index.albums.ready() and reviews_built())
+
+    @app.get("/activity")
+    def activity_fragment():
+        return render_template("_activity.html")
 
     @app.post("/passes")
     def new_pass():
@@ -196,7 +220,26 @@ def create_app(ctx: Context):
             return render_template("request.html", asked=asked, locked=True)
         if asked.run_id is not None:
             return redirect(url_for("run_page", run_id=asked.run_id))
-        return render_template("request.html", asked=asked, locked=False)
+        return render_template("request.html", asked=asked, locked=False, cancelled=asked.state == CANCELLED)
+
+    @app.post("/requests/<int:request_id>/cancel")
+    def cancel_request(request_id):
+        if ctx.requests is None or not ctx.requests.cancel(request_id):
+            abort(404)
+        return redirect(url_for("request_page", request_id=request_id))
+
+    def stoppable(run):
+        """Whether the run is the pass this process is running, which only watch's runs can be."""
+        return bool(ctx.requests and runs.status(run) == runs.RUNNING and run["pid"] == os.getpid()
+                    and run["host"] == socket.gethostname())
+
+    @app.post("/runs/<int:run_id>/stop")
+    def stop_run(run_id):
+        run = runs.get(ctx.state_dir, run_id)
+        if run is None or not stoppable(run):
+            abort(404)
+        stop_pass()
+        return redirect(url_for("run_page", run_id=run_id))
 
     @app.get("/runs")
     def history():
@@ -206,8 +249,13 @@ def create_app(ctx: Context):
         if problems:
             shown_runs = [r for r in shown_runs if r["status"] in PROBLEMS]
         commands = sorted(runs.latest(ctx.state_dir))
-        return render_template("runs.html", runs=shown_runs, commands=commands, command=command,
-                               problems=problems)
+        pages = max(math.ceil(len(shown_runs) / HISTORY_PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        queued = [] if problems or page > 1 or not ctx.requests else \
+            [r for r in reversed(ctx.requests.pending()) if command in (None, r.command)]
+        return render_template("runs.html", runs=shown_runs[(page - 1) * HISTORY_PAGE:page * HISTORY_PAGE],
+                               queued=queued, commands=commands, command=command, problems=problems,
+                               page=page, pages=pages)
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):
@@ -219,6 +267,7 @@ def create_app(ctx: Context):
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
+            can_stop=stoppable(run),
             journal=journal if journal and journal_path(ctx.state_dir, journal) else None)
 
     @app.get("/runs/<int:run_id>/log.json")
@@ -243,15 +292,16 @@ def create_app(ctx: Context):
     @app.get("/library")
     def library_page():
         query = request.args.get("q", "").strip()
-        albums = index.search(query) if query else index.get()
-        if albums is None:
+        everything = index.get()
+        if everything is None:
             return render_template("library.html", query=query, building=True)
+        albums = index.search(query) if query else everything
         pages = max(math.ceil(len(albums) / library.PAGE), 1)
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
                                albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
-                               empty=not index.get(),
-                               missed=len(library.missed_albums(ctx.root, ctx.state_dir)))
+                               empty=not everything,
+                               without_lyrics=sum(a.without_lyrics for a in everything))
 
     @app.get("/library/album")
     def album_page():
@@ -278,8 +328,16 @@ def create_app(ctx: Context):
 
     @app.get("/library/lyrics")
     def missed_lyrics():
-        albums = [(folder, n, when(at)) for folder, n, at in library.missed_albums(ctx.root, ctx.state_dir)]
-        return render_template("lyrics.html", albums=albums, days=f"{misses.retry_days():g}")
+        everything = index.get()
+        if everything is None:
+            return render_template("lyrics.html", building=True, days=f"{misses.retry_days():g}")
+        albums = [(a, when(at) if at else None)
+                  for a, at in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
+        pages = max(math.ceil(len(albums) / library.PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        return render_template("lyrics.html", albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
+                               tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
+                               days=f"{misses.retry_days():g}")
 
     @app.post("/library/album")
     def edit_album():

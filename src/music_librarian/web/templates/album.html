@@ -49,7 +49,7 @@
             <thead>
                 <tr>
                     {% if discs %}<th>{{ t.field_disc }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
-                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.file }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -65,12 +65,12 @@
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
                 {% else %}
-                    <td colspan="{{ 5 if discs else 4 }}" class="warning">{{ t.unreadable }}</td>
+                    <td colspan="{{ 5 if discs else 4 }}" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td>
                 {% endif %}
                     {% set state = lyrics.get(file) %}
                     <td class="{{ 'warning' if state and state is not sameas true else 'muted' if not state }}">
                         {{ t.lyrics_present if state is sameas true else t.lyrics_missed.format(date=state) if state else t.lyrics_none }}</td>
-                    <td><code class="muted">{{ file }}</code></td>
+                    <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                 </tr>
             {% endfor %}
             </tbody>

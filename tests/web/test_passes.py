@@ -7,7 +7,7 @@ import pytest
 
 from music_librarian import organize, watch
 from music_librarian.core import runs
-from music_librarian.core.lock import EXIT_LOCKED, STOP
+from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, resume
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
 from music_librarian.web.passes import DONE, QUEUED, Requests
@@ -128,7 +128,7 @@ def test_request_page_follows_the_request(tmp_path, requests):
     client.post("/passes", data={"command": "scan", "csrf": token})
     page = client.get("/requests/1", headers=EN).get_data(as_text=True)
     assert "Waiting for the current pass to end" in page and 'http-equiv="refresh"' in page
-    assert "Queued <code>scan</code>" in client.get("/", headers=EN).get_data(as_text=True)
+    assert "<li><code>scan</code>" in client.get("/activity", headers=EN).get_data(as_text=True)
 
     def recorded(request, log):
         return runs.recorded(lambda: 0, log, ctx.state_dir, "scan", False, "web", request)
@@ -197,3 +197,37 @@ def test_apply_refused_for_a_run_started_elsewhere(library):
     [cli] = runs.recent(state)
     assert "Apply this pass" not in client.get(f"/runs/{cli['id']}", headers=EN).get_data(as_text=True)
     assert client.post(f"/runs/{cli['id']}/apply", data={"csrf": token}).status_code == 404
+
+
+def test_cancel_a_queued_request(tmp_path, requests):
+    _ctx, client, token = dashboard(tmp_path, requests)
+    client.post("/passes", data={"command": "scan", "csrf": token})
+    assert ">Cancel</button>" in client.get("/runs", headers=EN).get_data(as_text=True)
+    response = client.post("/requests/1/cancel", data={"csrf": token})
+    assert response.location.endswith("/requests/1")
+    page = client.get("/requests/1", headers=EN).get_data(as_text=True)
+    assert "Request cancelled" in page and 'http-equiv="refresh"' not in page
+    requests.runners["scan"] = lambda r, log: pytest.fail("a cancelled request ran")
+    requests.tick(Log())
+    assert requests.pending() == [] and "status-queued" not in client.get("/runs").get_data(as_text=True)
+    assert client.post("/requests/1/cancel", data={"csrf": token}).status_code == 404
+
+
+def test_stop_the_running_pass(tmp_path, requests):
+    ctx, client, token = dashboard(tmp_path, requests)
+    seen = {}
+
+    def running():
+        run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
+        seen["page"] = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
+        seen["stop"] = client.post(f"/runs/{run_id}/stop", data={"csrf": token}).status_code
+        seen["stopped"] = STOP.is_set()
+        return EXIT_STOPPED
+
+    runs.recorded(running, Log(), ctx.state_dir, "enrich", True, "watch")
+    assert ">Stop</button>" in seen["page"] and seen["stop"] == 302 and seen["stopped"]
+    resume()
+    assert not STOP.is_set()
+    run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
+    assert client.post(f"/runs/{run_id}/stop", data={"csrf": token}).status_code == 404   # ended
+    assert not STOP.is_set()

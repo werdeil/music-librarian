@@ -128,6 +128,22 @@ def test_stop_between_batches(lib, tools, tmp_path, monkeypatch):
     assert enrich.last_run(state) is None             # picked up on the next pass
 
 
+def test_stop_during_the_last_batch(lib, tools, tmp_path, monkeypatch, capsys):
+    real = enrich.run_tool
+
+    def stop_during_the_last_tool(cmd, env, log):
+        code = real(cmd, env, log)
+        if "'lyrics'" in " ".join(cmd):
+            STOP.set()
+        return code
+
+    monkeypatch.setattr(enrich, "run_tool", stop_during_the_last_tool)
+    assert run(lib, tmp_path / "state", "--apply") == EXIT_STOPPED       # one batch: the last
+    out = capsys.readouterr().out
+    assert len(tools.calls()) == 3 and "ENRICH   (split)" not in out
+    assert enrich.last_run(tmp_path / "state") is None
+
+
 def test_tool_output_in_the_run_log(lib, tmp_path, monkeypatch, capsys):
     script = "print('LYRICS   Beyoncé — Halo'); print('--- Lyrics summary ---'); print('   written: 1')"
     monkeypatch.setattr(enrich, "enrichers", lambda: [("lyrics", [sys.executable, "-c", script])])
@@ -249,3 +265,25 @@ def test_retried_while_locked_then_once(weekly):
     weekly.codes += [EXIT_LOCKED]
     weekly.run([lambda: None, lambda: None, lambda: None])  # dry run: last_run does not move forward
     assert len(weekly.calls) == 2
+
+
+def test_a_stop_is_passed_on_to_the_tool(tmp_path):
+    script = tmp_path / "tool.py"
+    script.write_text(
+        "import signal, sys, time\n"
+        "stop = []\n"
+        "signal.signal(signal.SIGTERM, lambda *a: stop.append(1))\n"
+        "for i in range(100):\n"
+        "    if stop:\n"
+        "        print('STOP     requested', flush=True)\n"
+        "        sys.exit(4)\n"
+        "    print(f'LINE     {i}', flush=True)\n"
+        "    time.sleep(0.02)\n", encoding="utf-8")
+    lines = []
+
+    def log(line):
+        lines.append(line)
+        STOP.set()
+
+    assert enrich.run_tool([sys.executable, str(script)], None, log) == EXIT_STOPPED
+    assert lines[-1] == "STOP     requested" and len(lines) < 20

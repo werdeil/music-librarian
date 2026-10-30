@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set title = {'genres': t.rules_genres, 'aliases': t.rules_aliases, 'decisions': t.rules_decisions}[kind] %}
+{% block title %}{{ title }} · music-librarian{% endblock %}
+{% block content %}
+<p class="back"><a href="{{ url_for('reviews_page') }}">← {{ t.reviews }}</a></p>
+<section>
+    <h2>{{ title }} <code class="aside">{{ path.name }}</code></h2>
+    <p class="muted">{{ t['rules_' ~ kind ~ '_intro'] }}</p>
+
+    {% if kind == 'genres' %}
+        {% if genres is none %}
+        <p class="muted">{{ t.no_genre_list.format(path=path) }}</p>
+        {% elif not genres %}
+        <p class="muted">{{ t.rules_empty }}</p>
+        {% else %}
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>{{ t.field_genre }}</th><th>{{ t.rules_names }}</th><th>{{ t.tracks }}</th></tr></thead>
+            <tbody>
+            {% for genre, names in genres %}
+                <tr>
+                    <td>{{ genre }}</td>
+                    <td class="muted">{{ names | join(', ') }}</td>
+                    <td class="{{ 'muted' if tracks and not tracks[genre] }}">{% if tracks is none %}{{ t.tile_building }}{{ m.reload_when_built() }}{% else %}{{ tracks[genre] }}{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+
+    {% elif kind == 'aliases' %}
+        {% if not unified and not different %}
+        <p class="muted">{{ t.rules_empty }}</p>
+        {% endif %}
+        {% if unified %}
+        <h3>{{ t.rules_unified }}</h3>
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>{{ t.rules_variant }}</th><th>{{ t.rules_written_as }}</th></tr></thead>
+            <tbody>
+            {% for variant, name in unified %}<tr><td>{{ variant }}</td><td>{{ name }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+        {% if different %}
+        <h3>{{ t.rules_different }}</h3>
+        <div class="table-wrap">
+        <table>
+            <tbody>
+            {% for one, other in different %}<tr><td>{{ one }}</td><td class="muted">≠</td><td>{{ other }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+
+    {% else %}
+        {% if not decided %}
+        <p class="muted">{{ t.rules_empty }}</p>
+        {% else %}
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>{{ t.rules_credit }}</th><th>{{ t.rules_decision }}</th></tr></thead>
+            <tbody>
+            {% for credit, decision in decided %}
+                <tr>
+                    <td>{{ credit }}</td>
+                    {% if decision == '?' %}<td class="warning">{{ t.rules_pending }}</td>
+                    {% elif decision == 'split' %}<td>{{ t.split_button }}</td>
+                    {% elif decision == 'keep' %}<td>{{ t.keep_button }}</td>
+                    {% else %}<td>{{ decision }}</td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

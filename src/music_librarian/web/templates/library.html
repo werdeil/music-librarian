@@ -1,29 +1,34 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}{{ t.library }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.library }}</h2>
+    <h1 class="visually-hidden">{{ t.library }}</h1>
     <form method="get" action="{{ url_for('library_page') }}" class="search">
         <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
         <button type="submit">{{ t.search_button }}</button>
     </form>
     {% if building %}
-        <p class="muted">{{ t.still_building }}</p>
+        <p class="muted">{{ t.still_building }}{{ m.reload_when_built() }}</p>
     {% elif empty %}
         <p class="muted">{{ t.library_empty }}</p>
     {% elif not albums %}
         <p class="muted">{{ t.no_album }}</p>
     {% else %}
         <p class="muted">{{ t.albums_found.format(n=total) }}
-            {% if missed %} · <a href="{{ url_for('missed_lyrics') }}">{{ t.lyrics_missed_albums.format(n=missed) }}</a>{% endif %}</p>
+            {% if without_lyrics %} · {{ t.tracks_without_lyrics.format(n=without_lyrics) }} <a href="{{ url_for('missed_lyrics') }}">{{ t.see }}</a>{% endif %}</p>
         <ul class="albums">
         {% for album in albums %}
             <li>
                 <a href="{{ url_for('album_page', folder=album.folder) }}">
-                    <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                    {% set count = (t.track_one if album.tracks == 1 else t.track_many).format(n=album.tracks) %}
+                    <span class="cover">
+                        <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                        <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ album.tracks }}</span>
+                    </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>
-                    <span class="muted">{{ album.artist }}</span>
-                    <span class="muted">{{ t.tracks_count.format(n=album.tracks) }}</span>
+                    {% if album.compilation %}<span class="muted compilation">{{ t.field_compilation }}</span>
+                    {% else %}<span class="muted">{{ album.artist }}</span>{% endif %}
                 </a>
             </li>
         {% endfor %}

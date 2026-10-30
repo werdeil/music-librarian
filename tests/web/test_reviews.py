@@ -55,8 +55,11 @@ def test_overview(d):
 
 def test_home_counts_the_same_questions(d):
     text = page(d, "/")
-    assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
-    assert "/reviews/split" in text and "/reviews/dedupe" in text and "Import the Inbox" in text
+    tile = lambda label: text[text.index(label) - 300:text.index(label)]
+    assert '<span class="tile-value">2' in tile("Credits to split")
+    assert '/reviews/split"' in tile("Credits to split")
+    assert '<span class="tile-value">1' in tile("Artists to unify")
+    assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
     assert '<span class="count" title="Questions awaiting an answer">3</span>' in page(d, "/library")
 
 
@@ -150,9 +153,29 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert "Still being worked out" in text and "Credits awaiting" not in text
-        assert "Still being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in text and "Credits awaiting" not in text
+        assert 'data-reload-when-built="/built"' in text
+        assert "Being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
         assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
         assert client.get("/", headers=EN).status_code == 200
     finally:
         release.set()
+
+
+def test_recorded_answers_pages(d):
+    aliases.update(d.state / aliases.FILE, add=[("Beyonce", "=>", "Beyoncé"), ("Queen", "!=", "Queens")])
+    decisions.record(d.state / decisions.FILE, "Brian May/Roger Taylor", "split")
+    decisions.record(d.state / decisions.FILE, "AC/DC", "keep")
+    decisions.append_pending(d.state / decisions.FILE, ["A, B"])
+    text = page(d, "/reviews")
+    assert "Answers (2)</a>" in text and "Decisions (3)</a>" in text
+    text = page(d, "/reviews/dedupe/aliases")
+    assert "<td>Beyonce</td><td>Beyoncé</td>" in text and "<td>Queen</td>" in text and "Queens" in text
+    text = page(d, "/reviews/split/decisions")
+    assert "<td>Brian May/Roger Taylor</td>" in text and "awaiting an answer" in text
+    assert re.search(r"<td>AC/DC</td>\s*<td>Keep whole</td>", text)
+
+
+def test_recorded_answers_pages_before_any_answer(d):
+    assert "No line yet." in page(d, "/reviews/dedupe/aliases")
+    assert "No line yet." in page(d, "/reviews/split/decisions")

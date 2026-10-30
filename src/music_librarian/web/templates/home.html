@@ -1,42 +1,44 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
+
+{% macro tile(t, value, label, href, none_text=None, info=False) -%}
+<a class="tile {{ 'tile-none' if value is none else 'tile-info' if info else 'tile-todo' if value else 'tile-ok' }}" href="{{ href }}">
+    <span class="tile-value">{{ '—' if value is none else value }}{% if value == 0 and not info %} <span aria-hidden="true">✓</span>{% endif %}</span>
+    <span class="tile-label">{{ label }}</span>
+    {% if value is none %}<span class="tile-note">{{ none_text or t.tile_building }}</span>{% endif %}
+    {% if value is none and not none_text %}{{ m.reload_when_built() }}{% endif %}
+</a>
+{%- endmacro %}
+
 {% block content %}
 <section>
-    <h2>{{ t.running_now }}</h2>
-    {% if running %}
-        {{ m.runs_table(t, running) }}
-    {% else %}
-        <p class="muted">{{ t.nothing_running }}</p>
-    {% endif %}
+    <h2>{{ t.to_do }}</h2>
+    <div class="tiles">
+        {{ tile(t, todo.split, t.tile_split, url_for('review_split')) }}
+        {{ tile(t, todo.dedupe, t.tile_dedupe, url_for('review_dedupe')) }}
+        {{ tile(t, todo.genres if genre_list else None, t.tile_genres, url_for('review_genres'),
+                none_text=None if genre_list else t.tile_no_genre_list) }}
+        {{ tile(t, todo.failed, t.tile_failed, url_for('history', command='import', problems='1')) }}
+        {{ tile(t, todo.lyrics, t.tile_lyrics, url_for('missed_lyrics'), info=True) }}
+    </div>
 </section>
 
-{% if ctx.requests %}
+{% if inbox is none or waiting_items %}
 <section>
-    <h2>{{ t.run_a_pass }}</h2>
-    {% if queued %}
-        <p class="muted">{{ t.queued }} {% for asked in queued %}<code>{{ asked.command }}</code>{{ ', ' if not loop.last }}{% endfor %}</p>
+    <h2>{{ t.inbox }}</h2>
+    {% if inbox is none %}
+        <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
+    {% else %}
+        <p>{{ t.inbox_waiting }}</p>
+        <ul class="inbox">
+        {% for name in waiting_items %}<li>{{ name }}</li>{% endfor %}
+        </ul>
     {% endif %}
-    <div class="pass-forms">
-    {% for command, names in options.items() %}
-        <form method="post" action="{{ url_for('new_pass') }}" class="pass-form">
-            <input type="hidden" name="csrf" value="{{ csrf }}">
-            <input type="hidden" name="command" value="{{ command }}">
-            <span class="pass-command">{{ t.passes[command] }} <code class="muted">{{ command }}</code></span>
-            <span class="pass-options">
-            {% for name in names %}
-                <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
-            {% endfor %}
-            </span>
-            <button type="submit">{{ t.run_button if command == 'scan' else t.dry_run_button }}</button>
-        </form>
-    {% endfor %}
-    </div>
-    <p class="muted">{{ t.dry_run_first if ctx.apply else t.watch_dry_run }}</p>
 </section>
 {% endif %}
 
 <section>
-    <h2>{{ t.schedule }}</h2>
+    <h2>{{ t.scheduled_passes }}</h2>
     <div class="table-wrap">
     <table class="schedule">
         <thead>
@@ -61,42 +63,34 @@
         </tbody>
     </table>
     </div>
-</section>
-
-<section>
-    <h2>{{ t.inbox }}</h2>
-    <p class="muted"><code class="path">{{ ctx.inbox }}</code></p>
-    {% if inbox is none %}
-        <p class="muted">{{ t.inbox_missing }}</p>
-    {% else %}
-        {% set items, failed = inbox %}
-        {% if items %}
-            <ul class="inbox">
-            {% for name in items %}<li>{{ name }}</li>{% endfor %}
-            </ul>
-        {% else %}
-            <p class="muted">{{ t.inbox_empty }}</p>
-        {% endif %}
-        {% if failed %}<p class="warning">{{ t.inbox_failed.format(n=failed) }}</p>{% endif %}
+    {% if problems %}
+    <p class="warning">{{ t.recent_problems.format(n=problems) }} · <a href="{{ url_for('history', problems='1') }}">{{ t.see }}</a></p>
     {% endif %}
 </section>
 
-{% if waiting.values() | select | list %}
+{% if ctx.requests %}
 <section>
-    <h2>{{ t.reviews }}</h2>
-    {% if waiting.split %}<p class="warning"><a href="{{ url_for('review_split') }}">{{ t.credits_waiting.format(n=waiting.split) }}</a></p>{% endif %}
-    {% if waiting.dedupe %}<p class="warning"><a href="{{ url_for('review_dedupe') }}">{{ t.groups_waiting.format(n=waiting.dedupe) }}</a></p>{% endif %}
-    {% if waiting.genres %}<p class="warning"><a href="{{ url_for('review_genres') }}">{{ t.genres_waiting.format(n=waiting.genres) }}</a></p>{% endif %}
+    <h2>{{ t.run_a_pass }}</h2>
+    <div class="pass-cards">
+    {% for command, names in passes.items() %}
+        <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="command" value="{{ command }}">
+            <button type="submit">
+                <span class="pass-title">{{ t.passes[command] }}</span>
+                <span class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</span>
+            </button>
+            {% if names %}
+            <details class="pass-options">
+                <summary>{{ t.options }}</summary>
+                {% for name in names %}
+                <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
+                {% endfor %}
+            </details>
+            {% endif %}
+        </form>
+    {% endfor %}
+    </div>
 </section>
 {% endif %}
-
-<section>
-    <h2>{{ t.recent_runs }}</h2>
-    {% if recent %}
-        {{ m.runs_table(t, recent) }}
-        <p><a href="{{ url_for('history') }}">{{ t.all_runs }}</a></p>
-    {% else %}
-        <p class="muted">{{ t.no_runs }}</p>
-    {% endif %}
-</section>
 {% endblock %}

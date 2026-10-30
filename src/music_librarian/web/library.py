@@ -7,6 +7,7 @@ themselves, the values an edit is then checked against by tag (seen).
 import json
 import os
 import threading
+import time
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilati
 TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
 PAGE = 60
 PATIENCE = 1.0
+REBUILD_EVERY = 60
 
 
 def fold(text):
@@ -36,6 +38,8 @@ class Album:
     title: str
     tracks: int
     text: str     # what a search matches, folded
+    without_lyrics: int = 0
+    compilation: bool = False
 
 
 def first(track, *keys):
@@ -65,20 +69,33 @@ def cached_files(root: Path, state_dir: Path):
                 if snap is not None and os.path.exists(path)]
 
 
+def changed(stamp, built):
+    """Whether a value built at `built`, (its stamp, time.monotonic()) or None, is out of date at
+    `stamp` (a cache_stamp, then what else the value depends on): the cache changed, but while a
+    pass writes it (its WAL holds data) at most every REBUILD_EVERY seconds."""
+    if built is None:
+        return True
+    if stamp == built[0]:
+        return False
+    writing = stamp[1:] == built[0][1:] and stamp[0][1] is not None
+    return not writing or time.monotonic() - built[1] >= REBUILD_EVERY
+
+
 class Refreshed:
-    """The value `build()` returns for the current `stamp()`, built again in a thread of its own
-    when the stamp changes, so a request never waits on a build longer than PATIENCE seconds:
-    get() returns None until a first build ends, then the last value built, stale or not."""
+    """The value `build()` returns for the current `stamp()` (a cache_stamp, then what else the
+    value depends on), built again in a thread of its own when the stamp changes (see changed),
+    so a request never waits on a build longer than PATIENCE seconds: get() returns None until a
+    first build ends, then the last value built, stale or not."""
 
     def __init__(self, stamp, build):
         self.stamp_of, self.build = stamp, build
-        self.stamp, self.value, self.building = None, None, None
+        self.built, self.value, self.building = None, None, None
         self.lock = threading.Lock()
 
     def get(self):
         stamp = self.stamp_of()
         with self.lock:
-            if stamp != self.stamp and self.building is None:
+            if self.building is None and changed(stamp, self.built):
                 self.building = threading.Thread(target=self._run, args=(stamp,), name="web-build",
                                                  daemon=True)
                 self.building.start()
@@ -87,15 +104,19 @@ class Refreshed:
             building.join(PATIENCE)
         return self.value
 
+    def ready(self):
+        """Whether a first build has ended, without starting one."""
+        return self.value is not None
+
     def _run(self, stamp):
         try:
             value = self.build()
         except Exception:
             with self.lock:
-                self.stamp, self.building = stamp, None
+                self.built, self.building = (stamp, time.monotonic()), None
             raise
         with self.lock:
-            self.stamp, self.value, self.building = stamp, value, None
+            self.built, self.value, self.building = (stamp, time.monotonic()), value, None
 
 
 class Index:
@@ -104,7 +125,7 @@ class Index:
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
-        self.albums = Refreshed(lambda: cache_stamp(state_dir), self._build)
+        self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -113,9 +134,10 @@ class Index:
     def _build(self):
         if cache_stamp(self.state_dir)[0] is None:
             return []
-        folders = defaultdict(list)
+        folders, bare = defaultdict(list), defaultdict(int)
         for path, snap in cached_files(self.root, self.state_dir):
             folders[path.parent].append(snap["tags"])
+            bare[path.parent] += not snap.get("lyrics")
         albums = []
         for folder, tracks in folders.items():
             artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),
@@ -123,7 +145,8 @@ class Index:
             title = next((a for t in tracks if (a := first(t, "album"))), "")
             words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
             rel = str(folder.relative_to(self.root))
-            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words]))))
+            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder],
+                                all(first(t, "compilation") == "1" for t in tracks)))
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
@@ -228,6 +251,14 @@ def lyrics_state(state_dir: Path, folder: Path, names):
             has = False
         out[name] = True if has else missed.get(folder / name)
     return out
+
+
+def without_lyrics(albums, root: Path, state_dir: Path):
+    """[(album, the time its tracks were last looked up in vain or None)] of the albums with
+    tracks without lyrics, the most such tracks first."""
+    missed = {folder: at for folder, _n, at in missed_albums(root, state_dir)}
+    bare = [a for a in albums if a.without_lyrics]
+    return [(a, missed.get(a.folder)) for a in sorted(bare, key=lambda a: (-a.without_lyrics, a.folder))]
 
 
 def missed_albums(root: Path, state_dir: Path):

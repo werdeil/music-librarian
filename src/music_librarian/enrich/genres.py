@@ -128,6 +128,16 @@ def remove_from_list(path, genre, alias=None):
     _save(path, lines)
 
 
+def entries(path):
+    """The list's (validated genre, [the names that stand for it]) lines as written, in order."""
+    out = []
+    for line in _lines(path):
+        if line.strip() and not line.lstrip().startswith("#"):
+            genre, _, aliases = line.partition(":")
+            out.append((genre.strip(), [a.strip() for a in aliases.split(",") if a.strip()]))
+    return out
+
+
 def load(path):
     """{key: validated genre} from the list at `path`. Raises GenreListError."""
     try:

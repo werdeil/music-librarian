@@ -38,7 +38,7 @@ Imports inside the package are absolute (`from music_librarian.core.lock import 
 
 ## Documentation
 
-**`README.md` and `README.fr.md` are kept in lockstep**: a change to one lands in the other in the same PR. The pages under `docs/` are in English only, and every link to them from the French README is flagged "(en anglais)". The dashboard is bilingual too: every string it shows lives in `web/i18n.py`, in `fr` and `en` with the same keys, never hardcoded in a template or a script.
+**`README.md` and `README.fr.md` are kept in lockstep**: a change to one lands in the other in the same PR. The pages under `docs/` are in English only, and every link to them from the French README is flagged "(en anglais)". The dashboard is bilingual too: every string it shows lives in `web/i18n.py`, in `fr` and `en` with the same keys, never hardcoded in a template or a script. A link on the dashboard is a few words, the name of what it opens or a short "see", never a whole sentence or line: a count stays text next to its link, or becomes a tile or a button.
 
 ## Code style & comments
 

@@ -3,6 +3,7 @@
 import html
 import re
 import threading
+import time
 
 import pytest
 
@@ -12,7 +13,7 @@ from music_librarian.core.log import Log
 from music_librarian.media import fields
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import app as web
-from music_librarian.web import library
+from music_librarian.web import library, reviews
 
 EN = {"Accept-Language": "en"}
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
@@ -90,7 +91,7 @@ def slow_build(release, values):
 def test_refreshed_never_keeps_a_request_waiting(monkeypatch):
     monkeypatch.setattr(library, "PATIENCE", 0.01)
     stamp, release = ["a"], threading.Event()
-    value = library.Refreshed(lambda: stamp[0], slow_build(release, ["first", "second"]))
+    value = library.Refreshed(lambda: ((stamp[0], None),), slow_build(release, ["first", "second"]))
     assert value.get() is None                          # first build under way
     building = value.building
     release.set()
@@ -107,7 +108,7 @@ def test_refreshed_never_keeps_a_request_waiting(monkeypatch):
 
 def test_refreshed_builds_once_per_stamp():
     builds = []
-    value = library.Refreshed(lambda: "a", lambda: builds.append(1) or len(builds))
+    value = library.Refreshed(lambda: (("a", None),), lambda: builds.append(1) or len(builds))
     assert value.get() == value.get() == 1 and len(builds) == 1
 
 
@@ -118,14 +119,30 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
     ctx = dashboard.ctx
     client = web.create_app(ctx).test_client()
     try:
-        assert "Still being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+        tiles = client.get("/", headers=EN).get_data(as_text=True)
+        assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
+        assert 'data-reload-when-built="/built"' in tiles
+        assert client.get("/built").get_json() == {"ready": False}
     finally:
         release.set()
+    for _ in range(100):
+        if client.get("/built").get_json()["ready"]:
+            break
+        time.sleep(0.05)
+    assert client.get("/built").get_json() == {"ready": True}
+    assert "data-reload-when-built" not in client.get("/library", headers=EN).get_data(as_text=True)
 
 
 def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
+    assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
+    hits = page[page.index("folder=Compilations/Hits"):]
+    assert '<span class="muted">Beyonce</span>' in page
+    assert 'class="muted compilation">Compilation</span>' not in hits         # one track only flagged
+    assert "Tracks: " not in page
     page = dashboard.client.get("/library?q=hits", headers=EN).get_data(as_text=True)
     assert "Albums: 1" in page and "Beyonce/4" not in page
     assert "No album matches" in dashboard.client.get("/library?q=zz", headers=EN).get_data(as_text=True)
@@ -149,7 +166,7 @@ def test_album_page(dashboard):
     assert 'name="album.albumartist" value=""' in page
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
-    assert "Preview the changes" in page
+    assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
     assert 'href="/library">← Library</a>' in page and 'name="t0.disc"' not in page   # one disc
 
 
@@ -240,3 +257,53 @@ def test_edit_refused_when_the_track_changed_meanwhile(dashboard, lib, capsys):
     dashboard.requests.tick(Log())
     assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["composer"] == ["Someone Else"]
     assert "REFUSED  (composer changed since" in capsys.readouterr().out
+
+
+def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, lib, tmp_path, monkeypatch):
+    reads = []
+    monkeypatch.setattr(library, "cached_files", lambda *a: reads.append(a) or [])
+    clock = [library.time.monotonic() + library.REBUILD_EVERY]        # long after the fixture's build
+    monkeypatch.setattr(library.time, "monotonic", lambda: clock[0])
+    with MetadataCache(tmp_path / "state", force=True) as cache:   # a pass rewriting the cache
+        for name in ("01 Run the World.m4a", "02 Best Thing.m4a"):
+            cache.snapshot(lib / "Beyonce/4" / name)
+            cache.commit()
+            dashboard.client.get("/library")
+            clock[0] += 5
+        assert len(reads) == 1
+        clock[0] += library.REBUILD_EVERY
+        cache.snapshot(lib / "Compilations/Hits/01 One.flac")
+        cache.commit()
+        dashboard.client.get("/library")
+        assert len(reads) == 2
+    dashboard.client.get("/library")                            # the pass ended: at once
+    assert len(reads) == 3
+
+
+def test_activity_counts_no_review(dashboard, monkeypatch):
+    monkeypatch.setattr(reviews.Reviews, "credit", lambda *a: pytest.fail("reviews counted"))
+    assert dashboard.client.get("/activity").status_code == 200
+
+
+def test_queued_passes_head_the_history(dashboard):
+    dashboard.requests.submit("scan", {}, False)
+    dashboard.requests.submit("organize", {"since": True}, False)
+    page = dashboard.client.get("/runs", headers=EN).get_data(as_text=True)
+    rows = re.findall(r"<td><code>(\w+)</code></td>\s*<td>[^<]*</td>\s*<td>[^<]*</td>\s*<td></td>\s*"
+                      r'<td><span class="status status-queued">Queued</span>', page)
+    assert rows == ["organize", "scan"]                     # the next to run just above the runs
+    for filtered in ("/runs?command=import", "/runs?problems=1"):
+        assert "status-queued" not in dashboard.client.get(filtered, headers=EN).get_data(as_text=True)
+
+
+def test_compilation_named_as_such(dashboard, lib, make_track, tmp_path):
+    make_track(lib / "Compilations/Now/01 A.m4a", title="A", artist="Moby", album="Now", track=1,
+               compilation=True)
+    make_track(lib / "Compilations/Now/02 B.mp3", title="B", artist="U2", album="Now", track=2,
+               compilation=True)
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
+    start = page.index("folder=Compilations/Now")
+    now = page[start:page.index("</li>", start)]
+    assert 'class="muted compilation">Compilation</span>' in now and "Moby" not in now
+    assert "Compilations/Now" in dashboard.client.get("/library?q=moby", headers=EN).get_data(as_text=True)

@@ -47,6 +47,16 @@ def load(path: Path, log):
     return aliases, different
 
 
+def entries(path: Path):
+    """The file's (variant, "=>" or "!=", other) entries as written, in order; unreadable lines
+    left out."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    return [entry for line in text.splitlines() if (entry := parse(line))]
+
+
 def canonical(name, aliases):
     for _ in range(MAX_CHAIN):
         target = aliases.get(key(name))
