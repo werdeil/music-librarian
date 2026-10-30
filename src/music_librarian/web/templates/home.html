@@ -81,7 +81,7 @@
     {% endif %}
 </section>
 
-{% if waiting.values() | sum %}
+{% if waiting.values() | select | list %}
 <section>
     <h2>{{ t.reviews }}</h2>
     {% if waiting.split %}<p class="warning"><a href="{{ url_for('review_split') }}">{{ t.credits_waiting.format(n=waiting.split) }}</a></p>{% endif %}

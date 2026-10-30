@@ -120,7 +120,7 @@ def create_app(ctx: Context):
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
-                    waiting_total=sum(waiting().values()))
+                    waiting_total=sum(n or 0 for n in waiting().values()))
 
     @app.before_request
     def same_origin_forms():
@@ -244,6 +244,8 @@ def create_app(ctx: Context):
     def library_page():
         query = request.args.get("q", "").strip()
         albums = index.search(query) if query else index.get()
+        if albums is None:
+            return render_template("library.html", query=query, building=True)
         pages = max(math.ceil(len(albums) / library.PAGE), 1)
         page = min(max(request.args.get("page", 1, type=int), 1), pages)
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
