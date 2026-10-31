@@ -163,7 +163,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                 log(f"ERROR    not a folder of the library: {r.options.get('folder')!r}")
                 return 2
             opts = replace(enrich_opts, apply=r.apply)
-            return enrich.tool_pass("lyrics", [folder], opts, log, "--retry")
+            return enrich.tool_pass("lyrics", [folder], opts, log, "--retry", "--look-up")
         return kept("lyrics", look_up, log, r)
 
     def run_genres(r, log):

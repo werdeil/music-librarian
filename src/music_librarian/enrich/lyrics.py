@@ -6,9 +6,12 @@ lyrics tag (media/tags.py). Lyrion is never involved: run it whenever, then let
 Lyrion pick the changes up on its next scan.
 
 Usage:
-    python -m music_librarian.enrich.lyrics /path/to/music [--dry-run] [--force]
+    python -m music_librarian.enrich.lyrics /path/to/music [--dry-run [--look-up]] [--force]
                                             [--clear] [--no-verify] [--delay 0.5]
                                             [--verbose]
+
+A dry run lists the files it would look up without looking them up; with --look-up
+it looks them up too and reports what would be written.
 
 Because tags are written permanently (and then propagate to Lyrion, other
 players and backups), a result is only accepted when the provider's own
@@ -104,6 +107,11 @@ def parse_args(argv):
         help="Report what would happen without writing any tag.",
     )
     parser.add_argument(
+        "--look-up", action="store_true",
+        help="With --dry-run, look the lyrics up online too, to report what would be written "
+             "(a dry run otherwise only lists the files it would look up).",
+    )
+    parser.add_argument(
         "--verbose", action="store_true",
         help="Log every file, including those skipped.",
     )
@@ -166,6 +174,9 @@ def handle(path, rel, args, log, cache, misses):
         if args.verbose:
             log(f"SKIPPED  (looked up in vain recently)  {rel}")
         return "searched recently"
+    if args.dry_run and not args.look_up:
+        log(f"WOULD    look up {rel}")
+        return "to look up"
 
     plain, result = lookup(meta, args)
     source = result.get("source")
@@ -193,7 +204,7 @@ def main(argv=None):
         providers = os.getenv("LYRICS_PROVIDERS", "")
         log(f"SKIPPED  lyrics: LYRICS_PROVIDERS={providers!r} names no known provider")
         return 0
-    counts = dict.fromkeys(("scanned", "written", "cleared", "already", "not found", "rejected",
+    counts = dict.fromkeys(("scanned", "to look up", "written", "cleared", "already", "not found", "rejected",
                             "unreachable", "searched recently", "no metadata", "failed"), 0)
     stopped = False
     with MetadataCache(state_path()) as cache, Misses(state_path()) as misses:

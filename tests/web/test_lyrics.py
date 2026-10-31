@@ -55,11 +55,11 @@ def test_lookup_queued_then_applied(d, lib, tool):
     d.requests.tick(Log())
     [dry] = runs.recent(d.state, 1)
     assert (dry["command"], dry["apply"], dry["options"]) == ("lyrics", False, {"folder": "Beyonce/4"})
-    assert tool() == [f"--retry --dry-run {lib / 'Beyonce/4'}"]
+    assert tool() == [f"--retry --look-up --dry-run {lib / 'Beyonce/4'}"]
     assert "NONE     x" in runs.log_path(d.state, dry["id"]).read_text(encoding="utf-8")
     d.client.post(f"/runs/{dry['id']}/apply", data={"csrf": d.token})
     d.requests.tick(Log())
-    assert tool()[1] == f"--retry {lib / 'Beyonce/4'}"
+    assert tool()[1] == f"--retry --look-up {lib / 'Beyonce/4'}"
 
 
 @pytest.mark.parametrize("folder", ["../", "Beyonce/9"])

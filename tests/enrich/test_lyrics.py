@@ -45,9 +45,20 @@ def test_synced_written_as_plain(album, web):
     assert all(tags.has_lyrics(str(t)) for t in tracks)
 
 
-def test_dry_run_writes_nothing(album, web):
+def test_dry_run_lists_without_looking_up(album, web, capsys):
     d, tracks = album
     assert run(d, "--dry-run") == 0
+    calls, _ = web
+    out = capsys.readouterr().out
+    assert calls == [] and "to look up: 3" in out and "WOULD    look up" in out
+    assert not any(tags.has_lyrics(str(t)) for t in tracks)
+
+
+def test_dry_run_looks_up_when_asked(album, web, capsys):
+    d, tracks = album
+    assert run(d, "--dry-run", "--look-up") == 0
+    calls, _ = web
+    assert len(calls) == 3 and "WOULD    write" in capsys.readouterr().out
     assert not any(tags.has_lyrics(str(t)) for t in tracks)
 
 
