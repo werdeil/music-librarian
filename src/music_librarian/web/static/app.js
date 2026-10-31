@@ -9,6 +9,19 @@
     });
 }());
 
+// A form asks before it submits, with its data-confirm text.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("form[data-confirm]").forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            if (!window.confirm(form.dataset.confirm)) {
+                event.preventDefault();
+            }
+        });
+    });
+}());
+
 // The parts of a page kept up to date (the passes running, the To do tiles); an open panel stays open.
 (function () {
     "use strict";

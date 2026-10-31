@@ -114,6 +114,7 @@ def test_enrich_options_shown_ticked(tmp_path, requests):
     for box in ("genres", "lyrics", "split", "dedupe"):
         assert f'name="{box}" value="1" checked' in page
     assert 'name="rescan" value="1">' in page and "no_" not in page
+    assert 'data-confirm="Start “Fill in genres, gain, covers and lyrics”? The pass can take hours' in page
 
 
 def test_apply_only_when_watch_applies(tmp_path, requests):

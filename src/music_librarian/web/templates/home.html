@@ -57,7 +57,8 @@
     <h2>{{ t.run_a_pass }}</h2>
     <div class="pass-cards">
     {% for command, names in passes.items() %}
-        <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
+        <form method="post" action="{{ url_for('new_pass') }}" class="pass-card"
+              data-confirm="{{ t.confirm_pass.format(name=t.passes[command]) }}">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="command" value="{{ command }}">
             <button type="submit">
