@@ -17,7 +17,8 @@ With GENRE_LOOKUP=itunes, an album with tracks the list cannot align is searched
 on the iTunes Search API (store ITUNES_COUNTRY, us by default): when the list
 knows Apple's genre for it, those tracks take it. Answers are kept in
 genre_lookup.json in the state folder; albums not found are searched again after
-30 days. Each re-tagged file keeps its modification time, one second
+30 days. A dry run searches nothing: it takes the answers already kept and counts
+the albums it would search, with the time that would take. Each re-tagged file keeps its modification time, one second
 later. The tags are read through the metadata cache (media/metadata_cache.py).
 A stop request lets the current album finish, then stops (exit code 4);
 a failed file or an unreadable list gives exit code 2.
@@ -44,7 +45,7 @@ from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
-from music_librarian.enrich.common import album_folders, finish, label
+from music_librarian.enrich.common import ESTIMATE, album_folders, estimate, finish, label
 from music_librarian.integrations import itunes
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import metadata_cache, tags
@@ -175,19 +176,27 @@ def resolve(values, mapping):
 class Lookup:
     """Album genres from iTunes, remembered in the state folder between passes."""
 
-    def __init__(self, client, cache_path, log, save=True):
-        self.client, self.path, self.log, self.save = client, Path(cache_path), log, save
+    def __init__(self, client, cache_path, log):
+        self.client, self.path, self.log = client, Path(cache_path), log
         self.offline = False
         try:
             self.cache = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             self.cache = {}
 
+    def _hit(self, artist, album):
+        hit = self.cache.get(f"{fold_name(artist)}\t{fold_name(album)}")
+        return hit if hit and (hit["genre"] or time.time() - hit["at"] < RETRY_MISS) else None
+
+    def known(self, artist, album):
+        """True when the album's answer is kept, so genre() would not search."""
+        return self._hit(artist, album) is not None
+
     def genre(self, artist, album):
         """Apple's genre for the album, or None when not found or iTunes is unreachable."""
         k = f"{fold_name(artist)}\t{fold_name(album)}"
-        hit = self.cache.get(k)
-        if hit and (hit["genre"] or time.time() - hit["at"] < RETRY_MISS):
+        hit = self._hit(artist, album)
+        if hit:
             return hit["genre"]
         if self.offline:
             return None
@@ -198,9 +207,8 @@ class Lookup:
             self.log(f"OFFLINE  iTunes: {exc}, no more lookups this pass")
             return None
         self.cache[k] = {"genre": genre, "at": time.time()}
-        if self.save:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self.cache, ensure_ascii=False, indent=0), encoding="utf-8")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self.cache, ensure_ascii=False, indent=0), encoding="utf-8")
         return genre
 
 
@@ -235,6 +243,9 @@ def process(folder, files, ctx):
             changes[(ctx.write(path, genre), "; ".join(values), genre, "")] += 1
 
     album = album_of(first) if left and ctx.lookup else None
+    if album and ctx.dry_run and not ctx.lookup.known(*album):
+        ctx.counts["albums to look up"] += 1
+        album = None
     found = ctx.lookup.genre(*album) if album else None
     mapped = resolve([found], ctx.mapping) if found else None
     unknown, missing = Counter(), 0
@@ -272,7 +283,8 @@ class Context:
     cache: MetadataCache | None = None
     lookup: Lookup | None = None
     counts: Counter = field(default_factory=lambda: Counter(
-        {"re-tagged": 0, "from iTunes": 0, "unknown genre": 0, "without genre": 0, "failed": 0}))
+        {"re-tagged": 0, "from iTunes": 0, "unknown genre": 0, "without genre": 0, "albums to look up": 0,
+         "failed": 0}))
 
     def write(self, path, genre):
         """True once `path` carries `genre` (or would, in a dry run)."""
@@ -308,7 +320,7 @@ def main(argv=None):
         return 2
     client = itunes.from_env()
     if client:
-        ctx.lookup = Lookup(client, state_path() / LOOKUP_CACHE, log, save=not args.dry_run)
+        ctx.lookup = Lookup(client, state_path() / LOOKUP_CACHE, log)
 
     stopped = False
     with MetadataCache(state_path()) as ctx.cache:
@@ -318,9 +330,12 @@ def main(argv=None):
                 log("STOP     requested: the albums left are aligned on the next pass")
                 break
             process(folder, [p for p in files if os.path.splitext(p)[1].lower() in AUDIO_EXT], ctx)
+    counts = dict(ctx.counts)
     if not client:
-        del ctx.counts["from iTunes"]
-    return finish("Genres", dict(ctx.counts), stopped, log)
+        del counts["from iTunes"]
+    if counts["albums to look up"]:
+        counts[ESTIMATE] = estimate(counts["albums to look up"] * itunes.INTERVAL)
+    return finish("Genres", counts, stopped, log)
 
 
 if __name__ == "__main__":

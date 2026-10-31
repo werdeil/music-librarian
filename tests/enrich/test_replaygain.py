@@ -9,7 +9,7 @@ from mutagen.id3 import TXXX
 from mutagen.mp4 import MP4FreeForm
 
 from music_librarian.core.lock import EXIT_STOPPED, STOP
-from music_librarian.enrich import replaygain
+from music_librarian.enrich import common, replaygain
 from music_librarian.media import tags
 
 CODECS = {".m4a": "alac", ".mp3": "libmp3lame", ".flac": "flac"}
@@ -67,11 +67,15 @@ def test_tagged_files_skipped(album, capsys, monkeypatch):
     assert fields(m4a) == ["-1.00 dB", "0.500000"]
 
 
-def test_dry_run_writes_nothing(album, capsys):
+def test_dry_run_counts_and_estimates(album, capsys, monkeypatch):
     d, tracks = album
-    assert replaygain.main([str(d), "--dry-run"]) == 0
+    monkeypatch.setattr(replaygain, "SPEED", 0.01)          # 100 s of measure per second of audio
+    monkeypatch.setattr(replaygain, "measure", lambda p: pytest.fail(f"{p} measured"))
+    assert replaygain.main([str(d), "--dry-run", "--jobs", "1"]) == 0
     out = capsys.readouterr().out
-    assert out.count("WOULD    ") == 3 and "without gain: 3" in out
+    seconds = sum(mutagen.File(str(t)).info.length for t in tracks) * 100
+    assert "WOULD" not in out and "without gain: 3" in out
+    assert f"estimated time: {common.rough(seconds)} ({round(seconds)} s)" in out
     assert not any(tags.has_replaygain(str(t)) for t in tracks)
 
 

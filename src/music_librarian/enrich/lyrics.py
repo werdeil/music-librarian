@@ -10,8 +10,8 @@ Usage:
                                             [--clear] [--no-verify] [--delay 0.5]
                                             [--verbose]
 
-A dry run lists the files it would look up without looking them up; with --look-up
-it looks them up too and reports what would be written.
+A dry run counts the files it would look up without looking them up, with the time that
+would take; with --look-up it looks them up too and reports what would be written.
 
 Because tags are written permanently (and then propagate to Lyrion, other
 players and backups), a result is only accepted when the provider's own
@@ -54,11 +54,14 @@ import time
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
-from music_librarian.enrich.common import album_folders, finish, label
+from music_librarian.enrich.common import ESTIMATE, album_folders, estimate, finish, label
 from music_librarian.lyrics import enabled_providers, fetch_lyrics
 from music_librarian.lyrics.misses import Misses
 from music_librarian.media import metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
+
+# seconds a lookup waits on the providers, the --delay after it aside
+LOOKUP_SECONDS = 1.0
 
 
 def music_files(targets, log):
@@ -109,7 +112,7 @@ def parse_args(argv):
     parser.add_argument(
         "--look-up", action="store_true",
         help="With --dry-run, look the lyrics up online too, to report what would be written "
-             "(a dry run otherwise only lists the files it would look up).",
+             "(a dry run otherwise only counts the files it would look up).",
     )
     parser.add_argument(
         "--verbose", action="store_true",
@@ -175,7 +178,6 @@ def handle(path, rel, args, log, cache, misses):
             log(f"SKIPPED  (looked up in vain recently)  {rel}")
         return "searched recently"
     if args.dry_run and not args.look_up:
-        log(f"WOULD    look up {rel}")
         return "to look up"
 
     plain, result = lookup(meta, args)
@@ -216,6 +218,8 @@ def main(argv=None):
             counts["scanned"] += 1
             counts[handle(path, rel, args, log, cache, misses)] += 1
 
+    if counts["to look up"]:
+        counts[ESTIMATE] = estimate(counts["to look up"] * (LOOKUP_SECONDS + args.delay))
     return finish("Lyrics", counts, stopped, log)
 
 

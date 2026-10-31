@@ -110,9 +110,21 @@ def test_rescan_reads_everything_first(lib, tools, tmp_path, capsys):
 
 def test_dry_run(lib, tools, tmp_path):
     state = tmp_path / "state"
-    assert run(lib, state) == 0
-    assert all(" --dry-run " in c for c in tools.calls())
+    assert run(lib, state, "--batch", "1") == 0
+    assert tools.calls() == [f"{name} --dry-run {lib}" for name in ("genres", "replaygain", "covers", "lyrics")]
     assert enrich.last_run(state) is None
+
+
+def test_dry_run_adds_up_the_estimates(lib, tmp_path, monkeypatch, capsys):
+    def tool(seconds):
+        line = f"      estimated time: ~{seconds // 60} min ({seconds} s)" if seconds else "nothing to do"
+        return [sys.executable, "-c", f"print({line!r})"]
+    monkeypatch.setattr(enrich, "enrichers", lambda: [("genres", tool(90)), ("covers", tool(0)),
+                                                      ("lyrics", tool(5400))])
+    assert run(lib, tmp_path / "state") == 0
+    summary = capsys.readouterr().out.split("Enrichment summary")[1]
+    assert "genres time: ~2 min" in summary and "lyrics time: ~1 h 30 min" in summary
+    assert "covers time" not in summary and "estimated time: ~1 h 32 min" in summary
 
 
 def test_tool_failure_reported(lib, tools, tmp_path, capsys):

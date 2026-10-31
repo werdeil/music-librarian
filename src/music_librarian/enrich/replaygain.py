@@ -11,7 +11,8 @@ Usage:
     python -m music_librarian.enrich.replaygain /path/to/music [--dry-run] [--jobs N]
 
 Targets are directories, scanned recursively, or music files, as for enrich.covers. With
---dry-run nothing is measured nor written: the files without gain are listed.
+--dry-run nothing is measured nor written: the files without gain are counted, with the time
+measuring them would take.
 """
 import argparse
 import os
@@ -26,11 +27,13 @@ from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
-from music_librarian.enrich.common import album_folders, finish, label
+from music_librarian.enrich.common import ESTIMATE, album_folders, estimate, finish, label
 from music_librarian.media import tags
 from music_librarian.media.metadata_cache import MetadataCache
 
 REFERENCE_LUFS = -18
+# seconds of audio measured per second and per job: ffmpeg runs at about 150 on a desktop CPU
+SPEED = 100
 FILTERS = ("aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo,"
            "replaygain,ebur128=framelog=verbose")
 PEAK = re.compile(r"\] track_peak = ([\d.]+)$", re.M)
@@ -87,11 +90,15 @@ def shown(path):
 
 
 def without_gain(targets, log):
-    """The music files under `targets` whose snapshot has no track gain."""
+    """{music file under `targets` whose snapshot has no track gain: its duration in seconds or 0}."""
+    todo = {}
     with MetadataCache(state_path()) as cache:
-        return [p for _folder, files in album_folders(targets, log) for p in files
-                if os.path.splitext(p)[1].lower() in AUDIO_EXT
-                and not (cache.snapshot(p) or {}).get("replaygain")]
+        for _folder, files in album_folders(targets, log):
+            for p in files:
+                snap = cache.snapshot(p) or {}
+                if os.path.splitext(p)[1].lower() in AUDIO_EXT and not snap.get("replaygain"):
+                    todo[p] = snap.get("duration") or 0
+    return todo
 
 
 def main(argv=None):
@@ -103,14 +110,17 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     log = Log()
-    todo = without_gain(args.targets, log)
+    durations = without_gain(args.targets, log)
+    todo = list(durations)
+    jobs = max(1, args.jobs)
     if args.dry_run:
-        for path in todo:
-            log(f"WOULD    {shown(path)}")
-        return finish("ReplayGain", {"without gain": len(todo)}, False, log)
+        counts = {"without gain": len(todo)}
+        if todo:
+            counts[ESTIMATE] = estimate(sum(durations.values()) / SPEED / min(jobs, len(todo)))
+        return finish("ReplayGain", counts, False, log)
 
     counts = {"tagged": 0, "failed": 0}
-    with ThreadPoolExecutor(max(1, args.jobs)) as pool:
+    with ThreadPoolExecutor(jobs) as pool:
         for path, outcome in zip(todo, pool.map(attempt, todo)):
             if outcome is None:
                 continue

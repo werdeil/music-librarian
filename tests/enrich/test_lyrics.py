@@ -50,7 +50,8 @@ def test_dry_run_lists_without_looking_up(album, web, capsys):
     assert run(d, "--dry-run") == 0
     calls, _ = web
     out = capsys.readouterr().out
-    assert calls == [] and "to look up: 3" in out and "WOULD    look up" in out
+    assert calls == [] and "to look up: 3" in out and "WOULD" not in out
+    assert "estimated time: under a minute (3 s)" in out
     assert not any(tags.has_lyrics(str(t)) for t in tracks)
 
 
