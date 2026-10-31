@@ -70,6 +70,13 @@ def test_batches_and_last_run(lib, tools, tmp_path):
     assert enrich.last_run(state) is not None
 
 
+def test_no_lyrics_leaves_the_weekly_pass(lib, tools, tmp_path):
+    state = tmp_path / "state"
+    assert run(lib, state, "--apply", "--no-lyrics") == 0
+    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers"]
+    assert enrich.last_run(state) is None
+
+
 def test_files_gone_dropped_from_cache(lib, tools, tmp_path, capsys):
     state = tmp_path / "state"
     old = lib / "Z" / "01.m4a"

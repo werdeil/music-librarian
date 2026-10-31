@@ -8,7 +8,8 @@ Each tool only handles what is missing or off:
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
                 cover;
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
-                catches lyrics published after the import);
+                catches lyrics published after the import; --no-lyrics to leave
+                them, the slowest tool as it looks each file up online);
   - split:      split/, the credits holding several names, decisions taken in
                 state/split-decisions.txt included (--no-split to leave them);
   - dedupe:     dedupe/, the spellings decided in state/artist-aliases.txt
@@ -25,8 +26,8 @@ are being rewritten.
 
 The tools read the tags through the metadata cache (media/metadata_cache.py),
 so a pass only opens the files that changed; a complete pass drops the files
-gone from the library from it. The end of a full --apply pass is recorded in
-state/enrich_last_run.
+gone from the library from it. The end of a full --apply pass, lyrics included,
+is recorded in state/enrich_last_run.
 
 Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
 4 = stopped before the end.
@@ -92,6 +93,7 @@ class Options:
     rescan: bool = False
     split: bool = True
     dedupe: bool = True
+    lyrics: bool = True
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -108,6 +110,7 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=BATCH, help=f"folders per tool call (default: {BATCH})")
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
+    ap.add_argument("--no-lyrics", action="store_true", help="without looking the lyrics up")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
     arguments.add_state_dir(ap)
@@ -115,7 +118,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
-                   dedupe=not args.no_dedupe)
+                   dedupe=not args.no_dedupe, lyrics=not args.no_lyrics)
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
@@ -158,6 +161,8 @@ def enrich_all(opts, log):
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
     failed = []
     for name, cmd in enrichers():
+        if name == "lyrics" and not opts.lyrics:
+            continue
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICH   ({name})")
@@ -198,7 +203,8 @@ def enrich_all(opts, log):
         log(f"{'gone from cache':>20}: {removed}")
     if failed:
         log(f"{'failed batches':>20}: {len(failed)} ({', '.join(sorted(set(failed)))})")
-    if opts.apply:
+    # the weekly slot is skipped once this stamp is newer: a pass without lyrics leaves it
+    if opts.apply and opts.lyrics:
         write_stamp(opts.state_dir, LAST_RUN, started)
     return 2 if failed else 0
 
