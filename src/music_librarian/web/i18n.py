@@ -155,9 +155,7 @@ TRANSLATIONS = {
         "yes": "oui",
         "no": "non",
         "unreadable": "illisible",
-        "preview_button": "Prévisualiser les changements (dry run)",
-        "edit_hint": ("Les changements partent en dry run : la page du passage propose ensuite de les "
-                      "appliquer, et les pistes sont rangées là où leurs nouveaux tags les placent."),
+        "preview_button": "Prévisualiser les changements",
         "nothing_changed": "Rien n'a changé.",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
@@ -165,9 +163,7 @@ TRANSLATIONS = {
         "lyrics_present": "oui",
         "lyrics_missed": "cherchées en vain le {date}",
         "lyrics_none": "—",
-        "lyrics_button": "Chercher les paroles de l'album (dry run)",
-        "lyrics_hint": ("Sans attendre le délai avant une nouvelle recherche : la page du passage "
-                        "montre ce qui a été trouvé et propose de l'écrire."),
+        "lyrics_button": "Chercher les paroles de l'album",
         "lyrics_open": "Voir et modifier les paroles",
         "lyrics_delete_button": "Prévisualiser la suppression",
         "track_unreadable": "Ce morceau est illisible.",
@@ -401,9 +397,7 @@ TRANSLATIONS = {
         "yes": "yes",
         "no": "no",
         "unreadable": "unreadable",
-        "preview_button": "Preview the changes (dry run)",
-        "edit_hint": ("Changes start as a dry run: the run's page then offers to apply them, and the "
-                      "tracks are filed again where their new tags put them."),
+        "preview_button": "Preview the changes",
         "nothing_changed": "Nothing changed.",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
@@ -411,9 +405,7 @@ TRANSLATIONS = {
         "lyrics_present": "yes",
         "lyrics_missed": "not found on {date}",
         "lyrics_none": "—",
-        "lyrics_button": "Look up the album's lyrics (dry run)",
-        "lyrics_hint": ("Without waiting for the delay before a new lookup: the run's page shows what "
-                        "was found and offers to write it."),
+        "lyrics_button": "Look up the album's lyrics",
         "lyrics_open": "See and edit the lyrics",
         "lyrics_delete_button": "Preview the deletion",
         "track_unreadable": "This track cannot be read.",
