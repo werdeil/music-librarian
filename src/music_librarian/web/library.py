@@ -63,7 +63,10 @@ def cache_stamp(state_dir: Path):
 
 
 def cached_files(root: Path, state_dir: Path):
-    """(path, snapshot) of the readable files under `root` in the cache that are still there."""
+    """(path, snapshot) of the readable files under `root` in the cache that are still there,
+    none without a cache: the dashboard never creates one."""
+    if not (state_dir / metadata_cache.FILE).exists():
+        return []
     with MetadataCache(state_dir) as cache:
         return [(Path(path), snap) for path, snap in cache.cached(root)
                 if snap is not None and os.path.exists(path)]
@@ -83,30 +86,37 @@ def changed(stamp, built):
 
 class Refreshed:
     """The value `build()` returns for the current `stamp()` (a cache_stamp, then what else the
-    value depends on), built again in a thread of its own when the stamp changes (see changed),
-    so a request never waits on a build longer than PATIENCE seconds: get() returns None until a
-    first build ends, then the last value built, stale or not."""
+    value depends on), built again in a thread of its own when the stamp changes (see changed).
+    get() returns None until a first build ends, then the last value built, stale or not; only
+    the first build keeps a request waiting, at most PATIENCE seconds from its start."""
 
     def __init__(self, stamp, build):
         self.stamp_of, self.build = stamp, build
         self.built, self.value, self.building = None, None, None
+        self.deadline = 0
         self.lock = threading.Lock()
 
-    def get(self):
+    def start(self):
+        """Start a build when the stamp changed and none runs, without waiting on it."""
         stamp = self.stamp_of()
         with self.lock:
             if self.building is None and changed(stamp, self.built):
+                self.deadline = time.monotonic() + PATIENCE
                 self.building = threading.Thread(target=self._run, args=(stamp,), name="web-build",
                                                  daemon=True)
                 self.building.start()
-            building = self.building
-        if building is not None:
-            building.join(PATIENCE)
+            return self.building, self.deadline
+
+    def get(self):
+        building, deadline = self.start()
+        if building is not None and self.value is None:
+            building.join(max(deadline - time.monotonic(), 0))
         return self.value
 
     def ready(self):
-        """Whether a first build has ended, without starting one."""
-        return self.value is not None
+        """Whether a build has ended and none runs, without starting one."""
+        with self.lock:
+            return self.value is not None and self.building is None
 
     def _run(self, stamp):
         try:

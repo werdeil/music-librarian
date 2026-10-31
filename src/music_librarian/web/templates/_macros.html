@@ -1,7 +1,3 @@
-{% macro reload_when_built() -%}
-<span hidden data-reload-when-built="{{ url_for('built') }}"></span>
-{%- endmacro %}
-
 {% macro status(t, run) -%}
 <span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
 {%- endmacro %}
