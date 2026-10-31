@@ -1,6 +1,8 @@
-"""What the enrichment tools share: the album folders they work on, their summary and exit code."""
+"""What the enrichment tools share: the album folders they work on, their summary and exit code,
+and the time a dry run estimates the pass applied would take."""
 import glob
 import os
+import re
 
 from music_librarian.core.lock import EXIT_STOPPED
 from music_librarian.core.log import Log
@@ -59,6 +61,27 @@ def album_folders(patterns, log=None):
             if music and dirpath not in seen:
                 seen.add(dirpath)
                 yield dirpath, [os.path.join(dirpath, n) for n in music]
+
+
+ESTIMATE = "estimated time"
+# the seconds after the rounded time are what enrich adds up over its tools
+ESTIMATE_LINE = re.compile(rf"^\s*{ESTIMATE}: .*\((\d+) s\)$")
+
+
+def rough(seconds):
+    """A duration as read at a glance: `under a minute`, `~12 min`, `~2 h 10 min`."""
+    minutes = round(seconds / 60)
+    if minutes < 1:
+        return "under a minute"
+    if minutes < 60:
+        return f"~{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    return f"~{hours} h {minutes} min" if minutes else f"~{hours} h"
+
+
+def estimate(seconds):
+    """The `estimated time` value of a summary: rough(seconds), then the seconds themselves."""
+    return f"{rough(seconds)} ({round(seconds)} s)"
 
 
 def label(folder):

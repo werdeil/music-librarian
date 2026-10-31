@@ -27,7 +27,8 @@ from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, journal_path
+from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, box, boxes_ticked,
+                                        journal_path)
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
@@ -186,7 +187,7 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES})
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
@@ -219,7 +220,8 @@ def create_app(ctx: Context):
         if command not in FORMS and command != "undo":
             abort(403)
         names = OPTIONS[command]
-        options = {name: True for name in names if name != "journal" and request.form.get(name)}
+        options = {name: True for name in names if name != "journal"
+                   and bool(request.form.get(box(name))) != name.startswith("no_")}
         if "journal" in names:
             options["journal"] = request.form.get("journal", "")
             if journal_path(ctx.state_dir, options["journal"]) is None:
@@ -288,6 +290,8 @@ def create_app(ctx: Context):
         journal = journal_of(run) if run["apply"] else None
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
+            boxes=boxes_ticked(run["command"], run["options"])
+            if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
             can_stop=stoppable(run),
             journal=journal if journal and journal_path(ctx.state_dir, journal) else None)
@@ -300,7 +304,7 @@ def create_app(ctx: Context):
         lines, offset = runs.read_log(ctx.state_dir, run_id, request.args.get("from", 0, type=int))
         line_kinds = kinds(lines, request.args.get("kind", ""))
         return jsonify(lines=[dict(text=text, kind=k) for text, k in zip(lines, line_kinds)],
-                       next=offset, status=runs.status(run))
+                       next=offset, status=runs.status(run), duration=shown(run)["duration"])
 
     @app.get("/runs/<int:run_id>/log.txt")
     def run_text(run_id):

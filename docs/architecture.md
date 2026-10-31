@@ -100,7 +100,7 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 
 ### enrich: only what is missing or off
 
-The album folders are handed in batches of 20 to four modules run as subprocesses, in this order:
+With `--apply`, the album folders are handed in batches of 20 to four modules run as subprocesses, in this order:
 
 1. **`enrich.genres`** rewrites each genre to the spelling of the validated list (`genres.txt` in the state folder), aliases included. A genre the list does not know is reported `UNKNOWN` and left as is.
 2. **`enrich.replaygain`** measures the files without gain with ffmpeg (EBU R128) and writes ReplayGain 2.0 tags referenced to -18 LUFS.
@@ -108,6 +108,8 @@ The album folders are handed in batches of 20 to four modules run as subprocesse
 4. **`enrich.lyrics`** looks up the files without lyrics (LRCLIB, then NetEase, Musixmatch if enabled) and writes them only when the provider's title, artist and duration (within 3 s) match the file. A file looked up in vain is recorded in `lyrics-misses.db` and skipped for `LYRICS_RETRY_DAYS` (30 by default) unless its artist, title or album changes; `--retry`, which the dashboard's album page uses, looks it up anyway.
 
 On a stop request the current batch finishes and the rest waits for the next pass. `split` and `dedupe` then run over the whole library. A complete pass then drops the files gone from the library from the metadata cache.
+
+A dry run reads only the metadata cache and the library's folders, never the network nor ffmpeg, and calls each module once over the whole library. What is decided locally is shown change by change: the genres the list aligns, the covers to embed, the credits split and the aliases applied. What needs a lookup or a measure is counted, with the time it would take: the albums to search on iTunes (3 s each, Apple's rate limit; the answers already kept in `genre_lookup.json` are used), the files to measure (their duration at 100 times real time per CPU) and the files whose lyrics to look up (1.5 s each, the `--delay` of 0.5 s included). The summary adds those times up, tool by tool. These rates are rough: a slow disk, a busy provider or a NAS CPU can double them. `enrich.lyrics --look-up`, which the album page uses, looks the lyrics up in a dry run anyway.
 
 ### split: credits holding several names
 

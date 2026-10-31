@@ -23,7 +23,7 @@ JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
 OPTIONS = {
     "import": (),
     "organize": ("since",),
-    "enrich": ("rescan", "no_split", "no_dedupe"),
+    "enrich": ("rescan", "no_genres", "no_replaygain", "no_covers", "no_lyrics", "no_split", "no_dedupe"),
     "scan": ("force",),
     "split": (),
     "dedupe": (),
@@ -32,7 +32,24 @@ OPTIONS = {
     "lyrics": ("folder",),
     "genres": (),
 }
+# the boxes of the forms that make a pass long, and whether ticked or unticked
+LONG_WHEN = {"since": False, "rescan": True, "force": True}
 FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag", "lyrics")}
+
+
+def box(name):
+    """The form's box for an option: a no_x option is the box x, ticked by default."""
+    return name[3:] if name.startswith("no_") else name
+
+
+def ticked(name, options):
+    """Whether the box of option `name` was ticked for a request with these `options`."""
+    return not options.get(name) if name.startswith("no_") else bool(options.get(name))
+
+
+def boxes_ticked(command, options):
+    """The boxes of `command`'s form ticked for these options, in the form's order."""
+    return [box(name) for name in FORMS.get(command, ()) if ticked(name, options)]
 
 
 @dataclass
@@ -124,7 +141,8 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_enrich(r, log):
         opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")),
-                       split=not r.options.get("no_split"), dedupe=not r.options.get("no_dedupe"))
+                       split=not r.options.get("no_split"), dedupe=not r.options.get("no_dedupe"),
+                       left_out=frozenset(name for name in enrich.TOOLS if r.options.get(f"no_{name}")))
         return kept("enrich", lambda: enrich.run(opts, log), log, r)
 
     def run_scan(r, log):
@@ -159,7 +177,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                 log(f"ERROR    not a folder of the library: {r.options.get('folder')!r}")
                 return 2
             opts = replace(enrich_opts, apply=r.apply)
-            return enrich.tool_pass("lyrics", [folder], opts, log, "--retry")
+            return enrich.tool_pass("lyrics", [folder], opts, log, "--retry", "--look-up")
         return kept("lyrics", look_up, log, r)
 
     def run_genres(r, log):

@@ -9,6 +9,38 @@
     });
 }());
 
+// A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
+// without script, the card submits the options as ticked by default.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-opens-dialog]").forEach(function (opener) {
+        var form = opener.form;
+        var dialog = form.querySelector("dialog");
+        var warnings = dialog.querySelectorAll("[data-long]");
+
+        function update() {
+            warnings.forEach(function (warning) {
+                var box = form.elements.namedItem(warning.dataset.long);
+                warning.hidden = box.checked !== (warning.dataset.longWhen === "checked");
+            });
+        }
+
+        opener.addEventListener("click", function (event) {
+            event.preventDefault();
+            if (!dialog.open) {
+                update();
+                dialog.showModal();
+            }
+        });
+        dialog.addEventListener("change", update);
+        dialog.addEventListener("close", function () { form.reset(); });
+        dialog.querySelector("[data-closes-dialog]").addEventListener("click", function () {
+            dialog.close();
+        });
+    });
+}());
+
 // The parts of a page kept up to date (the passes running, the To do tiles); an open panel stays open.
 (function () {
     "use strict";
@@ -81,7 +113,7 @@
     setTimeout(poll, POLL_MS);
 }());
 
-// The output of a running pass, appended as it is written, until the pass ends.
+// The output of a running pass, appended as it is written, and its duration, until the pass ends.
 (function () {
     "use strict";
 
@@ -93,6 +125,7 @@
     var url = log.dataset.live;
     var offset = Number(log.dataset.from) || 0;
     var kind = log.dataset.kind || "";
+    var duration = document.getElementById("run-duration");
 
     function atBottom() {
         return log.scrollHeight - log.scrollTop - log.clientHeight < 24;
@@ -118,6 +151,9 @@
             .then(function (data) {
                 append(data.lines);
                 offset = data.next;
+                if (duration && data.duration) {
+                    duration.textContent = data.duration;
+                }
                 if (data.lines.length) {
                     kind = data.lines[data.lines.length - 1].kind;
                 }

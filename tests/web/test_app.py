@@ -204,6 +204,7 @@ def test_running_run_followed_live(client, ctx):
     assert [line["text"] for line in first["lines"]] == ["ENRICH   (lyrics)", "NONE     A/B/01 (no lyrics)",
                                                          "ERROR    lrclib"]
     assert first["status"] == "running" and first["lines"][2]["kind"] == "error"
+    assert first["duration"].endswith(" s") and 'id="run-duration"' in page
     with open(runs.log_path(ctx.state_dir, run_id), "a", encoding="utf-8") as f:
         f.write("         unreachable\n")
     more = client.get(f"/runs/{run_id}/log.json?from={first['next']}&kind=error").get_json()

@@ -216,13 +216,28 @@ def test_answers_cached_between_passes(genre_list, album, lookup):
     assert len(fake.calls) == 1 and cache.exists()
 
 
-def test_dry_run_writes_no_cache(genre_list, album, lookup, capsys):
-    cache = lookup(FakeItunes("Rock"))
+def test_dry_run_counts_the_albums_to_look_up(genre_list, album, lookup, capsys):
+    fake = FakeItunes("Rock")
+    cache = lookup(fake)
     d, tracks = album("Shoegaze")
     assert run(genre_list, d, dry=True) == 0
-    assert tags.read_genres(str(tracks[0])) == ["Shoegaze"] and not cache.exists()
+    assert not fake.calls and not cache.exists() and tags.read_genres(str(tracks[0])) == ["Shoegaze"]
     out = capsys.readouterr().out
-    assert 'WOULD    Artiste/Album  "Shoegaze" → "Rock" (iTunes "Rock", 3 tracks)' in out
+    assert "albums to look up: 1" in out
+    assert f"estimated time: under a minute ({itunes.INTERVAL:.0f} s)" in out
+    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 tracks)' in out
+
+
+def test_dry_run_takes_the_answers_kept(genre_list, album, lookup, capsys):
+    fake = FakeItunes("Shoegaze Revival")
+    lookup(fake)
+    d, _ = album("Shoegaze")
+    assert run(genre_list, d) == 0 and len(fake.calls) == 1
+    capsys.readouterr()
+    assert run(genre_list, d, dry=True) == 0
+    out = capsys.readouterr().out
+    assert len(fake.calls) == 1 and "albums to look up" not in out
+    assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 tracks, iTunes "Shoegaze Revival")' in out
 
 
 def test_itunes_down_is_not_a_failure(genre_list, album, lookup, capsys):

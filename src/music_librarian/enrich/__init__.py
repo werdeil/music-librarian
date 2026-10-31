@@ -3,30 +3,39 @@ enrich — enrichment pass over the whole library (weekly).
 
 Each tool only handles what is missing or off:
   - genres:     enrich/genres.py, only the files whose genre is not in the
-                validated list's spelling (unknown genres are reported);
-  - replaygain: enrich/replaygain.py, only the files without gain;
+                validated list's spelling (unknown genres are reported;
+                --no-genres to leave them);
+  - replaygain: enrich/replaygain.py, only the files without gain (--no-replaygain
+                to leave them);
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
-                cover;
+                cover (--no-covers to leave them);
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
-                catches lyrics published after the import);
+                catches lyrics published after the import; --no-lyrics to leave
+                them, the slowest tool as it looks each file up online);
   - split:      split/, the credits holding several names, decisions taken in
                 state/split-decisions.txt included (--no-split to leave them);
   - dedupe:     dedupe/, the spellings decided in state/artist-aliases.txt
                 (--no-dedupe to leave them).
 
-Album folders are handed to the tools in batches: on SIGTERM or Ctrl-C, the
-current batch completes (no tag write is cut short) and the rest is done on
-the next pass. With --apply the lock is held: no organize or import while tags
-are being rewritten.
+With --apply, album folders are handed to the tools in batches: on SIGTERM or
+Ctrl-C, the current batch completes (no tag write is cut short) and the rest is
+done on the next pass. The lock is held: no organize or import while tags are
+being rewritten.
 
-  music-librarian enrich          # dry run: what each tool would do
+A dry run reads only the metadata cache and the library's folders, never the
+network nor ffmpeg, each tool once over the whole library: what is decided
+locally (genres from the list, covers, split, dedupe) is shown change by change,
+what needs a lookup or a measure (iTunes genres, ReplayGain, lyrics) is counted,
+with the time the pass applied would take, tool by tool.
+
+  music-librarian enrich          # dry run: what each tool would do, how long
   music-librarian enrich --apply
   music-librarian enrich --rescan # first read the whole library again (scan --force)
 
 The tools read the tags through the metadata cache (media/metadata_cache.py),
 so a pass only opens the files that changed; a complete pass drops the files
-gone from the library from it. The end of a full --apply pass is recorded in
-state/enrich_last_run.
+gone from the library from it. The end of an --apply pass that left none of the
+four tools out is recorded in state/enrich_last_run.
 
 Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
 4 = stopped before the end.
@@ -47,19 +56,20 @@ from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, h
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
-from music_librarian.enrich.common import album_folders
+from music_librarian.enrich.common import ESTIMATE, ESTIMATE_LINE, album_folders, rough
 from music_librarian.media.metadata_cache import MetadataCache
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
-DRY = {"genres": "--dry-run", "replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
+TOOLS = ("genres", "replaygain", "covers", "lyrics")
+DRY = dict.fromkeys(TOOLS, "--dry-run")
 
 
 def enrichers():
     """(name, command) called with the target folders as arguments."""
     return [
         (name, [sys.executable, "-m", f"music_librarian.enrich.{name}"])
-        for name in ("genres", "replaygain", "covers", "lyrics")
+        for name in TOOLS
     ]
 
 
@@ -92,6 +102,7 @@ class Options:
     rescan: bool = False
     split: bool = True
     dedupe: bool = True
+    left_out: frozenset = frozenset()   # names of TOOLS not run
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -108,6 +119,10 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=BATCH, help=f"folders per tool call (default: {BATCH})")
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
+    ap.add_argument("--no-genres", action="store_true", help="without aligning the genres")
+    ap.add_argument("--no-replaygain", action="store_true", help="without measuring the missing gains")
+    ap.add_argument("--no-covers", action="store_true", help="without embedding folder.jpg")
+    ap.add_argument("--no-lyrics", action="store_true", help="without looking the lyrics up")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
     arguments.add_state_dir(ap)
@@ -115,7 +130,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
-                   dedupe=not args.no_dedupe)
+                   dedupe=not args.no_dedupe,
+                   left_out=frozenset(name for name in TOOLS if getattr(args, f"no_{name}")))
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
@@ -147,17 +163,30 @@ def tool_pass(name, folders, opts: Options, log, *flags):
         return EXIT_LOCKED
 
 
+def adding_up(log, estimated, name):
+    """`log`, adding the seconds of each estimate the tool `name` prints to estimated[name]."""
+    def tool_log(line):
+        found = ESTIMATE_LINE.match(line)
+        if found:
+            estimated[name] = estimated.get(name, 0) + int(found[1])
+        log(line)
+    return tool_log
+
+
 def enrich_all(opts, log):
     started = time.time()
     if opts.rescan and scan.run(opts.root, opts.state_dir, log, force=True) == EXIT_STOPPED:
         return EXIT_STOPPED
     dirs, files = album_dirs(opts.root)
     env = tool_env(opts)
-    batches = [dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)]
+    batches = ([dirs[i:i + opts.batch] for i in range(0, len(dirs), opts.batch)] if opts.apply
+               else [[opts.root]] if dirs else [])
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
-    failed = []
+    failed, estimated = [], {}
     for name, cmd in enrichers():
+        if name in opts.left_out:
+            continue
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
         log(f"ENRICH   ({name})")
@@ -168,7 +197,8 @@ def enrich_all(opts, log):
                 return EXIT_STOPPED
             try:
                 # what a stopped tool left is done next pass
-                ok = run_tool([*cmd, *map(str, batch)], env, log) in (0, EXIT_STOPPED)
+                code = run_tool([*cmd, *map(str, batch)], env, adding_up(log, estimated, name))
+                ok = code in (0, EXIT_STOPPED)
             except OSError as e:
                 log(f"         {e}")
                 ok = False
@@ -198,7 +228,12 @@ def enrich_all(opts, log):
         log(f"{'gone from cache':>20}: {removed}")
     if failed:
         log(f"{'failed batches':>20}: {len(failed)} ({', '.join(sorted(set(failed)))})")
-    if opts.apply:
+    for name, seconds in estimated.items():
+        log(f"{name + ' time':>20}: {rough(seconds)}")
+    if estimated:
+        log(f"{ESTIMATE:>20}: {rough(sum(estimated.values()))}")
+    # the weekly slot is skipped once this stamp is newer: a pass leaving a tool out leaves it
+    if opts.apply and not opts.left_out:
         write_stamp(opts.state_dir, LAST_RUN, started)
     return 2 if failed else 0
 

@@ -60,17 +60,26 @@
         <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="command" value="{{ command }}">
-            <button type="submit">
+            <button type="submit"{% if names %} data-opens-dialog{% endif %}>
                 <span class="pass-title">{{ t.passes[command] }}</span>
                 <span class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</span>
             </button>
             {% if names %}
-            <details class="pass-options">
-                <summary>{{ t.options }}</summary>
+            <dialog class="pass-dialog">
+                <h3>{{ t.passes[command] }}</h3>
+                <p class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</p>
                 {% for name in names %}
-                <label><input type="checkbox" name="{{ name }}" value="1"{% if name == 'since' %} checked{% endif %}> {{ t['opt_' ~ name] }}</label>
+                {% set box = name[3:] if name.startswith('no_') else name %}
+                <label><input type="checkbox" name="{{ box }}" value="1"{% if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
+                {% if box in long_when %}
+                <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
+                {% endif %}
                 {% endfor %}
-            </details>
+                <div class="actions">
+                    <button type="submit" class="primary" autofocus>{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
+                    <button type="button" data-closes-dialog>{{ t.cancel_button }}</button>
+                </div>
+            </dialog>
             {% endif %}
         </form>
     {% endfor %}

@@ -33,6 +33,7 @@ Imports inside the package are absolute (`from music_librarian.core.lock import 
 ## Behaviour that must not regress
 
 - **Dry run by default.** Without `--apply`, no command changes anything in the library or the Inbox; only the metadata cache, the lyrics lookups found in vain and the run history in the state folder are written. Every move goes through the journal (`core/journal.py`), so a pass can always be undone with `undo`.
+- **A dry run of `enrich` never reaches the network nor ffmpeg.** What is decided locally is shown change by change; what needs a lookup or a measure is counted, with the time it would take. Only `enrich.lyrics --look-up`, for an album's page, looks up in a dry run.
 - **Messages are in English**, and each log line starts with an 8-character tag (`MOVE`, `CONFLICT`, `SKIPPED`, `ERROR`, `STOP`, `LOCKED`…) so the output lines up; summaries read `key: value`, under a `--- <Command> summary ---` title, and leave zero counts out. A path under the library root is shown relative to it (`core.files.relative`), and a count goes through `core.log.count` (`1 track`, `2 tracks`), never `track(s)`.
 - **Tests never touch a real library.** They build their audio files with ffmpeg in a temporary folder (`tests/conftest.py`), and never reach a real Lyrion database or a lyrics provider.
 

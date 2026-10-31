@@ -101,11 +101,23 @@ def test_forms_need_the_page_token(tmp_path, requests):
 
 def test_options_taken_from_the_form(tmp_path, requests):
     _, client, token = dashboard(tmp_path, requests)
-    client.post("/passes", data={"command": "enrich", "rescan": "1", "no_dedupe": "1", "since": "1",
-                                 "csrf": token})
+    client.post("/passes", data={"command": "enrich", "rescan": "1", "genres": "1", "replaygain": "1",
+                                 "split": "1", "since": "1", "csrf": token})
     client.post("/passes", data={"command": "rm", "csrf": token})
     assert [(r.command, r.options) for r in requests.pending()] == \
-        [("enrich", {"rescan": True, "no_dedupe": True})]
+        [("enrich", {"rescan": True, "no_covers": True, "no_lyrics": True, "no_dedupe": True})]
+
+
+def test_enrich_options_shown_ticked(tmp_path, requests):
+    _, client, _ = dashboard(tmp_path, requests)
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    for box in ("genres", "replaygain", "covers", "lyrics", "split", "dedupe"):
+        assert f'name="{box}" value="1" checked' in page
+    assert 'name="rescan" value="1">' in page and "no_" not in page
+    assert page.count("<dialog") == 3 and "data-opens-dialog" in page
+    assert 'data-long="rescan" data-long-when="checked" hidden>Reads every file first' in page
+    assert 'data-long="lyrics"' not in page
+    assert 'data-long="since" data-long-when="unchecked"' in page
 
 
 def test_apply_only_when_watch_applies(tmp_path, requests):
@@ -164,6 +176,7 @@ def test_dry_run_then_apply_then_undo(library):
     assert (lib / "vrac/1.m4a").exists()
     page = client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert "Apply this pass" in page and "Undo this pass" not in page
+    assert "<dt>Options</dt><dd>none</dd>" in page
 
     assert client.post(f"/runs/{dry['id']}/apply", data={"csrf": token}).status_code == 302
     requests.tick(Log())
@@ -195,8 +208,20 @@ def test_apply_refused_for_a_run_started_elsewhere(library):
     lib, state, _, client, token = library
     assert organize.main(["--root", str(lib), "--state-dir", str(state)]) == 0
     [cli] = runs.recent(state)
-    assert "Apply this pass" not in client.get(f"/runs/{cli['id']}", headers=EN).get_data(as_text=True)
+    page = client.get(f"/runs/{cli['id']}", headers=EN).get_data(as_text=True)
+    assert "Apply this pass" not in page and "<dt>Options</dt>" not in page
     assert client.post(f"/runs/{cli['id']}/apply", data={"csrf": token}).status_code == 404
+
+
+def test_run_page_shows_the_boxes_ticked(library):
+    _, state, requests, client, token = library
+    client.post("/passes", data={"command": "enrich", "rescan": "1", "genres": "1", "lyrics": "1",
+                                 "csrf": token})
+    [request] = requests.pending()
+    runs.recorded(lambda: 0, Log(), state, "enrich", False, "web", request)
+    page = client.get(f"/runs/{runs.recent(state)[0]['id']}", headers=EN).get_data(as_text=True)
+    assert ("<dt>Options</dt><dd>read the whole library again first (--rescan), "
+            "align the genres with the validated list, look the lyrics up</dd>") in page
 
 
 def test_cancel_a_queued_request(tmp_path, requests):
