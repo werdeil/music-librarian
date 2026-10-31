@@ -11,6 +11,7 @@ src/music_librarian/
 ├── watch.py         watch: the long-running loop of the container, and the dashboard's server
 ├── scan.py          scan: the whole library's metadata read into the cache
 ├── tag.py           tag: tag fields rewritten, then the tracks filed again
+├── cover.py         cover: an image put as an album's folder.jpg, then embedded into its tracks
 ├── core/            what every command shares
 │   ├── arguments.py the options every command takes: --root, --apply, --state-dir, --syslog
 │   ├── files.py     audio extensions, junk files, emptied folders
@@ -67,7 +68,8 @@ src/music_librarian/
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
-| by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them |
+| by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics through it too |
+| by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
@@ -127,8 +129,14 @@ A dry run reads only the metadata cache and the library's folders, never the net
 ### tag: fields rewritten, then filed again
 
 1. **Read each track** given (or under each folder given) directly, not through the cache, and plan its changes: a value already there is left, a genre takes the validated list's spelling, and an edit made against values the track no longer holds (`seen`, which the dashboard passes) is `REFUSED`. Tracks outside the library are skipped.
-2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values.
+2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track whose lyrics change is dropped from the lookups in vain (`lyrics/misses.py`), so the next `enrich` looks lyrics removed up again at once.
 3. **File the folders of the edited tracks** with `organize_pass`, in the same journal, all or nothing like import. A dry run hands organize the tags as they will be (`Options.overrides`), so it lists the exact moves, conflicts included.
+
+### cover: an album's folder.jpg replaced
+
+1. **Check the image**, converted to JPEG with ffmpeg when in another format, and the album folder, which holds tracks directly.
+2. **Move the album's `folder.jpg` out** with `--apply`, whatever the case of its name, to `covers/` in the state folder, then move the image in from there as `folder.jpg`, both moves journaled, so `undo` brings the previous one back.
+3. **Embed it into the tracks** whose embedded cover differs, as `enrich.covers` does. These writes are not journaled: after an undo, the next `enrich` embeds the previous `folder.jpg` again.
 
 ### undo
 

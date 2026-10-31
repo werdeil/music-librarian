@@ -18,7 +18,7 @@ from pathlib import Path
 from flask import (Flask, abort, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, url_for)
 
-from music_librarian import __version__
+from music_librarian import __version__, cover
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
@@ -28,13 +28,14 @@ from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, box, boxes_ticked,
-                                        journal_path)
+                                        journal_path, keep_upload)
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 HISTORY_PAGE = 50
+MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
                "review_genres", "genre_list_page"}
@@ -121,6 +122,7 @@ def journal_of(run):
 
 def create_app(ctx: Context):
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD
     token = secrets.token_urlsafe(16)
     waiting, queues = reviews.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
@@ -131,7 +133,10 @@ def create_app(ctx: Context):
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
-                    rebuilding=request.endpoint in SHOWS_LISTS and not settled())
+                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url)
+
+    def cover_url(rel):
+        return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))
 
     def settled():
         return all(value.ready() for value in built_in_background)
@@ -381,6 +386,61 @@ def create_app(ctx: Context):
                 t = TRANSLATIONS[pick_lang(request.accept_languages)]
                 return render_template("not_found.html", message=t["bad_value"].format(error=e)), 400
         return submit("tag", {"edits": asked}, False)
+
+    def refused(key, status=400, **values):
+        t = TRANSLATIONS[pick_lang(request.accept_languages)]
+        return render_template("not_found.html", message=t[key].format(**values)), status
+
+    @app.post("/library/album/cover")
+    def album_new_cover():
+        rel = request.form.get("folder", "")
+        if library.album_folder(ctx.root, rel) is None:
+            abort(404)
+        upload = request.files.get("image")
+        data = upload.read() if upload else b""
+        if not data:
+            return refused("cover_missing")
+        if ctx.requests is None:
+            abort(403)
+        try:
+            jpeg, _dims = cover.as_jpeg(data)
+        except (cover.NotAnImage, OSError):
+            return refused("cover_not_an_image")
+        return submit("cover", {"folder": rel, "image": keep_upload(ctx.state_dir, jpeg)}, False)
+
+    @app.errorhandler(413)
+    def too_large(_error):
+        return refused("cover_too_large", 413, mb=MAX_UPLOAD // 1024 // 1024)
+
+    @app.get("/library/track/lyrics")
+    def track_lyrics():
+        rel, name = request.args.get("folder", ""), request.args.get("file", "")
+        path = library.track_file(ctx.root, rel, name)
+        if path is None:
+            return refused("album_gone", 404)
+        try:
+            values, text = fields.read(path), fields.lyrics(path)
+        except Exception:
+            return refused("track_unreadable", 404)
+        return render_template("track_lyrics.html", folder=rel, file=name, values=values,
+                               text=text[0] if text else "", seen=json.dumps(text),
+                               unchanged=request.args.get("unchanged") == "1")
+
+    @app.post("/library/track/lyrics")
+    def edit_lyrics():
+        rel, name = request.form.get("folder", ""), request.form.get("file", "")
+        if library.track_file(ctx.root, rel, name) is None:
+            abort(404)
+        try:
+            seen = json.loads(request.form.get("seen", ""))
+        except ValueError:
+            abort(400)
+        if not isinstance(seen, list) or not all(isinstance(v, str) for v in seen):
+            abort(400)
+        value = "" if request.form.get("delete") else request.form.get("lyrics", "")
+        if fields.check(fields.LYRICS, [value]) == seen:
+            return redirect(url_for("track_lyrics", folder=rel, file=name, unchanged="1"))
+        return submit("tag", {"edits": [[str(Path(rel) / name), fields.LYRICS, value, seen]]}, False)
 
     @app.get("/library/cover")
     def album_cover():

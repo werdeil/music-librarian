@@ -9,6 +9,9 @@ artist, albumartist, album, track, tracktotal, disc, disctotal, year, genre, com
 compilation (1 or 0); an empty VALUE removes the field. A genre takes the spelling of the
 validated list (state/genres.txt) when the list knows it.
 
+The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
+looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
+
 The folders of the edited tracks are then filed by organize (--no-refile to leave them), the
 tag changes and the moves going to the same journal: `music-librarian undo` restores both.
 The dry run shows the tags to write and the moves they lead to.
@@ -35,6 +38,7 @@ from music_librarian.core.state import state_path
 from music_librarian.enrich import genres
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
+from music_librarian.lyrics.misses import Misses
 from music_librarian.media import fields
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
@@ -68,8 +72,8 @@ class Options:
             edit.path = Path(edit.path).resolve()
 
 
-def shown(values):
-    return "; ".join(values) or "(none)"
+def shown(values, name=None):
+    return fields.brief(name, values)
 
 
 def filing_tags(values):
@@ -109,6 +113,8 @@ def plan(opts, log, stats):
             continue
         try:
             current = fields.read(path)
+            if any(edit.field == fields.LYRICS for edit in edits):
+                current[fields.LYRICS] = fields.lyrics(path)
         except Exception as e:
             log(f"SKIPPED  (unreadable: {e})  {rel}")
             stats["skipped"] += 1
@@ -127,17 +133,31 @@ def plan(opts, log, stats):
                     log(f"UNKNOWN  genre \"{new[0]}\" is not in the validated list  {rel}")
                 new = [validated] if validated else new
             if edit.seen is not None and current[edit.field] != [v.strip() for v in edit.seen if v.strip()]:
-                log(f"REFUSED  ({edit.field} changed since: \"{shown(current[edit.field])}\")  {rel}")
+                held = shown(current[edit.field], edit.field)
+                log(f"REFUSED  ({edit.field} changed since: \"{held}\")  {rel}")
                 stats["refused"] += 1
                 continue
             if new == current[edit.field]:
                 stats["unchanged"] += 1
                 continue
-            log(f"TAG      {edit.field}: \"{shown(current[edit.field])}\" → \"{shown(new)}\"  {rel}")
+            log(f"TAG      {edit.field}: \"{shown(current[edit.field], edit.field)}\" → "
+                f"\"{shown(new, edit.field)}\"  {rel}")
             writes.append((path, edit.field, current[edit.field], new))
             after[edit.field] = new
         planned[path] = filing_tags(after)
     return writes, planned
+
+
+def cached(written, moved, state_dir):
+    """The tracks written, (path, field, values), read again into the metadata cache where they
+    now are (`moved`: {source: destination}); those whose lyrics changed no longer recorded as
+    looked up in vain."""
+    with MetadataCache(state_dir) as cache, Misses(state_dir) as misses:
+        for path, name, _new in written:
+            path = moved.get(path, path)
+            cache.snapshot(path)
+            if name == fields.LYRICS:
+                misses.forget(path)
 
 
 def tag_pass(opts: Options, log):
@@ -147,7 +167,7 @@ def tag_pass(opts: Options, log):
     stats = defaultdict(int)
     writes, planned = plan(opts, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
-    stopped = False
+    stopped, written = False, []
     if opts.apply:
         for i, (path, name, old, new) in enumerate(writes):
             if STOP.is_set():
@@ -161,6 +181,7 @@ def tag_pass(opts: Options, log):
                 stats["errors"] += 1
                 continue
             journal.tag(path, name, old, new)
+            written.append((path, name, new))
             stats["written"] += 1
 
     report = None
@@ -171,6 +192,8 @@ def tag_pass(opts: Options, log):
             state_dir=opts.state_dir, lyrion=opts.lyrion, interruptible=False,
             overrides={} if opts.apply else planned), log, journal)
     journal.close()
+    if written:
+        cached(written, dict(report.done) if report and opts.apply else {}, opts.state_dir)
     if report and opts.apply:
         with MetadataCache(opts.state_dir) as cache:
             for _, dst in report.done:

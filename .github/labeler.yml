@@ -24,7 +24,7 @@ dedupe:
 
 tag:
   - changed-files:
-      - any-glob-to-any-file: ["src/music_librarian/tag.py", "src/music_librarian/media/fields.py"]
+      - any-glob-to-any-file: ["src/music_librarian/tag.py", "src/music_librarian/cover.py", "src/music_librarian/media/fields.py"]
 
 web:
   - changed-files:
