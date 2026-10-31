@@ -3,7 +3,7 @@
 {% block content %}
 <p class="back"><a href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
 <section class="album-head">
-    <img src="{{ url_for('album_cover', folder=folder) }}" alt="" width="160" height="160">
+    <img src="{{ cover_url(folder) }}" alt="" width="160" height="160">
     <div>
         <h2>{{ common.album or folder }}</h2>
         <p class="muted">{{ common.albumartist or '' }}</p>

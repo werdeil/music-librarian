@@ -133,7 +133,10 @@ def create_app(ctx: Context):
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
-                    rebuilding=request.endpoint in SHOWS_LISTS and not settled())
+                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url)
+
+    def cover_url(rel):
+        return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))
 
     def settled():
         return all(value.ready() for value in built_in_background)

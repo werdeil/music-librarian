@@ -22,7 +22,7 @@
                 <a href="{{ url_for('album_page', folder=album.folder) }}">
                     {% set count = (t.track_one if album.tracks == 1 else t.track_many).format(n=album.tracks) %}
                     <span class="cover">
-                        <img src="{{ url_for('album_cover', folder=album.folder) }}" alt="" loading="lazy" width="160" height="160">
+                        <img src="{{ cover_url(album.folder) }}" alt="" loading="lazy" width="160" height="160">
                         <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ album.tracks }}</span>
                     </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>

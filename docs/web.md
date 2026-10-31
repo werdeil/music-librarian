@@ -86,7 +86,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `POST /runs/<id>/apply` | queues a dashboard dry run again, applied |
 | `/library?q=<words>&page=<n>` | the albums, searched |
 | `/library/album?folder=<folder>` | an album, its folder relative to the library root; `POST` queues a dry run of its edits |
-| `/library/cover?folder=<folder>` | the album's cover, or a placeholder without one |
+| `/library/cover?folder=<folder>&v=<version>` | the album's cover, or a placeholder without one; the pages give the time of its `folder.jpg` as `v`, so a new cover is never shown from the browser's cache |
 | `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
 | `POST /library/album/cover` | queues a dry run of `cover` with the `image` sent for the album `folder`, converted to JPEG |
 | `/library/track/lyrics?folder=<folder>&file=<name>` | a track's lyrics; `POST` queues a dry run of their edit, or of their removal with `delete=1` |

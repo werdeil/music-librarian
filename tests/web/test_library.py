@@ -326,6 +326,11 @@ def test_covers(dashboard):
     assert dashboard.client.get("/library/cover?folder=../").status_code == 404
 
 
+def test_cover_named_in_any_case(dashboard, lib):
+    (lib / "Beyonce/4/folder.jpg").rename(lib / "Beyonce/4/Folder.JPG")
+    assert dashboard.client.get("/library/cover?folder=Beyonce/4").data == JPEG
+
+
 def test_placeholder_without_a_cover(dashboard, lib):
     (lib / "Bare").mkdir()
     response = dashboard.client.get("/library/cover?folder=Bare")
@@ -420,8 +425,10 @@ def upload(d, data, folder="Beyonce/4", name="new.jpg"):
 
 def test_cover_uploaded_previewed_then_applied(dashboard, lib):
     new = big_jpeg(1000, 1000)
-    assert "Preview the new cover" in dashboard.client.get("/library/album?folder=Beyonce/4",
-                                                           headers=EN).get_data(as_text=True)
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "Preview the new cover" in page
+    shown = re.search(r'<img src="(/library/cover[^"]+)"', page)[1]
+    assert shown.startswith("/library/cover?folder=Beyonce/4&amp;v=")
     assert upload(dashboard, new).status_code == 302
     [asked] = dashboard.requests.pending()
     assert (asked.command, asked.options["folder"]) == ("cover", "Beyonce/4")
@@ -437,6 +444,11 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == new
     assert tags.read_cover(lib / "Beyonce/4/01 Run the World.m4a") == new
     assert dashboard.client.get("/library/cover?folder=Beyonce/4").data == new
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert re.search(r'<img src="(/library/cover[^"]+)"', page)[1] != shown
+    albums = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
+    assert html.unescape(re.search(r'<img src="(/library/cover\?folder=Beyonce/4[^"]*)"', albums)[1]) == \
+        html.unescape(re.search(r'<img src="(/library/cover[^"]+)"', page)[1])
 
 
 @pytest.mark.parametrize("data, status, message", [
