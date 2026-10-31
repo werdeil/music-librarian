@@ -119,7 +119,7 @@ def test_rescan_reads_everything_first(lib, tools, tmp_path, capsys):
 def test_dry_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--batch", "1") == 0
-    assert tools.calls() == [f"{name} --dry-run {lib}" for name in ("genres", "replaygain", "covers", "lyrics")]
+    assert tools.calls() == [f"{name} --dry-run {lib}" for name in enrich.TOOLS]
     assert enrich.last_run(state) is None
 
 

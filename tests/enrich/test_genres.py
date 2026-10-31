@@ -223,7 +223,8 @@ def test_dry_run_counts_the_albums_to_look_up(genre_list, album, lookup, capsys)
     assert run(genre_list, d, dry=True) == 0
     assert not fake.calls and not cache.exists() and tags.read_genres(str(tracks[0])) == ["Shoegaze"]
     out = capsys.readouterr().out
-    assert "albums to look up: 1" in out and f"estimated time: under a minute ({itunes.INTERVAL:.0f} s)" in out
+    assert "albums to look up: 1" in out
+    assert f"estimated time: under a minute ({itunes.INTERVAL:.0f} s)" in out
     assert 'UNKNOWN  Artiste/Album  "Shoegaze" (3 tracks)' in out
 
 

@@ -18,8 +18,9 @@ on the iTunes Search API (store ITUNES_COUNTRY, us by default): when the list
 knows Apple's genre for it, those tracks take it. Answers are kept in
 genre_lookup.json in the state folder; albums not found are searched again after
 30 days. A dry run searches nothing: it takes the answers already kept and counts
-the albums it would search, with the time that would take. Each re-tagged file keeps its modification time, one second
-later. The tags are read through the metadata cache (media/metadata_cache.py).
+the albums it would search, with the time that would take. Each re-tagged file
+keeps its modification time, one second later. The tags are read through the
+metadata cache (media/metadata_cache.py).
 A stop request lets the current album finish, then stops (exit code 4);
 a failed file or an unreadable list gives exit code 2.
 

@@ -140,8 +140,9 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
         return kept("organize", lambda: organize.run(opts, log).code, log, r)
 
     def run_enrich(r, log):
-        wanted = {name[3:]: not r.options.get(name) for name in OPTIONS["enrich"] if name.startswith("no_")}
-        opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")), **wanted)
+        opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")),
+                       split=not r.options.get("no_split"), dedupe=not r.options.get("no_dedupe"),
+                       left_out=frozenset(name for name in enrich.TOOLS if r.options.get(f"no_{name}")))
         return kept("enrich", lambda: enrich.run(opts, log), log, r)
 
     def run_scan(r, log):

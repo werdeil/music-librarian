@@ -102,10 +102,7 @@ class Options:
     rescan: bool = False
     split: bool = True
     dedupe: bool = True
-    genres: bool = True
-    replaygain: bool = True
-    covers: bool = True
-    lyrics: bool = True
+    left_out: frozenset = frozenset()   # names of TOOLS not run
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -133,8 +130,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
-                   dedupe=not args.no_dedupe, genres=not args.no_genres,
-                   replaygain=not args.no_replaygain, covers=not args.no_covers, lyrics=not args.no_lyrics)
+                   dedupe=not args.no_dedupe,
+                   left_out=frozenset(name for name in TOOLS if getattr(args, f"no_{name}")))
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
@@ -187,9 +184,8 @@ def enrich_all(opts, log):
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
     failed, estimated = [], {}
-    left_out = {name for name in TOOLS if not getattr(opts, name)}
     for name, cmd in enrichers():
-        if name in left_out:
+        if name in opts.left_out:
             continue
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
@@ -237,7 +233,7 @@ def enrich_all(opts, log):
     if estimated:
         log(f"{ESTIMATE:>20}: {rough(sum(estimated.values()))}")
     # the weekly slot is skipped once this stamp is newer: a pass leaving a tool out leaves it
-    if opts.apply and not left_out:
+    if opts.apply and not opts.left_out:
         write_stamp(opts.state_dir, LAST_RUN, started)
     return 2 if failed else 0
 
