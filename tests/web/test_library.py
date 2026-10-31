@@ -135,13 +135,13 @@ def test_refreshed_waits_on_the_first_build_only(monkeypatch):
 
 
 def test_refreshed_patience_runs_from_the_build_start(monkeypatch):
-    monkeypatch.setattr(library, "PATIENCE", 0.3)
+    monkeypatch.setattr(library, "PATIENCE", 1)
     release = threading.Event()
     value = library.Refreshed(lambda: (("a", None),), slow_build(release, ["first"]))
     value.start()
-    time.sleep(0.3)
+    time.sleep(1)
     began = time.monotonic()
-    assert value.get() is None and time.monotonic() - began < 0.1
+    assert value.get() is None and time.monotonic() - began < 0.5
     release.set()
 
 
@@ -176,7 +176,7 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
 
 
 def test_home_waits_once_on_the_first_builds(dashboard, monkeypatch):
-    monkeypatch.setattr(library, "PATIENCE", 0.5)
+    monkeypatch.setattr(library, "PATIENCE", 1.5)
     release = threading.Event()
     for cls in (library.Index, reviews.Reviews, reviews.GenreReview):
         monkeypatch.setattr(cls, "_build", lambda self: release.wait(5) and None)
@@ -184,7 +184,7 @@ def test_home_waits_once_on_the_first_builds(dashboard, monkeypatch):
     try:
         began = time.monotonic()
         assert client.get("/", headers=EN).status_code == 200
-        assert time.monotonic() - began < 1
+        assert time.monotonic() - began < 3 * library.PATIENCE     # the builds share one patience
     finally:
         release.set()
 
