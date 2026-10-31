@@ -162,7 +162,8 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
         assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
         assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
-        assert 'data-reload-when-built="/built"' in tiles
+        assert 'data-refresh="/tiles"' in tiles and "data-reload-when-built" not in tiles
+        assert 'class="tile tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
         assert client.get("/built").get_json() == {"ready": False}
     finally:
         release.set()
@@ -208,6 +209,17 @@ def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, mak
     page = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     assert "Moby/Play" in page and "data-reload-when-built" not in page
     assert dashboard.client.get("/built").get_json() == {"ready": True}
+
+
+def test_tiles_follow_the_cache(dashboard, lib, tmp_path, make_track):
+    def lyrics_tile():
+        tiles = settled(lambda: dashboard.client.get("/tiles", headers=EN)).get_data(as_text=True)
+        return re.search(r'(\d+)</span>\s*<span class="tile-label">Tracks without lyrics', tiles)[1]
+    assert lyrics_tile() == "4"
+    make_track(lib / "Moby/Play/01 Honey.m4a", title="Honey", artist="Moby", albumartist="Moby",
+               album="Play", track=1)
+    scan.run(lib, tmp_path / "state", Log())
+    assert lyrics_tile() == "5"
 
 
 def test_no_reload_on_a_page_without_the_lists(dashboard, monkeypatch):

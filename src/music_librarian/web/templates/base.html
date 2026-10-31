@@ -21,7 +21,7 @@
             <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% set questions = waiting_total() %}{% if questions %} <span class="count" title="{{ t.questions_waiting }}">{{ questions }}</span>{% endif %}</a>
         </nav>
         <div class="top-right">
-            <div id="activity" data-url="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>
+            <div id="activity" data-refresh="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>
             {% if not ctx.apply %}<span class="mode" title="{{ t.watch_dry_run }}">{{ t.mode_dry_run }}</span>{% endif %}
         </div>
     </header>

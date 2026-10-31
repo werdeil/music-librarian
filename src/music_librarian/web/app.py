@@ -35,7 +35,7 @@ PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 HISTORY_PAGE = 50
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
-SHOWS_LISTS = {"home", "library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
+SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
                "review_genres", "genre_list_page"}
 
 
@@ -170,10 +170,6 @@ def create_app(ctx: Context):
         week_ago = (now - timedelta(days=7)).timestamp()
         problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
                        if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
-        items, failed = inbox_state(ctx.inbox) or ([], [])
-        albums = index.get()
-        todo = dict(waiting(), failed=len(failed),
-                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
@@ -186,11 +182,22 @@ def create_app(ctx: Context):
                              when(next_weekly(now, day, at).timestamp())))
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
+        inbox = inbox_state(ctx.inbox)
         return render_template(
-            "home.html", genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
-            latest=latest, schedule=schedule, problems=problems, todo=todo,
-            inbox=inbox_state(ctx.inbox), waiting_items=items,
+            "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
+            inbox=inbox, waiting_items=inbox[0] if inbox else [],
             passes={command: OPTIONS[command] for command in HOME_PASSES})
+
+    def to_do(inbox):
+        """What the To do tiles show, `inbox` as inbox_state() returns it."""
+        albums = index.get()
+        todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0,
+                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
+        return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
+
+    @app.get("/tiles")
+    def tiles_fragment():
+        return render_template("_tiles.html", **to_do(inbox_state(ctx.inbox)))
 
     def activity():
         """The passes running now, and those the dashboard queued, for the header."""
