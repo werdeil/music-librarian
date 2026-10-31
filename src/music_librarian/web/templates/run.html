@@ -14,7 +14,7 @@
         {% if run.code is not none %}<dt>{{ t.exit_code }}</dt><dd>{{ run.code }}</dd>{% endif %}
     </dl>
     {% if can_stop %}
-    <div class="actions">{{ m.stop_form(t, csrf, run) }} <span class="muted">{{ t.stop_hint }}</span></div>
+    <div class="actions">{{ m.stop_form(t, csrf, run) }}</div>
     {% endif %}
     {% if run.status != 'running' and (can_apply or journal) %}
     <div class="actions">
