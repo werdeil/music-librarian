@@ -113,7 +113,7 @@
     setTimeout(poll, POLL_MS);
 }());
 
-// The output of a running pass, appended as it is written, until the pass ends.
+// The output of a running pass, appended as it is written, and its duration, until the pass ends.
 (function () {
     "use strict";
 
@@ -125,6 +125,7 @@
     var url = log.dataset.live;
     var offset = Number(log.dataset.from) || 0;
     var kind = log.dataset.kind || "";
+    var duration = document.getElementById("run-duration");
 
     function atBottom() {
         return log.scrollHeight - log.scrollTop - log.clientHeight < 24;
@@ -150,6 +151,9 @@
             .then(function (data) {
                 append(data.lines);
                 offset = data.next;
+                if (duration && data.duration) {
+                    duration.textContent = data.duration;
+                }
                 if (data.lines.length) {
                     kind = data.lines[data.lines.length - 1].kind;
                 }

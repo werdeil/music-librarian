@@ -304,7 +304,7 @@ def create_app(ctx: Context):
         lines, offset = runs.read_log(ctx.state_dir, run_id, request.args.get("from", 0, type=int))
         line_kinds = kinds(lines, request.args.get("kind", ""))
         return jsonify(lines=[dict(text=text, kind=k) for text, k in zip(lines, line_kinds)],
-                       next=offset, status=runs.status(run))
+                       next=offset, status=runs.status(run), duration=shown(run)["duration"])
 
     @app.get("/runs/<int:run_id>/log.txt")
     def run_text(run_id):
