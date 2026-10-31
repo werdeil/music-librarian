@@ -85,6 +85,14 @@ def test_no_genres_leaves_the_weekly_pass(lib, tools, tmp_path):
     assert enrich.last_run(state) is None
 
 
+@pytest.mark.parametrize("tool", ["replaygain", "covers"])
+def test_tool_left_out(lib, tools, tmp_path, tool):
+    state = tmp_path / "state"
+    assert run(lib, state, "--apply", f"--no-{tool}") == 0
+    assert [c.split()[0] for c in tools.calls()] == [t for t in enrich.TOOLS if t != tool]
+    assert enrich.last_run(state) is None
+
+
 def test_files_gone_dropped_from_cache(lib, tools, tmp_path, capsys):
     state = tmp_path / "state"
     old = lib / "Z" / "01.m4a"

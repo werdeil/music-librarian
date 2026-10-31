@@ -5,9 +5,10 @@ Each tool only handles what is missing or off:
   - genres:     enrich/genres.py, only the files whose genre is not in the
                 validated list's spelling (unknown genres are reported;
                 --no-genres to leave them);
-  - replaygain: enrich/replaygain.py, only the files without gain;
+  - replaygain: enrich/replaygain.py, only the files without gain (--no-replaygain
+                to leave them);
   - covers:     enrich/covers.py, only where folder.jpg differs from the embedded
-                cover;
+                cover (--no-covers to leave them);
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
                 catches lyrics published after the import; --no-lyrics to leave
                 them, the slowest tool as it looks each file up online);
@@ -33,8 +34,8 @@ with the time the pass applied would take, tool by tool.
 
 The tools read the tags through the metadata cache (media/metadata_cache.py),
 so a pass only opens the files that changed; a complete pass drops the files
-gone from the library from it. The end of a full --apply pass, genres and lyrics
-included, is recorded in state/enrich_last_run.
+gone from the library from it. The end of an --apply pass that left none of the
+four tools out is recorded in state/enrich_last_run.
 
 Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
 4 = stopped before the end.
@@ -60,14 +61,15 @@ from music_librarian.media.metadata_cache import MetadataCache
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
-DRY = {"genres": "--dry-run", "replaygain": "--dry-run", "covers": "--dry-run", "lyrics": "--dry-run"}
+TOOLS = ("genres", "replaygain", "covers", "lyrics")
+DRY = dict.fromkeys(TOOLS, "--dry-run")
 
 
 def enrichers():
     """(name, command) called with the target folders as arguments."""
     return [
         (name, [sys.executable, "-m", f"music_librarian.enrich.{name}"])
-        for name in ("genres", "replaygain", "covers", "lyrics")
+        for name in TOOLS
     ]
 
 
@@ -100,8 +102,10 @@ class Options:
     rescan: bool = False
     split: bool = True
     dedupe: bool = True
-    lyrics: bool = True
     genres: bool = True
+    replaygain: bool = True
+    covers: bool = True
+    lyrics: bool = True
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -119,6 +123,8 @@ def main(argv=None):
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
     ap.add_argument("--no-genres", action="store_true", help="without aligning the genres")
+    ap.add_argument("--no-replaygain", action="store_true", help="without measuring the missing gains")
+    ap.add_argument("--no-covers", action="store_true", help="without embedding folder.jpg")
     ap.add_argument("--no-lyrics", action="store_true", help="without looking the lyrics up")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
     ap.add_argument("--no-dedupe", action="store_true", help="without applying the artist aliases")
@@ -127,8 +133,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan, split=not args.no_split,
-                   dedupe=not args.no_dedupe, lyrics=not args.no_lyrics,
-                   genres=not args.no_genres)
+                   dedupe=not args.no_dedupe, genres=not args.no_genres,
+                   replaygain=not args.no_replaygain, covers=not args.no_covers, lyrics=not args.no_lyrics)
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "enrich", opts.apply)
 
@@ -181,7 +187,7 @@ def enrich_all(opts, log):
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
     failed, estimated = [], {}
-    left_out = {name for name, wanted in (("genres", opts.genres), ("lyrics", opts.lyrics)) if not wanted}
+    left_out = {name for name in TOOLS if not getattr(opts, name)}
     for name, cmd in enrichers():
         if name in left_out:
             continue
@@ -230,8 +236,8 @@ def enrich_all(opts, log):
         log(f"{name + ' time':>20}: {rough(seconds)}")
     if estimated:
         log(f"{ESTIMATE:>20}: {rough(sum(estimated.values()))}")
-    # the weekly slot is skipped once this stamp is newer: a pass without genres or lyrics leaves it
-    if opts.apply and opts.genres and opts.lyrics:
+    # the weekly slot is skipped once this stamp is newer: a pass leaving a tool out leaves it
+    if opts.apply and not left_out:
         write_stamp(opts.state_dir, LAST_RUN, started)
     return 2 if failed else 0
 
