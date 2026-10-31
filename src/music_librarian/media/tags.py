@@ -108,6 +108,12 @@ def _read_lyrics(audio):
     return None
 
 
+def read_lyrics(path):
+    """The lyrics tag of `path`, or None."""
+    audio = mutagen.File(path)
+    return None if audio is None else _read_lyrics(audio)
+
+
 def has_lyrics(path):
     """True if the file already carries a non-empty lyrics tag."""
     audio = mutagen.File(path)

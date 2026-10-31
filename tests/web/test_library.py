@@ -1,7 +1,10 @@
 """The library in the dashboard (web/library.py and its routes): albums, an album's page, its edits."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
+import io
+import os
 import re
+import struct
 import threading
 import time
 
@@ -10,10 +13,10 @@ import pytest
 from music_librarian import scan
 from music_librarian.core import runs
 from music_librarian.core.log import Log
-from music_librarian.media import fields
+from music_librarian.media import fields, tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import app as web
-from music_librarian.web import library, reviews
+from music_librarian.web import library, passes, reviews
 
 EN = {"Accept-Language": "en"}
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
@@ -404,3 +407,70 @@ def test_compilation_named_as_such(dashboard, lib, make_track, tmp_path):
     now = page[start:page.index("</li>", start)]
     assert 'class="muted compilation">Compilation</span>' in now and "Moby" not in now
     assert "Compilations/Now" in dashboard.client.get("/library?q=moby", headers=EN).get_data(as_text=True)
+
+
+def big_jpeg(width, height):
+    return b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 17, 8, height, width, 3) + b"\x01\x11\x00" * 3
+
+
+def upload(d, data, folder="Beyonce/4", name="new.jpg"):
+    return d.client.post("/library/album/cover", headers=EN, content_type="multipart/form-data",
+                         data={"csrf": d.token, "folder": folder, "image": (io.BytesIO(data), name)})
+
+
+def test_cover_uploaded_previewed_then_applied(dashboard, lib):
+    new = big_jpeg(1000, 1000)
+    assert "Preview the new cover" in dashboard.client.get("/library/album?folder=Beyonce/4",
+                                                           headers=EN).get_data(as_text=True)
+    assert upload(dashboard, new).status_code == 302
+    [asked] = dashboard.requests.pending()
+    assert (asked.command, asked.options["folder"]) == ("cover", "Beyonce/4")
+    assert passes.upload_path(dashboard.state, asked.options["image"]).read_bytes() == new
+    dashboard.requests.tick(Log())
+    [dry] = runs.recent(dashboard.state, 1)
+    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
+    assert "WOULD    embed 1000x1000 into 2 of 2 tracks" in page and "Apply this pass" in page
+    assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
+
+    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    dashboard.requests.tick(Log())
+    assert (lib / "Beyonce/4/folder.jpg").read_bytes() == new
+    assert tags.read_cover(lib / "Beyonce/4/01 Run the World.m4a") == new
+    assert dashboard.client.get("/library/cover?folder=Beyonce/4").data == new
+
+
+@pytest.mark.parametrize("data, status, message", [
+    (b"", 400, "No image was sent"),
+    (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, 400, "This image is not a JPEG"),
+    (b"\xff\xd8" + b"\x00" * 64, 400, "This image is not a JPEG"),
+])
+def test_cover_upload_refused(dashboard, data, status, message):
+    response = upload(dashboard, data)
+    assert response.status_code == status and message in response.get_data(as_text=True)
+    assert dashboard.requests.pending() == [] and not (dashboard.state / passes.UPLOADS).exists()
+
+
+def test_cover_upload_too_large(dashboard):
+    dashboard.client.application.config["MAX_CONTENT_LENGTH"] = 1000
+    response = upload(dashboard, big_jpeg(10, 10) + b"\x00" * 2000)
+    assert response.status_code == 413 and "Image too large" in response.get_data(as_text=True)
+
+
+def test_cover_upload_outside_the_library(dashboard):
+    assert upload(dashboard, big_jpeg(10, 10), folder="../").status_code == 404
+
+
+def test_cover_upload_gone(dashboard, capsys):
+    dashboard.requests.submit("cover", {"folder": "Beyonce/4", "image": "0" * 32 + ".jpg"}, False)
+    dashboard.requests.tick(Log())
+    assert "ERROR    the uploaded image is gone" in capsys.readouterr().out
+
+
+def test_old_uploads_removed(tmp_path):
+    old = passes.keep_upload(tmp_path, b"old")
+    stale = time.time() - (passes.UPLOAD_DAYS + 1) * 86400
+    os.utime(tmp_path / passes.UPLOADS / old, (stale, stale))
+    new = passes.keep_upload(tmp_path, b"new")
+    assert passes.upload_path(tmp_path, old) is None
+    assert passes.upload_path(tmp_path, new).read_bytes() == b"new"
+    assert passes.upload_path(tmp_path, "../x.jpg") is None

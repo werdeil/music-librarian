@@ -69,7 +69,10 @@
                 {% endif %}
                     {% set state = lyrics.get(file) %}
                     <td class="{{ 'warning' if state and state is not sameas true else 'muted' if not state }}">
-                        {{ t.lyrics_present if state is sameas true else t.lyrics_missed.format(date=state) if state else t.lyrics_none }}</td>
+                        {{ t.lyrics_present if state is sameas true else t.lyrics_missed.format(date=state) if state else t.lyrics_none }}
+                        {% if values and (ctx.requests or state is sameas true) %}
+                        · <a href="{{ url_for('track_lyrics', folder=folder, file=file) }}">{{ t.lyrics_edit if state is sameas true and ctx.requests else t.lyrics_add if ctx.requests else t.see }}</a>
+                        {% endif %}</td>
                     <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                 </tr>
             {% endfor %}
@@ -87,6 +90,17 @@
 </form>
 
 {% if ctx.requests %}
+<section>
+    <h2>{{ t.cover }}</h2>
+    <form method="post" action="{{ url_for('album_new_cover') }}" enctype="multipart/form-data" class="cover-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="folder" value="{{ folder }}">
+        <input type="file" name="image" accept="image/jpeg" required aria-label="{{ t.cover_file }}">
+        <button type="submit">{{ t.cover_button }}</button>
+    </form>
+    <p class="muted">{{ t.cover_hint }}</p>
+</section>
+
 <section>
     <h2>{{ t.lyrics }}</h2>
     <form method="post" action="{{ url_for('album_lyrics') }}">

@@ -171,6 +171,15 @@ def album_folder(root: Path, rel):
     return folder if folder.is_relative_to(root) and folder.is_dir() else None
 
 
+def track_file(root: Path, rel, name):
+    """The track `name` of the album folder `rel`, or None when it is not one."""
+    folder = album_folder(root, rel)
+    if folder is None or not name or "/" in name or name in (".", ".."):
+        return None
+    path = folder / name
+    return path if path.is_file() and path.suffix.lower() in AUDIO_EXT and not is_junk(path) else None
+
+
 def tracks_of(folder: Path):
     """[(file name, fields.read() values or None when unreadable)] of the folder's tracks."""
     out = []

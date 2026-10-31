@@ -7,19 +7,24 @@ import argparse
 import itertools
 import queue
 import re
+import secrets
 import threading
+import time
 from dataclasses import dataclass, field, replace
 
-from music_librarian import dedupe, enrich, importer, organize, scan, split, tag
+from music_librarian import cover, dedupe, enrich, importer, organize, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
 QUEUED, STARTED, DONE, CANCELLED = "queued", "started", "done", "cancelled"
 KEPT = 50
 JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
+UPLOADS = "uploads"
+UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
+UPLOAD_DAYS = 7
 
 # the options each command takes from the dashboard: booleans, but undo's journal, tag's edits
-# ([[path relative to the root, field, value, values seen]]) and the lyrics' album folder
+# ([[path relative to the root, field, value, values seen]]), the album folders and cover's upload
 OPTIONS = {
     "import": (),
     "organize": ("since",),
@@ -30,11 +35,13 @@ OPTIONS = {
     "undo": ("journal",),
     "tag": ("edits",),
     "lyrics": ("folder",),
+    "cover": ("folder", "image"),
     "genres": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
-FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag", "lyrics")}
+FORMS = {command: names for command, names in OPTIONS.items()
+         if command not in ("undo", "tag", "lyrics", "cover")}
 
 
 def box(name):
@@ -123,6 +130,25 @@ def journal_path(state_dir, name):
     return path if JOURNAL_NAME.match(name) and path.is_file() else None
 
 
+def upload_path(state_dir, name):
+    """The uploaded image of that file name in the state folder, or None for any other name."""
+    path = state_dir / UPLOADS / name
+    return path if UPLOAD_NAME.match(name) and path.is_file() else None
+
+
+def keep_upload(state_dir, data):
+    """The file name `data` is kept under until a pass puts it in place. An upload stays
+    UPLOAD_DAYS, so that the dry run can be applied: older ones are removed."""
+    folder = state_dir / UPLOADS
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in folder.iterdir():
+        if UPLOAD_NAME.match(old.name) and old.stat().st_mtime < time.time() - UPLOAD_DAYS * 86400:
+            old.unlink(missing_ok=True)
+    name = f"{secrets.token_hex(16)}.jpg"
+    (folder / name).write_bytes(data)
+    return name
+
+
 def passes(import_opts, organize_opts, enrich_opts, import_log):
     """{command: fn(request, log) -> exit code}, each pass built from the options of watch,
     kept in the run history as started from the dashboard."""
@@ -180,10 +206,21 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
             return enrich.tool_pass("lyrics", [folder], opts, log, "--retry", "--look-up")
         return kept("lyrics", look_up, log, r)
 
+    def run_cover(r, log):
+        def put():
+            image = upload_path(state_dir, r.options.get("image", ""))
+            if image is None:
+                log(f"ERROR    the uploaded image is gone (kept {UPLOAD_DAYS} days): upload it again")
+                return 2
+            opts = cover.Options(root=root, folder=r.options.get("folder", ""), image=image, apply=r.apply,
+                                 state_dir=state_dir)
+            return cover.run(opts, log)
+        return kept("cover", put, log, r)
+
     def run_genres(r, log):
         opts = replace(enrich_opts, apply=r.apply)
         return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "cover": run_cover, "genres": run_genres}

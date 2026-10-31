@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ t.lyrics }} · {{ values.title | join('; ') or file }} · music-librarian{% endblock %}
+{% block content %}
+<p class="back"><a href="{{ url_for('album_page', folder=folder) }}">← {{ values.album | join('; ') or folder }}</a></p>
+<section>
+    <h2>{{ values.title | join('; ') or file }}</h2>
+    <p class="muted">{{ values.artist | join('; ') }}</p>
+    <p><code class="muted">{{ folder }}/{{ file }}</code></p>
+</section>
+
+{% if unchanged %}<p class="warning">{{ t.nothing_changed }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('edit_lyrics') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="folder" value="{{ folder }}">
+    <input type="hidden" name="file" value="{{ file }}">
+    <input type="hidden" name="seen" value="{{ seen }}">
+    <section>
+        <h2>{{ t.lyrics }}</h2>
+        <textarea name="lyrics" class="lyrics" rows="24" aria-label="{{ t.lyrics }}"
+                  {% if not ctx.requests %}readonly{% endif %}>{{ text }}</textarea>
+    </section>
+    {% if ctx.requests %}
+    <div class="actions">
+        <button type="submit" class="primary">{{ t.preview_button }}</button>
+        {% if text %}<button type="submit" name="delete" value="1">{{ t.lyrics_delete_button }}</button>{% endif %}
+    </div>
+    <p class="muted">{{ t.lyrics_edit_hint }}</p>
+    {% endif %}
+</form>
+{% endblock %}
