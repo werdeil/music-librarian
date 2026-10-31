@@ -64,7 +64,8 @@ def test_batches_and_last_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--apply", "--batch", "3") == 0
     calls = tools.calls()
-    assert [c.split()[0] for c in calls] == ["genres"] * 2 + ["replaygain"] * 2 + ["covers"] * 2 + ["lyrics"] * 2
+    assert [c.split()[0] for c in calls] == [n for n in ("genres", "replaygain", "covers", "lyrics")
+                                             for _ in range(2)]
     assert calls[2].endswith(f"{lib}/A/B {lib}/A/C {lib}/D/E")
     assert calls[3] == f"replaygain {lib}/D/E/CD2"
     assert enrich.last_run(state) is not None
