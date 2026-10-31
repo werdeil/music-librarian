@@ -100,9 +100,9 @@ def lyrics_form(d, file, **changes):
 
 def test_lyrics_page(d):
     page = lyrics_page(d, "01 T1.m4a")
-    assert ">la la</textarea>" in page and "Delete the lyrics" in page and "← 4</a>" in page
+    assert ">la la</textarea>" in page and "Preview the deletion" in page and "← 4</a>" in page
     page = lyrics_page(d, "02 T2.m4a")
-    assert "></textarea>" in page and "Delete the lyrics" not in page
+    assert "></textarea>" in page and "Preview the deletion" not in page
     for query in ("folder=Beyonce/4&file=../4/01 T1.m4a", "folder=../&file=x", "folder=Beyonce/4&file=9.m4a"):
         assert d.client.get(f"/library/track/lyrics?{query}", headers=EN).status_code == 404
 

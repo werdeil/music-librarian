@@ -34,7 +34,7 @@ Each edit carries the values the page showed: a track whose field changed in bet
 
 ### Lyrics
 
-A track's lyrics open from their cell of the album's page, which the whole cell links to, in a text box. **Preview the changes** queues a dry run of `tag` that writes the text as it is in the box, and **Delete the lyrics** one that removes them; the run's page shows the lyrics by their number of lines, then offers to apply, and an applied pass is undone like any other. A track whose lyrics change is no longer counted as looked up in vain: lyrics deleted are looked up again by the next `enrich`, without waiting for `LYRICS_RETRY_DAYS`. An edit made against lyrics that changed since is refused, as for any field.
+A track's lyrics open from their cell of the album's page, which the whole cell links to, in a text box. **Preview the changes** queues a dry run of `tag` that writes the text as it is in the box, and **Preview the deletion** one that removes them; the run's page shows the lyrics by their number of lines, then offers to apply, and an applied pass is undone like any other. A track whose lyrics change is no longer counted as looked up in vain: lyrics deleted are looked up again by the next `enrich`, without waiting for `LYRICS_RETRY_DAYS`. An edit made against lyrics that changed since is refused, as for any field.
 
 ### Cover
 
