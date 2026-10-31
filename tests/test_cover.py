@@ -7,7 +7,7 @@ import pytest
 from music_librarian import cli, cover
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_STOPPED, STOP
-from music_librarian.media import tags
+from music_librarian.media import artwork, tags
 
 
 def jpeg(width, height):
@@ -89,12 +89,22 @@ def test_not_an_album_refused(run, folder, capsys):
     assert "REFUSED  (not an album folder of the library)" in capsys.readouterr().out
 
 
-def test_not_a_jpeg_refused(lib, run, tmp_path, capsys):
+def test_not_an_image_refused(lib, run, tmp_path, capsys):
     png = tmp_path / "cover.png"
     png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
     assert run("--apply", picture=png) == 2
-    assert "REFUSED  (not a JPEG image)" in capsys.readouterr().out
+    assert "REFUSED  (not an image: " in capsys.readouterr().out
     assert (lib / "Beyonce/4/Folder.jpg").read_bytes() == OLD
+
+
+@pytest.mark.parametrize("name", ["cover.png", "cover.webp", "cover.bmp"])
+def test_any_format_converted_to_jpeg(lib, run, image, tmp_path, name, capsys):
+    path = tmp_path / name
+    path.write_bytes(image(name, 64, 48))
+    assert run("--apply", picture=path) == 0
+    assert f"CONVERT  {name} to JPEG" in capsys.readouterr().out
+    written = (lib / "Beyonce/4/folder.jpg").read_bytes()
+    assert artwork.image_size(written) == ("jpeg", 64, 48) and covers_of(lib) == [written, written]
 
 
 def test_stop_leaves_the_cover(lib, run, monkeypatch):

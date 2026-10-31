@@ -129,12 +129,12 @@ A dry run reads only the metadata cache and the library's folders, never the net
 ### tag: fields rewritten, then filed again
 
 1. **Read each track** given (or under each folder given) directly, not through the cache, and plan its changes: a value already there is left, a genre takes the validated list's spelling, and an edit made against values the track no longer holds (`seen`, which the dashboard passes) is `REFUSED`. Tracks outside the library are skipped.
-2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; lyrics removed are recorded as a lookup in vain (`lyrics/misses.py`), so the next `enrich` does not put them back before `LYRICS_RETRY_DAYS`.
+2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track whose lyrics change is dropped from the lookups in vain (`lyrics/misses.py`), so the next `enrich` looks lyrics removed up again at once.
 3. **File the folders of the edited tracks** with `organize_pass`, in the same journal, all or nothing like import. A dry run hands organize the tags as they will be (`Options.overrides`), so it lists the exact moves, conflicts included.
 
 ### cover: an album's folder.jpg replaced
 
-1. **Check the image**, a JPEG, and the album folder, which holds tracks directly.
+1. **Check the image**, converted to JPEG with ffmpeg when in another format, and the album folder, which holds tracks directly.
 2. **Move the album's `folder.jpg` out** with `--apply`, whatever the case of its name, to `covers/` in the state folder, then move the image in from there as `folder.jpg`, both moves journaled, so `undo` brings the previous one back.
 3. **Embed it into the tracks** whose embedded cover differs, as `enrich.covers` does. These writes are not journaled: after an undo, the next `enrich` embeds the previous `folder.jpg` again.
 

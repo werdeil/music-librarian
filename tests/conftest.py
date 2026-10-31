@@ -168,3 +168,18 @@ def answers(monkeypatch):
         monkeypatch.setattr("builtins.input", ask)
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     return feed
+
+
+@pytest.fixture
+def image(tmp_path_factory):
+    """image(name, width, height): the bytes of a plain image, its format after `name`'s extension."""
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg absent")
+    folder = tmp_path_factory.mktemp("images")
+
+    def make(name, width, height):
+        path = folder / name
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=c=red:s={width}x{height}",
+                        "-frames:v", "1", str(path)], check=True)
+        return path.read_bytes()
+    return make

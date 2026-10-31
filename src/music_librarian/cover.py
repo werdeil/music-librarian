@@ -4,7 +4,8 @@ cover — puts an image as an album's folder.jpg, then embeds it into the album'
   music-librarian cover FOLDER IMAGE            # dry run
   music-librarian cover "Beyonce/4" ~/4.jpg --apply
 
-FOLDER is an album folder of the library, IMAGE a JPEG file, copied: it is left where it is.
+FOLDER is an album folder of the library, IMAGE an image file, copied: it is left where it is.
+An image in another format than JPEG (PNG, WebP, HEIC…) is converted to JPEG with ffmpeg.
 The folder.jpg it replaces is kept in the state folder (covers/), and both moves go to the
 journal: `music-librarian undo` puts the previous folder.jpg back, which the next enrich
 embeds again. The dashboard uploads its covers through it.
@@ -14,7 +15,9 @@ the end.
 """
 import secrets
 import shlex
+import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -63,18 +66,44 @@ def dimensions(dims):
     return f"{dims[1]}x{dims[2]}"
 
 
+class NotAnImage(Exception):
+    """Bytes ffmpeg cannot read as an image."""
+
+
+def as_jpeg(data):
+    """(JPEG bytes, artwork.image_size() of them) of an image in any format ffmpeg reads, the
+    bytes as they are for a JPEG. Raises NotAnImage."""
+    dims = artwork.image_size(data)
+    if dims and dims[0] == "jpeg":
+        return data, dims
+    with tempfile.TemporaryDirectory() as work:
+        source, target = Path(work) / "image", Path(work) / "cover.jpg"
+        source.write_bytes(data)
+        done = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(source), "-frames:v", "1",
+                               "-pix_fmt", "yuvj420p", "-q:v", "2", str(target)],
+                              capture_output=True, text=True, check=False)
+        converted = target.read_bytes() if done.returncode == 0 and target.exists() else b""
+    dims = artwork.image_size(converted)
+    if not dims:
+        raise NotAnImage(done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "not an image")
+    return converted, dims
+
+
 def read_image(opts, log):
-    """(bytes, artwork.image_size()) of the image, or None once refused."""
+    """(JPEG bytes, artwork.image_size() of them) of the image, or None once refused."""
     try:
         data = opts.image.read_bytes()
     except OSError as e:
         log(f"REFUSED  (cannot read the image: {e.strerror})  {opts.image}")
         return None
-    dims = artwork.image_size(data)
-    if not dims or dims[0] != "jpeg":
-        log(f"REFUSED  (not a JPEG image)  {opts.image}")
+    try:
+        jpeg, dims = as_jpeg(data)
+    except (NotAnImage, OSError) as e:
+        log(f"REFUSED  (not an image: {e})  {opts.image}")
         return None
-    return data, dims
+    if jpeg is not data:
+        log(f"CONVERT  {opts.image.name} to JPEG")
+    return jpeg, dims
 
 
 def put_in_place(opts, data, previous, journal):
@@ -153,7 +182,7 @@ def main(argv=None):
     ap = arguments.parser("cover", "Put an image as an album's folder.jpg, then embed it into its tracks.")
     arguments.add_root(ap)
     ap.add_argument("folder", help="the album folder, relative to the root or absolute")
-    ap.add_argument("image", help="the JPEG image to put as its cover")
+    ap.add_argument("image", help="the image to put as its cover, converted to JPEG when in another format")
     arguments.add_apply(ap, "write the cover")
     arguments.add_state_dir(ap)
     arguments.add_syslog(ap)

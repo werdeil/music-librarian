@@ -168,22 +168,21 @@ TRANSLATIONS = {
         "lyrics_button": "Chercher les paroles de l'album (dry run)",
         "lyrics_hint": ("Sans attendre le délai avant une nouvelle recherche : la page du passage "
                         "montre ce qui a été trouvé et propose de l'écrire."),
-        "lyrics_edit": "modifier",
-        "lyrics_add": "ajouter",
+        "lyrics_open": "Voir et modifier les paroles",
         "lyrics_delete_button": "Supprimer les paroles (dry run)",
         "lyrics_edit_hint": ("Le changement part en dry run : la page du passage propose ensuite de "
                              "l'écrire, et un passage appliqué s'annule depuis sa page. Des paroles "
-                             "supprimées ne sont plus recherchées pendant le délai avant une nouvelle "
-                             "recherche."),
+                             "supprimées sont recherchées à nouveau par le prochain enrich."),
         "track_unreadable": "Ce morceau est illisible.",
         "cover": "Pochette",
-        "cover_file": "Image JPEG",
+        "cover_file": "Image",
         "cover_button": "Prévisualiser la nouvelle pochette (dry run)",
-        "cover_hint": ("Une image JPEG, qui devient le folder.jpg de l'album et est intégrée à ses "
+        "cover_hint": ("Une image de n'importe quel format, convertie en JPEG au besoin, qui devient "
+                       "le folder.jpg de l'album et est intégrée à ses "
                        "pistes : la page du passage propose ensuite de l'appliquer, et l'annulation "
                        "remet l'ancien folder.jpg."),
         "cover_missing": "Aucune image envoyée.",
-        "cover_not_jpeg": "Cette image n'est pas un JPEG.",
+        "cover_not_an_image": "Ce fichier n'est pas une image lisible.",
         "cover_too_large": "Image trop lourde : {mb} Mo au plus.",
         "tracks_without_lyrics_title": "Morceaux sans paroles",
         "tracks_without_lyrics": "Morceaux sans paroles : {n}",
@@ -422,21 +421,21 @@ TRANSLATIONS = {
         "lyrics_button": "Look up the album's lyrics (dry run)",
         "lyrics_hint": ("Without waiting for the delay before a new lookup: the run's page shows what "
                         "was found and offers to write it."),
-        "lyrics_edit": "edit",
-        "lyrics_add": "add",
+        "lyrics_open": "See and edit the lyrics",
         "lyrics_delete_button": "Delete the lyrics (dry run)",
         "lyrics_edit_hint": ("The change goes as a dry run: the run's page then offers to write it, and "
-                             "an applied pass is undone from its page. Lyrics deleted are not looked "
-                             "up again for the delay before a new lookup."),
+                             "an applied pass is undone from its page. Lyrics deleted are looked up "
+                             "again by the next enrich."),
         "track_unreadable": "This track cannot be read.",
         "cover": "Cover",
-        "cover_file": "JPEG image",
+        "cover_file": "Image",
         "cover_button": "Preview the new cover (dry run)",
-        "cover_hint": ("A JPEG image, which becomes the album's folder.jpg and is embedded into its "
+        "cover_hint": ("An image in any format, converted to JPEG when needed, which becomes the "
+                       "album's folder.jpg and is embedded into its "
                        "tracks: the run's page then offers to apply it, and undoing it puts the "
                        "previous folder.jpg back."),
         "cover_missing": "No image was sent.",
-        "cover_not_jpeg": "This image is not a JPEG.",
+        "cover_not_an_image": "This file is not a readable image.",
         "cover_too_large": "Image too large: {mb} MB at most.",
         "tracks_without_lyrics_title": "Tracks without lyrics",
         "tracks_without_lyrics": "Tracks without lyrics: {n}",

@@ -18,12 +18,12 @@ from pathlib import Path
 from flask import (Flask, abort, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, url_for)
 
-from music_librarian import __version__
+from music_librarian import __version__, cover
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
-from music_librarian.media import artwork, fields
+from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -397,12 +397,13 @@ def create_app(ctx: Context):
         data = upload.read() if upload else b""
         if not data:
             return refused("cover_missing")
-        dims = artwork.image_size(data)
-        if not dims or dims[0] != "jpeg":
-            return refused("cover_not_jpeg")
         if ctx.requests is None:
             abort(403)
-        return submit("cover", {"folder": rel, "image": keep_upload(ctx.state_dir, data)}, False)
+        try:
+            jpeg, _dims = cover.as_jpeg(data)
+        except (cover.NotAnImage, OSError):
+            return refused("cover_not_an_image")
+        return submit("cover", {"folder": rel, "image": keep_upload(ctx.state_dir, jpeg)}, False)
 
     @app.errorhandler(413)
     def too_large(_error):

@@ -13,7 +13,7 @@ import pytest
 from music_librarian import scan
 from music_librarian.core import runs
 from music_librarian.core.log import Log
-from music_librarian.media import fields, tags
+from music_librarian.media import artwork, fields, tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import app as web
 from music_librarian.web import library, passes, reviews
@@ -441,13 +441,20 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
 
 @pytest.mark.parametrize("data, status, message", [
     (b"", 400, "No image was sent"),
-    (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, 400, "This image is not a JPEG"),
-    (b"\xff\xd8" + b"\x00" * 64, 400, "This image is not a JPEG"),
+    (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, 400, "This file is not a readable image"),
+    (b"not an image at all", 400, "This file is not a readable image"),
 ])
 def test_cover_upload_refused(dashboard, data, status, message):
     response = upload(dashboard, data)
     assert response.status_code == status and message in response.get_data(as_text=True)
     assert dashboard.requests.pending() == [] and not (dashboard.state / passes.UPLOADS).exists()
+
+
+def test_cover_upload_converted_to_jpeg(dashboard, image):
+    assert upload(dashboard, image("cover.webp", 64, 48), name="cover.webp").status_code == 302
+    [asked] = dashboard.requests.pending()
+    kept = passes.upload_path(dashboard.state, asked.options["image"]).read_bytes()
+    assert artwork.image_size(kept) == ("jpeg", 64, 48)
 
 
 def test_cover_upload_too_large(dashboard):

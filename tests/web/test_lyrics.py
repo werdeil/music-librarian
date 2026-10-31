@@ -47,8 +47,9 @@ def tool(tmp_path, monkeypatch):
 def test_album_page_shows_each_track_s_lyrics(d):
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     flat = page.replace("\n", "").replace("  ", "")
-    assert '>yes· <a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a">edit</a></td>' in flat
-    assert "not found on " in page and "—" in page and ">add</a>" in page
+    assert ('<td class="cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
+            'title="See and edit the lyrics">yes</a></td>') in flat
+    assert 'title="See and edit the lyrics">—</a>' in flat and 'class="warning cell-link"' in flat
     assert "Look up the album&#39;s lyrics" in page
 
 
@@ -133,8 +134,10 @@ def test_lyrics_edited_then_undone(d, lib):
     assert tags.read_lyrics(track) == "la la"
 
 
-def test_lyrics_deleted_are_not_looked_up_again(d, lib):
-    track = lib / "Beyonce/4/01 T1.m4a"
+def test_lyrics_changed_are_looked_up_again(d, lib):
+    track, meta = lib / "Beyonce/4/01 T1.m4a", {"artist": "Beyonce", "title": "T1", "album": "4"}
+    with Misses(d.state) as misses:
+        misses.record(track, meta)
     d.client.post("/library/track/lyrics", data=lyrics_form(d, "01 T1.m4a", delete="1"))
     [asked] = d.requests.pending()
     assert asked.options["edits"] == [["Beyonce/4/01 T1.m4a", "lyrics", "", ["la la"]]]
@@ -145,9 +148,9 @@ def test_lyrics_deleted_are_not_looked_up_again(d, lib):
     d.requests.tick(Log())
     assert fields.lyrics(track) == []
     with Misses(d.state) as misses:
-        assert misses.recent(track, {"artist": "Beyonce", "title": "T1", "album": "4"})
+        assert not misses.recent(track, meta)
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert page.count("not found on ") == 2
+    assert page.count("not found on ") == 1
 
 
 def test_lyrics_changed_meanwhile_refused(d, lib, capsys):

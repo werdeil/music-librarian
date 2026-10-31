@@ -522,6 +522,27 @@ textarea.lyrics {
     resize: vertical;
 }
 
+td.cell-link {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+td.cell-link a {
+    display: block;
+    margin: 0 -0.5rem;
+    padding: 0.4rem 0.5rem;
+    color: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    border-radius: 6px;
+}
+
+td.cell-link a:hover,
+td.cell-link a:focus-visible {
+    background: var(--surface);
+    color: var(--text-bright);
+}
+
 .cover-form {
     display: flex;
     flex-wrap: wrap;

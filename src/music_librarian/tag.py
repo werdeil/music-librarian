@@ -9,8 +9,8 @@ artist, albumartist, album, track, tracktotal, disc, disctotal, year, genre, com
 compilation (1 or 0); an empty VALUE removes the field. A genre takes the spelling of the
 validated list (state/genres.txt) when the list knows it.
 
-The dashboard also edits the lyrics through it (field lyrics): lyrics removed leave the track
-out of the lookups for LYRICS_RETRY_DAYS, as one looked up in vain.
+The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
+looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
 
 The folders of the edited tracks are then filed by organize (--no-refile to leave them), the
 tag changes and the moves going to the same journal: `music-librarian undo` restores both.
@@ -39,7 +39,7 @@ from music_librarian.enrich import genres
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.lyrics.misses import Misses
-from music_librarian.media import fields, metadata_cache
+from music_librarian.media import fields
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
 from music_librarian.split.library import run_locked
@@ -149,17 +149,14 @@ def plan(opts, log, stats):
 
 def cached(written, moved, state_dir):
     """The tracks written, (path, field, values), read again into the metadata cache where they
-    now are (`moved`: {source: destination}); those whose lyrics changed recorded as such."""
+    now are (`moved`: {source: destination}); those whose lyrics changed no longer recorded as
+    looked up in vain."""
     with MetadataCache(state_dir) as cache, Misses(state_dir) as misses:
-        for path, name, new in written:
+        for path, name, _new in written:
             path = moved.get(path, path)
-            snap = cache.snapshot(path)
-            if name != fields.LYRICS:
-                continue
-            if new:
+            cache.snapshot(path)
+            if name == fields.LYRICS:
                 misses.forget(path)
-            elif snap is not None:
-                misses.record(path, metadata_cache.metadata(snap))
 
 
 def tag_pass(opts: Options, log):

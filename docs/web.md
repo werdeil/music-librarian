@@ -34,11 +34,11 @@ Each edit carries the values the page showed: a track whose field changed in bet
 
 ### Lyrics
 
-A track's lyrics, linked from its row of the album's page (**edit**, or **add** for a track without), show in a text box. **Preview the changes** queues a dry run of `tag` that writes the text as it is in the box, and **Delete the lyrics** one that removes them; the run's page shows the lyrics by their number of lines, then offers to apply, and an applied pass is undone like any other. Lyrics deleted are recorded as looked up in vain, so `enrich` does not write them back before `LYRICS_RETRY_DAYS`; the album's page then says so. An edit made against lyrics that changed since is refused, as for any field.
+A track's lyrics open from their cell of the album's page, which the whole cell links to, in a text box. **Preview the changes** queues a dry run of `tag` that writes the text as it is in the box, and **Delete the lyrics** one that removes them; the run's page shows the lyrics by their number of lines, then offers to apply, and an applied pass is undone like any other. A track whose lyrics change is no longer counted as looked up in vain: lyrics deleted are looked up again by the next `enrich`, without waiting for `LYRICS_RETRY_DAYS`. An edit made against lyrics that changed since is refused, as for any field.
 
 ### Cover
 
-**Preview the new cover** sends a JPEG image (32 MB at most) and queues a dry run of `cover` (see `music-librarian cover`) on the album: the run's page says which `folder.jpg` it replaces and into how many tracks it would be embedded, then offers to apply. Applied, the image becomes the album's `folder.jpg`, the previous one being kept in `covers/` in the state folder, and is embedded into the tracks; **Undo this pass** puts the previous `folder.jpg` back, which the next `enrich` embeds again. The image waits in `uploads/` in the state folder until then, removed after 7 days: an older dry run can no longer be applied.
+**Preview the new cover** sends an image (32 MB at most), in any format ffmpeg reads (JPEG, PNG, WebP, GIF, BMP, HEIC…), converted to JPEG at once when it is not one, and queues a dry run of `cover` (see `music-librarian cover`) on the album: the run's page says which `folder.jpg` it replaces and into how many tracks it would be embedded, then offers to apply. Applied, the image becomes the album's `folder.jpg`, the previous one being kept in `covers/` in the state folder, and is embedded into the tracks; **Undo this pass** puts the previous `folder.jpg` back, which the next `enrich` embeds again. The image waits in `uploads/` in the state folder until then, removed after 7 days: an older dry run can no longer be applied.
 
 ## Reviews
 
@@ -88,7 +88,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/library/album?folder=<folder>` | an album, its folder relative to the library root; `POST` queues a dry run of its edits |
 | `/library/cover?folder=<folder>` | the album's cover, or a placeholder without one |
 | `POST /library/album/lyrics` | queues a dry run of the lyrics lookup of the album `folder` |
-| `POST /library/album/cover` | queues a dry run of `cover` with the JPEG `image` sent for the album `folder` |
+| `POST /library/album/cover` | queues a dry run of `cover` with the `image` sent for the album `folder`, converted to JPEG |
 | `/library/track/lyrics?folder=<folder>&file=<name>` | a track's lyrics; `POST` queues a dry run of their edit, or of their removal with `delete=1` |
 | `/library/lyrics` | the albums with tracks without lyrics |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
