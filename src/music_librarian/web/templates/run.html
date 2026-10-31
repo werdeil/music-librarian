@@ -7,6 +7,9 @@
     <dl class="facts">
         <dt>{{ t.mode }}</dt><dd>{{ t.apply if run.apply else t.dry_run }}</dd>
         <dt>{{ t.origin }}</dt><dd>{{ m.origin(t, run) }}</dd>
+        {% if boxes is not none %}
+        <dt>{{ t.options }}</dt><dd>{% for b in boxes %}{{ t['opt_' ~ b] }}{{ ', ' if not loop.last }}{% else %}{{ t.no_options }}{% endfor %}</dd>
+        {% endif %}
         {% if run.duration %}<dt>{{ t.duration }}</dt><dd>{{ run.duration }}</dd>{% endif %}
         {% if run.code is not none %}<dt>{{ t.exit_code }}</dt><dd>{{ run.code }}</dd>{% endif %}
     </dl>

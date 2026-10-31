@@ -175,6 +175,7 @@ def test_dry_run_then_apply_then_undo(library):
     assert (lib / "vrac/1.m4a").exists()
     page = client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert "Apply this pass" in page and "Undo this pass" not in page
+    assert "<dt>Options</dt><dd>none</dd>" in page
 
     assert client.post(f"/runs/{dry['id']}/apply", data={"csrf": token}).status_code == 302
     requests.tick(Log())
@@ -206,8 +207,20 @@ def test_apply_refused_for_a_run_started_elsewhere(library):
     lib, state, _, client, token = library
     assert organize.main(["--root", str(lib), "--state-dir", str(state)]) == 0
     [cli] = runs.recent(state)
-    assert "Apply this pass" not in client.get(f"/runs/{cli['id']}", headers=EN).get_data(as_text=True)
+    page = client.get(f"/runs/{cli['id']}", headers=EN).get_data(as_text=True)
+    assert "Apply this pass" not in page and "<dt>Options</dt>" not in page
     assert client.post(f"/runs/{cli['id']}/apply", data={"csrf": token}).status_code == 404
+
+
+def test_run_page_shows_the_boxes_ticked(library):
+    _, state, requests, client, token = library
+    client.post("/passes", data={"command": "enrich", "rescan": "1", "genres": "1", "lyrics": "1",
+                                 "csrf": token})
+    [request] = requests.pending()
+    runs.recorded(lambda: 0, Log(), state, "enrich", False, "web", request)
+    page = client.get(f"/runs/{runs.recent(state)[0]['id']}", headers=EN).get_data(as_text=True)
+    assert ("<dt>Options</dt><dd>read the whole library again first (--rescan), "
+            "align the genres with the validated list, look the lyrics up</dd>") in page
 
 
 def test_cancel_a_queued_request(tmp_path, requests):

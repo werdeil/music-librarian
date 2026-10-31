@@ -37,6 +37,21 @@ LONG_WHEN = {"since": False, "rescan": True, "lyrics": True, "force": True}
 FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag", "lyrics")}
 
 
+def box(name):
+    """The form's box for an option: a no_x option is the box x, ticked by default."""
+    return name[3:] if name.startswith("no_") else name
+
+
+def ticked(name, options):
+    """Whether the box of option `name` was ticked for a request with these `options`."""
+    return not options.get(name) if name.startswith("no_") else bool(options.get(name))
+
+
+def boxes_ticked(command, options):
+    """The boxes of `command`'s form ticked for these options, in the form's order."""
+    return [box(name) for name in FORMS.get(command, ()) if ticked(name, options)]
+
+
 @dataclass
 class Request:
     """A pass asked for: `run_id` is set once it is recorded, `code` once it ends."""

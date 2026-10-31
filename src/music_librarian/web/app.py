@@ -27,7 +27,8 @@ from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, journal_path
+from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, box, boxes_ticked,
+                                        journal_path)
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
@@ -219,9 +220,8 @@ def create_app(ctx: Context):
         if command not in FORMS and command != "undo":
             abort(403)
         names = OPTIONS[command]
-        # a no_x option is shown as a box x, ticked by default
         options = {name: True for name in names if name != "journal"
-                   and (not request.form.get(name[3:]) if name.startswith("no_") else request.form.get(name))}
+                   and bool(request.form.get(box(name))) != name.startswith("no_")}
         if "journal" in names:
             options["journal"] = request.form.get("journal", "")
             if journal_path(ctx.state_dir, options["journal"]) is None:
@@ -290,6 +290,8 @@ def create_app(ctx: Context):
         journal = journal_of(run) if run["apply"] else None
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
+            boxes=boxes_ticked(run["command"], run["options"])
+            if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
             can_stop=stoppable(run),
             journal=journal if journal and journal_path(ctx.state_dir, journal) else None)
