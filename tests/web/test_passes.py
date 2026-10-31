@@ -101,7 +101,7 @@ def test_forms_need_the_page_token(tmp_path, requests):
 
 def test_options_taken_from_the_form(tmp_path, requests):
     _, client, token = dashboard(tmp_path, requests)
-    client.post("/passes", data={"command": "enrich", "rescan": "1", "split": "1", "since": "1",
+    client.post("/passes", data={"command": "enrich", "rescan": "1", "genres": "1", "split": "1", "since": "1",
                                  "csrf": token})
     client.post("/passes", data={"command": "rm", "csrf": token})
     assert [(r.command, r.options) for r in requests.pending()] == \
@@ -111,7 +111,7 @@ def test_options_taken_from_the_form(tmp_path, requests):
 def test_enrich_options_shown_ticked(tmp_path, requests):
     _, client, _ = dashboard(tmp_path, requests)
     page = client.get("/", headers=EN).get_data(as_text=True)
-    for box in ("lyrics", "split", "dedupe"):
+    for box in ("genres", "lyrics", "split", "dedupe"):
         assert f'name="{box}" value="1" checked' in page
     assert 'name="rescan" value="1">' in page and "no_" not in page
 

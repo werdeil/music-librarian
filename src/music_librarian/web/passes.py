@@ -23,7 +23,7 @@ JOURNAL_NAME = re.compile(r"^[\w.-]+\.jsonl$")
 OPTIONS = {
     "import": (),
     "organize": ("since",),
-    "enrich": ("rescan", "no_lyrics", "no_split", "no_dedupe"),
+    "enrich": ("rescan", "no_genres", "no_lyrics", "no_split", "no_dedupe"),
     "scan": ("force",),
     "split": (),
     "dedupe": (),
@@ -124,6 +124,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_enrich(r, log):
         opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")),
+                       genres=not r.options.get("no_genres"),
                        lyrics=not r.options.get("no_lyrics"), split=not r.options.get("no_split"),
                        dedupe=not r.options.get("no_dedupe"))
         return kept("enrich", lambda: enrich.run(opts, log), log, r)

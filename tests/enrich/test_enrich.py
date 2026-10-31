@@ -33,7 +33,7 @@ def tools(tmp_path, monkeypatch):
 
     def enrichers():
         out = []
-        for name in ("replaygain", "covers", "lyrics"):
+        for name in ("genres", "replaygain", "covers", "lyrics"):
             code = 1 if name in fails else EXIT_STOPPED if name in stops else 0
             script = (f"import sys; open({str(log)!r}, 'a').write({name!r} + ' ' + "
                       f"' '.join(sys.argv[1:]) + '\\n'); sys.exit({code})")
@@ -64,16 +64,23 @@ def test_batches_and_last_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--apply", "--batch", "3") == 0
     calls = tools.calls()
-    assert [c.split()[0] for c in calls] == ["replaygain"] * 2 + ["covers"] * 2 + ["lyrics"] * 2
-    assert calls[0].endswith(f"{lib}/A/B {lib}/A/C {lib}/D/E")
-    assert calls[1] == f"replaygain {lib}/D/E/CD2"
+    assert [c.split()[0] for c in calls] == ["genres"] * 2 + ["replaygain"] * 2 + ["covers"] * 2 + ["lyrics"] * 2
+    assert calls[2].endswith(f"{lib}/A/B {lib}/A/C {lib}/D/E")
+    assert calls[3] == f"replaygain {lib}/D/E/CD2"
     assert enrich.last_run(state) is not None
 
 
 def test_no_lyrics_leaves_the_weekly_pass(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--apply", "--no-lyrics") == 0
-    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers"]
+    assert [c.split()[0] for c in tools.calls()] == ["genres", "replaygain", "covers"]
+    assert enrich.last_run(state) is None
+
+
+def test_no_genres_leaves_the_weekly_pass(lib, tools, tmp_path):
+    state = tmp_path / "state"
+    assert run(lib, state, "--apply", "--no-genres") == 0
+    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers", "lyrics"]
     assert enrich.last_run(state) is None
 
 
@@ -111,7 +118,7 @@ def test_tool_failure_reported(lib, tools, tmp_path, capsys):
     tools.fails.add("covers")
     assert run(lib, tmp_path / "state", "--apply") == 2
     assert "FAILED   covers" in capsys.readouterr().out
-    assert [c.split()[0] for c in tools.calls()] == ["replaygain", "covers", "lyrics"]
+    assert [c.split()[0] for c in tools.calls()] == ["genres", "replaygain", "covers", "lyrics"]
 
 
 def test_stopped_tool_is_not_a_failure(lib, tools, tmp_path, capsys):
@@ -147,7 +154,7 @@ def test_stop_during_the_last_batch(lib, tools, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(enrich, "run_tool", stop_during_the_last_tool)
     assert run(lib, tmp_path / "state", "--apply") == EXIT_STOPPED       # one batch: the last
     out = capsys.readouterr().out
-    assert len(tools.calls()) == 3 and "ENRICH   (split)" not in out
+    assert len(tools.calls()) == 4 and "ENRICH   (split)" not in out
     assert enrich.last_run(tmp_path / "state") is None
 
 
