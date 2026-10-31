@@ -101,12 +101,19 @@ def test_forms_need_the_page_token(tmp_path, requests):
 
 def test_options_taken_from_the_form(tmp_path, requests):
     _, client, token = dashboard(tmp_path, requests)
-    client.post("/passes", data={"command": "enrich", "rescan": "1", "no_lyrics": "1", "no_dedupe": "1",
-                                 "since": "1",
+    client.post("/passes", data={"command": "enrich", "rescan": "1", "split": "1", "since": "1",
                                  "csrf": token})
     client.post("/passes", data={"command": "rm", "csrf": token})
     assert [(r.command, r.options) for r in requests.pending()] == \
         [("enrich", {"rescan": True, "no_lyrics": True, "no_dedupe": True})]
+
+
+def test_enrich_options_shown_ticked(tmp_path, requests):
+    _, client, _ = dashboard(tmp_path, requests)
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    for box in ("lyrics", "split", "dedupe"):
+        assert f'name="{box}" value="1" checked' in page
+    assert 'name="rescan" value="1">' in page and "no_" not in page
 
 
 def test_apply_only_when_watch_applies(tmp_path, requests):

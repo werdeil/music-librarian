@@ -219,7 +219,9 @@ def create_app(ctx: Context):
         if command not in FORMS and command != "undo":
             abort(403)
         names = OPTIONS[command]
-        options = {name: True for name in names if name != "journal" and request.form.get(name)}
+        # a no_x option is shown as a box x, ticked by default
+        options = {name: True for name in names if name != "journal"
+                   and (not request.form.get(name[3:]) if name.startswith("no_") else request.form.get(name))}
         if "journal" in names:
             options["journal"] = request.form.get("journal", "")
             if journal_path(ctx.state_dir, options["journal"]) is None:
