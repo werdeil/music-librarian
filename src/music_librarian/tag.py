@@ -133,7 +133,8 @@ def plan(opts, log, stats):
                     log(f"UNKNOWN  genre \"{new[0]}\" is not in the validated list  {rel}")
                 new = [validated] if validated else new
             if edit.seen is not None and current[edit.field] != [v.strip() for v in edit.seen if v.strip()]:
-                log(f"REFUSED  ({edit.field} changed since: \"{shown(current[edit.field], edit.field)}\")  {rel}")
+                held = shown(current[edit.field], edit.field)
+                log(f"REFUSED  ({edit.field} changed since: \"{held}\")  {rel}")
                 stats["refused"] += 1
                 continue
             if new == current[edit.field]:
