@@ -342,18 +342,10 @@ footer {
 .pass-cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-    gap: 0 0.8rem;
+    gap: 0.8rem;
 }
 
-.pass-card {
-    display: grid;
-    grid-row: span 2;
-    grid-template-rows: subgrid;
-    row-gap: 0.3rem;
-    margin-bottom: 0.8rem;
-}
-
-.pass-card button {
+.pass-card > button {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
@@ -374,18 +366,37 @@ footer {
     color: var(--text-muted);
 }
 
-.pass-options {
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
+.pass-dialog {
+    width: min(30rem, calc(100vw - 2 * var(--page-pad)));
+    padding: 1rem 1.2rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
 }
 
-.pass-options summary {
-    cursor: pointer;
+.pass-dialog::backdrop {
+    background: rgb(0 0 0 / 60%);
 }
 
-.pass-options label {
+.pass-dialog h3 {
+    margin: 0 0 0.2rem;
+    color: var(--text-bright);
+}
+
+.pass-dialog .pass-sub {
+    margin: 0 0 0.4rem;
+}
+
+.pass-dialog label {
     display: block;
-    margin-top: 0.3rem;
+    margin-top: 0.7rem;
+}
+
+.pass-warning {
+    margin: 0.2rem 0 0 1.6rem;
+    font-size: var(--fs-sm);
+    color: var(--warning);
 }
 
 .tiles {

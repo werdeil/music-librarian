@@ -9,15 +9,34 @@
     });
 }());
 
-// A form asks before it submits, with its data-confirm text.
+// A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
+// without script, the card submits the options as ticked by default.
 (function () {
     "use strict";
 
-    document.querySelectorAll("form[data-confirm]").forEach(function (form) {
-        form.addEventListener("submit", function (event) {
-            if (!window.confirm(form.dataset.confirm)) {
-                event.preventDefault();
+    document.querySelectorAll("[data-opens-dialog]").forEach(function (opener) {
+        var form = opener.form;
+        var dialog = form.querySelector("dialog");
+        var warnings = dialog.querySelectorAll("[data-long]");
+
+        function update() {
+            warnings.forEach(function (warning) {
+                var box = form.elements.namedItem(warning.dataset.long);
+                warning.hidden = box.checked !== (warning.dataset.longWhen === "checked");
+            });
+        }
+
+        opener.addEventListener("click", function (event) {
+            event.preventDefault();
+            if (!dialog.open) {
+                update();
+                dialog.showModal();
             }
+        });
+        dialog.addEventListener("change", update);
+        dialog.addEventListener("close", function () { form.reset(); });
+        dialog.querySelector("[data-closes-dialog]").addEventListener("click", function () {
+            dialog.close();
         });
     });
 }());

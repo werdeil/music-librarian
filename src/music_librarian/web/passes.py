@@ -32,6 +32,8 @@ OPTIONS = {
     "lyrics": ("folder",),
     "genres": (),
 }
+# the boxes of the forms that make a pass long, and whether ticked or unticked
+LONG_WHEN = {"since": False, "rescan": True, "lyrics": True, "force": True}
 FORMS = {command: names for command, names in OPTIONS.items() if command not in ("undo", "tag", "lyrics")}
 
 

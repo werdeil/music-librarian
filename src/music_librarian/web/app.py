@@ -27,7 +27,7 @@ from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, journal_path
+from music_librarian.web.passes import CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
 WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
@@ -186,7 +186,7 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES})
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
