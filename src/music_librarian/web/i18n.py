@@ -104,8 +104,6 @@ TRANSLATIONS = {
         "long_since": "Parcourt toute la bibliothèque, pas seulement les dossiers changés.",
         "long_rescan": ("Relit d'abord chaque fichier : une vingtaine de minutes pour 25 000 pistes "
                         "sur disque dur."),
-        "long_lyrics": ("La simulation liste les pistes sans paroles ; l'appliquer les cherche en ligne, "
-                        "souvent pendant des heures."),
         "long_force": "Relit chaque fichier : une vingtaine de minutes pour 25 000 pistes sur disque dur.",
         "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
                    "enrich": "Compléter genres, gain, pochettes et paroles",
@@ -344,8 +342,6 @@ TRANSLATIONS = {
         "start_dry_run": "Start the dry run",
         "long_since": "Goes through the whole library, not only the folders changed.",
         "long_rescan": "Reads every file first: about 20 minutes for 25,000 tracks on a hard disk.",
-        "long_lyrics": ("The dry run lists the tracks without lyrics; applying it looks them up online, "
-                        "often for hours."),
         "long_force": "Reads every file again: about 20 minutes for 25,000 tracks on a hard disk.",
         "passes": {"import": "Import the Inbox", "organize": "File the library",
                    "enrich": "Fill in genres, gain, covers and lyrics",

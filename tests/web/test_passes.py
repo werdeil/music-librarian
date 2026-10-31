@@ -115,7 +115,8 @@ def test_enrich_options_shown_ticked(tmp_path, requests):
         assert f'name="{box}" value="1" checked' in page
     assert 'name="rescan" value="1">' in page and "no_" not in page
     assert page.count("<dialog") == 3 and "data-opens-dialog" in page
-    assert 'data-long="lyrics" data-long-when="checked" hidden>The dry run lists' in page
+    assert 'data-long="rescan" data-long-when="checked" hidden>Reads every file first' in page
+    assert 'data-long="lyrics"' not in page
     assert 'data-long="since" data-long-when="unchecked"' in page
 
 
