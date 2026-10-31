@@ -193,8 +193,8 @@ def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, mak
     settled(lambda: dashboard.client.get("/library", headers=EN))
     assert "data-reload-when-built" not in dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     release = threading.Event()
-    build = library.Index._build
-    monkeypatch.setattr(library.Index, "_build", lambda self: release.wait(5) and build(self))
+    files = library.cached_files
+    monkeypatch.setattr(library, "cached_files", lambda *a: release.wait(5) and files(*a))
     make_track(lib / "Moby/Play/01 Honey.m4a", title="Honey", artist="Moby", albumartist="Moby",
                album="Play", track=1)
     scan.run(lib, tmp_path / "state", Log())
