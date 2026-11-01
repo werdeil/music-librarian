@@ -13,26 +13,38 @@ in the library is changed.
 Exit codes: 0 = OK, 4 = stopped before the end.
 """
 import sys
+import time
 from collections import Counter
 
 from music_librarian.core import arguments
 from music_librarian.core.lock import EXIT_STOPPED, STOP
-from music_librarian.core.log import Log
+from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.enrich.common import album_folders
+from music_librarian.enrich.common import album_folders, rough
 from music_librarian.media import metadata_cache
 from music_librarian.media.metadata_cache import MetadataCache
 
 PROGRESS_EVERY = 1000
 
 
+def progress(read, seen, total, started):
+    """The SCAN line once `read` files were opened, `seen` of `total` gone through."""
+    spent = time.time() - started
+    line = f"SCAN     {seen}/{count(total, 'file')}, {read} read, {rough(spent)} spent"
+    return f"{line}, {rough(spent * (total - seen) / seen)} left" if seen < total else line
+
+
 def run(root, state_dir, log, force=False):
     """Refresh the cache for every music file under `root`; return the exit code."""
     genres = Counter()
     seen, reported, unreadable = [], 0, 0
+    folders = list(album_folders([str(root)], log))
+    total = sum(len(files) for _folder, files in folders)
+    log(f"SCAN     {count(total, 'file')} to go through")
+    started = time.time()
     with MetadataCache(state_dir, force) as cache:
-        for _folder, files in album_folders([str(root)], log):
+        for _folder, files in folders:
             if STOP.is_set():
                 log("STOP     requested: the files left are read on the next scan")
                 break
@@ -45,7 +57,7 @@ def run(root, state_dir, log, force=False):
                 genres.update(metadata_cache.genres(snap)[:1] or ["(none)"])
                 if cache.read_from_disk >= reported + PROGRESS_EVERY:
                     reported = cache.read_from_disk
-                    log(f"SCAN     {reported} files read, {len(seen)} seen")
+                    log(progress(reported, len(seen), total, started))
         stopped = STOP.is_set()
         removed = 0 if stopped else cache.prune(root, seen)
         read, cached = cache.read_from_disk, cache.from_cache
