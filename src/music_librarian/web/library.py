@@ -171,6 +171,15 @@ def album_folder(root: Path, rel):
     return folder if folder.is_relative_to(root) and folder.is_dir() else None
 
 
+def track_file(root: Path, rel, name):
+    """The track `name` of the album folder `rel`, or None when it is not one."""
+    folder = album_folder(root, rel)
+    if folder is None or not name or "/" in name or name in (".", ".."):
+        return None
+    path = folder / name
+    return path if path.is_file() and path.suffix.lower() in AUDIO_EXT and not is_junk(path) else None
+
+
 def tracks_of(folder: Path):
     """[(file name, fields.read() values or None when unreadable)] of the folder's tracks."""
     out = []
@@ -235,11 +244,28 @@ def edits(folder_rel, form, seen):
     return out
 
 
+def cover_file(folder: Path):
+    """The album's folder.jpg, whatever the case of its name, or None."""
+    return next((p for p in folder.iterdir() if p.name.lower() == "folder.jpg" and p.is_file()), None)
+
+
+def cover_version(root: Path, rel):
+    """What changes when the album's cover does, for its URL: the time of its folder.jpg, else
+    of its folder; "" for a folder not in the library."""
+    folder = album_folder(root, rel)
+    if folder is None:
+        return ""
+    try:
+        return str((cover_file(folder) or folder).stat().st_mtime_ns)
+    except OSError:
+        return ""
+
+
 def cover(folder: Path):
     """(bytes, mime type) of the album's folder.jpg, else of the first embedded cover of its
     tracks; None without either."""
-    jpg = folder / "folder.jpg"
-    if jpg.is_file():
+    jpg = cover_file(folder)
+    if jpg is not None:
         return jpg.read_bytes(), "image/jpeg"
     for p in sorted(folder.iterdir()):
         if p.is_file() and p.suffix.lower() in AUDIO_EXT and not is_junk(p):

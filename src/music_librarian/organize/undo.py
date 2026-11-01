@@ -18,8 +18,8 @@ def values(v):
     return v if isinstance(v, list) else [v] if v else []
 
 
-def shown(v):
-    return "; ".join(values(v)) or "(none)"
+def shown(v, field=None):
+    return fields.brief(field, values(v))
 
 
 def plan_tags(recs, root, log):
@@ -39,18 +39,18 @@ def plan_tags(recs, root, log):
         while (later := next(((j, dst) for j, dst in moves.get(path, ()) if j > at), None)):
             at, path = later
         try:
-            current = fields.read(path)
+            current = fields.read_field(path, r["field"])
         except Exception:
             current = None
         if current is None:
             log(f"REFUSED  (file missing or unreadable)  {relative(path, root)}")
             refused += 1
-        elif current[r["field"]] != values(r["new"]):
+        elif current != values(r["new"]):
             log(f"REFUSED  ({r['field']} changed since)  {relative(path, root)}")
             refused += 1
         else:
             log(f"RESTORE  {r['field']} of {relative(path, root)}\n"
-                f"         {shown(r['new'])} → {shown(r['old'])}")
+                f"         {shown(r['new'], r['field'])} → {shown(r['old'], r['field'])}")
             todo.append((path, r["field"], r["new"], r["old"]))
     return todo, refused
 

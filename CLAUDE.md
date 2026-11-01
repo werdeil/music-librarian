@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. `watch --listen` also serves a dashboard (Flask) of the recent runs and the library's albums, which queues passes (tag edits included) for `watch` to run. Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `tag` (tag fields rewritten, then refiled), `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
+A command-line tool, shipped as a single Docker container, that keeps a music library filed the way Apple Music does, imports new music from a drop folder (the Inbox), fills in missing ReplayGain, covers and lyrics, splits the composer and artist credits that hold several names, and unifies one artist spelled several ways. `watch --listen` also serves a dashboard (Flask) of the recent runs and the library's albums, which queues passes (tag edits included) for `watch` to run. Commands: `organize`, `import`, `enrich`, `split`, `dedupe`, `tag` (tag fields rewritten, then refiled), `cover` (an album's folder.jpg replaced, then embedded), `scan` (the metadata cache), `watch` (the container's long-running process) and `undo`. It can carry play counts and ratings over into a Lyrion Music Server database when files move. See the README for what each command does and `docs/` for the details.
 
 ## Commands
 
@@ -26,7 +26,7 @@ Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-e
 
 ## Architecture
 
-[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `tag.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
+[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `tag.py`, `cover.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
 
 Imports inside the package are absolute (`from music_librarian.core.lock import STOP`). The tests mirror the package under `tests/` and run with `--import-mode=importlib`.
 

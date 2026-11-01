@@ -2,7 +2,8 @@
 
 read() gives {field: [values]}, numbers as text ("3"); write() replaces one field's values,
 [] removing it. A track or disc number and its total share one tag in MP4 (trkn, disk) and
-MP3 (TRCK, TPOS "3/12"): writing one keeps the other.
+MP3 (TRCK, TPOS "3/12"): writing one keeps the other. The lyrics are a field too, read apart
+(lyrics(), read_field()) as read() leaves them out: one text, its lines joined by "\n".
 """
 from mutagen import File as MFile
 from mutagen.flac import FLAC
@@ -10,8 +11,12 @@ from mutagen.id3 import TXXX, Frames
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4, MP4FreeForm
 
+from music_librarian.core.log import count
+from music_librarian.media import tags as lyrics_tags
+
 FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "disc", "disctotal",
           "year", "genre", "composer", "compilation", "albumartist_mbid", "artist_mbid")
+LYRICS = "lyrics"
 NUMBERS = ("track", "tracktotal", "disc", "disctotal")
 PAIRS = {"track": ("track", 0), "tracktotal": ("track", 1), "disc": ("disc", 0), "disctotal": ("disc", 1)}
 
@@ -92,9 +97,34 @@ def read(path):
     return out
 
 
+def lyrics(path):
+    """The lyrics of the file at `path` as check() gives them: [text] or []."""
+    return check(LYRICS, [lyrics_tags.read_lyrics(path) or ""])
+
+
+def read_field(path, field):
+    """The values of one field of the file at `path`, the lyrics included."""
+    return lyrics(path) if field == LYRICS else read(path)[field]
+
+
+def brief(field, values):
+    """The values as a log line shows them: the lyrics by their number of lines."""
+    if field == LYRICS and values:
+        return count(len(values[0].split("\n")), "line")
+    return "; ".join(values) or "(none)"
+
+
+def _lyrics_text(text):
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    return "\n".join(line.rstrip() for line in lines).strip()
+
+
 def check(field, values):
     """The values as they are written: a number field takes one integer of 1 or more, the
-    compilation flag ["1"] or []. Raises FieldError."""
+    compilation flag ["1"] or [], the lyrics one text. Raises FieldError."""
+    if field == LYRICS:
+        text = _lyrics_text("\n".join(values))
+        return [text] if text else []
     if field not in FIELDS:
         raise FieldError(f"unknown field {field!r}")
     values = [v.strip() for v in values if v.strip()]
@@ -113,6 +143,12 @@ def check(field, values):
 def write(path, field, values):
     """Replace the values of `field` in the file at `path`; [] removes it. Raises FieldError."""
     values = check(field, values)
+    if field == LYRICS:
+        if values:
+            lyrics_tags.write_lyrics(path, values[0])
+        else:
+            lyrics_tags.clear_lyrics(path)
+        return
     f = _open(path)
     if f.tags is None:
         f.add_tags()

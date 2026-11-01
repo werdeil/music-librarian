@@ -495,7 +495,8 @@ button.primary {
 }
 
 input,
-select {
+select,
+textarea {
     font: inherit;
     line-height: 1.3;
     color: var(--text-bright);
@@ -511,6 +512,42 @@ select {
     padding-right: 1.8rem;
     background: #181818 url("chevron.svg") no-repeat right 0.5rem center / 0.75rem;
     cursor: pointer;
+}
+
+textarea.lyrics {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 40rem;
+    resize: vertical;
+}
+
+td.cell-link {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+td.cell-link a {
+    display: block;
+    margin: 0 -0.5rem;
+    padding: 0.4rem 0.5rem;
+    color: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    border-radius: 6px;
+}
+
+td.cell-link a:hover,
+td.cell-link a:focus-visible {
+    background: var(--surface);
+    color: var(--text-bright);
+}
+
+.cover-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
 }
 
 .search input {
