@@ -275,18 +275,15 @@ def cover(folder: Path):
     return None
 
 
-def lyrics_state(state_dir: Path, folder: Path, names):
-    """{file name: True when it carries lyrics, "instrumental" when they are the INSTRUMENTAL mark,
-    the time of a lookup in vain within the retry delay, else None}."""
-    missed = misses.recorded(state_dir)
+def lyrics_state(folder: Path, names):
+    """{file name: "instrumental" when its lyrics are the INSTRUMENTAL mark, else whether it has some}."""
     out = {}
     for name in names:
         try:
             text = tags.read_lyrics(folder / name)
         except Exception:
             text = None
-        out[name] = ("instrumental" if is_instrumental(text) else True if text
-                     else missed.get(folder / name))
+        out[name] = "instrumental" if is_instrumental(text) else bool(text)
     return out
 
 

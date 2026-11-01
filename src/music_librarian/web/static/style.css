@@ -522,6 +522,10 @@ textarea.lyrics {
     resize: vertical;
 }
 
+textarea.lyrics:read-only {
+    color: var(--text-muted);
+}
+
 td.cell-link {
     padding-top: 0;
     padding-bottom: 0;

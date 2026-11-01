@@ -68,11 +68,10 @@
                     <td colspan="{{ 5 if discs else 4 }}" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td>
                 {% endif %}
                     {% set state = lyrics.get(file) %}
-                    {% set quiet = not state or state == 'instrumental' %}
-                    {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state == 'instrumental'
-                                   else t.lyrics_missed.format(date=state) if state else t.lyrics_none %}
-                    {% set linked = values and (ctx.requests or state is sameas true or state == 'instrumental') %}
-                    <td class="{{ ['muted' if quiet else '' if state is sameas true else 'warning',
+                    {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state
+                                   else t.lyrics_none %}
+                    {% set linked = values and (ctx.requests or state) %}
+                    <td class="{{ ['' if state is sameas true else 'muted',
                                    'cell-link' if linked else ''] | select | join(' ') }}">
                         {%- if linked -%}
                         <a href="{{ url_for('track_lyrics', folder=folder, file=file) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
@@ -110,7 +109,6 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="folder" value="{{ folder }}">
         <button type="submit">{{ t.lyrics_button }}</button>
-        <button type="submit" formaction="{{ url_for('album_instrumental') }}">{{ t.lyrics_album_instrumental_button }}</button>
     </form>
 </section>
 {% endif %}

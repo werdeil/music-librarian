@@ -341,8 +341,7 @@ def create_app(ctx: Context):
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        lyrics = {name: (when(v) if isinstance(v, float) else v)
-                  for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
+        lyrics = library.lyrics_state(folder, [n for n, _ in tracks])
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
@@ -354,19 +353,6 @@ def create_app(ctx: Context):
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
         return submit("lyrics", {"folder": rel}, False)
-
-    @app.post("/library/album/instrumental")
-    def album_instrumental():
-        rel = request.form.get("folder", "")
-        folder = library.album_folder(ctx.root, rel)
-        if folder is None:
-            abort(404)
-        state = library.lyrics_state(ctx.state_dir, folder, [n for n, v in library.tracks_of(folder) if v])
-        edits = [[str(Path(rel) / name), fields.LYRICS, INSTRUMENTAL, []]
-                 for name, has in state.items() if has is not True and has != "instrumental"]
-        if not edits:
-            return redirect(url_for("album_page", folder=rel, unchanged="1"))
-        return submit("tag", {"edits": edits}, False)
 
     @app.get("/library/lyrics")
     def missed_lyrics():
@@ -437,8 +423,13 @@ def create_app(ctx: Context):
             return refused("track_unreadable", 404)
         return render_template("track_lyrics.html", folder=rel, file=name, values=values,
                                text=text[0] if text else "", seen=json.dumps(text),
-                               instrumental=bool(text) and is_instrumental(text[0]),
+                               instrumental=bool(text) and is_instrumental(text[0]), mark=INSTRUMENTAL,
+                               missed=None if text else when_missed(path),
                                unchanged=request.args.get("unchanged") == "1")
+
+    def when_missed(path):
+        at = misses.recorded(ctx.state_dir).get(path)
+        return when(at) if at else None
 
     @app.post("/library/track/lyrics")
     def edit_lyrics():

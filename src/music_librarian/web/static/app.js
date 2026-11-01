@@ -171,3 +171,27 @@
     log.scrollTop = log.scrollHeight;
     setTimeout(poll, POLL_INTERVAL_MS);
 }());
+
+// The instrumental box puts the mark in the lyrics and locks them; unticked, the text it replaced comes back.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-instrumental]").forEach(function (box) {
+        var text = box.form.elements.namedItem("lyrics");
+        var mark = box.dataset.instrumental;
+        var kept = "";
+
+        function update() {
+            if (box.checked && text.value !== mark) {
+                kept = text.value;
+                text.value = mark;
+            } else if (!box.checked && text.value === mark) {
+                text.value = kept;
+            }
+            text.readOnly = box.checked;
+        }
+
+        box.addEventListener("change", update);
+        update();
+    });
+}());

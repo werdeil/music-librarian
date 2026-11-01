@@ -49,8 +49,8 @@ def test_album_page_shows_each_track_s_lyrics(d):
     flat = page.replace("\n", "").replace("  ", "")
     assert ('<td class="cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
             'title="See and edit the lyrics">yes</a></td>') in flat
-    assert 'title="See and edit the lyrics">—</a>' in flat and 'class="warning cell-link"' in flat
-    assert "Look up the album&#39;s lyrics" in page
+    assert 'class="muted cell-link"' in flat and 'title="See and edit the lyrics">—</a>' in flat
+    assert "Look up the album&#39;s lyrics" in page and "in vain" not in page and "warning" not in flat
 
 
 def test_lookup_queued_then_applied(d, lib, tool):
@@ -149,8 +149,8 @@ def test_lyrics_changed_are_looked_up_again(d, lib):
     assert fields.lyrics(track) == []
     with Misses(d.state) as misses:
         assert not misses.recent(track, meta)
-    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert page.count("not found on ") == 1
+    assert "Looked up in vain on " in lyrics_page(d, "02 T2.m4a")
+    assert "Looked up in vain on " not in lyrics_page(d, "01 T1.m4a")
 
 
 def test_lyrics_changed_meanwhile_refused(d, lib, capsys):
@@ -164,31 +164,18 @@ def test_lyrics_changed_meanwhile_refused(d, lib, capsys):
 
 
 def test_track_marked_instrumental(d, lib):
-    d.client.post("/library/track/lyrics", data=lyrics_form(d, "02 T2.m4a", instrumental="1"))
+    page = lyrics_page(d, "02 T2.m4a")
+    assert 'name="instrumental" value="1" data-instrumental="[Instrumental]">' in page
+    d.client.post("/library/track/lyrics", data=lyrics_form(d, "02 T2.m4a", instrumental="1", lyrics="typed"))
     [asked] = d.requests.pending()
     assert asked.options["edits"] == [["Beyonce/4/02 T2.m4a", "lyrics", "[Instrumental]", []]]
     d.requests.submit("tag", asked.options, True)
     d.requests.tick(Log())
     assert tags.read_lyrics(lib / "Beyonce/4/02 T2.m4a") == "[Instrumental]"
-    assert "Preview as instrumental" not in lyrics_page(d, "02 T2.m4a")
-    assert "Preview as instrumental" in lyrics_page(d, "01 T1.m4a")
+    assert 'data-instrumental="[Instrumental]" checked>' in lyrics_page(d, "02 T2.m4a")
+    form = lyrics_form(d, "02 T2.m4a", instrumental="1")
+    assert d.client.post("/library/track/lyrics", data=form).location.endswith("unchanged=1")
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     flat = page.replace("\n", "").replace("  ", "")
     assert ('<td class="muted cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=02+T2.m4a" '
             'title="See and edit the lyrics">instrumental</a></td>') in flat
-
-
-def test_album_s_tracks_without_lyrics_marked_instrumental(d, lib):
-    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "Mark the tracks without lyrics as instrumental" in page
-    d.client.post("/library/album/instrumental", data={"csrf": d.token, "folder": "Beyonce/4"})
-    [asked] = d.requests.pending()
-    assert asked.options["edits"] == [["Beyonce/4/02 T2.m4a", "lyrics", "[Instrumental]", []],
-                                      ["Beyonce/4/03 T3.m4a", "lyrics", "[Instrumental]", []]]
-    d.requests.submit("tag", asked.options, True)
-    d.requests.tick(Log())
-    assert tags.read_lyrics(lib / "Beyonce/4/01 T1.m4a") == "la la"
-    assert d.client.post("/library/album/instrumental", data={"csrf": d.token, "folder": "Beyonce/4"}
-                         ).location.endswith("unchanged=1")
-    assert d.client.post("/library/album/instrumental",
-                         data={"csrf": d.token, "folder": "../"}).status_code == 404
