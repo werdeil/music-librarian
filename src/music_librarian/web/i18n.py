@@ -252,6 +252,7 @@ TRANSLATIONS = {
             "refused": "refusés", "to restore": "à restaurer", "tags to restore": "tags à restaurer",
             "files": "fichiers", "read": "lus", "from cache": "depuis le cache", "removed": "retirés",
             "unreadable": "illisibles", "to embed": "à intégrer", "embedded": "intégrées",
+            "time": "durée", "estimated time": "durée estimée",
         },
     },
     "en": {
