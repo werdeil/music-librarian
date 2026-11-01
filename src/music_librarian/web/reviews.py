@@ -1,8 +1,8 @@
 """split --review and dedupe --review on the dashboard: the queues of the terminal reviews, one
 question per page, each answer written at once to the decisions or the aliases file. And the
 genres the validated list does not know, each added to it as a name of a validated genre or as a
-genre of its own. And the tracks without lyrics, each answered as instrumental or not; only an
-instrumental is recorded, in instrumentals.txt, so a track answered no comes back.
+genre of its own. And the tracks without lyrics, each answered as instrumental, recorded in
+instrumentals.txt, or left for later.
 
 The queues are built from the metadata cache in the background, again whenever it changes, and
 count as None until first built; whether an item still needs an answer is checked against the

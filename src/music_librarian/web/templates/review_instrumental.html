@@ -28,7 +28,7 @@
         <input type="hidden" name="path" value="{{ item.path }}">
         <input type="hidden" name="position" value="{{ item.position }}">
         <button type="submit" class="primary">{{ t.instrumental_button }}</button>
-        <a class="button" href="{{ url_for('review_instrumental', **{'from': item.position + 1}) }}">{{ t.not_instrumental_button }}</a>
+        <a href="{{ url_for('review_instrumental', **{'from': item.position + 1}) }}">{{ t.later }}</a>
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>

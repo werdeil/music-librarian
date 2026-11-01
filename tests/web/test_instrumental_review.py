@@ -39,7 +39,7 @@ def test_each_track_without_lyrics_asked_in_turn(d):
     assert "Tracks without lyrics: 2" in page(d, "/reviews")
     text = page(d, "/reviews/instrumental")
     assert "T2" in text and "Rob Dougan · Films" in text and "Question 1 of 2" in text
-    assert 'href="/reviews/instrumental?from=1">Not instrumental</a>' in text
+    assert 'href="/reviews/instrumental?from=1">Later</a>' in text
     text = page(d, "/reviews/instrumental?from=1")
     assert "T3" in text and "Question 2 of 2" in text
     assert "No question left." in page(d, "/reviews/instrumental?from=2")
