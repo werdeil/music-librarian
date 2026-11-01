@@ -342,7 +342,7 @@ def create_app(ctx: Context):
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         lyrics = {name: (when(v) if isinstance(v, float) else v)
-                  for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
+                  for name, v in library.lyrics_state(ctx.state_dir, folder, tracks).items()}
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),

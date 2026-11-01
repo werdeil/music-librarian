@@ -88,7 +88,8 @@ def _search(artist, title):
 
 
 def _lyric(song_id):
-    """Return a NetEase song's LRC with its credit lines dropped, or "" when it has none.
+    """Return a NetEase song's LRC with its credit lines dropped, "" when it has none, or None
+    when NetEase calls it pure music.
 
     Raises ProviderUnavailable when NetEase can't be reached.
     """
@@ -102,7 +103,10 @@ def _lyric(song_id):
         if r.status_code != 200:
             log.info("netease: lyrics of song %s returned HTTP %s", song_id, r.status_code)
             return ""
-        text = ((r.json().get("lrc") or {}).get("lyric") or "").strip()
+        payload = r.json()
+        if payload.get("nolyric") or payload.get("pureMusic"):
+            return None
+        text = ((payload.get("lrc") or {}).get("lyric") or "").strip()
     except requests.RequestException as exc:
         raise ProviderUnavailable("netease") from exc
     except (ValueError, AttributeError) as exc:
@@ -128,6 +132,8 @@ def fetch(artist, title, _album, duration):
     song_id, meta = picked
 
     text = _lyric(song_id)
+    if text is None:
+        return {"lyrics": None, "synced": None, "instrumental": True, "meta": meta}
     log.debug("netease: song %s (%r, %ss), %d characters",
               song_id, meta["album"], int_duration(meta["duration"]), len(text))
     if not text:

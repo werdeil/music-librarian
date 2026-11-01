@@ -54,6 +54,27 @@ class ProviderChainTest(unittest.TestCase):
         res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=True)
         self.assertEqual(res["source"], "netease")
 
+    def test_an_instrumental_answer_ends_the_chain(self):
+        second = _answers(PLAIN)
+        self._use(("lrclib", _answers({"instrumental": True, "meta": META})), ("netease", second))
+        res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=True)
+        self.assertEqual((res["source"], res["instrumental"], res["lyrics"]), ("lrclib", True, None))
+        self.assertEqual(second.calls, 0)
+
+    def test_an_instrumental_answer_is_verified_too(self):
+        wrong = {"instrumental": True, "meta": {**META, "title": "Other"}}
+        self._use(("lrclib", _answers(wrong)), ("netease", _answers(PLAIN)))
+        res = L.fetch_lyrics("Muse", "Space Debris", duration="247", verify=True)
+        self.assertEqual(res["source"], "netease")
+        self.assertNotIn("instrumental", res)
+
+    def test_titled_instrumental(self):
+        for title in ("Hey (Instrumental)", "Hey - Instrumental Version", "Hey [Inst.]", "Hey (inst)",
+                      "Version instrumentale", "Instrumental"):
+            self.assertTrue(L.titled_instrumental(title), title)
+        for title in ("Hey", "Instrumentality", "Install", "Hey (Instant)", None, ""):
+            self.assertFalse(L.titled_instrumental(title), title)
+
     def test_no_artist_or_title_asks_no_provider(self):
         provider = _answers(PLAIN)
         self._use(("lrclib", provider))

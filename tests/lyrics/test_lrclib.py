@@ -98,6 +98,13 @@ class LrclibSyncedPreferenceTest(unittest.TestCase):
         result = self._fetch(fake)
         self.assertEqual(result["lyrics"], "from search")
 
+    def test_an_instrumental_get_hit_ends_there(self):
+        record = {**_record(1, plain=None), "instrumental": True}
+        fake = _Lrclib(get=record, searches=[[_record(2, synced="[00:12.00] la")]])
+        result = self._fetch(fake)
+        self.assertTrue(result["instrumental"])
+        self.assertEqual(fake.search_calls, [])
+
     def test_nothing_anywhere_returns_none(self):
         self.assertIsNone(self._fetch(_Lrclib(get=None, searches=[[], []])))
 

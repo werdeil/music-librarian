@@ -64,6 +64,11 @@ class MusixmatchTest(unittest.TestCase):
         self.assertEqual(found["synced"], "[00:01.00] la la la")
         self.assertEqual(found["meta"]["title"], "Space Debris")
 
+    def test_an_instrumental_says_so(self):
+        found = self._fetch(_macro({**TRACK, "instrumental": 1}, {"lyrics_body": ""}, None))
+        self.assertTrue(found["instrumental"])
+        self.assertIsNone(self._fetch(_macro({**TRACK, "instrumental": 0}, {"lyrics_body": ""}, None)))
+
     def test_another_song_is_dropped(self):
         payload = _macro(
             {"track_name": "Nu Ma Uita", "artist_name": "Elena", "track_length": 199},

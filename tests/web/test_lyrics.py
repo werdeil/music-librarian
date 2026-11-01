@@ -22,9 +22,15 @@ def lib(tmp_path, make_track):
     for n in (1, 2, 3):
         make_track(root / f"Beyonce/4/0{n} T{n}.m4a", title=f"T{n}", artist="Beyonce",
                    albumartist="Beyonce", album="4", track=n)
+    make_track(root / "Beyonce/4/04 T4 (Instrumental).m4a", title="T4 (Instrumental)", artist="Beyonce",
+               albumartist="Beyonce", album="4", track=4)
+    make_track(root / "Beyonce/4/05 T5.m4a", title="T5", artist="Beyonce", albumartist="Beyonce",
+               album="4", track=5)
     tags.write_lyrics(root / "Beyonce/4/01 T1.m4a", "la la")
     with Misses(tmp_path / "state") as misses:
         misses.record(root / "Beyonce/4/02 T2.m4a", {"artist": "Beyonce", "title": "T2", "album": "4"})
+        misses.record(root / "Beyonce/4/05 T5.m4a", {"artist": "Beyonce", "title": "T5", "album": "4"},
+                      instrumental=True)
     scan.run(root, tmp_path / "state", Log())
     return root
 
@@ -50,6 +56,8 @@ def test_album_page_shows_each_track_s_lyrics(d):
     assert ('<td class="cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
             'title="See and edit the lyrics">yes</a></td>') in flat
     assert 'title="See and edit the lyrics">—</a>' in flat and 'class="warning cell-link"' in flat
+    assert flat.count('class="muted cell-link"><a href="/library/track/lyrics?folder=Beyonce/4') == 3
+    assert flat.count('title="See and edit the lyrics">instrumental</a>') == 2
     assert "Look up the album&#39;s lyrics" in page
 
 
@@ -76,7 +84,7 @@ def test_tracks_without_lyrics(d):
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
     assert 'Tracks without lyrics: 2 <a href="/library/lyrics">see</a>' in library_page
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
-    assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 3</td>" in page
+    assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 5</td>" in page   # instrumentals left out
     assert "<td>—</td>" not in page                         # one of them was looked up in vain
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     tile = home[home.index("Tracks without lyrics") - 300:home.index("Tracks without lyrics")]

@@ -1,6 +1,7 @@
 """Lyrics lookup on the web: providers tried in `LYRICS_PROVIDERS` order, the first usable answer wins."""
 import logging
 import os
+import re
 import time
 
 from music_librarian.lyrics import lrclib, musixmatch, netease
@@ -10,13 +11,20 @@ from music_librarian.lyrics.matching import int_duration, matches_request
 log = logging.getLogger(__name__)
 
 # A provider takes (artist, title, album, duration) and returns None or {"lyrics", "synced", "meta"},
-# meta being the matched candidate's own artist/title/album/duration, for matches_request.
+# meta being the matched candidate's own artist/title/album/duration, for matches_request;
+# "instrumental": True instead of lyrics when it says the track has none.
 PROVIDERS = {
     "lrclib": lrclib.fetch,
     "musixmatch": musixmatch.fetch,
     "netease": netease.fetch,
 }
 DEFAULT_PROVIDER_ORDER = "lrclib,netease"
+_INSTRUMENTAL_TITLE = re.compile(r"\binstrumental(e|es|s)?\b|[(\[]\s*inst\.?\s*[)\]]", re.IGNORECASE)
+
+
+def titled_instrumental(title):
+    """True when the title says the track is instrumental: "Song (Instrumental)", "Song [Inst.]"."""
+    return bool(title and _INSTRUMENTAL_TITLE.search(title))
 
 
 def _elapsed_ms(started):
@@ -41,16 +49,16 @@ def _log_rejected(name, meta, artist, title, duration):
 def fetch_lyrics(artist, title, album=None, duration=None, verify=False):
     """Ask each enabled provider in turn and return the first usable answer.
 
-    Returns {"lyrics": str|None, "synced": str|None, "source": str}: `source` is the
-    provider that answered, "none" when nothing was found, "rejected" when a candidate
-    failed verification, or "unavailable" when no provider could be reached or none is
-    enabled, which says nothing about what the providers carry.
+    Returns {"lyrics": str|None, "synced": str|None, "source": str}, with "instrumental": True
+    when the provider that answered says the track has none: `source` is that provider, "none"
+    when nothing was found, "rejected" when a candidate failed verification, or "unavailable" when
+    no provider could be reached or none is enabled, which says nothing about what they carry.
 
     With `verify=True`, an answer is only accepted when its own metadata matches the
     requested track (see matches_request).
     """
     if not title or not artist:
-        return {"lyrics": None, "synced": None, "source": "none"}
+        return _nothing("none")
     providers = enabled_providers()
     if not providers:
         log.info("lyrics: web search disabled, LYRICS_PROVIDERS=%r resolves to no provider",
@@ -70,7 +78,7 @@ def fetch_lyrics(artist, title, album=None, duration=None, verify=False):
             log.warning("lyrics: %s failed after %d ms (%s: %s)",
                         name, _elapsed_ms(started), type(exc).__name__, exc)
             continue
-        if not (found and (found.get("lyrics") or found.get("synced"))):
+        if not (found and (found.get("lyrics") or found.get("synced") or found.get("instrumental"))):
             log.info("lyrics: %s has no match (%d ms)", name, _elapsed_ms(started))
             continue
         if verify and not matches_request(found.get("meta"), artist, title, duration):
@@ -78,8 +86,15 @@ def fetch_lyrics(artist, title, album=None, duration=None, verify=False):
             rejected = True
             continue
         log.debug("lyrics: %s matched in %d ms", name, _elapsed_ms(started))
+        if found.get("instrumental"):
+            log.info("lyrics: %s says %r by %r is instrumental", name, title, artist)
+            return {**_nothing(name), "instrumental": True}
         return {"lyrics": found.get("lyrics"), "synced": found.get("synced"), "source": name}
 
     if unreachable == len(providers):
-        return {"lyrics": None, "synced": None, "source": "unavailable"}
-    return {"lyrics": None, "synced": None, "source": "rejected" if rejected else "none"}
+        return _nothing("unavailable")
+    return _nothing("rejected" if rejected else "none")
+
+
+def _nothing(source):
+    return {"lyrics": None, "synced": None, "source": source}

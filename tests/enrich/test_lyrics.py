@@ -190,3 +190,27 @@ def test_no_provider_enabled_records_no_miss(album, web, monkeypatch, tmp_path):
     assert run(d) == 0
     calls, _ = web
     assert calls == [] and not (tmp_path / "state" / "lyrics-misses.db").exists()
+
+
+def test_titled_instrumental_not_looked_up(album, web, make_track, capsys):
+    d, _ = album
+    make_track(d / "05 Titre (Instrumental).m4a", title="Titre (Instrumental)", artist="Nirvana")
+    assert run(d, "--dry-run") == 0
+    assert "to look up: 3" in capsys.readouterr().out
+    assert run(d, "--retry") == 0
+    calls, _ = web
+    assert len(calls) == 3 and "instrumental: 1" in capsys.readouterr().out
+
+
+def test_instrumental_answer_kept_past_retry(album, web, capsys):
+    d, tracks = album
+    calls, answer = web
+    answer.update(synced=None, instrumental=True)
+    assert run(d) == 0
+    out = capsys.readouterr().out
+    assert "(instrumental, says lrclib)" in out and "instrumental: 3" in out
+    assert not any(tags.has_lyrics(str(t)) for t in tracks)
+    assert run(d, "--retry") == 0
+    assert len(calls) == 3
+    assert run(d, "--force") == 0
+    assert len(calls) == 6

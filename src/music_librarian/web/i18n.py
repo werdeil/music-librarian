@@ -161,6 +161,7 @@ TRANSLATIONS = {
         "lyrics": "Paroles",
         "lyrics_present": "oui",
         "lyrics_missed": "cherchées en vain le {date}",
+        "lyrics_instrumental": "instrumental",
         "lyrics_none": "—",
         "lyrics_button": "Chercher les paroles de l'album",
         "lyrics_open": "Voir et modifier les paroles",
@@ -177,7 +178,8 @@ TRANSLATIONS = {
         "without_lyrics": "Sans paroles",
         "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles, le plus d'abord. "
                               "enrich les cherche chaque semaine ; un morceau cherché en vain n'est "
-                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album."),
+                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album. "
+                              "Les instrumentaux n'y figurent pas."),
         "lyrics_none_missing": "Tous les morceaux ont des paroles.",
         "tile_lyrics": "Morceaux sans paroles",
         "last_lookup": "Dernière recherche vaine",
@@ -236,7 +238,8 @@ TRANSLATIONS = {
             "up to date": "à jour", "without folder.jpg": "sans folder.jpg",
             "audio growth (MB)": "audio en plus (Mo)", "written": "écrites", "cleared": "effacées",
             "already": "déjà présentes", "not found": "introuvables", "rejected": "rejetées",
-            "unreachable": "injoignables", "searched recently": "cherchées récemment",
+            "unreachable": "injoignables", "instrumental": "instrumentaux",
+            "searched recently": "cherchées récemment",
             "no metadata": "sans métadonnées", "credits to split": "crédits à découper",
             "tags to rewrite": "tags à réécrire", "awaiting decision": "en attente de décision",
             "protected": "protégés", "decisions": "décisions", "review": "revue",
@@ -402,6 +405,7 @@ TRANSLATIONS = {
         "lyrics": "Lyrics",
         "lyrics_present": "yes",
         "lyrics_missed": "not found on {date}",
+        "lyrics_instrumental": "instrumental",
         "lyrics_none": "—",
         "lyrics_button": "Look up the album's lyrics",
         "lyrics_open": "See and edit the lyrics",
@@ -418,7 +422,7 @@ TRANSLATIONS = {
         "without_lyrics": "Without lyrics",
         "lyrics_page_intro": ("The albums whose tracks have no lyrics, the most first. enrich looks them "
                               "up every week; a track looked up in vain is only looked up again after "
-                              "{days} days, or right away from the album's page."),
+                              "{days} days, or right away from the album's page. Instrumentals are left out."),
         "lyrics_none_missing": "Every track has lyrics.",
         "tile_lyrics": "Tracks without lyrics",
         "last_lookup": "Last lookup in vain",
