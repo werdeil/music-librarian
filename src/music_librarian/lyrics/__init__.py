@@ -1,7 +1,6 @@
 """Lyrics lookup on the web: providers tried in `LYRICS_PROVIDERS` order, the first usable answer wins."""
 import logging
 import os
-import re
 import time
 
 from music_librarian.lyrics import lrclib, musixmatch, netease
@@ -19,12 +18,13 @@ PROVIDERS = {
     "netease": netease.fetch,
 }
 DEFAULT_PROVIDER_ORDER = "lrclib,netease"
-_INSTRUMENTAL_TITLE = re.compile(r"\binstrumental(e|es|s)?\b|[(\[]\s*inst\.?\s*[)\]]", re.IGNORECASE)
+# The lyrics tag of a track without words: enrich takes it for lyrics, so never looks the track up.
+INSTRUMENTAL = "[Instrumental]"
 
 
-def titled_instrumental(title):
-    """True when the title says the track is instrumental: "Song (Instrumental)", "Song [Inst.]"."""
-    return bool(title and _INSTRUMENTAL_TITLE.search(title))
+def is_instrumental(text):
+    """True when a lyrics tag holds the INSTRUMENTAL mark, in any case."""
+    return bool(text) and text.strip().casefold() == INSTRUMENTAL.casefold()
 
 
 def _elapsed_ms(started):

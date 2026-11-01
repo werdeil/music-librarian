@@ -166,6 +166,8 @@ TRANSLATIONS = {
         "lyrics_button": "Chercher les paroles de l'album",
         "lyrics_open": "Voir et modifier les paroles",
         "lyrics_delete_button": "Prévisualiser la suppression",
+        "lyrics_instrumental_button": "Prévisualiser comme instrumental",
+        "lyrics_album_instrumental_button": "Marquer les morceaux sans paroles comme instrumentaux",
         "track_unreadable": "Ce morceau est illisible.",
         "cover": "Pochette",
         "cover_file": "Image",
@@ -179,7 +181,7 @@ TRANSLATIONS = {
         "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles, le plus d'abord. "
                               "enrich les cherche chaque semaine ; un morceau cherché en vain n'est "
                               "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album. "
-                              "Les instrumentaux n'y figurent pas."),
+                              "Un morceau marqué instrumental n'y figure pas."),
         "lyrics_none_missing": "Tous les morceaux ont des paroles.",
         "tile_lyrics": "Morceaux sans paroles",
         "last_lookup": "Dernière recherche vaine",
@@ -410,6 +412,8 @@ TRANSLATIONS = {
         "lyrics_button": "Look up the album's lyrics",
         "lyrics_open": "See and edit the lyrics",
         "lyrics_delete_button": "Preview the deletion",
+        "lyrics_instrumental_button": "Preview as instrumental",
+        "lyrics_album_instrumental_button": "Mark the tracks without lyrics as instrumental",
         "track_unreadable": "This track cannot be read.",
         "cover": "Cover",
         "cover_file": "Image",
@@ -422,7 +426,8 @@ TRANSLATIONS = {
         "without_lyrics": "Without lyrics",
         "lyrics_page_intro": ("The albums whose tracks have no lyrics, the most first. enrich looks them "
                               "up every week; a track looked up in vain is only looked up again after "
-                              "{days} days, or right away from the album's page. Instrumentals are left out."),
+                              "{days} days, or right away from the album's page. A track marked "
+                              "instrumental is left out."),
         "lyrics_none_missing": "Every track has lyrics.",
         "tile_lyrics": "Tracks without lyrics",
         "last_lookup": "Last lookup in vain",

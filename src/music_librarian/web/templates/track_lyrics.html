@@ -24,6 +24,7 @@
     <div class="actions">
         <button type="submit" class="primary">{{ t.preview_button }}</button>
         {% if text %}<button type="submit" name="delete" value="1">{{ t.lyrics_delete_button }}</button>{% endif %}
+        {% if not instrumental %}<button type="submit" name="instrumental" value="1">{{ t.lyrics_instrumental_button }}</button>{% endif %}
     </div>
     {% endif %}
 </form>

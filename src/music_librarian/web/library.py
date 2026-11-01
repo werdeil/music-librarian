@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from music_librarian.core.files import AUDIO_EXT, is_junk
-from music_librarian.lyrics import misses, titled_instrumental
+from music_librarian.lyrics import is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -145,11 +145,9 @@ class Index:
         if cache_stamp(self.state_dir)[0] is None:
             return []
         folders, bare = defaultdict(list), defaultdict(int)
-        known = misses.instrumentals(self.state_dir)
         for path, snap in cached_files(self.root, self.state_dir):
             folders[path.parent].append(snap["tags"])
-            bare[path.parent] += not snap.get("lyrics") and not instrumental(
-                path, metadata_cache.metadata(snap), known)
+            bare[path.parent] += not snap.get("lyrics")
         albums = []
         for folder, tracks in folders.items():
             artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),
@@ -277,24 +275,17 @@ def cover(folder: Path):
     return None
 
 
-def instrumental(path: Path, meta, known):
-    """Whether enrich takes the track for an instrumental, `known` being misses.instrumentals()."""
-    return bool(meta) and (titled_instrumental(meta.get("title"))
-                           or known.get(path) == misses.query(meta))
-
-
-def lyrics_state(state_dir: Path, folder: Path, tracks):
-    """{file name: True when it carries lyrics, "instrumental", the time of a lookup in vain
-    within the retry delay, else None} of `tracks`, as tracks_of() gives them."""
-    missed, known = misses.recorded(state_dir), misses.instrumentals(state_dir)
+def lyrics_state(state_dir: Path, folder: Path, names):
+    """{file name: True when it carries lyrics, "instrumental" when they are the INSTRUMENTAL mark,
+    the time of a lookup in vain within the retry delay, else None}."""
+    missed = misses.recorded(state_dir)
     out = {}
-    for name, values in tracks:
+    for name in names:
         try:
-            has = tags.has_lyrics(folder / name)
+            text = tags.read_lyrics(folder / name)
         except Exception:
-            has = False
-        meta = values and {key: next(iter(values.get(key) or []), None) for key in ("artist", "title", "album")}
-        out[name] = (True if has else "instrumental" if instrumental(folder / name, meta, known)
+            text = None
+        out[name] = ("instrumental" if is_instrumental(text) else True if text
                      else missed.get(folder / name))
     return out
 

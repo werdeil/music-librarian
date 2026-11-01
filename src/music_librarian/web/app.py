@@ -22,7 +22,7 @@ from music_librarian import __version__, cover
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
-from music_librarian.lyrics import misses
+from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
@@ -342,7 +342,7 @@ def create_app(ctx: Context):
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         lyrics = {name: (when(v) if isinstance(v, float) else v)
-                  for name, v in library.lyrics_state(ctx.state_dir, folder, tracks).items()}
+                  for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
@@ -354,6 +354,19 @@ def create_app(ctx: Context):
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
         return submit("lyrics", {"folder": rel}, False)
+
+    @app.post("/library/album/instrumental")
+    def album_instrumental():
+        rel = request.form.get("folder", "")
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
+            abort(404)
+        state = library.lyrics_state(ctx.state_dir, folder, [n for n, v in library.tracks_of(folder) if v])
+        edits = [[str(Path(rel) / name), fields.LYRICS, INSTRUMENTAL, []]
+                 for name, has in state.items() if has is not True and has != "instrumental"]
+        if not edits:
+            return redirect(url_for("album_page", folder=rel, unchanged="1"))
+        return submit("tag", {"edits": edits}, False)
 
     @app.get("/library/lyrics")
     def missed_lyrics():
@@ -424,6 +437,7 @@ def create_app(ctx: Context):
             return refused("track_unreadable", 404)
         return render_template("track_lyrics.html", folder=rel, file=name, values=values,
                                text=text[0] if text else "", seen=json.dumps(text),
+                               instrumental=bool(text) and is_instrumental(text[0]),
                                unchanged=request.args.get("unchanged") == "1")
 
     @app.post("/library/track/lyrics")
@@ -437,7 +451,8 @@ def create_app(ctx: Context):
             abort(400)
         if not isinstance(seen, list) or not all(isinstance(v, str) for v in seen):
             abort(400)
-        value = "" if request.form.get("delete") else request.form.get("lyrics", "")
+        value = ("" if request.form.get("delete") else INSTRUMENTAL if request.form.get("instrumental")
+                 else request.form.get("lyrics", ""))
         if fields.check(fields.LYRICS, [value]) == seen:
             return redirect(url_for("track_lyrics", folder=rel, file=name, unchanged="1"))
         return submit("tag", {"edits": [[str(Path(rel) / name), fields.LYRICS, value, seen]]}, False)

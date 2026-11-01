@@ -192,25 +192,38 @@ def test_no_provider_enabled_records_no_miss(album, web, monkeypatch, tmp_path):
     assert calls == [] and not (tmp_path / "state" / "lyrics-misses.db").exists()
 
 
-def test_titled_instrumental_not_looked_up(album, web, make_track, capsys):
-    d, _ = album
-    make_track(d / "05 Titre (Instrumental).m4a", title="Titre (Instrumental)", artist="Nirvana")
-    assert run(d, "--dry-run") == 0
-    assert "to look up: 3" in capsys.readouterr().out
-    assert run(d, "--retry") == 0
-    calls, _ = web
-    assert len(calls) == 3 and "instrumental: 1" in capsys.readouterr().out
-
-
-def test_instrumental_answer_kept_past_retry(album, web, capsys):
+def test_instrumental_answer_writes_the_mark(album, web, capsys):
     d, tracks = album
     calls, answer = web
     answer.update(synced=None, instrumental=True)
+    assert run(d, "--dry-run", "--look-up") == 0
+    assert "WOULD    write" in capsys.readouterr().out and not tags.has_lyrics(str(tracks[0]))
     assert run(d) == 0
     out = capsys.readouterr().out
-    assert "(instrumental, says lrclib)" in out and "instrumental: 3" in out
-    assert not any(tags.has_lyrics(str(t)) for t in tracks)
-    assert run(d, "--retry") == 0
-    assert len(calls) == 3
-    assert run(d, "--force") == 0
-    assert len(calls) == 6
+    assert "(instrumental)" in out and "instrumental: 3" in out
+    assert all(tags.read_lyrics(str(t)) == "[Instrumental]" for t in tracks)
+    assert run(d, "--retry") == 0 and len(calls) == 6
+
+
+def test_the_mark_survives_clear_and_force(album, web):
+    _, tracks = album
+    calls, answer = web
+    tags.write_lyrics(str(tracks[0]), "[Instrumental]")
+    answer.update(synced=None, source="none")
+    assert run(tracks[0], "--clear") == 0 and calls == []
+    assert run(tracks[0], "--force") == 0 and len(calls) == 1
+    assert tags.read_lyrics(str(tracks[0])) == "[Instrumental]"
+    answer.update(synced=SYNCED, source="lrclib")
+    assert run(tracks[0], "--force") == 0
+    assert tags.read_lyrics(str(tracks[0])) == "la la\nlo lo"
+
+
+def test_existing_lyrics_replaced_by_the_mark_under_clear_only(album, web):
+    _, tracks = album
+    tags.write_lyrics(str(tracks[0]), "déjà là")
+    _, answer = web
+    answer.update(synced=None, instrumental=True)
+    run(tracks[0], "--force")
+    assert tags.read_lyrics(str(tracks[0])) == "déjà là"
+    run(tracks[0], "--clear")
+    assert tags.read_lyrics(str(tracks[0])) == "[Instrumental]"

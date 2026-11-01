@@ -68,12 +68,11 @@ class ProviderChainTest(unittest.TestCase):
         self.assertEqual(res["source"], "netease")
         self.assertNotIn("instrumental", res)
 
-    def test_titled_instrumental(self):
-        for title in ("Hey (Instrumental)", "Hey - Instrumental Version", "Hey [Inst.]", "Hey (inst)",
-                      "Version instrumentale", "Instrumental"):
-            self.assertTrue(L.titled_instrumental(title), title)
-        for title in ("Hey", "Instrumentality", "Install", "Hey (Instant)", None, ""):
-            self.assertFalse(L.titled_instrumental(title), title)
+    def test_instrumental_mark(self):
+        for text in ("[Instrumental]", " [instrumental]\n"):
+            self.assertTrue(L.is_instrumental(text), text)
+        for text in ("Instrumental", "[Instrumental]\nla la", None, ""):
+            self.assertFalse(L.is_instrumental(text), text)
 
     def test_no_artist_or_title_asks_no_provider(self):
         provider = _answers(PLAIN)
