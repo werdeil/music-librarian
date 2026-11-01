@@ -29,7 +29,8 @@ UPLOAD_DAYS = 7
 OPTIONS = {
     "import": (),
     "organize": ("since",),
-    "enrich": ("rescan", "no_genres", "no_replaygain", "no_covers", "no_lyrics", "no_split", "no_dedupe"),
+    "enrich": ("rescan", "no_genres", "no_replaygain", "no_covers", "no_lyrics", "retry", "no_split",
+               "no_dedupe"),
     "scan": ("force",),
     "split": (),
     "dedupe": (),
@@ -41,7 +42,7 @@ OPTIONS = {
     "instrumental": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
-LONG_WHEN = {"since": False, "rescan": True, "force": True}
+LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
 FORMS = {command: names for command, names in OPTIONS.items()
          if command not in ("undo", "tag", "lyrics", "cover")}
 
@@ -169,6 +170,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_enrich(r, log):
         opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")),
+                       retry=bool(r.options.get("retry")),
                        split=not r.options.get("no_split"), dedupe=not r.options.get("no_dedupe"),
                        left_out=frozenset(name for name in enrich.TOOLS if r.options.get(f"no_{name}")))
         return kept("enrich", lambda: enrich.run(opts, log), log, r)

@@ -32,6 +32,7 @@ with the time the pass applied would take, tool by tool.
   music-librarian enrich          # dry run: what each tool would do, how long
   music-librarian enrich --apply
   music-librarian enrich --rescan # first read the whole library again (scan --force)
+  music-librarian enrich --retry  # look up the lyrics found in vain recently too
 
 The tools read the tags through the metadata cache (media/metadata_cache.py),
 so a pass only opens the files that changed; a complete pass drops the files
@@ -104,6 +105,7 @@ class Options:
     state_dir: Path = field(default_factory=state_path)
     batch: int = BATCH
     rescan: bool = False
+    retry: bool = False
     split: bool = True
     dedupe: bool = True
     left_out: frozenset = frozenset()   # names of TOOLS not run
@@ -123,6 +125,8 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=BATCH, help=f"folders per tool call (default: {BATCH})")
     ap.add_argument("--rescan", action="store_true",
                     help="first read every file of the library again into the metadata cache")
+    ap.add_argument("--retry", action="store_true",
+                    help="look up the lyrics of the tracks looked up in vain within LYRICS_RETRY_DAYS too")
     ap.add_argument("--no-genres", action="store_true", help="without aligning the genres")
     ap.add_argument("--no-replaygain", action="store_true", help="without measuring the missing gains")
     ap.add_argument("--no-covers", action="store_true", help="without embedding folder.jpg")
@@ -133,7 +137,7 @@ def main(argv=None):
     arguments.add_syslog(ap)
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
-                   batch=args.batch, rescan=args.rescan, split=not args.no_split,
+                   batch=args.batch, rescan=args.rescan, retry=args.retry, split=not args.no_split,
                    dedupe=not args.no_dedupe,
                    left_out=frozenset(name for name in TOOLS if getattr(args, f"no_{name}")))
     log = Log(args.syslog)
@@ -280,6 +284,8 @@ def enrich_all(opts, log):
             continue
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
+        if name == "lyrics" and opts.retry:
+            cmd = [*cmd, "--retry"]
         log(f"ENRICH   ({name})  step {steps.index(name) + 1}/{len(steps)}")
         outcome = tool_batches(name, cmd, batches, env, log)
         if outcome is None:

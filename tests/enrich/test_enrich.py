@@ -116,6 +116,12 @@ def test_rescan_reads_everything_first(lib, tools, tmp_path, capsys):
     assert out.index("Scan summary") < out.index("Enrichment summary")
 
 
+def test_retry_passed_to_the_lyrics_only(lib, tools, tmp_path):
+    assert run(lib, tmp_path / "state", "--retry") == 0
+    assert tools.calls() == [f"{name} --dry-run{' --retry' if name == 'lyrics' else ''} {lib}"
+                             for name in enrich.TOOLS]
+
+
 def test_dry_run(lib, tools, tmp_path):
     state = tmp_path / "state"
     assert run(lib, state, "--batch", "1") == 0

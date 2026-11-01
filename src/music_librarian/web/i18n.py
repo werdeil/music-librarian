@@ -103,6 +103,8 @@ TRANSLATIONS = {
         "long_since": "Parcourt toute la bibliothèque, pas seulement les dossiers changés.",
         "long_rescan": ("Relit d'abord chaque fichier : une vingtaine de minutes pour 25 000 pistes "
                         "sur disque dur."),
+        "long_retry": ("Cherche en ligne chaque morceau cherché en vain depuis moins de "
+                       "LYRICS_RETRY_DAYS jours : environ 1,5 s par morceau."),
         "long_force": "Relit chaque fichier : une vingtaine de minutes pour 25 000 pistes sur disque dur.",
         "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
                    "enrich": "Compléter genres, gain, pochettes et paroles",
@@ -112,6 +114,7 @@ TRANSLATIONS = {
         "queued": "En file",
         "opt_since": "dossiers changés depuis le dernier passage (--since)",
         "opt_rescan": "relire d'abord toute la bibliothèque (--rescan)",
+        "opt_retry": "chercher aussi les paroles cherchées en vain récemment (--retry)",
         "opt_genres": "aligner les genres sur la liste validée",
         "opt_replaygain": "mesurer le ReplayGain manquant",
         "opt_covers": "intégrer folder.jpg dans les pistes",
@@ -355,6 +358,8 @@ TRANSLATIONS = {
         "start_dry_run": "Start the dry run",
         "long_since": "Goes through the whole library, not only the folders changed.",
         "long_rescan": "Reads every file first: about 20 minutes for 25,000 tracks on a hard disk.",
+        "long_retry": ("Looks up online every track looked up in vain within the last LYRICS_RETRY_DAYS "
+                       "days: about 1.5 s a track."),
         "long_force": "Reads every file again: about 20 minutes for 25,000 tracks on a hard disk.",
         "passes": {"import": "Import the Inbox", "organize": "File the library",
                    "enrich": "Fill in genres, gain, covers and lyrics",
@@ -364,6 +369,7 @@ TRANSLATIONS = {
         "queued": "Queued",
         "opt_since": "folders changed since the last pass (--since)",
         "opt_rescan": "read the whole library again first (--rescan)",
+        "opt_retry": "look up the lyrics found in vain recently too (--retry)",
         "opt_genres": "align the genres with the validated list",
         "opt_replaygain": "measure the missing ReplayGain",
         "opt_covers": "embed folder.jpg into the tracks",
