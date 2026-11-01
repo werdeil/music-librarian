@@ -38,7 +38,7 @@ HISTORY_PAGE = 50
 MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
-               "review_genres", "genre_list_page"}
+               "review_genres", "genre_list_page", "review_instrumental"}
 
 
 @dataclass

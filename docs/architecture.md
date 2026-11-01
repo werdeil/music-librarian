@@ -42,7 +42,8 @@ src/music_librarian/
 ├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
 │   ├── matching.py  is a provider's answer this recording?
-│   └── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
+│   ├── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
+│   └── instrumentals.py  the tracks the dashboard's review answered as instrumental
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), fields.py (every field tag and undo rewrite, in each
 │                    format), credit_tags.py (album artist, artist, composer), artwork.py (image

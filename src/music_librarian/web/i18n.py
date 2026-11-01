@@ -186,15 +186,21 @@ TRANSLATIONS = {
         "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
         "genres_waiting": "Genres en attente de réponse : {n}",
+        "instrumental_review": "Morceaux sans paroles : instrumentaux ?",
+        "bare_waiting": "Morceaux sans paroles : {n}",
+        "instrumentals_answered": "à marquer instrumentaux : {n}",
+        "instrumental_button": "Instrumental",
+        "not_instrumental_button": "Pas instrumental",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
         "itunes_hint": "iTunes classe ces albums en « {genre} ».",
         "alias_button": "En faire un nom de ce genre",
         "new_genre_button": "En faire un genre validé",
         "reviews": "Revues",
         "questions_waiting": "Questions en attente de réponse",
-        "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
-                          "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
-                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants."),
+        "reviews_intro": ("Les questions de split et de dedupe, les genres que la liste validée ne "
+                          "connaît pas et les morceaux sans paroles, une à la fois : chaque réponse est "
+                          "enregistrée aussitôt dans le fichier de décisions, d'alias, de genres ou "
+                          "d'instrumentaux, et vaut pour les passages suivants."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
         "credits_waiting": "Crédits en attente de réponse : {n}",
@@ -432,15 +438,21 @@ TRANSLATIONS = {
         "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",
         "genres_waiting": "Genres awaiting an answer: {n}",
+        "instrumental_review": "Tracks without lyrics: instrumental?",
+        "bare_waiting": "Tracks without lyrics: {n}",
+        "instrumentals_answered": "to mark instrumental: {n}",
+        "instrumental_button": "Instrumental",
+        "not_instrumental_button": "Not instrumental",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",
         "itunes_hint": "iTunes files these albums under \u201c{genre}\u201d.",
         "alias_button": "Make it a name of this genre",
         "new_genre_button": "Make it a validated genre",
         "reviews": "Reviews",
         "questions_waiting": "Questions awaiting an answer",
-        "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does not "
-                          "know, one at a time: each answer is saved at once in the decisions, aliases or "
-                          "genres file, and holds for the passes to come."),
+        "reviews_intro": ("The questions of split and dedupe, the genres the validated list does not "
+                          "know and the tracks without lyrics, one at a time: each answer is saved at once "
+                          "in the decisions, aliases, genres or instrumentals file, and holds for the "
+                          "passes to come."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
         "credits_waiting": "Credits awaiting an answer: {n}",

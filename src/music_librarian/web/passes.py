@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 from music_librarian import cover, dedupe, enrich, importer, organize, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
+from music_librarian.lyrics import instrumentals
 
 QUEUED, STARTED, DONE, CANCELLED = "queued", "started", "done", "cancelled"
 KEPT = 50
@@ -37,6 +38,7 @@ OPTIONS = {
     "lyrics": ("folder",),
     "cover": ("folder", "image"),
     "genres": (),
+    "instrumental": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
@@ -217,10 +219,15 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
             return cover.run(opts, log)
         return kept("cover", put, log, r)
 
+    def run_instrumental(r, log):
+        opts = tag.Options(root=root, apply=r.apply, state_dir=state_dir, lyrion=import_opts.lyrion)
+        return kept("instrumental", lambda: instrumentals.run(opts, log), log, r)
+
     def run_genres(r, log):
         opts = replace(enrich_opts, apply=r.apply)
         return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "cover": run_cover, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "cover": run_cover, "genres": run_genres,
+            "instrumental": run_instrumental}

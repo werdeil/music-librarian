@@ -1,7 +1,8 @@
 """split --review and dedupe --review on the dashboard: the queues of the terminal reviews, one
 question per page, each answer written at once to the decisions or the aliases file. And the
 genres the validated list does not know, each added to it as a name of a validated genre or as a
-genre of its own.
+genre of its own. And the tracks without lyrics, each answered as instrumental or not; only an
+instrumental is recorded, in instrumentals.txt, so a track answered no comes back.
 
 The queues are built from the metadata cache in the background, again whenever it changes, and
 count as None until first built; whether an item still needs an answer is checked against the
@@ -22,11 +23,13 @@ from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.review import pending, suggestion
 from music_librarian.dedupe.similar import find_groups
 from music_librarian.enrich import genres
+from music_librarian.lyrics import instrumentals
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
+from music_librarian.web import library
 from music_librarian.web.library import Refreshed, cache_stamp, cached_files
 
 
@@ -205,12 +208,47 @@ class GenreReview:
             genres.remove_from_list(self.path, genre, alias)
 
 
+class InstrumentalReview:
+    """The tracks of the metadata cache without lyrics, in the order of their paths."""
+
+    def __init__(self, root: Path, state_dir: Path):
+        self.root, self.state_dir = root, state_dir
+        self.lock = threading.Lock()
+        self.queue = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
+
+    def _build(self):
+        bare = [(str(path.relative_to(self.root)), metadata_cache.metadata(snap))
+                for path, snap in cached_files(self.root, self.state_dir) if not snap.get("lyrics")]
+        return sorted(bare, key=lambda item: item[0])
+
+    def item(self, start=0):
+        """The first track from position `start` not answered as instrumental, as a dict for the
+        page, or None; and the count of those left, None until the queue is first built."""
+        items = self.queue.get()
+        if items is None:
+            return None, None
+        with self.lock:
+            answered = set(instrumentals.load(self.state_dir))
+        left = [i for i, (rel, _) in enumerate(items) if rel not in answered]
+        nxt = next((i for i in left if i >= start), None)
+        if nxt is None:
+            return None, len(left)
+        rel, meta = items[nxt]
+        shown = {k: meta.get(k) for k in ("title", "artist", "album")} if meta else {}
+        return dict(position=nxt, total=len(items), path=rel, **shown), len(left)
+
+    def answer(self, rel, instrumental):
+        with self.lock:
+            (instrumentals.add if instrumental else instrumentals.remove)(self.state_dir, rel)
+
+
 def register(app, ctx):
     """Add the review pages to the app; return the function that counts the questions awaiting
     an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built
     (counted once per request), and the queues, Refreshed values."""
     reviews = Reviews(ctx.root, ctx.state_dir)
     genre_review = GenreReview(ctx.root, ctx.state_dir)
+    instrumental_review = InstrumentalReview(ctx.root, ctx.state_dir)
 
     def waiting():
         if "waiting" not in g:
@@ -223,6 +261,8 @@ def register(app, ctx):
         left = waiting()
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
+                               bare=instrumental_review.item()[1],
+                               answered=len(instrumentals.load(ctx.state_dir)),
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
@@ -279,6 +319,25 @@ def register(app, ctx):
             abort(400)
         genre_review.remove(genre, request.form.get("alias") or None)
         return redirect(url_for("review_genres", **{"from": request.form.get("position", 0, type=int)}))
+
+    @app.get("/reviews/instrumental")
+    def review_instrumental():
+        item, left = instrumental_review.item(request.args.get("from", 0, type=int))
+        return render_template("review_instrumental.html", item=item, left=left, done=done_of(request.args))
+
+    @app.post("/reviews/instrumental")
+    def answer_instrumental():
+        rel = request.form.get("path", "")
+        if library.track_file(ctx.root, str(Path(rel).parent), Path(rel).name) is None:
+            abort(404)
+        instrumental_review.answer(rel, True)
+        position = request.form.get("position", 0, type=int)
+        return redirect(url_for("review_instrumental", **{"from": position}, done=json.dumps(dict(path=rel))))
+
+    @app.post("/reviews/instrumental/undo")
+    def undo_instrumental():
+        instrumental_review.answer(request.form.get("path", ""), False)
+        return redirect(url_for("review_instrumental", **{"from": request.form.get("position", 0, type=int)}))
 
     @app.get("/reviews/split")
     def review_split():
@@ -343,7 +402,7 @@ def register(app, ctx):
         reviews.write_aliases(drop=[aliases_file.identity(e) for e in entries])
         return redirect(url_for("review_dedupe", **{"from": request.form.get("position", 0, type=int)}))
 
-    return waiting, (reviews.queues, genre_review.queue)
+    return waiting, (reviews.queues, genre_review.queue, instrumental_review.queue)
 
 
 def done_of(args):
