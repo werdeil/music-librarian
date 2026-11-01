@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
 import pytest
 
-from music_librarian import cli
+from music_librarian import cli, scan
 from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.media import tags
 
@@ -56,3 +56,18 @@ def test_stop_keeps_the_cache(lib, tmp_path, capsys):
     STOP.set()
     assert run(root, tmp_path) == EXIT_STOPPED
     assert "removed:" not in capsys.readouterr().out
+
+
+def test_progress_shows_the_total(lib, tmp_path, monkeypatch, capsys):
+    root, _ = lib
+    monkeypatch.setattr(scan, "PROGRESS_EVERY", 2)
+    assert run(root, tmp_path) == 0
+    out = capsys.readouterr().out
+    assert "SCAN     3 files to go through" in out
+    assert "SCAN     2/3 files, 2 read, under a minute spent, under a minute left" in out
+
+
+def test_progress_line():
+    line = scan.progress(6000, 6000, 24000, scan.time.time() - 300)
+    assert line == "SCAN     6000/24000 files, 6000 read, ~5 min spent, ~15 min left"
+    assert scan.progress(10, 24000, 24000, scan.time.time()).endswith("under a minute spent")
