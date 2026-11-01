@@ -192,7 +192,8 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
+            days=f"{misses.retry_days():g}")
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""

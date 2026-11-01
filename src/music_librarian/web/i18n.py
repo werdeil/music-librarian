@@ -103,8 +103,8 @@ TRANSLATIONS = {
         "long_since": "Parcourt toute la bibliothèque, pas seulement les dossiers changés.",
         "long_rescan": ("Relit d'abord chaque fichier : une vingtaine de minutes pour 25 000 pistes "
                         "sur disque dur."),
-        "long_retry": ("Cherche en ligne chaque morceau cherché en vain depuis moins de "
-                       "LYRICS_RETRY_DAYS jours : environ 1,5 s par morceau."),
+        "long_retry": ("Cherche en ligne chaque morceau cherché en vain depuis moins de {days} jours : "
+                       "environ 1,5 s par morceau."),
         "long_force": "Relit chaque fichier : une vingtaine de minutes pour 25 000 pistes sur disque dur.",
         "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
                    "enrich": "Compléter genres, gain, pochettes et paroles",
@@ -358,8 +358,8 @@ TRANSLATIONS = {
         "start_dry_run": "Start the dry run",
         "long_since": "Goes through the whole library, not only the folders changed.",
         "long_rescan": "Reads every file first: about 20 minutes for 25,000 tracks on a hard disk.",
-        "long_retry": ("Looks up online every track looked up in vain within the last LYRICS_RETRY_DAYS "
-                       "days: about 1.5 s a track."),
+        "long_retry": ("Looks up online every track looked up in vain within the last {days} days: "
+                       "about 1.5 s a track."),
         "long_force": "Reads every file again: about 20 minutes for 25,000 tracks on a hard disk.",
         "passes": {"import": "Import the Inbox", "organize": "File the library",
                    "enrich": "Fill in genres, gain, covers and lyrics",
