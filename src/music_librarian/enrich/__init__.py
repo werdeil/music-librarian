@@ -19,8 +19,9 @@ Each tool only handles what is missing or off:
 
 With --apply, album folders are handed to the tools in batches: on SIGTERM or
 Ctrl-C, the current batch completes (no tag write is cut short) and the rest is
-done on the next pass. The lock is held: no organize or import while tags are
-being rewritten.
+done on the next pass. Each batch ends on a PROGRESS line (folders done, time
+spent and left) and each tool on one summary, its batches' counts added up.
+The lock is held: no organize or import while tags are being rewritten.
 
 A dry run reads only the metadata cache and the library's folders, never the
 network nor ffmpeg, each tool once over the whole library: what is decided
@@ -43,6 +44,7 @@ Exit codes: 0 = OK, 2 = a tool failed, 3 = another pass is running,
 import argparse
 import contextlib
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -56,13 +58,15 @@ from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, h
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
-from music_librarian.enrich.common import ESTIMATE, ESTIMATE_LINE, album_folders, rough
+from music_librarian.enrich.common import ESTIMATE, ESTIMATE_LINE, album_folders, estimate, rough
 from music_librarian.media.metadata_cache import MetadataCache
 
 LAST_RUN = "enrich_last_run"
 BATCH = 20  # folders per tool call: a lyrics batch takes one to two minutes
 TOOLS = ("genres", "replaygain", "covers", "lyrics")
 DRY = dict.fromkeys(TOOLS, "--dry-run")
+SUMMARY_TITLE = re.compile(r"^--- (.+) summary ---$")
+SUMMARY_LINE = re.compile(r"^\s*(.+?): (.*)$")
 
 
 def enrichers():
@@ -163,14 +167,99 @@ def tool_pass(name, folders, opts: Options, log, *flags):
         return EXIT_LOCKED
 
 
-def adding_up(log, estimated, name):
-    """`log`, adding the seconds of each estimate the tool `name` prints to estimated[name]."""
-    def tool_log(line):
+class ToolOutput:
+    """The log of one tool over its batches: its lines passed on to `log`, the `key: value`
+    lines of each batch's summary added up instead, to be shown once by summary()."""
+
+    def __init__(self, log):
+        self.log = log
+        self.title = None
+        self.counts = {}
+        self.seconds = 0
+        self.in_summary = False
+        self.blank = False
+
+    def __call__(self, line):
         found = ESTIMATE_LINE.match(line)
         if found:
-            estimated[name] = estimated.get(name, 0) + int(found[1])
-        log(line)
-    return tool_log
+            self.seconds += int(found[1])
+        title = SUMMARY_TITLE.match(line)
+        if title:
+            self.title, self.in_summary, self.blank = title[1], True, False
+            return
+        if self.in_summary and (pair := SUMMARY_LINE.match(line)):
+            if not found:
+                self.add(*pair.groups())
+            return
+        if self.blank:
+            self.log("")
+        self.blank = not line
+        if line:
+            self.log(line)
+
+    def add(self, key, value):
+        if value.isdigit():
+            self.counts[key] = self.counts.get(key, 0) + int(value)
+        else:
+            self.counts[key] = value
+
+    def end_batch(self):
+        if self.blank:
+            self.log("")
+        self.in_summary = self.blank = False
+
+    def summary(self, spent=None):
+        if self.title is None:
+            return
+        self.log(f"\n--- {self.title} summary ---")
+        for key, value in self.counts.items():
+            if value:
+                self.log(f"{key:>20}: {value}")
+        if self.seconds:
+            self.log(f"{ESTIMATE:>20}: {estimate(self.seconds)}")
+        if spent is not None:
+            self.log(f"{'time':>20}: {rough(spent)}")
+
+
+def progress(name, i, batches, done, total, started):
+    """The PROGRESS line after batch i of `batches`, `done` folders of `total` behind."""
+    spent = time.time() - started
+    line = f"PROGRESS {name}  batch {i}/{batches}, {done}/{count(total, 'folder')}, {rough(spent)} spent"
+    return f"{line}, {rough(spent * (total - done) / done)} left" if done < total else line
+
+
+def tool_batches(name, cmd, batches, env, log):
+    """Run the tool `name` on each batch; (the names of its failed batches, the estimate it
+    printed in seconds), or None once stopped."""
+    out, failed, started, done = ToolOutput(log), [], time.time(), 0
+    total = sum(map(len, batches))
+    for i, batch in enumerate(batches, 1):
+        if STOP.is_set():
+            log(f"STOP     requested: {name} stopped at batch {i}/{len(batches)}, "
+                f"resumed on the next pass")
+            out.summary()
+            return None
+        try:
+            # what a stopped tool left is done next pass
+            code = run_tool([*cmd, *map(str, batch)], env, out)
+            ok = code in (0, EXIT_STOPPED)
+        except OSError as e:
+            log(f"         {e}")
+            ok = False
+        out.end_batch()
+        done += len(batch)
+        if not ok:
+            log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
+            failed.append(name)
+        if STOP.is_set():
+            log(f"STOP     requested: {name} stopped after batch {i}/{len(batches)}, "
+                f"resumed on the next pass")
+            out.summary()
+            return None
+        if len(batches) > 1:
+            log(progress(name, i, len(batches), done, total, started))
+    out.summary(time.time() - started if len(batches) > 1 else None)
+    return failed, out.seconds
 
 
 def enrich_all(opts, log):
@@ -183,38 +272,27 @@ def enrich_all(opts, log):
                else [[opts.root]] if dirs else [])
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
+    steps = [name for name, _cmd in enrichers() if name not in opts.left_out]
+    steps += [name for name, wanted in (("split", opts.split), ("dedupe", opts.dedupe)) if wanted]
     failed, estimated = [], {}
     for name, cmd in enrichers():
         if name in opts.left_out:
             continue
         if not opts.apply:
             cmd = [*cmd, DRY[name]]
-        log(f"ENRICH   ({name})")
-        for i, batch in enumerate(batches, 1):
-            if STOP.is_set():
-                log(f"STOP     requested: {name} stopped at batch {i}/{len(batches)}, "
-                    f"resumed on the next pass")
-                return EXIT_STOPPED
-            try:
-                # what a stopped tool left is done next pass
-                code = run_tool([*cmd, *map(str, batch)], env, adding_up(log, estimated, name))
-                ok = code in (0, EXIT_STOPPED)
-            except OSError as e:
-                log(f"         {e}")
-                ok = False
-            if not ok:
-                log(f"FAILED   {name}, batch {i}/{len(batches)} ({batch[0]} …)")
-                failed.append(name)
-            if STOP.is_set():
-                log(f"STOP     requested: {name} stopped after batch {i}/{len(batches)}, "
-                    f"resumed on the next pass")
-                return EXIT_STOPPED
+        log(f"ENRICH   ({name})  step {steps.index(name) + 1}/{len(steps)}")
+        outcome = tool_batches(name, cmd, batches, env, log)
+        if outcome is None:
+            return EXIT_STOPPED
+        failed += outcome[0]
+        if outcome[1]:
+            estimated[name] = outcome[1]
     for name, wanted, tag_pass, pass_options in (
             ("split", opts.split, split.split_pass, split.Options),
             ("dedupe", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):
         if not wanted:
             continue
-        log(f"ENRICH   ({name})")
+        log(f"ENRICH   ({name})  step {steps.index(name) + 1}/{len(steps)}")
         code = tag_pass(pass_options(root=opts.root, apply=opts.apply, state_dir=opts.state_dir), log)
         if code == EXIT_STOPPED:
             return EXIT_STOPPED
@@ -232,6 +310,8 @@ def enrich_all(opts, log):
         log(f"{name + ' time':>20}: {rough(seconds)}")
     if estimated:
         log(f"{ESTIMATE:>20}: {rough(sum(estimated.values()))}")
+    if opts.apply:
+        log(f"{'time':>20}: {rough(time.time() - started)}")
     # the weekly slot is skipped once this stamp is newer: a pass leaving a tool out leaves it
     if opts.apply and not opts.left_out:
         write_stamp(opts.state_dir, LAST_RUN, started)

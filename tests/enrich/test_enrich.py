@@ -191,6 +191,26 @@ def test_tool_output_in_the_run_log(lib, tmp_path, monkeypatch, capsys):
     assert record["command"] == "enrich" and record["summary"][0] == "folders: 4"
 
 
+def test_batch_summaries_added_up(lib, tmp_path, monkeypatch, capsys):
+    script = ("import sys; print('NONE     ' + sys.argv[1]); print(); print('--- Lyrics summary ---'); "
+              "print(f'{\"scanned\":>20}: {len(sys.argv) - 1}'); print(f'{\"not found\":>20}: 1')")
+    monkeypatch.setattr(enrich, "enrichers", lambda: [("lyrics", [sys.executable, "-c", script])])
+    assert run(lib, tmp_path / "state", "--apply", "--batch", "3") == 0
+    out = capsys.readouterr().out
+    assert out.count("--- Lyrics summary ---") == 1 and out.count("NONE     ") == 2
+    lyrics = out.split("--- Lyrics summary ---")[1].split("---")[0]
+    assert "scanned: 4" in lyrics and "not found: 2" in lyrics and "time: " in lyrics
+    assert "ENRICH   (lyrics)  step 1/1" in out
+    assert "PROGRESS lyrics  batch 1/2, 3/4 folders, " in out and "batch 2/2, 4/4 folders" in out
+    assert "\n\n\n" not in out and "time: " in out.split("Enrichment summary")[1]
+
+
+def test_progress_line():
+    line = enrich.progress("lyrics", 12, 85, 240, 1681, enrich.time.time() - 600)
+    assert line == "PROGRESS lyrics  batch 12/85, 240/1681 folders, ~10 min spent, ~1 h left"
+    assert enrich.progress("lyrics", 85, 85, 1681, 1681, enrich.time.time()).endswith("under a minute spent")
+
+
 def test_refused_while_locked(lib, tools, tmp_path):
     state = tmp_path / "state"
     state.mkdir()
