@@ -393,10 +393,22 @@ footer {
     margin-top: 0.7rem;
 }
 
+.pass-dialog .sub-option {
+    margin-left: 1.6rem;
+}
+
+.pass-dialog .sub-option:has(input:disabled) {
+    color: var(--text-muted);
+}
+
 .pass-warning {
     margin: 0.2rem 0 0 1.6rem;
     font-size: var(--fs-sm);
     color: var(--warning);
+}
+
+.sub-option + .pass-warning {
+    margin-left: 3.2rem;
 }
 
 .tiles {

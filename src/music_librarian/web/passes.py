@@ -43,6 +43,8 @@ OPTIONS = {
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
+# a box only offered while the box it refines is ticked
+UNDER = {"retry": "lyrics"}
 FORMS = {command: names for command, names in OPTIONS.items()
          if command not in ("undo", "tag", "lyrics", "cover")}
 

@@ -113,7 +113,8 @@ def test_enrich_options_shown_ticked(tmp_path, requests):
     page = client.get("/", headers=EN).get_data(as_text=True)
     for box in ("genres", "replaygain", "covers", "lyrics", "split", "dedupe"):
         assert f'name="{box}" value="1" checked' in page
-    assert 'name="rescan" value="1">' in page and 'name="retry" value="1">' in page and "no_" not in page
+    assert 'name="rescan" value="1">' in page and "no_" not in page
+    assert '<label class="sub-option"><input type="checkbox" name="retry" value="1" data-under="lyrics">' in page
     assert 'hidden>Looks up online every track looked up in vain within the last 30 days' in page
     assert page.count("<dialog") == 3 and "data-opens-dialog" in page
     assert 'data-long="rescan" data-long-when="checked" hidden>Reads every file first' in page
