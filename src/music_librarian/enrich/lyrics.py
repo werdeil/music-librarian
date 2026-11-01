@@ -38,9 +38,8 @@ A file looked up in vain is not looked up again for LYRICS_RETRY_DAYS (default 3
 unless its artist, title or album changes or --force or --retry is given (lyrics/misses.py).
 
 A provider that calls a track instrumental gets "[Instrumental]" written as its lyrics, which
-keeps it from being looked up again. --clear leaves that mark alone; --force looks the track
-up and replaces the mark only with lyrics found. Existing lyrics are only replaced by the mark
-under --clear.
+keeps it from being looked up again. --force and --clear treat the mark as any lyrics, and
+existing lyrics only give way to it under --clear.
 
 A stop request lets the current file finish, then stops (exit code 4); a tag that
 could not be written gives exit code 2. A miss, a rejected match or an unreachable
@@ -164,17 +163,14 @@ MISSES = {"unavailable": ("unreachable", "OFFLINE  {}  (lyrics services unreacha
           "rejected": ("rejected", "REJECTED {}  (no confident match)")}
 
 
-SKIPS = {"already": "has lyrics", "instrumental": "instrumental",
-         "searched recently": "looked up in vain recently"}
+SKIPS = {"already": "has lyrics", "searched recently": "looked up in vain recently"}
 
 
-def skipped(path, meta, already, marked, args, misses):
+def skipped(path, meta, already, args, misses):
     """Why a file is not looked up, a key of SKIPS, or None."""
     # --force overwrites and --clear may drop the tag: both have to look the file up
     if already and not args.force and not args.clear:
         return "already"
-    if marked and not args.force:
-        return "instrumental"
     if not already and not (args.force or args.retry) and misses.recent(path, meta):
         return "searched recently"
     return None
@@ -189,8 +185,7 @@ def handle(path, rel, args, log, cache, misses):
             log(f"SKIPPED  (no artist or title)  {rel}")
         return "no metadata"
     already = snap["lyrics"]
-    marked = already and (args.force or args.clear) and is_instrumental(tags.read_lyrics(path))
-    why = skipped(path, meta, already, marked, args, misses)
+    why = skipped(path, meta, already, args, misses)
     if why:
         if args.verbose:
             log(f"SKIPPED  ({SKIPS[why]})  {rel}")
@@ -207,8 +202,8 @@ def handle(path, rel, args, log, cache, misses):
                 log(f"SKIPPED  (found online, kept the existing lyrics)  {rel}")
             return "already"
         return write(path, rel, plain, args, log)
-    if marked or result.get("instrumental"):
-        return instrumental(path, rel, already, marked, args, log, misses)
+    if result.get("instrumental"):
+        return instrumental(path, rel, already, args, log, misses)
     # an unreachable provider says nothing about what the providers carry: never cleared
     if already and args.clear and source != "unavailable":
         return write(path, rel, None, args, log)
@@ -219,11 +214,11 @@ def handle(path, rel, args, log, cache, misses):
     return key
 
 
-def instrumental(path, rel, already, marked, args, log, misses):
+def instrumental(path, rel, already, args, log, misses):
     """Write the INSTRUMENTAL mark a provider's answer calls for, unless the track carries it
     already; the outcome counted."""
     misses.forget(path)
-    if marked:
+    if already and is_instrumental(tags.read_lyrics(path)):
         return "instrumental"
     if already and not args.clear:
         if args.verbose:

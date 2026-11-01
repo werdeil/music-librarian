@@ -205,17 +205,20 @@ def test_instrumental_answer_writes_the_mark(album, web, capsys):
     assert run(d, "--retry") == 0 and len(calls) == 6
 
 
-def test_the_mark_survives_clear_and_force(album, web):
+def test_the_mark_is_lyrics_to_clear_and_force(album, web):
     _, tracks = album
     calls, answer = web
     tags.write_lyrics(str(tracks[0]), "[Instrumental]")
-    answer.update(synced=None, source="none")
-    assert run(tracks[0], "--clear") == 0 and calls == []
-    assert run(tracks[0], "--force") == 0 and len(calls) == 1
+    answer.update(synced=None, instrumental=True)
+    assert run(tracks[0], "--clear") == 0 and len(calls) == 1
     assert tags.read_lyrics(str(tracks[0])) == "[Instrumental]"
-    answer.update(synced=SYNCED, source="lrclib")
+    answer.update(synced=SYNCED, instrumental=False)
     assert run(tracks[0], "--force") == 0
     assert tags.read_lyrics(str(tracks[0])) == "la la\nlo lo"
+    tags.write_lyrics(str(tracks[0]), "[Instrumental]")
+    answer.update(synced=None, source="none")
+    assert run(tracks[0], "--clear") == 0
+    assert not tags.has_lyrics(str(tracks[0]))
 
 
 def test_existing_lyrics_replaced_by_the_mark_under_clear_only(album, web):
