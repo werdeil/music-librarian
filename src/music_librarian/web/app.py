@@ -350,8 +350,7 @@ def create_app(ctx: Context):
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                unchanged=request.args.get("unchanged") == "1",
                                lyrics=library.lyrics_state(folder, names),
-                               gains=shown_gains,
-                               any_gain=any(gains.values()))
+                               gains=shown_gains, gains_seen=json.dumps({n: v for n, v in gains.items() if v}))
 
     @app.post("/library/album/replaygain")
     def delete_replaygain():
@@ -359,8 +358,14 @@ def create_app(ctx: Context):
         folder = library.album_folder(ctx.root, rel)
         if folder is None:
             abort(404)
-        gains = library.replaygain_state(folder, [n for n, _ in library.tracks_of(folder)])
-        asked = [[str(Path(rel) / name), fields.REPLAYGAIN, "", seen] for name, seen in gains.items() if seen]
+        try:
+            seen = json.loads(request.form.get("seen", ""))
+        except ValueError:
+            abort(400)
+        if not isinstance(seen, dict):
+            abort(400)
+        asked = [[str(Path(rel) / name), fields.REPLAYGAIN, "", seen[name]]
+                 for name in request.form.getlist("file") if seen.get(name)]
         if not asked:
             return redirect(url_for("album_page", folder=rel, unchanged="1"))
         return submit("tag", {"edits": asked}, False)

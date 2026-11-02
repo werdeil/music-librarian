@@ -495,27 +495,49 @@ def test_old_uploads_removed(tmp_path):
     assert passes.upload_path(tmp_path, "../x.jpg") is None
 
 
-def test_replaygain_shown_then_removed_from_the_album(dashboard, lib):
-    tags.write_replaygain(lib / "Beyonce/4/01 Run the World.m4a", -7.12, 0.98)
+
+def replaygain_form(d, folder, *ticked):
+    page = d.client.get(f"/library/album?folder={folder}", headers=EN).get_data(as_text=True)
+    seen = html.unescape(re.search(r'id="replaygain">.*?name="seen" value="([^"]*)"', page, re.S)[1])
+    return {"csrf": d.token, "folder": folder, "seen": seen, "file": list(ticked)}
+
+
+def test_replaygain_shown_then_removed_from_the_tracks_ticked(dashboard, lib):
+    one, two = lib / "Beyonce/4/01 Run the World.m4a", lib / "Beyonce/4/02 Best Thing.m4a"
+    tags.write_replaygain(one, -7.12, 0.98)
+    tags.write_replaygain(two, -5.5, 0.9)
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "<td>-7.12 dB</td>" in page and "Preview the deletion of the album&#39;s ReplayGain" in page
-    response = dashboard.client.post("/library/album/replaygain", data={"csrf": dashboard.token,
-                                                                        "folder": "Beyonce/4"})
-    assert response.status_code == 302
+    assert 'name="file" value="01 Run the World.m4a"' in page and "-7.12 dB</label>" in page
+    assert "Preview the deletion of the ReplayGain" in page
+    form = replaygain_form(dashboard, "Beyonce/4", "01 Run the World.m4a")
+    assert dashboard.client.post("/library/album/replaygain", data=form).status_code == 302
     dashboard.requests.tick(Log())
     [dry] = runs.recent(dashboard.state, 1)
     page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert "TAG      replaygain: &#34;track gain -7.12 dB&#34; → &#34;(none)&#34;" in page
-    assert tags.has_replaygain(lib / "Beyonce/4/01 Run the World.m4a")
+    assert "-5.50 dB" not in page and tags.has_replaygain(one)
 
     dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
     dashboard.requests.tick(Log())
-    assert not tags.has_replaygain(lib / "Beyonce/4/01 Run the World.m4a")
-    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "-7.12 dB" not in page and "album&#39;s ReplayGain" not in page
+    assert not tags.has_replaygain(one) and tags.has_replaygain(two)
 
 
-def test_replaygain_removal_without_any(dashboard):
-    response = dashboard.client.post("/library/album/replaygain", data={"csrf": dashboard.token,
-                                                                        "folder": "Beyonce/4"})
+def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib, capsys):
+    track = lib / "Beyonce/4/01 Run the World.m4a"
+    tags.write_replaygain(track, -7.12, 0.98)
+    form = replaygain_form(dashboard, "Beyonce/4", "01 Run the World.m4a")
+    tags.write_replaygain(track, -3.0, 0.5)
+    dashboard.client.post("/library/album/replaygain", data=form)
+    dashboard.requests.tick(Log())
+    assert tags.has_replaygain(track) and "REFUSED  (replaygain changed since" in capsys.readouterr().out
+
+
+def test_replaygain_removal_with_nothing_ticked(dashboard, lib):
+    tags.write_replaygain(lib / "Beyonce/4/01 Run the World.m4a", -7.12, 0.98)
+    response = dashboard.client.post("/library/album/replaygain", data=replaygain_form(dashboard, "Beyonce/4"))
     assert response.status_code == 302 and "unchanged=1" in response.location
+
+
+def test_no_replaygain_section_without_any(dashboard):
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'id="replaygain"' not in page and 'name="file"' not in page
