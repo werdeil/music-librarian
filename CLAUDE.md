@@ -24,6 +24,8 @@ music-librarian import --inbox /path/to/inbox --root /path/to/library
 
 Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-exception-caught` are disabled, lines go up to 110 characters. Match those norms rather than fighting them.
 
+**Judge pylint by its exit code, never by its score.** It still prints "rated at 10.00/10" above a message such as `line-too-long`, and CI fails on any message. Before every push, run `pylint src tests; echo "exit $?"` and read the whole output: anything but `exit 0` is a failure to fix.
+
 ## Architecture
 
 [docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `tag.py`, `cover.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
