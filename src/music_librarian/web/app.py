@@ -38,8 +38,6 @@ HISTORY_PAGE = 50
 MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 ALBUM_PASSES = {"tag", "cover", "lyrics"}
-SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
-               "review_genres", "genre_list_page", "review_instrumental"}
 
 
 @dataclass
@@ -150,23 +148,29 @@ def create_app(ctx: Context):
     waiting, queues = reviews.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
     built_in_background = (index.albums, *queues)
+    credits, genre_queue, instrumental_queue = queues
+    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
+             "review_split": (credits,), "review_dedupe": (credits,), "review_genres": (genre_queue,),
+             "genre_list_page": (genre_queue,), "review_instrumental": (instrumental_queue,)}
 
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
-                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url,
-                    build_percent=lambda: round(100 * build_progress()))
+                    rebuilding=request.endpoint in shows and not settled(request.endpoint),
+                    cover_url=cover_url, build_percent=lambda: build_percent(request.endpoint))
 
     def cover_url(rel):
         return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))
 
-    def settled():
-        return all(value.ready() for value in built_in_background)
+    def settled(page=None):
+        """Whether the lists `page` shows are built, every list without a page."""
+        return all(value.ready() for value in shows.get(page, built_in_background))
 
-    def build_progress():
-        return sum(value.progress() for value in built_in_background) / len(built_in_background)
+    def build_percent(page=None):
+        values = shows.get(page, built_in_background)
+        return round(100 * sum(value.progress() for value in values) / len(values))
 
     @app.before_request
     def start_builds():
@@ -241,7 +245,8 @@ def create_app(ctx: Context):
 
     @app.get("/built")
     def built():
-        return jsonify(ready=settled(), percent=round(100 * build_progress()))
+        page = request.args.get("page")
+        return jsonify(ready=settled(page), percent=build_percent(page))
 
     @app.get("/activity")
     def activity_fragment():

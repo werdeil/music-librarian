@@ -169,6 +169,25 @@ def test_refreshed_progress_follows_its_build_reports():
     assert value.progress() == 1.0
 
 
+def test_parts_of_a_build_share_its_progress():
+    seen = []
+
+    def build():
+        with library.part(0, 0.5):
+            library.report(1, 2)
+            seen.append(value.done)
+            with library.part(0.5, 1):
+                library.report(1, 2)
+                seen.append(value.done)
+        seen.append(value.done)
+        library.report(3, 4)
+        seen.append(value.done)
+    value = library.Refreshed(lambda: (("a", None),), build)
+    value.start()
+    value.building.join()
+    assert seen == [0.25, 0.375, 0.5, 0.75]
+
+
 def test_cached_files_reports_the_files_read(lib, tmp_path, monkeypatch):
     reports = []
     monkeypatch.setattr(library, "REPORT_EVERY", 3)
@@ -235,7 +254,7 @@ def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, mak
     try:
         page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
         assert "Beyonce/4" in page and "Moby/Play" not in page          # the previous list, at once
-        assert 'data-reload-when-built="/built"' in page
+        assert 'data-reload-when-built="/built?page=library_page"' in page
         assert dashboard.client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
