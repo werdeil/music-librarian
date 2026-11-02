@@ -106,3 +106,11 @@ def test_validated_genres_page(d):
 def test_validated_genres_page_without_a_list(d):
     (d.state / "genres.txt").unlink()
     assert "No validated genre list" in page(d, "/reviews/genres/list")
+
+
+def test_later_puts_the_genre_last(d):
+    text = page(d, "/reviews/genres")
+    assert 'name="later" value="Hip Hop"' in text and 'formaction="/reviews/genres/later"' in text
+    d.client.post("/reviews/genres/later", data={"csrf": d.token, "later": "Hip Hop"})
+    assert "Zydeco" in page(d, "/reviews/genres")
+    assert "Hip Hop" in page(d, "/reviews/genres?from=1")

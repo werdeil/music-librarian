@@ -39,10 +39,22 @@ def test_each_track_without_lyrics_asked_in_turn(d):
     assert "Tracks without lyrics: 2" in page(d, "/reviews")
     text = page(d, "/reviews/instrumental")
     assert "T2" in text and "Rob Dougan · Films" in text and "Question 1 of 2" in text
-    assert 'href="/reviews/instrumental?from=1">Later</a>' in text
     text = page(d, "/reviews/instrumental?from=1")
     assert "T3" in text and "Question 2 of 2" in text
     assert "No question left." in page(d, "/reviews/instrumental?from=2")
+
+
+def test_later_puts_the_track_last(d):
+    def later(path):
+        return d.client.post("/reviews/instrumental/later", data={"csrf": d.token, "later": path})
+
+    assert later("Rob Dougan/Films/02 T2.m4a").location.endswith("/reviews/instrumental")
+    text = page(d, "/reviews/instrumental")
+    assert "T3" in text and "Question 1 of 2" in text
+    assert "T2" in page(d, "/reviews/instrumental?from=1")
+    later("Rob Dougan/Films/03 T3.m4a")
+    assert "T2" in page(d, "/reviews/instrumental")          # the longest put off comes back first
+    assert d.client.post("/reviews/nope/later", data={"csrf": d.token, "later": "x"}).status_code == 404
 
 
 def test_answer_recorded_then_undone(d):
