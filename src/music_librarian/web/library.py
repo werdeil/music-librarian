@@ -241,6 +241,8 @@ def edits(folder_rel, form, seen):
             value = form.get(f"t{i}.{name}")
             if value is not None and not same(name, value.strip(), joined(values[name])):
                 out.append([str(Path(folder_rel) / file), name, value.strip(), values[name]])
+        if form.get(f"t{i}.replaygain_delete") and values.get(fields.REPLAYGAIN):
+            out.append([str(Path(folder_rel) / file), fields.REPLAYGAIN, "", values[fields.REPLAYGAIN]])
     return out
 
 

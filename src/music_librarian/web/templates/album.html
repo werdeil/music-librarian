@@ -79,10 +79,10 @@
                     </td>
                     {% set gain = gains.get(file) %}
                     {% set gain_shown = t.replaygain_unknown if gain == '?' else gain or t.lyrics_none %}
-                    <td{% if not gain %} class="muted"{% endif %}>
-                        {%- if gain and ctx.requests -%}
-                        <label><input type="checkbox" form="replaygain" name="file" value="{{ file }}"
-                                      aria-label="{{ t.replaygain_tick }}"> {{ gain_shown }}</label>
+                    <td class="{{ 'gain' if gain else 'muted' }}">
+                        {%- if gain and values and ctx.requests -%}
+                        <label title="{{ t.replaygain_click }}"><input type="checkbox" name="t{{ ns.i - 1 }}.replaygain_delete"
+                               value="1" aria-label="{{ t.replaygain_click }}"><span>{{ gain_shown }}</span></label>
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
@@ -119,18 +119,5 @@
         <button type="submit">{{ t.lyrics_button }}</button>
     </form>
 </section>
-
-{% if gains_seen != '{}' %}
-<section>
-    <h2>{{ t.replaygain }}</h2>
-    <form method="post" action="{{ url_for('delete_replaygain') }}" id="replaygain">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="folder" value="{{ folder }}">
-        <input type="hidden" name="seen" value="{{ gains_seen }}">
-        <button type="submit">{{ t.replaygain_delete_button }}</button>
-    </form>
-    <p class="muted">{{ t.replaygain_delete_hint }}</p>
-</section>
-{% endif %}
 {% endif %}
 {% endblock %}

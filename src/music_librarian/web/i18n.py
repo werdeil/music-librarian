@@ -172,10 +172,7 @@ TRANSLATIONS = {
         "lyrics_delete_button": "Prévisualiser la suppression",
         "replaygain": "ReplayGain",
         "replaygain_unknown": "sans gain de piste",
-        "replaygain_tick": "Supprimer le ReplayGain de ce morceau",
-        "replaygain_delete_button": "Prévisualiser la suppression du ReplayGain",
-        "replaygain_delete_hint": ("Retire les tags REPLAYGAIN_* des morceaux cochés dans la liste ; le "
-                                   "prochain enrich mesure de nouveau leur gain."),
+        "replaygain_click": "Cliquer pour supprimer le ReplayGain de ce morceau",
         "track_unreadable": "Ce morceau est illisible.",
         "cover": "Pochette",
         "cover_file": "Image",
@@ -432,10 +429,7 @@ TRANSLATIONS = {
         "lyrics_delete_button": "Preview the deletion",
         "replaygain": "ReplayGain",
         "replaygain_unknown": "no track gain",
-        "replaygain_tick": "Delete this track's ReplayGain",
-        "replaygain_delete_button": "Preview the deletion of the ReplayGain",
-        "replaygain_delete_hint": ("Removes the REPLAYGAIN_* tags of the tracks ticked in the list; the "
-                                   "next enrich measures their gain again."),
+        "replaygain_click": "Click to delete this track's ReplayGain",
         "track_unreadable": "This track cannot be read.",
         "cover": "Cover",
         "cover_file": "Image",
