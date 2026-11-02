@@ -287,6 +287,17 @@ def lyrics_state(folder: Path, names):
     return out
 
 
+def replaygain_state(folder: Path, names):
+    """{file name: its fields.replaygain() values, [] when it has none or is unreadable}."""
+    out = {}
+    for name in names:
+        try:
+            out[name] = fields.replaygain(folder / name)
+        except Exception:
+            out[name] = []
+    return out
+
+
 def without_lyrics(albums, root: Path, state_dir: Path):
     """[(album, the time its tracks were last looked up in vain or None)] of the albums with
     tracks without lyrics, the most such tracks first."""

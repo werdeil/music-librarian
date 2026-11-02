@@ -309,6 +309,54 @@ def write_replaygain(path, gain, peak):
         raise ReplayGainTagError(f"write failed: {exc}") from exc
 
 
+_MP4_FREEFORM = "----:com.apple.iTunes:"
+
+
+def _rg_names(audio):
+    """{tag key: name} of every REPLAYGAIN_* tag of an MP3, MP4 or FLAC file, whatever its case."""
+    if audio is None or audio.tags is None or not _rg_keys(audio):
+        return {}
+    prefix = "TXXX:" if isinstance(audio, MP3) else _MP4_FREEFORM if isinstance(audio, MP4) else ""
+    return {k: k[len(prefix):] for k in audio.tags.keys()
+            if k.startswith(prefix) and k[len(prefix):].lower().startswith("replaygain_")}
+
+
+def read_replaygain(path):
+    """[(name, value)] of every REPLAYGAIN_* tag of `path` (track and album gain and peak), by name."""
+    audio = mutagen.File(path)
+    out = []
+    for key, name in _rg_names(audio).items():
+        values = audio.tags[key].text if isinstance(audio, MP3) else audio.tags[key]
+        value = values[0] if values else ""
+        out.append((name, value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value)))
+    return sorted(out, key=lambda pair: pair[0].lower())
+
+
+def replace_replaygain(path, pairs):
+    """Remove every REPLAYGAIN_* tag of `path`, then write `pairs` [(name, value)] as they are.
+    Raises ReplayGainTagError."""
+    try:
+        audio = mutagen.File(path)
+        if audio is None or not _rg_keys(audio):
+            raise ReplayGainTagError("unsupported format for ReplayGain")
+        if audio.tags is None:
+            audio.add_tags()
+        for key in _rg_names(audio):
+            del audio.tags[key]
+        for name, value in pairs:
+            if isinstance(audio, MP3):
+                audio.tags.add(TXXX(encoding=3, desc=name, text=value))
+            elif isinstance(audio, MP4):
+                audio.tags[_MP4_FREEFORM + name] = MP4FreeForm(value.encode())
+            else:
+                audio[name] = value
+        audio.save()
+    except ReplayGainTagError:
+        raise
+    except Exception as exc:
+        raise ReplayGainTagError(f"write failed: {exc}") from exc
+
+
 def _mp4_compilation(tags, key):
     cpil = tags.get("cpil")
     if isinstance(cpil, list):

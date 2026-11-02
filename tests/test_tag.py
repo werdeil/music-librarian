@@ -5,7 +5,7 @@ import pytest
 from music_librarian import cli, tag
 from music_librarian.core import runs
 from music_librarian.core.log import Log
-from music_librarian.media import fields
+from music_librarian.media import fields, tags
 
 
 @pytest.fixture
@@ -140,3 +140,22 @@ def test_undo_restores_the_tag_where_a_refused_move_left_it(lib, run, capsys):
     assert cli.main(["undo", str(journal), "--root", str(lib), "--state-dir", str(run.state), "--apply"]) == 2
     assert fields.read(moved)["track"] == ["1"] and blocker.read_bytes() == b"another file"
     assert "REFUSED  (original place taken)" in capsys.readouterr().out
+
+
+def test_replaygain_removed_then_undone(lib, run, capsys):
+    track = lib / "Beyonce/4/01 Run the World.m4a"
+    tags.write_replaygain(track, -7.12, 0.98)
+    held = fields.replaygain(track)
+    assert run(lib / "Beyonce/4", "--set", "replaygain=", "--apply") == 0
+    out = capsys.readouterr().out
+    assert 'TAG      replaygain: "track gain -7.12 dB" → "(none)"' in out
+    assert "written: 1" in out and "unchanged: 1" in out
+    assert fields.replaygain(track) == []
+    [journal] = (run.state / "journal").glob("*.jsonl")
+    assert cli.main(["undo", str(journal), "--root", str(lib), "--state-dir", str(run.state), "--apply"]) == 0
+    assert fields.replaygain(track) == held
+
+
+def test_replaygain_takes_no_value(lib, run):
+    with pytest.raises(SystemExit):
+        run(lib / "Beyonce/4", "--set", "replaygain=-7 dB")

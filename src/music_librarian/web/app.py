@@ -342,11 +342,28 @@ def create_app(ctx: Context):
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        lyrics = library.lyrics_state(folder, [n for n, _ in tracks])
+        names = [n for n, _ in tracks]
+        gains = library.replaygain_state(folder, names)
+        shown_gains = {n: fields.track_gain(v) or ("?" if v else None) for n, v in gains.items()}
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
-                               unchanged=request.args.get("unchanged") == "1", lyrics=lyrics)
+                               unchanged=request.args.get("unchanged") == "1",
+                               lyrics=library.lyrics_state(folder, names),
+                               gains=shown_gains,
+                               any_gain=any(gains.values()))
+
+    @app.post("/library/album/replaygain")
+    def delete_replaygain():
+        rel = request.form.get("folder", "")
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
+            abort(404)
+        gains = library.replaygain_state(folder, [n for n, _ in library.tracks_of(folder)])
+        asked = [[str(Path(rel) / name), fields.REPLAYGAIN, "", seen] for name, seen in gains.items() if seen]
+        if not asked:
+            return redirect(url_for("album_page", folder=rel, unchanged="1"))
+        return submit("tag", {"edits": asked}, False)
 
     @app.post("/library/album/lyrics")
     def album_lyrics():

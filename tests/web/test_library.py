@@ -493,3 +493,29 @@ def test_old_uploads_removed(tmp_path):
     assert passes.upload_path(tmp_path, old) is None
     assert passes.upload_path(tmp_path, new).read_bytes() == b"new"
     assert passes.upload_path(tmp_path, "../x.jpg") is None
+
+
+def test_replaygain_shown_then_removed_from_the_album(dashboard, lib):
+    tags.write_replaygain(lib / "Beyonce/4/01 Run the World.m4a", -7.12, 0.98)
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "<td>-7.12 dB</td>" in page and "Preview the deletion of the album&#39;s ReplayGain" in page
+    response = dashboard.client.post("/library/album/replaygain", data={"csrf": dashboard.token,
+                                                                        "folder": "Beyonce/4"})
+    assert response.status_code == 302
+    dashboard.requests.tick(Log())
+    [dry] = runs.recent(dashboard.state, 1)
+    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
+    assert "TAG      replaygain: &#34;track gain -7.12 dB&#34; → &#34;(none)&#34;" in page
+    assert tags.has_replaygain(lib / "Beyonce/4/01 Run the World.m4a")
+
+    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    dashboard.requests.tick(Log())
+    assert not tags.has_replaygain(lib / "Beyonce/4/01 Run the World.m4a")
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "-7.12 dB" not in page and "album&#39;s ReplayGain" not in page
+
+
+def test_replaygain_removal_without_any(dashboard):
+    response = dashboard.client.post("/library/album/replaygain", data={"csrf": dashboard.token,
+                                                                        "folder": "Beyonce/4"})
+    assert response.status_code == 302 and "unchanged=1" in response.location

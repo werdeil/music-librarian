@@ -170,6 +170,11 @@ TRANSLATIONS = {
         "lyrics_button": "Chercher les paroles de l'album",
         "lyrics_open": "Voir et modifier les paroles",
         "lyrics_delete_button": "Prévisualiser la suppression",
+        "replaygain": "ReplayGain",
+        "replaygain_unknown": "sans gain de piste",
+        "replaygain_delete_button": "Prévisualiser la suppression du ReplayGain de l'album",
+        "replaygain_delete_hint": ("Retire les tags REPLAYGAIN_* de chaque morceau ; le prochain enrich "
+                                   "mesure de nouveau leur gain."),
         "track_unreadable": "Ce morceau est illisible.",
         "cover": "Pochette",
         "cover_file": "Image",
@@ -424,6 +429,11 @@ TRANSLATIONS = {
         "lyrics_button": "Look up the album's lyrics",
         "lyrics_open": "See and edit the lyrics",
         "lyrics_delete_button": "Preview the deletion",
+        "replaygain": "ReplayGain",
+        "replaygain_unknown": "no track gain",
+        "replaygain_delete_button": "Preview the deletion of the album's ReplayGain",
+        "replaygain_delete_hint": ("Removes the REPLAYGAIN_* tags of every track; the next enrich "
+                                   "measures their gain again."),
         "track_unreadable": "This track cannot be read.",
         "cover": "Cover",
         "cover_file": "Image",
