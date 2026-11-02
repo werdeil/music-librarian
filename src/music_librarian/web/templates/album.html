@@ -49,7 +49,7 @@
             <thead>
                 <tr>
                     {% if discs %}<th>{{ t.field_disc }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
-                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.format }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -76,6 +76,14 @@
                         {%- if linked -%}
                         <a href="{{ url_for('track_lyrics', folder=folder, file=file) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
                         {%- else %}{{ shown }}{% endif -%}
+                    </td>
+                    {% set gain = gains.get(file) %}
+                    {% set gain_shown = t.replaygain_unknown if gain == '?' else gain or t.lyrics_none %}
+                    <td class="{{ 'gain' if gain else 'muted' }}">
+                        {%- if gain and values and ctx.requests -%}
+                        <label title="{{ t.replaygain_click }}"><input type="checkbox" name="t{{ ns.i - 1 }}.replaygain_delete"
+                               value="1" aria-label="{{ t.replaygain_click }}"><span>{{ gain_shown }}</span></label>
+                        {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                 </tr>

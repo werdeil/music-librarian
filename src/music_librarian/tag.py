@@ -7,7 +7,8 @@ tag — rewrites tag fields of tracks, then files them again where their new tag
 PATH is a track or a folder (every track under it) of the library. FIELD is one of title,
 artist, albumartist, album, track, tracktotal, disc, disctotal, year, genre, composer and
 compilation (1 or 0); an empty VALUE removes the field. A genre takes the spelling of the
-validated list (state/genres.txt) when the list knows it.
+validated list (state/genres.txt) when the list knows it. replaygain only takes an empty VALUE:
+it removes every REPLAYGAIN_* tag, which the next pass of enrich.replaygain measures again.
 
 The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
 looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
@@ -44,7 +45,7 @@ from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
 from music_librarian.split.library import run_locked
 
-EDITABLE = tuple(f for f in fields.FIELDS if not f.endswith("_mbid"))
+EDITABLE = tuple(f for f in fields.FIELDS if not f.endswith("_mbid")) + (fields.REPLAYGAIN,)
 
 
 @dataclass
@@ -113,8 +114,8 @@ def plan(opts, log, stats):
             continue
         try:
             current = fields.read(path)
-            if any(edit.field == fields.LYRICS for edit in edits):
-                current[fields.LYRICS] = fields.lyrics(path)
+            for name in {edit.field for edit in edits} & {fields.LYRICS, fields.REPLAYGAIN}:
+                current[name] = fields.read_field(path, name)
         except Exception as e:
             log(f"SKIPPED  (unreadable: {e})  {rel}")
             stats["skipped"] += 1

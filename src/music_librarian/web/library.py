@@ -241,6 +241,8 @@ def edits(folder_rel, form, seen):
             value = form.get(f"t{i}.{name}")
             if value is not None and not same(name, value.strip(), joined(values[name])):
                 out.append([str(Path(folder_rel) / file), name, value.strip(), values[name]])
+        if form.get(f"t{i}.replaygain_delete") and values.get(fields.REPLAYGAIN):
+            out.append([str(Path(folder_rel) / file), fields.REPLAYGAIN, "", values[fields.REPLAYGAIN]])
     return out
 
 
@@ -284,6 +286,17 @@ def lyrics_state(folder: Path, names):
         except Exception:
             text = None
         out[name] = "instrumental" if is_instrumental(text) else bool(text)
+    return out
+
+
+def replaygain_state(folder: Path, names):
+    """{file name: its fields.replaygain() values, [] when it has none or is unreadable}."""
+    out = {}
+    for name in names:
+        try:
+            out[name] = fields.replaygain(folder / name)
+        except Exception:
+            out[name] = []
     return out
 
 

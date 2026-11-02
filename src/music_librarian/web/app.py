@@ -342,11 +342,18 @@ def create_app(ctx: Context):
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        lyrics = library.lyrics_state(folder, [n for n, _ in tracks])
+        names = [n for n, _ in tracks]
+        gains = library.replaygain_state(folder, names)
+        for name, values in tracks:
+            if values:
+                values[fields.REPLAYGAIN] = gains[name]
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
-                               unchanged=request.args.get("unchanged") == "1", lyrics=lyrics)
+                               unchanged=request.args.get("unchanged") == "1",
+                               lyrics=library.lyrics_state(folder, names),
+                               gains={n: fields.track_gain(v) or ("?" if v else None)
+                                      for n, v in gains.items()})
 
     @app.post("/library/album/lyrics")
     def album_lyrics():

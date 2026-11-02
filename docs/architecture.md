@@ -69,7 +69,7 @@ src/music_librarian/
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
-| by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics through it too |
+| by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics and removes the ReplayGain through it too |
 | by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
@@ -130,7 +130,7 @@ A dry run reads only the metadata cache and the library's folders, never the net
 ### tag: fields rewritten, then filed again
 
 1. **Read each track** given (or under each folder given) directly, not through the cache, and plan its changes: a value already there is left, a genre takes the validated list's spelling, and an edit made against values the track no longer holds (`seen`, which the dashboard passes) is `REFUSED`. Tracks outside the library are skipped.
-2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track whose lyrics change is dropped from the lookups in vain (`lyrics/misses.py`), so the next `enrich` looks lyrics removed up again at once.
+2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track whose lyrics change is dropped from the lookups in vain (`lyrics/misses.py`), so the next `enrich` looks lyrics removed up again at once. The ReplayGain is another, which only `replaygain=` empties: every `REPLAYGAIN_*` tag goes, journaled as `NAME=value` so that `undo` writes them back, logged by the track gain; the track's snapshot then has no gain, so the next `enrich` measures it again.
 3. **File the folders of the edited tracks** with `organize_pass`, in the same journal, all or nothing like import. A dry run hands organize the tags as they will be (`Options.overrides`), so it lists the exact moves, conflicts included.
 
 ### cover: an album's folder.jpg replaced

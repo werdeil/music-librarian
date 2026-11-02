@@ -5,7 +5,7 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
-from music_librarian.media import fields
+from music_librarian.media import fields, tags
 from music_librarian.organize.scan import read_tags
 
 FORMATS = (".m4a", ".mp3", ".flac")
@@ -119,3 +119,30 @@ def test_check(name, values, written):
 def test_check_refuses(name, values):
     with pytest.raises(fields.FieldError):
         fields.check(name, values)
+
+
+@pytest.mark.parametrize("ext", FORMATS)
+def test_replaygain_removed_then_written_back(track, ext):
+    p = track(ext)
+    assert fields.replaygain(p) == []
+    tags.write_replaygain(p, -7.12, 0.98)
+    held = fields.read_field(p, fields.REPLAYGAIN)
+    assert len(held) == 2 and fields.track_gain(held) == "-7.12 dB"
+    fields.write(p, fields.REPLAYGAIN, [])
+    assert fields.replaygain(p) == [] and not tags.has_replaygain(p)
+    assert fields.read(p)["title"] == ["Halo"]
+    fields.write(p, fields.REPLAYGAIN, held)
+    assert fields.replaygain(p) == held and tags.has_replaygain(p)
+
+
+def test_replaygain_brief():
+    assert fields.brief(fields.REPLAYGAIN, ["REPLAYGAIN_TRACK_GAIN=-7.12 dB", "REPLAYGAIN_TRACK_PEAK=0.98"]) \
+        == "track gain -7.12 dB"
+    assert fields.brief(fields.REPLAYGAIN, ["replaygain_album_gain=-6 dB"]) == "1 tag"
+    assert fields.brief(fields.REPLAYGAIN, []) == "(none)"
+
+
+@pytest.mark.parametrize("values", [["-7 dB"], ["TITLE=Halo"]])
+def test_replaygain_only_removed(values):
+    with pytest.raises(fields.FieldError):
+        fields.check(fields.REPLAYGAIN, values)

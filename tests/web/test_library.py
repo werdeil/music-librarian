@@ -493,3 +493,39 @@ def test_old_uploads_removed(tmp_path):
     assert passes.upload_path(tmp_path, old) is None
     assert passes.upload_path(tmp_path, new).read_bytes() == b"new"
     assert passes.upload_path(tmp_path, "../x.jpg") is None
+
+
+
+
+def test_replaygain_struck_then_removed_with_the_album_form(dashboard, lib):
+    one, two = lib / "Beyonce/4/01 Run the World.m4a", lib / "Beyonce/4/02 Best Thing.m4a"
+    tags.write_replaygain(one, -7.12, 0.98)
+    tags.write_replaygain(two, -5.5, 0.9)
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'name="t0.replaygain_delete"' in page and "<span>-7.12 dB</span>" in page
+    form = album_form(dashboard, "Beyonce/4", **{"t0.replaygain_delete": "1"})
+    dashboard.client.post("/library/album", data=form)
+    dashboard.requests.tick(Log())
+    [dry] = runs.recent(dashboard.state, 1)
+    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
+    assert "TAG      replaygain: &#34;track gain -7.12 dB&#34; → &#34;(none)&#34;" in page
+    assert "-5.50 dB" not in page and tags.has_replaygain(one)
+
+    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    dashboard.requests.tick(Log())
+    assert not tags.has_replaygain(one) and tags.has_replaygain(two)
+
+
+def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib, capsys):
+    track = lib / "Beyonce/4/01 Run the World.m4a"
+    tags.write_replaygain(track, -7.12, 0.98)
+    form = album_form(dashboard, "Beyonce/4", **{"t0.replaygain_delete": "1"})
+    tags.write_replaygain(track, -3.0, 0.5)
+    dashboard.client.post("/library/album", data=form)
+    dashboard.requests.tick(Log())
+    assert tags.has_replaygain(track) and "REFUSED  (replaygain changed since" in capsys.readouterr().out
+
+
+def test_no_replaygain_to_strike_without_any(dashboard):
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "replaygain_delete" not in page

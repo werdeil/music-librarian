@@ -538,6 +538,35 @@ textarea.lyrics:read-only {
     color: var(--text-muted);
 }
 
+td.gain label {
+    position: relative;
+    display: block;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+table.tracks td.gain input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    min-width: 0;
+}
+
+td.gain span {
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+
+td.gain label:hover span,
+td.gain input:focus-visible + span {
+    color: var(--text-bright);
+}
+
+td.gain input:checked + span {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
 td.cell-link {
     padding-top: 0;
     padding-bottom: 0;
