@@ -22,12 +22,12 @@ from music_librarian import __version__, cover
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
-from music_librarian.lyrics import misses
+from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import library, reviews
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, box, boxes_ticked,
+from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIONS, UNDER, box, boxes_ticked,
                                         journal_path, keep_upload)
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
@@ -38,7 +38,7 @@ HISTORY_PAGE = 50
 MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
-               "review_genres", "genre_list_page"}
+               "review_genres", "genre_list_page", "review_instrumental"}
 
 
 @dataclass
@@ -192,7 +192,8 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN, under=UNDER,
+            days=f"{misses.retry_days():g}")
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
@@ -341,8 +342,7 @@ def create_app(ctx: Context):
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        lyrics = {name: (when(v) if isinstance(v, float) else v)
-                  for name, v in library.lyrics_state(ctx.state_dir, folder, [n for n, _ in tracks]).items()}
+        lyrics = library.lyrics_state(folder, [n for n, _ in tracks])
         return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
@@ -424,7 +424,13 @@ def create_app(ctx: Context):
             return refused("track_unreadable", 404)
         return render_template("track_lyrics.html", folder=rel, file=name, values=values,
                                text=text[0] if text else "", seen=json.dumps(text),
+                               instrumental=bool(text) and is_instrumental(text[0]), mark=INSTRUMENTAL,
+                               missed=None if text else when_missed(path),
                                unchanged=request.args.get("unchanged") == "1")
+
+    def when_missed(path):
+        at = misses.recorded(ctx.state_dir).get(path)
+        return when(at) if at else None
 
     @app.post("/library/track/lyrics")
     def edit_lyrics():
@@ -437,7 +443,8 @@ def create_app(ctx: Context):
             abort(400)
         if not isinstance(seen, list) or not all(isinstance(v, str) for v in seen):
             abort(400)
-        value = "" if request.form.get("delete") else request.form.get("lyrics", "")
+        value = ("" if request.form.get("delete") else INSTRUMENTAL if request.form.get("instrumental")
+                 else request.form.get("lyrics", ""))
         if fields.check(fields.LYRICS, [value]) == seen:
             return redirect(url_for("track_lyrics", folder=rel, file=name, unchanged="1"))
         return submit("tag", {"edits": [[str(Path(rel) / name), fields.LYRICS, value, seen]]}, False)

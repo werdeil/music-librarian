@@ -70,9 +70,11 @@
                 <p class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</p>
                 {% for name in names %}
                 {% set box = name[3:] if name.startswith('no_') else name %}
-                <label><input type="checkbox" name="{{ box }}" value="1"{% if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
+                <label{% if box in under %} class="sub-option"{% endif %}><input type="checkbox" name="{{ box }}" value="1"
+                    {%- if box in under %} data-under="{{ under[box] }}"{% endif %}
+                    {%- if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
                 {% if box in long_when %}
-                <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
+                <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box].format(days=days) }}</p>
                 {% endif %}
                 {% endfor %}
                 <div class="actions">

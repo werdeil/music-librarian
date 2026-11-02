@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from music_librarian.core.files import AUDIO_EXT, is_junk
-from music_librarian.lyrics import misses
+from music_librarian.lyrics import is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -275,17 +275,15 @@ def cover(folder: Path):
     return None
 
 
-def lyrics_state(state_dir: Path, folder: Path, names):
-    """{file name: True when it carries lyrics, the time of a lookup in vain within the retry
-    delay, else None}."""
-    missed = misses.recorded(state_dir)
+def lyrics_state(folder: Path, names):
+    """{file name: "instrumental" when its lyrics are the INSTRUMENTAL mark, else whether it has some}."""
     out = {}
     for name in names:
         try:
-            has = tags.has_lyrics(folder / name)
+            text = tags.read_lyrics(folder / name)
         except Exception:
-            has = False
-        out[name] = True if has else missed.get(folder / name)
+            text = None
+        out[name] = "instrumental" if is_instrumental(text) else bool(text)
     return out
 
 

@@ -17,6 +17,11 @@
     <input type="hidden" name="seen" value="{{ seen }}">
     <section>
         <h2>{{ t.lyrics }}</h2>
+        {% if missed %}<p class="muted">{{ t.lyrics_missed.format(date=missed) }}</p>{% endif %}
+        {% if ctx.requests %}
+        <p><label><input type="checkbox" name="instrumental" value="1" data-instrumental="{{ mark }}"
+                         {%- if instrumental %} checked{% endif %}> {{ t.lyrics_instrumental_box }}</label></p>
+        {% endif %}
         <textarea name="lyrics" class="lyrics" rows="24" aria-label="{{ t.lyrics }}"
                   {% if not ctx.requests %}readonly{% endif %}>{{ text }}</textarea>
     </section>

@@ -102,10 +102,10 @@ def test_forms_need_the_page_token(tmp_path, requests):
 def test_options_taken_from_the_form(tmp_path, requests):
     _, client, token = dashboard(tmp_path, requests)
     client.post("/passes", data={"command": "enrich", "rescan": "1", "genres": "1", "replaygain": "1",
-                                 "split": "1", "since": "1", "csrf": token})
+                                 "split": "1", "since": "1", "retry": "1", "csrf": token})
     client.post("/passes", data={"command": "rm", "csrf": token})
     assert [(r.command, r.options) for r in requests.pending()] == \
-        [("enrich", {"rescan": True, "no_covers": True, "no_lyrics": True, "no_dedupe": True})]
+        [("enrich", {"rescan": True, "no_covers": True, "no_lyrics": True, "retry": True, "no_dedupe": True})]
 
 
 def test_enrich_options_shown_ticked(tmp_path, requests):
@@ -114,6 +114,9 @@ def test_enrich_options_shown_ticked(tmp_path, requests):
     for box in ("genres", "replaygain", "covers", "lyrics", "split", "dedupe"):
         assert f'name="{box}" value="1" checked' in page
     assert 'name="rescan" value="1">' in page and "no_" not in page
+    assert ('<label class="sub-option"><input type="checkbox" name="retry" value="1" '
+            'data-under="lyrics">') in page
+    assert 'hidden>Looks up online every track looked up in vain within the last 30 days' in page
     assert page.count("<dialog") == 3 and "data-opens-dialog" in page
     assert 'data-long="rescan" data-long-when="checked" hidden>Reads every file first' in page
     assert 'data-long="lyrics"' not in page

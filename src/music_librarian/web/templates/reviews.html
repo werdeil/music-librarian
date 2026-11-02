@@ -37,4 +37,13 @@
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
     {% endif %}
 </section>
+<section>
+    <h2>{{ t.instrumental_review }} <code class="aside">instrumentals.txt</code></h2>
+    <p>{% if bare is none %}{{ t.still_building }}{% else %}{{ t.bare_waiting.format(n=bare) }}{% endif %}
+       {%- if answered %} · {{ t.instrumentals_answered.format(n=answered) }}{% endif %}</p>
+    <div class="actions">
+        {% if bare %}<a class="button primary" href="{{ url_for('review_instrumental') }}">{{ t.start_review }}</a>{% endif %}
+        {% if answered %}{{ a.apply_form(t, ctx, csrf, 'instrumental') }}{% endif %}
+    </div>
+</section>
 {% endblock %}

@@ -103,6 +103,8 @@ TRANSLATIONS = {
         "long_since": "Parcourt toute la bibliothèque, pas seulement les dossiers changés.",
         "long_rescan": ("Relit d'abord chaque fichier : une vingtaine de minutes pour 25 000 pistes "
                         "sur disque dur."),
+        "long_retry": ("Cherche en ligne chaque morceau cherché en vain depuis moins de {days} jours : "
+                       "environ 1,5 s par morceau."),
         "long_force": "Relit chaque fichier : une vingtaine de minutes pour 25 000 pistes sur disque dur.",
         "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
                    "enrich": "Compléter genres, gain, pochettes et paroles",
@@ -112,6 +114,7 @@ TRANSLATIONS = {
         "queued": "En file",
         "opt_since": "dossiers changés depuis le dernier passage (--since)",
         "opt_rescan": "relire d'abord toute la bibliothèque (--rescan)",
+        "opt_retry": "chercher aussi les paroles cherchées en vain récemment (--retry)",
         "opt_genres": "aligner les genres sur la liste validée",
         "opt_replaygain": "mesurer le ReplayGain manquant",
         "opt_covers": "intégrer folder.jpg dans les pistes",
@@ -160,7 +163,9 @@ TRANSLATIONS = {
         "bad_value": "Valeur refusée : {error}",
         "lyrics": "Paroles",
         "lyrics_present": "oui",
-        "lyrics_missed": "cherchées en vain le {date}",
+        "lyrics_missed": "Cherchées en vain le {date}.",
+        "lyrics_instrumental": "instrumental",
+        "lyrics_instrumental_box": "Instrumental",
         "lyrics_none": "—",
         "lyrics_button": "Chercher les paroles de l'album",
         "lyrics_open": "Voir et modifier les paroles",
@@ -177,21 +182,27 @@ TRANSLATIONS = {
         "without_lyrics": "Sans paroles",
         "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles, le plus d'abord. "
                               "enrich les cherche chaque semaine ; un morceau cherché en vain n'est "
-                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album."),
+                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album. "
+                              "Un morceau marqué instrumental n'y figure pas."),
         "lyrics_none_missing": "Tous les morceaux ont des paroles.",
         "tile_lyrics": "Morceaux sans paroles",
         "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
         "genres_waiting": "Genres en attente de réponse : {n}",
+        "instrumental_review": "Morceaux sans paroles : instrumentaux ?",
+        "bare_waiting": "Morceaux sans paroles : {n}",
+        "instrumentals_answered": "à marquer instrumentaux : {n}",
+        "instrumental_button": "Instrumental",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
         "itunes_hint": "iTunes classe ces albums en « {genre} ».",
         "alias_button": "En faire un nom de ce genre",
         "new_genre_button": "En faire un genre validé",
         "reviews": "Revues",
         "questions_waiting": "Questions en attente de réponse",
-        "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
-                          "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
-                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants."),
+        "reviews_intro": ("Les questions de split et de dedupe, les genres que la liste validée ne "
+                          "connaît pas et les morceaux sans paroles, une à la fois : chaque réponse est "
+                          "enregistrée aussitôt dans le fichier de décisions, d'alias, de genres ou "
+                          "d'instrumentaux, et vaut pour les passages suivants."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
         "credits_waiting": "Crédits en attente de réponse : {n}",
@@ -236,7 +247,8 @@ TRANSLATIONS = {
             "up to date": "à jour", "without folder.jpg": "sans folder.jpg",
             "audio growth (MB)": "audio en plus (Mo)", "written": "écrites", "cleared": "effacées",
             "already": "déjà présentes", "not found": "introuvables", "rejected": "rejetées",
-            "unreachable": "injoignables", "searched recently": "cherchées récemment",
+            "unreachable": "injoignables", "instrumental": "instrumentaux",
+            "searched recently": "cherchées récemment",
             "no metadata": "sans métadonnées", "credits to split": "crédits à découper",
             "tags to rewrite": "tags à réécrire", "awaiting decision": "en attente de décision",
             "protected": "protégés", "decisions": "décisions", "review": "revue",
@@ -346,6 +358,8 @@ TRANSLATIONS = {
         "start_dry_run": "Start the dry run",
         "long_since": "Goes through the whole library, not only the folders changed.",
         "long_rescan": "Reads every file first: about 20 minutes for 25,000 tracks on a hard disk.",
+        "long_retry": ("Looks up online every track looked up in vain within the last {days} days: "
+                       "about 1.5 s a track."),
         "long_force": "Reads every file again: about 20 minutes for 25,000 tracks on a hard disk.",
         "passes": {"import": "Import the Inbox", "organize": "File the library",
                    "enrich": "Fill in genres, gain, covers and lyrics",
@@ -355,6 +369,7 @@ TRANSLATIONS = {
         "queued": "Queued",
         "opt_since": "folders changed since the last pass (--since)",
         "opt_rescan": "read the whole library again first (--rescan)",
+        "opt_retry": "look up the lyrics found in vain recently too (--retry)",
         "opt_genres": "align the genres with the validated list",
         "opt_replaygain": "measure the missing ReplayGain",
         "opt_covers": "embed folder.jpg into the tracks",
@@ -402,7 +417,9 @@ TRANSLATIONS = {
         "bad_value": "Value refused: {error}",
         "lyrics": "Lyrics",
         "lyrics_present": "yes",
-        "lyrics_missed": "not found on {date}",
+        "lyrics_missed": "Looked up in vain on {date}.",
+        "lyrics_instrumental": "instrumental",
+        "lyrics_instrumental_box": "Instrumental",
         "lyrics_none": "—",
         "lyrics_button": "Look up the album's lyrics",
         "lyrics_open": "See and edit the lyrics",
@@ -419,21 +436,27 @@ TRANSLATIONS = {
         "without_lyrics": "Without lyrics",
         "lyrics_page_intro": ("The albums whose tracks have no lyrics, the most first. enrich looks them "
                               "up every week; a track looked up in vain is only looked up again after "
-                              "{days} days, or right away from the album's page."),
+                              "{days} days, or right away from the album's page. A track marked "
+                              "instrumental is left out."),
         "lyrics_none_missing": "Every track has lyrics.",
         "tile_lyrics": "Tracks without lyrics",
         "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",
         "genres_waiting": "Genres awaiting an answer: {n}",
+        "instrumental_review": "Tracks without lyrics: instrumental?",
+        "bare_waiting": "Tracks without lyrics: {n}",
+        "instrumentals_answered": "to mark instrumental: {n}",
+        "instrumental_button": "Instrumental",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",
         "itunes_hint": "iTunes files these albums under \u201c{genre}\u201d.",
         "alias_button": "Make it a name of this genre",
         "new_genre_button": "Make it a validated genre",
         "reviews": "Reviews",
         "questions_waiting": "Questions awaiting an answer",
-        "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does not "
-                          "know, one at a time: each answer is saved at once in the decisions, aliases or "
-                          "genres file, and holds for the passes to come."),
+        "reviews_intro": ("The questions of split and dedupe, the genres the validated list does not "
+                          "know and the tracks without lyrics, one at a time: each answer is saved at once "
+                          "in the decisions, aliases, genres or instrumentals file, and holds for the "
+                          "passes to come."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
         "credits_waiting": "Credits awaiting an answer: {n}",

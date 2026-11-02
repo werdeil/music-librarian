@@ -96,9 +96,10 @@ def fetch(artist, title, album, duration):
     """Ask LRCLIB for a track, preferring a synced record of that very recording.
 
     Tries the exact `get`, then `search`, which forgives album and duration
-    mismatches. LRCLIB stores lyrics per upload, so a `get` hit with no synced
-    record of this length is only a fallback while the search looks for one. A synced candidate must
-    match the track's duration; one that doesn't still serves as plain text.
+    mismatches; a `get` hit marked instrumental ends there. LRCLIB stores lyrics per upload,
+    so a `get` hit with no synced record of this length is only a fallback while the search
+    looks for one. A synced candidate must match the track's duration; one that doesn't still
+    serves as plain text.
     Raises ProviderUnavailable when LRCLIB can't be reached at all.
     """
     headers = {"User-Agent": USER_AGENT}
@@ -122,7 +123,7 @@ def fetch(artist, title, album, duration):
         log.debug("lrclib: get failed (%s), falling back to search", exc)
         payload = None
 
-    if payload is None or not _synced(payload, seconds):
+    if payload is None or not (_synced(payload, seconds) or payload.get("instrumental")):
         payload = _search(artist, title, album, seconds, payload)
 
     if not payload:
@@ -141,9 +142,11 @@ def fetch(artist, title, album, duration):
         payload.get("id"), payload.get("albumName"), payload.get("duration"),
         bool(synced_text),
     )
+    words = payload.get("plainLyrics") or synced_text
     return {
         "lyrics": payload.get("plainLyrics"),
         "synced": synced_text,
+        "instrumental": bool(payload.get("instrumental")) and not words,
         "meta": {
             "artist": payload.get("artistName"),
             "title": payload.get("trackName"),

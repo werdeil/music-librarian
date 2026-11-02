@@ -146,4 +146,6 @@ def fetch(artist, title, album, duration):
 
     if lyrics or synced:
         return {"lyrics": lyrics, "synced": synced, "meta": meta}
+    if track.get("instrumental") or lyrics_node.get("instrumental"):
+        return {"lyrics": None, "synced": None, "instrumental": True, "meta": meta}
     return None

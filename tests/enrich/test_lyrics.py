@@ -190,3 +190,43 @@ def test_no_provider_enabled_records_no_miss(album, web, monkeypatch, tmp_path):
     assert run(d) == 0
     calls, _ = web
     assert calls == [] and not (tmp_path / "state" / "lyrics-misses.db").exists()
+
+
+def test_instrumental_answer_writes_the_mark(album, web, capsys):
+    d, tracks = album
+    calls, answer = web
+    answer.update(synced=None, instrumental=True)
+    assert run(d, "--dry-run", "--look-up") == 0
+    assert "WOULD    write" in capsys.readouterr().out and not tags.has_lyrics(str(tracks[0]))
+    assert run(d) == 0
+    out = capsys.readouterr().out
+    assert "(instrumental)" in out and "instrumental: 3" in out
+    assert all(tags.read_lyrics(str(t)) == "[Instrumental]" for t in tracks)
+    assert run(d, "--retry") == 0 and len(calls) == 6
+
+
+def test_the_mark_is_lyrics_to_clear_and_force(album, web):
+    _, tracks = album
+    calls, answer = web
+    tags.write_lyrics(str(tracks[0]), "[Instrumental]")
+    answer.update(synced=None, instrumental=True)
+    assert run(tracks[0], "--clear") == 0 and len(calls) == 1
+    assert tags.read_lyrics(str(tracks[0])) == "[Instrumental]"
+    answer.update(synced=SYNCED, instrumental=False)
+    assert run(tracks[0], "--force") == 0
+    assert tags.read_lyrics(str(tracks[0])) == "la la\nlo lo"
+    tags.write_lyrics(str(tracks[0]), "[Instrumental]")
+    answer.update(synced=None, source="none")
+    assert run(tracks[0], "--clear") == 0
+    assert not tags.has_lyrics(str(tracks[0]))
+
+
+def test_existing_lyrics_replaced_by_the_mark_under_clear_only(album, web):
+    _, tracks = album
+    tags.write_lyrics(str(tracks[0]), "déjà là")
+    _, answer = web
+    answer.update(synced=None, instrumental=True)
+    run(tracks[0], "--force")
+    assert tags.read_lyrics(str(tracks[0])) == "déjà là"
+    run(tracks[0], "--clear")
+    assert tags.read_lyrics(str(tracks[0])) == "[Instrumental]"

@@ -9,8 +9,9 @@
     });
 }());
 
-// A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
-// without script, the card submits the options as ticked by default.
+// A pass card opens its options in a dialog, each warning shown while its box makes the pass long, and
+// a box under another unticked and disabled while that one is; without script, the card submits the
+// options as ticked by default.
 (function () {
     "use strict";
 
@@ -18,8 +19,15 @@
         var form = opener.form;
         var dialog = form.querySelector("dialog");
         var warnings = dialog.querySelectorAll("[data-long]");
+        var subs = dialog.querySelectorAll("[data-under]");
 
         function update() {
+            subs.forEach(function (sub) {
+                sub.disabled = !form.elements.namedItem(sub.dataset.under).checked;
+                if (sub.disabled) {
+                    sub.checked = false;
+                }
+            });
             warnings.forEach(function (warning) {
                 var box = form.elements.namedItem(warning.dataset.long);
                 warning.hidden = box.checked !== (warning.dataset.longWhen === "checked");
@@ -170,4 +178,28 @@
 
     log.scrollTop = log.scrollHeight;
     setTimeout(poll, POLL_INTERVAL_MS);
+}());
+
+// The instrumental box puts the mark in the lyrics and locks them; unticked, the text it replaced comes back.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-instrumental]").forEach(function (box) {
+        var text = box.form.elements.namedItem("lyrics");
+        var mark = box.dataset.instrumental;
+        var kept = "";
+
+        function update() {
+            if (box.checked && text.value !== mark) {
+                kept = text.value;
+                text.value = mark;
+            } else if (!box.checked && text.value === mark) {
+                text.value = kept;
+            }
+            text.readOnly = box.checked;
+        }
+
+        box.addEventListener("change", update);
+        update();
+    });
 }());

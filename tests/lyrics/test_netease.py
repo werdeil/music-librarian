@@ -74,10 +74,21 @@ class NeteaseTest(unittest.TestCase):
     def test_no_lyrics_collected(self):
         with patch.object(netease.requests, "get", side_effect=[
             FakeResponse({"result": {"songs": [_song(7, "Space Debris", ["Muse"], 247000)]}, "code": 200}),
-            FakeResponse({"nolyric": True, "code": 200}),
+            FakeResponse({"uncollected": True, "code": 200}),
         ]), self.assertLogs("music_librarian.lyrics", "INFO") as logs:
             self.assertIsNone(netease.fetch("Muse", "Space Debris", None, "247"))
         self.assertIn("song 7 ('Absolution', 247s) has no lyrics", logs.output[-1])
+
+    def test_pure_music_is_instrumental(self):
+        search = {"result": {"songs": [_song(7, "Space Debris", ["Muse"], 247000)]}, "code": 200}
+        for payload in ({"nolyric": True, "code": 200}, {"pureMusic": True, "code": 200}):
+            with patch.object(netease.requests, "get", side_effect=[
+                FakeResponse(search),
+                FakeResponse(payload),
+            ]):
+                found = netease.fetch("Muse", "Space Debris", None, "247")
+            self.assertTrue(found["instrumental"])
+            self.assertEqual(found["meta"]["artist"], "Muse")
 
     def test_blocked_search_finds_nothing(self):
         for payload in ({"result": "35b1748964af8a7c", "code": 200}, {"code": -462, "message": "blocked"}):

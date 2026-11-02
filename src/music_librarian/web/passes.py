@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 from music_librarian import cover, dedupe, enrich, importer, organize, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
+from music_librarian.lyrics import instrumentals
 
 QUEUED, STARTED, DONE, CANCELLED = "queued", "started", "done", "cancelled"
 KEPT = 50
@@ -28,7 +29,8 @@ UPLOAD_DAYS = 7
 OPTIONS = {
     "import": (),
     "organize": ("since",),
-    "enrich": ("rescan", "no_genres", "no_replaygain", "no_covers", "no_lyrics", "no_split", "no_dedupe"),
+    "enrich": ("rescan", "no_genres", "no_replaygain", "no_covers", "no_lyrics", "retry", "no_split",
+               "no_dedupe"),
     "scan": ("force",),
     "split": (),
     "dedupe": (),
@@ -37,9 +39,12 @@ OPTIONS = {
     "lyrics": ("folder",),
     "cover": ("folder", "image"),
     "genres": (),
+    "instrumental": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
-LONG_WHEN = {"since": False, "rescan": True, "force": True}
+LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
+# a box only offered while the box it refines is ticked
+UNDER = {"retry": "lyrics"}
 FORMS = {command: names for command, names in OPTIONS.items()
          if command not in ("undo", "tag", "lyrics", "cover")}
 
@@ -167,6 +172,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_enrich(r, log):
         opts = replace(enrich_opts, apply=r.apply, rescan=bool(r.options.get("rescan")),
+                       retry=bool(r.options.get("retry")),
                        split=not r.options.get("no_split"), dedupe=not r.options.get("no_dedupe"),
                        left_out=frozenset(name for name in enrich.TOOLS if r.options.get(f"no_{name}")))
         return kept("enrich", lambda: enrich.run(opts, log), log, r)
@@ -217,10 +223,15 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
             return cover.run(opts, log)
         return kept("cover", put, log, r)
 
+    def run_instrumental(r, log):
+        opts = tag.Options(root=root, apply=r.apply, state_dir=state_dir, lyrion=import_opts.lyrion)
+        return kept("instrumental", lambda: instrumentals.run(opts, log), log, r)
+
     def run_genres(r, log):
         opts = replace(enrich_opts, apply=r.apply)
         return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "cover": run_cover, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "lyrics": run_lyrics, "cover": run_cover, "genres": run_genres,
+            "instrumental": run_instrumental}
