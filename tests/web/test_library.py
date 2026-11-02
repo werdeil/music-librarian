@@ -534,7 +534,8 @@ def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib, 
 
 def test_replaygain_removal_with_nothing_ticked(dashboard, lib):
     tags.write_replaygain(lib / "Beyonce/4/01 Run the World.m4a", -7.12, 0.98)
-    response = dashboard.client.post("/library/album/replaygain", data=replaygain_form(dashboard, "Beyonce/4"))
+    form = replaygain_form(dashboard, "Beyonce/4")
+    response = dashboard.client.post("/library/album/replaygain", data=form)
     assert response.status_code == 302 and "unchanged=1" in response.location
 
 
