@@ -5,6 +5,7 @@
 <section>
     <h1 class="visually-hidden">{{ t.reviews }}</h1>
     <p class="muted">{{ t.reviews_intro }}</p>
+    {% if none in (credits, groups, bare) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
 </section>
 <section>
     <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>

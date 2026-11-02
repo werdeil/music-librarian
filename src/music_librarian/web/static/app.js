@@ -80,8 +80,8 @@
     });
 }());
 
-// A page showing lists still being built reloads once they are, unless something was typed,
-// ticked or unfolded meanwhile.
+// A page showing lists still being built moves its progress bars, and reloads once they are built,
+// unless something was typed, ticked or unfolded meanwhile.
 (function () {
     "use strict";
 
@@ -91,6 +91,7 @@
         return;
     }
     var url = marker.dataset.reloadWhenBuilt;
+    var bars = document.querySelectorAll("[data-build-progress]");
     var touched = false;
 
     function touch() {
@@ -106,6 +107,10 @@
         fetch(url)
             .then(function (response) { return response.json(); })
             .then(function (data) {
+                bars.forEach(function (bar) {
+                    bar.value = data.percent;
+                    bar.textContent = data.percent + " %";
+                });
                 if (touched) {
                     return;
                 }

@@ -23,6 +23,9 @@ TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
 PAGE = 60
 PATIENCE = 1.0
 REBUILD_EVERY = 60
+REPORT_EVERY = 200
+
+_building = threading.local()
 
 
 def fold(text):
@@ -67,9 +70,22 @@ def cached_files(root: Path, state_dir: Path):
     none without a cache: the dashboard never creates one."""
     if not (state_dir / metadata_cache.FILE).exists():
         return []
+    out = []
     with MetadataCache(state_dir) as cache:
-        return [(Path(path), snap) for path, snap in cache.cached(root)
-                if snap is not None and os.path.exists(path)]
+        total = cache.count(root)
+        for done, (path, snap) in enumerate(cache.cached(root), 1):
+            if snap is not None and os.path.exists(path):
+                out.append((Path(path), snap))
+            if done % REPORT_EVERY == 0 or done == total:
+                report(done, total)
+    return out
+
+
+def report(done, total):
+    """Tell the Refreshed building in this thread, if any, that it is `done` steps of `total` in."""
+    value = getattr(_building, "value", None)
+    if value is not None:
+        value.steps = (done, total)
 
 
 def changed(stamp, built):
@@ -88,11 +104,13 @@ class Refreshed:
     """The value `build()` returns for the current `stamp()` (a cache_stamp, then what else the
     value depends on), built again in a thread of its own when the stamp changes (see changed).
     get() returns None until a first build ends, then the last value built, stale or not; only
-    the first build keeps a request waiting, at most PATIENCE seconds from its start."""
+    the first build keeps a request waiting, at most PATIENCE seconds from its start. A build
+    tells how far it is through report(), from its own thread."""
 
     def __init__(self, stamp, build):
         self.stamp_of, self.build = stamp, build
         self.built, self.value, self.building = None, None, None
+        self.steps = None
         self.deadline = 0
         self.lock = threading.Lock()
 
@@ -102,6 +120,7 @@ class Refreshed:
         with self.lock:
             if self.building is None and changed(stamp, self.built):
                 self.deadline = time.monotonic() + PATIENCE
+                self.steps = None
                 self.building = threading.Thread(target=self._run, args=(stamp,), name="web-build",
                                                  daemon=True)
                 self.building.start()
@@ -118,7 +137,16 @@ class Refreshed:
         with self.lock:
             return self.value is not None and self.building is None
 
+    def progress(self):
+        """How far the running build is, from 0 to 1; 1 when none runs."""
+        with self.lock:
+            if self.building is None:
+                return 1.0
+            done, total = self.steps or (0, 0)
+            return done / total if total else 0.0
+
     def _run(self, stamp):
+        _building.value = self
         try:
             value = self.build()
         except Exception:

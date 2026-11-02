@@ -133,13 +133,17 @@ def create_app(ctx: Context):
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
-                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url)
+                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url,
+                    build_percent=lambda: round(100 * build_progress()))
 
     def cover_url(rel):
         return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))
 
     def settled():
         return all(value.ready() for value in built_in_background)
+
+    def build_progress():
+        return sum(value.progress() for value in built_in_background) / len(built_in_background)
 
     @app.before_request
     def start_builds():
@@ -214,7 +218,7 @@ def create_app(ctx: Context):
 
     @app.get("/built")
     def built():
-        return jsonify(ready=settled())
+        return jsonify(ready=settled(), percent=round(100 * build_progress()))
 
     @app.get("/activity")
     def activity_fragment():

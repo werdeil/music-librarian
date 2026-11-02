@@ -148,6 +148,35 @@ def test_refreshed_patience_runs_from_the_build_start(monkeypatch):
     release.set()
 
 
+def test_refreshed_progress_follows_its_build_reports():
+    reported, release = threading.Event(), threading.Event()
+
+    def build():
+        library.report(1, 4)
+        reported.set()
+        release.wait(5)
+        return "done"
+    value = library.Refreshed(lambda: (("a", None),), build)
+    assert value.progress() == 1.0
+    value.start()
+    reported.wait(5)
+    assert value.progress() == 0.25
+    library.report(3, 4)                                # not from the build's thread
+    assert value.progress() == 0.25
+    building = value.building
+    release.set()
+    building.join()
+    assert value.progress() == 1.0
+
+
+def test_cached_files_reports_the_files_read(lib, tmp_path, monkeypatch):
+    reports = []
+    monkeypatch.setattr(library, "REPORT_EVERY", 3)
+    monkeypatch.setattr(library, "report", lambda done, total: reports.append((done, total)))
+    assert len(library.cached_files(lib, tmp_path / "state")) == 4
+    assert reports == [(3, 4), (4, 4)]
+
+
 def test_refreshed_builds_once_per_stamp():
     builds = []
     value = library.Refreshed(lambda: (("a", None),), lambda: builds.append(1) or len(builds))
@@ -161,20 +190,21 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
     ctx = dashboard.ctx
     client = web.create_app(ctx).test_client()
     try:
-        assert "Being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        page = client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in page and '<progress class="building" max="100" value="' in page
         assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
         assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
         assert 'data-refresh="/tiles"' in tiles and "data-reload-when-built" not in tiles
         assert 'class="tile tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
-        assert client.get("/built").get_json() == {"ready": False}
+        assert client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
     for _ in range(100):
         if client.get("/built").get_json()["ready"]:
             break
         time.sleep(0.05)
-    assert client.get("/built").get_json() == {"ready": True}
+    assert client.get("/built").get_json() == {"ready": True, "percent": 100}
     assert "data-reload-when-built" not in client.get("/library", headers=EN).get_data(as_text=True)
 
 
@@ -206,12 +236,12 @@ def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, mak
         page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
         assert "Beyonce/4" in page and "Moby/Play" not in page          # the previous list, at once
         assert 'data-reload-when-built="/built"' in page
-        assert dashboard.client.get("/built").get_json() == {"ready": False}
+        assert dashboard.client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
     page = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     assert "Moby/Play" in page and "data-reload-when-built" not in page
-    assert dashboard.client.get("/built").get_json() == {"ready": True}
+    assert dashboard.client.get("/built").get_json() == {"ready": True, "percent": 100}
 
 
 def test_tiles_follow_the_cache(dashboard, lib, tmp_path, make_track):
