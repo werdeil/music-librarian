@@ -350,7 +350,8 @@ def create_app(ctx: Context):
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                unchanged=request.args.get("unchanged") == "1",
                                lyrics=library.lyrics_state(folder, names),
-                               gains=shown_gains, gains_seen=json.dumps({n: v for n, v in gains.items() if v}))
+                               gains=shown_gains,
+                               gains_seen=json.dumps({n: v for n, v in gains.items() if v}))
 
     @app.post("/library/album/replaygain")
     def delete_replaygain():
