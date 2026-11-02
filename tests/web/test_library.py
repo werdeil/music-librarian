@@ -374,10 +374,15 @@ def test_edit_previewed_then_applied(dashboard, lib):
     [dry] = runs.recent(dashboard.state, 1)
     page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert 'TAG      albumartist: &#34;Beyonce&#34; → &#34;Beyoncé&#34;' in page and "Apply this pass" in page
+    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
     assert (lib / "Beyonce/4/01 Run the World.m4a").exists()
 
-    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    queued = dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token}).location
+    assert "Back to the album" in dashboard.client.get(queued, headers=EN).get_data(as_text=True)
     dashboard.requests.tick(Log())
+    [applied] = runs.recent(dashboard.state, 1)
+    page = dashboard.client.get(f"/runs/{applied['id']}", headers=EN).get_data(as_text=True)
+    assert 'href="/library/album?folder=Beyonc%C3%A9/4">Back to the album' in page   # where it was refiled
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()
@@ -467,6 +472,7 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
     [dry] = runs.recent(dashboard.state, 1)
     page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert "WOULD    embed 1000x1000 into 2 of 2 tracks" in page and "Apply this pass" in page
+    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
 
     dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})

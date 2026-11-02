@@ -12,6 +12,6 @@
         <p class="muted">{{ t.request_waiting }}</p>
         <div class="actions">{{ m.cancel_form(t, csrf, asked) }}</div>
     {% endif %}
-    <p><a href="{{ url_for('home') }}">{{ t.overview }}</a></p>
+    <p><a href="{{ url_for('home') }}">{{ t.overview }}</a>{% if album %} · <a href="{{ album }}">{{ t.back_to_album }}</a>{% endif %}</p>
 </section>
 {% endblock %}
