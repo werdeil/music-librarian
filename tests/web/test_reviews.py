@@ -154,7 +154,8 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert "Being worked out" in text and "Credits awaiting" not in text
+        assert text.count(">Being worked out") == 1 and "Credits awaiting" not in text
+        assert '<span class="muted">being worked out</span>' in text
         assert 'data-reload-when-built="/built?page=reviews_page"' in text
         assert client.get("/built?page=reviews_page").get_json()["ready"] is False
         for _ in range(100):                                # the album list does not wait on the reviews
