@@ -35,7 +35,7 @@ from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
 from music_librarian.web import library
-from music_librarian.web.library import Refreshed, cache_stamp, cached_files
+from music_librarian.web.library import Refreshed, cache_stamp, cached_files, part
 
 
 LATER = "review-later.json"
@@ -91,20 +91,26 @@ class Reviews:
         self.queues = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
 
     def _build(self):
-        tracks = [(path, found) for path, snap in cached_files(self.root, self.state_dir)
-                  if (found := credit_tags.from_snapshot(snap))]
-        known = split.known_from([c for _, c in tracks])
-        decided = decisions.load(self.decisions, quiet)
-        _, waiting = split.plan(tracks, known | decided_names(decided), decided)
-        asked = [(credit, n, str(p.relative_to(self.root)), status)
-                 for status in (PENDING, PROTECTED)
-                 for credit, n, p, status in split.by_frequency(waiting, status)]
-        aliases, different = aliases_file.load(self.aliases, quiet)
-        counts, mbids = dedupe.names_in(tracks, aliases)
-        examples = {}
-        for path, found in tracks:
-            for name in {canonical(n, aliases) for f in dedupe.FIELDS for v in found[f] for n in names_of(v)}:
-                examples.setdefault(name, str(path.parent.relative_to(self.root)))
+        with part(0, 0.3):
+            tracks = [(path, found) for path, snap in cached_files(self.root, self.state_dir)
+                      if (found := credit_tags.from_snapshot(snap))]
+        with part(0.3, 0.45):
+            known = split.known_from([c for _, c in tracks])
+            decided = decisions.load(self.decisions, quiet)
+            _, waiting = split.plan(tracks, known | decided_names(decided), decided)
+            asked = [(credit, n, str(p.relative_to(self.root)), status)
+                     for status in (PENDING, PROTECTED)
+                     for credit, n, p, status in split.by_frequency(waiting, status)]
+        with part(0.45, 0.55):
+            aliases, different = aliases_file.load(self.aliases, quiet)
+            counts, mbids = dedupe.names_in(tracks, aliases)
+            examples = {}
+            for path, found in tracks:
+                names = {canonical(n, aliases) for f in dedupe.FIELDS for v in found[f] for n in names_of(v)}
+                if not names <= examples.keys():
+                    folder = str(path.parent.relative_to(self.root))
+                    for name in names:
+                        examples.setdefault(name, folder)
         return SimpleNamespace(known=known, credits=asked, groups=find_groups(counts, mbids, different),
                                names={name: (n, examples.get(name)) for name, n in counts.items()})
 
@@ -179,7 +185,9 @@ class GenreReview:
     def _build(self):
         mapping = self.mapping()
         found = defaultdict(lambda: dict(tracks=0, example=None, albums=Counter()))
-        for path, snap in cached_files(self.root, self.state_dir):
+        with part(0, 0.9):
+            files = cached_files(self.root, self.state_dir)
+        for path, snap in files:
             values = metadata_cache.genres(snap)
             if values:
                 entry = found["; ".join(values)]
@@ -265,8 +273,10 @@ class InstrumentalReview:
         self.queue = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
 
     def _build(self):
+        with part(0, 0.6):
+            files = cached_files(self.root, self.state_dir)
         bare = [(str(path.relative_to(self.root)), metadata_cache.metadata(snap))
-                for path, snap in cached_files(self.root, self.state_dir) if not snap.get("lyrics")]
+                for path, snap in files if not snap.get("lyrics")]
         return sorted(bare, key=lambda item: item[0])
 
     def item(self, start=0):

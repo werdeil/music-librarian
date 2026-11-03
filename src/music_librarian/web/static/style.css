@@ -151,6 +151,34 @@ section {
     animation: spin 0.9s linear infinite;
 }
 
+progress.building {
+    display: block;
+    width: 100%;
+    max-width: 24rem;
+    height: 0.5rem;
+    border: 0;
+    border-radius: 0.25rem;
+    background: var(--border-color);
+    accent-color: var(--accent);
+    appearance: none;
+}
+
+progress.building::-webkit-progress-bar {
+    border-radius: 0.25rem;
+    background: var(--border-color);
+}
+
+progress.building::-webkit-progress-value {
+    border-radius: 0.25rem;
+    background: var(--accent);
+    transition: width 0.5s;
+}
+
+progress.building::-moz-progress-bar {
+    border-radius: 0.25rem;
+    background: var(--accent);
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);

@@ -10,6 +10,7 @@ import threading
 import time
 import unicodedata
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +24,10 @@ TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
 PAGE = 60
 PATIENCE = 1.0
 REBUILD_EVERY = 60
+REPORT_EVERY = 200
+
+_building = threading.local()
+_one_build = threading.Lock()
 
 
 def fold(text):
@@ -67,9 +72,37 @@ def cached_files(root: Path, state_dir: Path):
     none without a cache: the dashboard never creates one."""
     if not (state_dir / metadata_cache.FILE).exists():
         return []
+    out = []
     with MetadataCache(state_dir) as cache:
-        return [(Path(path), snap) for path, snap in cache.cached(root)
-                if snap is not None and os.path.exists(path)]
+        total = cache.count(root)
+        for done, (path, snap) in enumerate(cache.cached(root), 1):
+            if snap is not None and os.path.exists(path):
+                out.append((Path(path), snap))
+            if done % REPORT_EVERY == 0 or done == total:
+                report(done, total)
+    return out
+
+
+def report(done, total):
+    """Tell the Refreshed building in this thread, if any, that it is `done` steps of `total` into
+    the part of its build under way (see part), the whole build outside any."""
+    value = getattr(_building, "value", None)
+    if value is not None and total:
+        start, end = getattr(_building, "span", (0.0, 1.0))
+        value.done = start + (end - start) * min(done / total, 1.0)
+
+
+@contextmanager
+def part(start, end):
+    """The share of the build, from `start` to `end` of it (0 to 1), that the reports within count
+    for; at its end, the build is at `end`."""
+    outer = getattr(_building, "span", (0.0, 1.0))
+    _building.span = (outer[0] + (outer[1] - outer[0]) * start, outer[0] + (outer[1] - outer[0]) * end)
+    try:
+        yield
+    finally:
+        _building.span = outer
+    report(end, 1)
 
 
 def changed(stamp, built):
@@ -88,11 +121,13 @@ class Refreshed:
     """The value `build()` returns for the current `stamp()` (a cache_stamp, then what else the
     value depends on), built again in a thread of its own when the stamp changes (see changed).
     get() returns None until a first build ends, then the last value built, stale or not; only
-    the first build keeps a request waiting, at most PATIENCE seconds from its start."""
+    the first build keeps a request waiting, at most PATIENCE seconds from its start. A build
+    tells how far it is through report(), from its own thread; one build runs at a time."""
 
     def __init__(self, stamp, build):
         self.stamp_of, self.build = stamp, build
         self.built, self.value, self.building = None, None, None
+        self.done = 0.0
         self.deadline = 0
         self.lock = threading.Lock()
 
@@ -102,6 +137,7 @@ class Refreshed:
         with self.lock:
             if self.building is None and changed(stamp, self.built):
                 self.deadline = time.monotonic() + PATIENCE
+                self.done = 0.0
                 self.building = threading.Thread(target=self._run, args=(stamp,), name="web-build",
                                                  daemon=True)
                 self.building.start()
@@ -118,9 +154,16 @@ class Refreshed:
         with self.lock:
             return self.value is not None and self.building is None
 
+    def progress(self):
+        """How far the running build is, from 0 to 1; 1 when none runs."""
+        with self.lock:
+            return 1.0 if self.building is None else self.done
+
     def _run(self, stamp):
+        _building.value, _building.span = self, (0.0, 1.0)
         try:
-            value = self.build()
+            with _one_build:   # builds run side by side contend for the GIL, each far slower
+                value = self.build()
         except Exception:
             with self.lock:
                 self.built, self.building = (stamp, time.monotonic()), None
@@ -145,11 +188,15 @@ class Index:
         if cache_stamp(self.state_dir)[0] is None:
             return []
         folders, bare = defaultdict(list), defaultdict(int)
-        for path, snap in cached_files(self.root, self.state_dir):
+        with part(0, 0.5):
+            files = cached_files(self.root, self.state_dir)
+        for path, snap in files:
             folders[path.parent].append(snap["tags"])
             bare[path.parent] += not snap.get("lyrics")
         albums = []
-        for folder, tracks in folders.items():
+        for done, (folder, tracks) in enumerate(folders.items(), 1):
+            if done % REPORT_EVERY == 0:
+                report(0.5 + 0.5 * done / len(folders), 1)
             artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),
                           "")
             title = next((a for t in tracks if (a := first(t, "album"))), "")

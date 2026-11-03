@@ -8,7 +8,7 @@
         <button type="submit">{{ t.search_button }}</button>
     </form>
     {% if building %}
-        <p class="muted">{{ t.still_building }}</p>
+        {% include "_building.html" %}
     {% elif empty %}
         <p class="muted">{{ t.library_empty }}</p>
     {% elif not albums %}

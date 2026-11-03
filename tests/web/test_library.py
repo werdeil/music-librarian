@@ -148,6 +148,54 @@ def test_refreshed_patience_runs_from_the_build_start(monkeypatch):
     release.set()
 
 
+def test_refreshed_progress_follows_its_build_reports():
+    reported, release = threading.Event(), threading.Event()
+
+    def build():
+        library.report(1, 4)
+        reported.set()
+        release.wait(5)
+        return "done"
+    value = library.Refreshed(lambda: (("a", None),), build)
+    assert value.progress() == 1.0
+    value.start()
+    reported.wait(5)
+    assert value.progress() == 0.25
+    library.report(3, 4)                                # not from the build's thread
+    assert value.progress() == 0.25
+    building = value.building
+    release.set()
+    building.join()
+    assert value.progress() == 1.0
+
+
+def test_parts_of_a_build_share_its_progress():
+    seen = []
+
+    def build():
+        with library.part(0, 0.5):
+            library.report(1, 2)
+            seen.append(value.done)
+            with library.part(0.5, 1):
+                library.report(1, 2)
+                seen.append(value.done)
+        seen.append(value.done)
+        library.report(3, 4)
+        seen.append(value.done)
+    value = library.Refreshed(lambda: (("a", None),), build)
+    value.start()
+    value.building.join()
+    assert seen == [0.25, 0.375, 0.5, 0.75]
+
+
+def test_cached_files_reports_the_files_read(lib, tmp_path, monkeypatch):
+    reports = []
+    monkeypatch.setattr(library, "REPORT_EVERY", 3)
+    monkeypatch.setattr(library, "report", lambda done, total: reports.append((done, total)))
+    assert len(library.cached_files(lib, tmp_path / "state")) == 4
+    assert reports == [(3, 4), (4, 4)]
+
+
 def test_refreshed_builds_once_per_stamp():
     builds = []
     value = library.Refreshed(lambda: (("a", None),), lambda: builds.append(1) or len(builds))
@@ -161,20 +209,21 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
     ctx = dashboard.ctx
     client = web.create_app(ctx).test_client()
     try:
-        assert "Being worked out" in client.get("/library", headers=EN).get_data(as_text=True)
+        page = client.get("/library", headers=EN).get_data(as_text=True)
+        assert "Being worked out" in page and '<progress class="building" max="100" value="' in page
         assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
         assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
         assert 'data-refresh="/tiles"' in tiles and "data-reload-when-built" not in tiles
         assert 'class="tile tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
-        assert client.get("/built").get_json() == {"ready": False}
+        assert client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
     for _ in range(100):
         if client.get("/built").get_json()["ready"]:
             break
         time.sleep(0.05)
-    assert client.get("/built").get_json() == {"ready": True}
+    assert client.get("/built").get_json() == {"ready": True, "percent": 100}
     assert "data-reload-when-built" not in client.get("/library", headers=EN).get_data(as_text=True)
 
 
@@ -205,13 +254,13 @@ def test_page_reloads_once_a_stale_list_is_rebuilt(dashboard, lib, tmp_path, mak
     try:
         page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
         assert "Beyonce/4" in page and "Moby/Play" not in page          # the previous list, at once
-        assert 'data-reload-when-built="/built"' in page
-        assert dashboard.client.get("/built").get_json() == {"ready": False}
+        assert 'data-reload-when-built="/built?page=library_page"' in page
+        assert dashboard.client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
     page = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     assert "Moby/Play" in page and "data-reload-when-built" not in page
-    assert dashboard.client.get("/built").get_json() == {"ready": True}
+    assert dashboard.client.get("/built").get_json() == {"ready": True, "percent": 100}
 
 
 def test_tiles_follow_the_cache(dashboard, lib, tmp_path, make_track):
@@ -344,10 +393,15 @@ def test_edit_previewed_then_applied(dashboard, lib):
     [dry] = runs.recent(dashboard.state, 1)
     page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert 'TAG      albumartist: &#34;Beyonce&#34; → &#34;Beyoncé&#34;' in page and "Apply this pass" in page
+    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
     assert (lib / "Beyonce/4/01 Run the World.m4a").exists()
 
-    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    queued = dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token}).location
+    assert "Back to the album" in dashboard.client.get(queued, headers=EN).get_data(as_text=True)
     dashboard.requests.tick(Log())
+    [applied] = runs.recent(dashboard.state, 1)
+    page = dashboard.client.get(f"/runs/{applied['id']}", headers=EN).get_data(as_text=True)
+    assert 'href="/library/album?folder=Beyonc%C3%A9/4">Back to the album' in page   # where it was refiled
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()
@@ -437,6 +491,7 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
     [dry] = runs.recent(dashboard.state, 1)
     page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
     assert "WOULD    embed 1000x1000 into 2 of 2 tracks" in page and "Apply this pass" in page
+    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
 
     dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})

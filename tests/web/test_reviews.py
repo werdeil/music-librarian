@@ -4,6 +4,7 @@ import html
 import json
 import re
 import threading
+import time
 
 import pytest
 
@@ -153,8 +154,15 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert "Being worked out" in text and "Credits awaiting" not in text
-        assert 'data-reload-when-built="/built"' in text
+        assert text.count(">Being worked out") == 1 and "Credits awaiting" not in text
+        assert '<span class="muted">being worked out</span>' in text
+        assert 'data-reload-when-built="/built?page=reviews_page"' in text
+        assert client.get("/built?page=reviews_page").get_json()["ready"] is False
+        for _ in range(100):                                # the album list does not wait on the reviews
+            if client.get("/built?page=library_page").get_json()["ready"]:
+                break
+            time.sleep(0.05)
+        assert client.get("/built?page=library_page").get_json() == {"ready": True, "percent": 100}
         assert "Being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
         assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
         assert client.get("/", headers=EN).status_code == 200

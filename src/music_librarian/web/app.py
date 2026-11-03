@@ -37,8 +37,7 @@ HOME_PASSES = ("import", "organize", "enrich", "scan")
 HISTORY_PAGE = 50
 MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
-SHOWS_LISTS = {"library_page", "missed_lyrics", "reviews_page", "review_split", "review_dedupe",
-               "review_genres", "genre_list_page", "review_instrumental"}
+ALBUM_PASSES = {"tag", "cover", "lyrics"}
 
 
 @dataclass
@@ -120,6 +119,28 @@ def journal_of(run):
     return None
 
 
+def album_asked(command, options):
+    """The album folder, relative to the root, a pass queued from an album's page works on, or None."""
+    if command not in ALBUM_PASSES or not options:
+        return None
+    if command == "tag":
+        edits = options.get("edits") or []
+        return str(Path(edits[0][0]).parent) if edits else None
+    return options.get("folder")
+
+
+def moved_to(journal: Path, root: Path, folder):
+    """Where the journal moved the tracks of the album folder `folder` (relative to `root`), else `folder`."""
+    before = root / folder
+    with open(journal, encoding="utf-8") as f:
+        for line in f:
+            rec = json.loads(line)
+            if rec.get("type") == "move" and Path(rec["src"]).parent == before:
+                after = Path(rec["dst"]).parent
+                return str(after.relative_to(root)) if after.is_relative_to(root) else folder
+    return folder
+
+
 def create_app(ctx: Context):
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD
@@ -127,19 +148,30 @@ def create_app(ctx: Context):
     waiting, queues = reviews.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
     built_in_background = (index.albums, *queues)
+    credit_queue, genre_queue, instrumental_queue = queues
+    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
+             "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
+             "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
+             "review_instrumental": (instrumental_queue,)}
 
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
-                    rebuilding=request.endpoint in SHOWS_LISTS and not settled(), cover_url=cover_url)
+                    rebuilding=request.endpoint in shows and not settled(request.endpoint),
+                    cover_url=cover_url, build_percent=lambda: build_percent(request.endpoint))
 
     def cover_url(rel):
         return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))
 
-    def settled():
-        return all(value.ready() for value in built_in_background)
+    def settled(page=None):
+        """Whether the lists `page` shows are built, every list without a page."""
+        return all(value.ready() for value in shows.get(page, built_in_background))
+
+    def build_percent(page=None):
+        values = shows.get(page, built_in_background)
+        return round(100 * sum(value.progress() for value in values) / len(values))
 
     @app.before_request
     def start_builds():
@@ -214,7 +246,8 @@ def create_app(ctx: Context):
 
     @app.get("/built")
     def built():
-        return jsonify(ready=settled())
+        page = request.args.get("page")
+        return jsonify(ready=settled(page), percent=build_percent(page))
 
     @app.get("/activity")
     def activity_fragment():
@@ -246,11 +279,21 @@ def create_app(ctx: Context):
         asked = ctx.requests.get(request_id) if ctx.requests else None
         if asked is None:
             abort(404)
+        album = album_url(asked.command, asked.options)
         if asked.state == DONE and asked.code == EXIT_LOCKED:
-            return render_template("request.html", asked=asked, locked=True)
+            return render_template("request.html", asked=asked, locked=True, album=album)
         if asked.run_id is not None:
             return redirect(url_for("run_page", run_id=asked.run_id))
-        return render_template("request.html", asked=asked, locked=False, cancelled=asked.state == CANCELLED)
+        return render_template("request.html", asked=asked, locked=False, cancelled=asked.state == CANCELLED,
+                               album=album)
+
+    def album_url(command, options, journal=None):
+        """The page of the album the pass works on, where it is after the pass; None when it is gone."""
+        folder = album_asked(command, options)
+        if folder is not None and journal is not None:
+            folder = moved_to(journal, ctx.root, folder)
+        return url_for("album_page", folder=folder) if folder and library.album_folder(ctx.root, folder) \
+            else None
 
     @app.post("/requests/<int:request_id>/cancel")
     def cancel_request(request_id):
@@ -294,13 +337,14 @@ def create_app(ctx: Context):
             abort(404)
         lines, offset = runs.read_log(ctx.state_dir, run_id)
         journal = journal_of(run) if run["apply"] else None
+        journal = journal if journal and journal_path(ctx.state_dir, journal) else None
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             boxes=boxes_ticked(run["command"], run["options"])
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
-            can_stop=stoppable(run),
-            journal=journal if journal and journal_path(ctx.state_dir, journal) else None)
+            can_stop=stoppable(run), journal=journal,
+            album=album_url(run["command"], run["options"], journal and journal_path(ctx.state_dir, journal)))
 
     @app.get("/runs/<int:run_id>/log.json")
     def run_log(run_id):

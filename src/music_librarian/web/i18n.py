@@ -125,6 +125,7 @@ TRANSLATIONS = {
         "watch_dry_run": "watch tourne en dry run : aucun passage ne peut être appliqué d'ici.",
         "apply_button": "Appliquer ce passage",
         "undo_button": "Annuler ce passage",
+        "back_to_album": "Retour à l'album",
         "request_waiting": "En attente de la fin du passage en cours…",
         "request_locked": ("Un autre passage tenait le verrou (lancé à la main) : "
                            "relancez une fois qu'il est fini."),
@@ -383,6 +384,7 @@ TRANSLATIONS = {
         "watch_dry_run": "watch runs as a dry run: no pass can be applied from here.",
         "apply_button": "Apply this pass",
         "undo_button": "Undo this pass",
+        "back_to_album": "Back to the album",
         "request_waiting": "Waiting for the current pass to end…",
         "request_locked": "Another pass held the lock (run by hand): try again once it ends.",
         "search_placeholder": "Artist, album or title",

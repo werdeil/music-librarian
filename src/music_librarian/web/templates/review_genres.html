@@ -17,7 +17,7 @@
     {% if not genre_list %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
     {% elif left is none %}
-    <p class="muted">{{ t.still_building }}</p>
+    {% include "_building.html" %}
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }} · {{ t.genres_waiting.format(n=left) }}</p>
     <div class="question">
