@@ -2,8 +2,10 @@
 
 read() gives {field: [values]}, numbers as text ("3"); write() replaces one field's values,
 [] removing it. A track or disc number and its total share one tag in MP4 (trkn, disk) and
-MP3 (TRCK, TPOS "3/12"): writing one keeps the other. The lyrics are a field too, read apart
-(lyrics(), read_field()) as read() leaves them out: one text, its lines joined by "\n".
+MP3 (TRCK, TPOS "3/12"): writing one keeps the other. The lyrics and the ReplayGain are fields
+too, read apart (lyrics(), replaygain(), read_field()) as read() leaves them out: the lyrics one
+text, its lines joined by "\n"; the ReplayGain one "NAME=value" per REPLAYGAIN_* tag, written
+back only as read, so that removing them can be undone.
 """
 from mutagen import File as MFile
 from mutagen.flac import FLAC
@@ -12,11 +14,12 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4, MP4FreeForm
 
 from music_librarian.core.log import count
-from music_librarian.media import tags as lyrics_tags
+from music_librarian.media import tags as media_tags
 
 FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "disc", "disctotal",
           "year", "genre", "composer", "compilation", "albumartist_mbid", "artist_mbid")
 LYRICS = "lyrics"
+REPLAYGAIN = "replaygain"
 NUMBERS = ("track", "tracktotal", "disc", "disctotal")
 PAIRS = {"track": ("track", 0), "tracktotal": ("track", 1), "disc": ("disc", 0), "disctotal": ("disc", 1)}
 
@@ -99,18 +102,36 @@ def read(path):
 
 def lyrics(path):
     """The lyrics of the file at `path` as check() gives them: [text] or []."""
-    return check(LYRICS, [lyrics_tags.read_lyrics(path) or ""])
+    return check(LYRICS, [media_tags.read_lyrics(path) or ""])
+
+
+def replaygain(path):
+    """The REPLAYGAIN_* tags of the file at `path` as check() gives them: ["NAME=value"], by name."""
+    _open(path)
+    return check(REPLAYGAIN, [f"{name}={value}" for name, value in media_tags.read_replaygain(path)])
 
 
 def read_field(path, field):
-    """The values of one field of the file at `path`, the lyrics included."""
-    return lyrics(path) if field == LYRICS else read(path)[field]
+    """The values of one field of the file at `path`, the lyrics and the ReplayGain included."""
+    if field == LYRICS:
+        return lyrics(path)
+    return replaygain(path) if field == REPLAYGAIN else read(path)[field]
+
+
+def track_gain(values):
+    """The track gain among replaygain() values ("-7.12 dB"), or None."""
+    return next((v.partition("=")[2] for v in values
+                 if v.partition("=")[0].lower() == "replaygain_track_gain"), None)
 
 
 def brief(field, values):
-    """The values as a log line shows them: the lyrics by their number of lines."""
+    """The values as a log line shows them: the lyrics by their number of lines, the ReplayGain
+    by its track gain."""
     if field == LYRICS and values:
         return count(len(values[0].split("\n")), "line")
+    if field == REPLAYGAIN and values:
+        gain = track_gain(values)
+        return f"track gain {gain}" if gain else count(len(values), "tag")
     return "; ".join(values) or "(none)"
 
 
@@ -121,10 +142,13 @@ def _lyrics_text(text):
 
 def check(field, values):
     """The values as they are written: a number field takes one integer of 1 or more, the
-    compilation flag ["1"] or [], the lyrics one text. Raises FieldError."""
+    compilation flag ["1"] or [], the lyrics one text, the ReplayGain only the "NAME=value" tags
+    replaygain() reads. Raises FieldError."""
     if field == LYRICS:
         text = _lyrics_text("\n".join(values))
         return [text] if text else []
+    if field == REPLAYGAIN:
+        return _replaygain_tags(values)
     if field not in FIELDS:
         raise FieldError(f"unknown field {field!r}")
     values = [v.strip() for v in values if v.strip()]
@@ -140,14 +164,30 @@ def check(field, values):
     return values
 
 
+def _replaygain_tags(values):
+    values = [v.strip() for v in values if v.strip()]
+    for v in values:
+        name, sep, _ = v.partition("=")
+        if not sep or not name.lower().startswith("replaygain_"):
+            raise FieldError(f"replaygain can only be removed: {v!r}")
+    return sorted(values, key=str.lower)
+
+
 def write(path, field, values):
     """Replace the values of `field` in the file at `path`; [] removes it. Raises FieldError."""
     values = check(field, values)
     if field == LYRICS:
         if values:
-            lyrics_tags.write_lyrics(path, values[0])
+            media_tags.write_lyrics(path, values[0])
         else:
-            lyrics_tags.clear_lyrics(path)
+            media_tags.clear_lyrics(path)
+        return
+    if field == REPLAYGAIN:
+        _open(path)
+        try:
+            media_tags.replace_replaygain(path, [tuple(v.split("=", 1)) for v in values])
+        except media_tags.ReplayGainTagError as e:
+            raise FieldError(str(e)) from None
         return
     f = _open(path)
     if f.tags is None:
