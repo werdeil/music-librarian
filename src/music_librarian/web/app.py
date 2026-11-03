@@ -150,8 +150,9 @@ def create_app(ctx: Context):
     built_in_background = (index.albums, *queues)
     credit_queue, genre_queue, instrumental_queue = queues
     shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
-             "review_split": (credit_queue,), "review_dedupe": (credit_queue,), "review_genres": (genre_queue,),
-             "genre_list_page": (genre_queue,), "review_instrumental": (instrumental_queue,)}
+             "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
+             "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
+             "review_instrumental": (instrumental_queue,)}
 
     @app.context_processor
     def language():
