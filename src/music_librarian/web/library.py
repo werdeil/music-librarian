@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from music_librarian import repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.lyrics import is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
@@ -45,6 +46,7 @@ class Album:
     text: str     # what a search matches, folded
     without_lyrics: int = 0
     compilation: bool = False
+    repeated: int = 0   # tracks with a field holding a value twice or several values
 
 
 def first(track, *keys):
@@ -187,12 +189,13 @@ class Index:
     def _build(self):
         if cache_stamp(self.state_dir)[0] is None:
             return []
-        folders, bare = defaultdict(list), defaultdict(int)
+        folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
         for path, snap in files:
             folders[path.parent].append(snap["tags"])
             bare[path.parent] += not snap.get("lyrics")
+            repeated[path.parent] += bool(repeats.findings(repeats.from_snapshot(snap)))
         albums = []
         for done, (folder, tracks) in enumerate(folders.items(), 1):
             if done % REPORT_EVERY == 0:
@@ -203,7 +206,7 @@ class Index:
             words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
             rel = str(folder.relative_to(self.root))
             albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder],
-                                all(first(t, "compilation") == "1" for t in tracks)))
+                                all(first(t, "compilation") == "1" for t in tracks), repeated[folder]))
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
@@ -250,6 +253,29 @@ def common(tracks):
         seen = {joined(values[name]) for _, values in tracks if values}
         out[name] = seen.pop() if len(seen) == 1 else None
     return out
+
+
+def repeated_fields(tracks):
+    """{file name: {field: whether its values differ, else they only repeat}} of the tracks'
+    fields holding a value twice or several values (see repeats)."""
+    return {name: {field: differ for field, _, _, differ in repeats.findings(values)}
+            for name, values in tracks if values and repeats.findings(values)}
+
+
+def album_repeats(repeated):
+    """{field: whether its values differ on a track} of the fields repeated_fields() found on any
+    track, a difference winning."""
+    out = {}
+    for flags in repeated.values():
+        for field, differ in flags.items():
+            out[field] = out.get(field, False) or differ
+    return out
+
+
+def with_repeats(albums):
+    """The albums with tracks whose fields hold a value twice or several values, the most such
+    tracks first."""
+    return sorted((a for a in albums if a.repeated), key=lambda a: (-a.repeated, a.folder))
 
 
 def several_discs(tracks):

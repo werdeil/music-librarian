@@ -6,8 +6,9 @@ For each Inbox item (an album folder, or a loose file):
   2. filing with organize, all or nothing: on any problem the whole item
      goes to _failed/;
   3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only,
-     then the split of their credits holding several names (split/) and the
-     spellings decided in the artist aliases (dedupe/);
+     then the values held twice kept once (repeats.py), the split of their
+     credits holding several names (split/) and the spellings decided in the
+     artist aliases (dedupe/);
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
@@ -35,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from music_librarian import dedupe, enrich, organize, split
+from music_librarian import dedupe, enrich, organize, repeats, split
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
@@ -45,6 +46,7 @@ from music_librarian.core.state import state_path
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.media.convert import ConversionError, convert, probe
+from music_librarian.split.library import CreditOptions
 
 ERRORS, DONE, WORK = "_failed", "_done", "_processing"
 UNFILED = "_unfiled"  # side files of a done item that did not follow it
@@ -168,9 +170,11 @@ def enrich_targets(dirs, log):
 
 
 def fix_credits(opts, dirs, log):
-    """Splits, then unifies, the credits of `dirs`, under the lock import already holds."""
+    """Rewrites the fields holding a value twice, then splits and unifies the credits of `dirs`,
+    under the lock import already holds."""
     ok = True
     for name, wanted, tag_pass, pass_options in (
+            ("repeated values", True, repeats.repeats_pass, CreditOptions),
             ("credit split", opts.split, split.split_pass, split.Options),
             ("artist aliases", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):
         if wanted and not STOP.is_set() and tag_pass(

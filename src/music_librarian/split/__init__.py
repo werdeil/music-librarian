@@ -33,7 +33,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from music_librarian.core.journal import Journal
+from music_librarian.core.journal import Journal, finish
 from music_librarian.core.lock import handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
@@ -41,8 +41,8 @@ from music_librarian.core.state import state_path
 from music_librarian.media import credit_tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.split import decisions
-from music_librarian.split.library import (CreditOptions, finish, parser, read_tracks, rewrite_tags,
-                                           run_locked, run_review)
+from music_librarian.split.library import (CreditOptions, parser, read_tracks, run_locked,
+                                           run_review)
 from music_librarian.split.review import review
 from music_librarian.split.rules import PENDING, PROTECTED, decided_names, key, known_names, rewrite
 
@@ -160,7 +160,7 @@ def split_pass(opts: Options, log):
     journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
     stopped = False
     if opts.apply:
-        stopped = rewrite_tags(writes, journal, log, stats)
+        stopped = credit_tags.rewrite_tags(writes, journal, log, stats)
         new_pending = [c for k, (c, _, _, status) in sorted(pending.items())
                        if status == PENDING and k not in decided]
         if new_pending:
