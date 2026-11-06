@@ -11,4 +11,5 @@
     {{ tile(t, todo.genres if genre_list else None, t.tile_genres, url_for('review_genres'),
             none_text=None if genre_list else t.tile_no_genre_list) }}
     {{ tile(t, todo.failed, t.tile_failed, url_for('history', command='import', problems='1')) }}
+    {{ tile(t, todo.repeats, t.tile_repeats, url_for('repeated_values')) }}
     {{ tile(t, todo.lyrics, t.tile_lyrics, url_for('missed_lyrics'), info=True) }}

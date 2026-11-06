@@ -32,7 +32,9 @@ One --apply pass at a time (state/lock). On SIGTERM or Ctrl-C, the current
 move completes and the rest is left for the next pass (second Ctrl-C: stop
 at once).
 
-Exit codes: 0 = OK, 2 = conflicts, skipped files, failed rewrites or refused undos,
+Fields whose values differ (two titles, an artist spelled two ways) are reported as MULTIPLE.
+
+Exit codes: 0 = OK, 2 = conflicts, skipped files, MULTIPLE, failed rewrites or refused undos,
 3 = another pass is running, 4 = stopped before the end, 5 = Lyrion carry-over failed.
 """
 import argparse
@@ -45,6 +47,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from music_librarian import repeats
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal, move_file
@@ -54,6 +57,7 @@ from music_librarian.core.runs import recorded
 from music_librarian.core.state import read_stamp, state_path, write_stamp
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
+from music_librarian.media import fields
 from music_librarian.media.atoms import MP4_EXT, leading_mdat
 from music_librarian.media.faststart import RewriteError, faststart
 from music_librarian.organize.naming import is_in_place, nfc, target_rel
@@ -93,11 +97,13 @@ class Options:
 
 @dataclass
 class Report:
-    """`moves` lists the planned moves, `done` the ones carried out."""
+    """`moves` lists the planned moves, `done` the ones carried out, `multiple` the fields
+    whose values differ (see repeats), which leave `code` alone."""
     code: int
     moves: list = field(default_factory=list)
     done: list = field(default_factory=list)
     journal: Path | None = None
+    multiple: int = 0
 
 
 def last_run(state_dir: Path):
@@ -170,10 +176,23 @@ def run(opts: Options, log):
     """A filing pass, under the lock with `apply`."""
     try:
         with locked(opts.state_dir) if opts.apply else contextlib.nullcontext():
-            return organize_pass(opts, log)
+            report = organize_pass(opts, log)
     except Locked as e:
         log(f"LOCKED   another pass is running ({e}), giving up")
         return Report(EXIT_LOCKED)
+    if report.code == 0 and report.multiple:
+        report.code = 2
+    return report
+
+
+def values_to_decide(path: Path, root, cache):
+    """repeats.to_decide() of the file, through the metadata cache for a file of the library."""
+    if not path.is_relative_to(root):
+        try:
+            return repeats.to_decide(fields.read(path))
+        except Exception:
+            return []
+    return repeats.to_decide(repeats.from_snapshot(cache.snapshot(path)) or {})
 
 
 def file_tags(path: Path, root, cache):
@@ -246,6 +265,10 @@ def organize_pass(opts: Options, log, journal=None):
                 stats["skipped"] += 1
                 blocked.add(p.parent)
                 continue
+            if p not in opts.overrides:
+                for name, values in values_to_decide(p, root, cache):
+                    log(repeats.multiple_line(p, root, name, values))
+                    stats["multiple values"] += 1
             if needs_faststart(p, root, cache):
                 rewrites.append(p)
             tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
@@ -370,7 +393,8 @@ def organize_pass(opts: Options, log, journal=None):
     stats["junk files"] = len(junk)
     log("\n--- Organize summary ---")
     for k in ("scanned", "in place", "to rewrite", "rewritten", "to move", "side files to move",
-              "moved", "skipped", "conflicts", "errors", "junk files", "folders removed"):
+              "moved", "skipped", "conflicts", "multiple values", "errors", "junk files",
+              "folders removed"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else moves, opts.apply, log)
@@ -385,7 +409,7 @@ def organize_pass(opts: Options, log, journal=None):
     code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] or stats["errors"] else 0
     if code == 0 and not lyrion_ok:
         code = lyrion.EXIT_LYRION
-    return Report(code, moves + extra, done, journal.path)
+    return Report(code, moves + extra, done, journal.path, stats["multiple values"])
 
 
 def rewrite_all(rewrites, root, interruptible, stats, log):

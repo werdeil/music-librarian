@@ -119,6 +119,7 @@ TRANSLATIONS = {
         "opt_replaygain": "mesurer le ReplayGain manquant",
         "opt_covers": "intégrer folder.jpg dans les pistes",
         "opt_lyrics": "chercher les paroles",
+        "opt_repeats": "réécrire les champs qui répètent une valeur",
         "opt_split": "découper les crédits",
         "opt_dedupe": "appliquer les alias d'artistes",
         "opt_force": "relire chaque fichier (--force)",
@@ -190,6 +191,19 @@ TRANSLATIONS = {
                               "Un morceau marqué instrumental n'y figure pas."),
         "lyrics_none_missing": "Tous les morceaux ont des paroles.",
         "tile_lyrics": "Morceaux sans paroles",
+        "tracks_repeated_title": "Valeurs répétées",
+        "tracks_repeated": "Morceaux aux valeurs répétées : {n}",
+        "repeated_column": "Morceaux concernés",
+        "repeats_page_intro": ("Les albums dont des morceaux ont un champ qui tient une valeur en double "
+                               "ou plusieurs valeurs : deux titres, un artiste nommé deux fois. enrich "
+                               "garde chaque semaine une seule fois une valeur répétée à l'identique ; "
+                               "des valeurs qui diffèrent se corrigent sur la page de l'album."),
+        "repeats_none": "Aucun morceau n'a de valeur répétée.",
+        "tile_repeats": "Morceaux aux valeurs répétées",
+        "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
+                             "valeurs, séparées par « ; » : garder la bonne seule."),
+        "repeated_differ": "Plusieurs valeurs : garder la bonne seule",
+        "repeated_same": "Une valeur en double : enrich n'en garde qu'une",
         "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
         "genres_waiting": "Genres en attente de réponse : {n}",
@@ -378,6 +392,7 @@ TRANSLATIONS = {
         "opt_replaygain": "measure the missing ReplayGain",
         "opt_covers": "embed folder.jpg into the tracks",
         "opt_lyrics": "look the lyrics up",
+        "opt_repeats": "rewrite the fields that repeat a value",
         "opt_split": "split the credits",
         "opt_dedupe": "apply the artist aliases",
         "opt_force": "read every file again (--force)",
@@ -448,6 +463,19 @@ TRANSLATIONS = {
                               "instrumental is left out."),
         "lyrics_none_missing": "Every track has lyrics.",
         "tile_lyrics": "Tracks without lyrics",
+        "tracks_repeated_title": "Repeated values",
+        "tracks_repeated": "Tracks with repeated values: {n}",
+        "repeated_column": "Tracks concerned",
+        "repeats_page_intro": ("The albums whose tracks have a field holding a value twice or several "
+                               "values: two titles, an artist named twice. enrich keeps a value "
+                               "repeated as is only once every week; values that differ are fixed on "
+                               "the album's page."),
+        "repeats_none": "No track has a repeated value.",
+        "tile_repeats": "Tracks with repeated values",
+        "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
+                             "by \"; \": keep only the right one."),
+        "repeated_differ": "Several values: keep only the right one",
+        "repeated_same": "A value twice: enrich keeps it only once",
         "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",
         "genres_waiting": "Genres awaiting an answer: {n}",

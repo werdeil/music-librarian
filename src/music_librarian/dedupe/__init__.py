@@ -30,7 +30,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from music_librarian.core.journal import Journal
+from music_librarian.core.journal import Journal, finish
 from music_librarian.core.lock import handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
@@ -39,8 +39,9 @@ from music_librarian.dedupe import aliases as aliases_file
 from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.review import pending, review
 from music_librarian.dedupe.similar import find_groups
-from music_librarian.split.library import (CreditOptions, finish, parser, read_tracks, rewrite_tags,
-                                           run_locked, run_review)
+from music_librarian.media import credit_tags
+from music_librarian.split.library import (CreditOptions, parser, read_tracks, run_locked,
+                                           run_review)
 from music_librarian.split.rules import LYRION_SEPARATOR, key, names_of
 
 FIELDS = ("albumartist", "artist", "composer")
@@ -152,7 +153,7 @@ def dedupe_pass(opts: Options, log):
     writes = [(p, field, old, new) for (field, old, new), files in sorted(changes.items())
               for p in files]
     journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
-    stopped = rewrite_tags(writes, journal, log, stats) if opts.apply else False
+    stopped = credit_tags.rewrite_tags(writes, journal, log, stats) if opts.apply else False
     journal.close()
 
     stats["tags to rewrite"] = len(writes)

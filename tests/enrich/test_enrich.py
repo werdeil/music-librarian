@@ -52,7 +52,8 @@ def tools(tmp_path, monkeypatch):
 
 
 def run(lib, state, *a):
-    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-split", "--no-dedupe", *a])
+    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-repeats", "--no-split",
+                        "--no-dedupe", *a])
 
 
 def test_album_dirs(lib):

@@ -19,7 +19,7 @@ Names are compared case, accents' Unicode form and extra spaces aside. A name th
 
 - The composer, on every track.
 - The artist, only on tracks with an album artist: `organize` falls back to the artist for the folder name otherwise.
-- Only a tag with a single value: a tag that already holds several values is left alone.
+- Only a tag with a single value: a tag that already holds several values is left alone. `enrich` and `import` first keep once a value held twice (`repeats.py`), so only values that differ stay for the album's page.
 
 Formats and tags are those of [naming-rules.md](naming-rules.md), plus the composer (`©wrt`, `TCOM`, `composer`).
 

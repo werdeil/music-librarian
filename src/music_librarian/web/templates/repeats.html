@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ t.tracks_repeated_title }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.tracks_repeated_title }}</h2>
+    <p class="muted">{{ t.repeats_page_intro }}</p>
+    {% if building %}
+    {% include "_building.html" %}
+    {% elif albums %}
+    <p class="muted">{{ t.tracks_repeated.format(n=tracks) }}</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.repeated_column }}</th></tr></thead>
+        <tbody>
+        {% for album in albums %}
+            <tr>
+                <td><a href="{{ url_for('album_page', folder=album.folder) }}">{{ album.folder }}</a></td>
+                <td>{{ album.repeated }} / {{ album.tracks }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if pages > 1 %}
+    <p class="filters">
+        {% if page > 1 %}<a href="{{ url_for('repeated_values', page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+        <span class="muted">{{ page }} / {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('repeated_values', page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t.repeats_none }}</p>
+    {% endif %}
+</section>
+{% endblock %}

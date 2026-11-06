@@ -31,7 +31,7 @@ from music_librarian.web.passes import (CANCELLED, DONE, FORMS, LONG_WHEN, OPTIO
                                         journal_path, keep_upload)
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
-WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "STOP", "LOCKED"}
+WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW", "MULTIPLE", "STOP", "LOCKED"}
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 HISTORY_PAGE = 50
@@ -231,7 +231,8 @@ def create_app(ctx: Context):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         albums = index.get()
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0,
-                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
+                    lyrics=None if albums is None else sum(a.without_lyrics for a in albums),
+                    repeats=None if albums is None else sum(a.repeated for a in albums))
         return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
 
     @app.get("/tiles")
@@ -375,7 +376,8 @@ def create_app(ctx: Context):
         return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
                                albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
                                empty=not everything,
-                               without_lyrics=sum(a.without_lyrics for a in everything))
+                               without_lyrics=sum(a.without_lyrics for a in everything),
+                               repeated=sum(a.repeated for a in everything))
 
     @app.get("/library/album")
     def album_page():
@@ -385,6 +387,7 @@ def create_app(ctx: Context):
             t = TRANSLATIONS[pick_lang(request.accept_languages)]
             return render_template("not_found.html", message=t["album_gone"]), 404
         tracks = library.tracks_of(folder)
+        repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         names = [n for n, _ in tracks]
         gains = library.replaygain_state(folder, names)
@@ -396,6 +399,7 @@ def create_app(ctx: Context):
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                unchanged=request.args.get("unchanged") == "1",
                                lyrics=library.lyrics_state(folder, names),
+                               repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()})
 
@@ -418,6 +422,17 @@ def create_app(ctx: Context):
         return render_template("lyrics.html", albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
                                tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
                                days=f"{misses.retry_days():g}")
+
+    @app.get("/library/repeats")
+    def repeated_values():
+        everything = index.get()
+        if everything is None:
+            return render_template("repeats.html", building=True)
+        albums = library.with_repeats(everything)
+        pages = max(math.ceil(len(albums) / library.PAGE), 1)
+        page = min(max(request.args.get("page", 1, type=int), 1), pages)
+        return render_template("repeats.html", albums=albums[(page - 1) * library.PAGE:page * library.PAGE],
+                               tracks=sum(a.repeated for a in albums), page=page, pages=pages)
 
     @app.post("/library/album")
     def edit_album():

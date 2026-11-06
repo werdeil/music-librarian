@@ -1,14 +1,12 @@
 """Reading and rewriting the credits of the library, shared by split and dedupe."""
 import contextlib
 import dataclasses
-import shlex
 import sys
 from pathlib import Path
 
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk
-from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, locked
-from music_librarian.core.log import count
+from music_librarian.core.lock import EXIT_LOCKED, Locked, locked
 from music_librarian.core.state import state_path
 from music_librarian.media import credit_tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -49,23 +47,6 @@ def read_tracks(scan, state_dir, log, stats):
     return tracks
 
 
-def rewrite_tags(writes, journal, log, stats):
-    """Write each (path, field, old, new) and journal it; True if a stop request cut it short."""
-    for i, (p, field, old, new) in enumerate(writes):
-        if STOP.is_set():
-            log(f"STOP     requested: {count(len(writes) - i, 'tag')} not rewritten, left for the next pass")
-            return True
-        try:
-            credit_tags.write(p, field, new)
-        except Exception as e:
-            log(f"ERROR    ({e})  {p}")
-            stats["errors"] += 1
-            continue
-        journal.tag(p, field, old, new)
-        stats["rewritten"] += 1
-    return False
-
-
 def parser(command, description, review_help):
     """Arguments shared by the credit commands: --root, paths, --apply or --review."""
     ap = arguments.parser(command, description)
@@ -95,12 +76,3 @@ def run_review(review_pass, opts, log):
         log("ERROR    --review asks questions: run it in a terminal (docker compose run, not up)")
         return 2
     return review_pass(opts, log)
-
-
-def finish(journal, root, log, stats, stopped):
-    """Log the journal and how to undo it; return the exit code of a tag pass."""
-    if journal.path:
-        log(f"{'journal':>20}: {journal.path}")
-        log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
-            f"--root {shlex.quote(str(root))} --apply")
-    return EXIT_STOPPED if stopped else 2 if stats["skipped"] or stats["errors"] else 0

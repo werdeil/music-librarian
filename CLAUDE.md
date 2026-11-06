@@ -28,7 +28,7 @@ Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-e
 
 ## Architecture
 
-[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `tag.py`, `cover.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
+[docs/architecture.md](docs/architecture.md) maps the package: `core/` (log, journal, lock and stop handling, state), `organize/`, `importer.py`, `enrich/`, `split/`, `dedupe/`, `lyrics/` (one module per provider), `media/`, `integrations/lyrion.py`, `web/` (the dashboard), `scan.py`, `tag.py`, `cover.py`, `repeats.py`, `watch.py` and `cli.py`. The naming rules are in [docs/naming-rules.md](docs/naming-rules.md), the credit split in [docs/splitting.md](docs/splitting.md), the artist aliases in [docs/dedupe.md](docs/dedupe.md), the Lyrion carry-over in [docs/lyrion.md](docs/lyrion.md), the dashboard in [docs/web.md](docs/web.md).
 
 Imports inside the package are absolute (`from music_librarian.core.lock import STOP`). The tests mirror the package under `tests/` and run with `--import-mode=importlib`.
 

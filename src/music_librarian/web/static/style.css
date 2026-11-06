@@ -721,6 +721,10 @@ table.tracks input {
     width: 8rem;
 }
 
+input.repeated {
+    border-color: var(--warning);
+}
+
 table.tracks input.number,
 .album-fields input.number {
     min-width: 3.5rem;

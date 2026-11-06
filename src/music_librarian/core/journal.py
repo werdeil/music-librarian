@@ -1,8 +1,11 @@
 """Journals: what a pass moved or retagged, so it can be undone."""
 import json
+import shlex
 import shutil
 import time
 from pathlib import Path
+
+from music_librarian.core.lock import EXIT_STOPPED
 
 
 class Journal:
@@ -51,3 +54,12 @@ def move_file(src: Path, dst: Path, journal: Journal):
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(src), str(dst))
     journal.move(src, dst)
+
+
+def finish(journal, root, log, stats, stopped):
+    """Log the journal and how to undo it; return the exit code of a tag pass."""
+    if journal.path:
+        log(f"{'journal':>20}: {journal.path}")
+        log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
+            f"--root {shlex.quote(str(root))} --apply")
+    return EXIT_STOPPED if stopped else 2 if stats["skipped"] or stats["errors"] else 0
