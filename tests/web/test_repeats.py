@@ -1,5 +1,8 @@
 """The fields holding a value twice or several values, on the dashboard."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import html
+import re
+
 import pytest
 from mutagen.mp4 import MP4
 
@@ -38,7 +41,18 @@ def test_album_page_marks_the_fields(d):
     assert ('value="T1; T1" aria-label="Title" class="repeated" '
             'title="A value twice: enrich keeps it only once"') in page
     assert ('value="T2; T2 (Remix)" aria-label="Title" class="repeated" '
-            'title="Several values: keep only the right one"') in page
+            'title="Several values: keep only the right one, without &#34;;&#34; in a title or an '
+            'album"') in page
     assert page.count('class="repeated"') == 2
     clean = d.client.get("/library/album?folder=C/D", headers=EN).get_data(as_text=True)
     assert "repeated" not in clean
+
+
+@pytest.mark.parametrize("title", ["T1; T2", "Movement 1; Largo"])
+def test_a_title_with_a_separator_refused(d, title):
+    page = d.client.get("/library/album?folder=A/B", headers=EN).get_data(as_text=True)
+    seen = html.unescape(re.search(r'name="seen" value="([^"]*)"', page)[1])
+    response = d.client.post("/library/album", headers=EN, data={
+        "csrf": d.token, "folder": "A/B", "seen": seen, "t2.title": title})
+    assert response.status_code == 400 and d.requests.pending() == []
+    assert "title takes one value, without &#34;;&#34;" in response.get_data(as_text=True)

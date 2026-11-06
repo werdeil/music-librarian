@@ -20,7 +20,9 @@ from music_librarian.split.library import CreditOptions
     ("artist", ["A;A"], ("A", False)),
     ("artist", ["A; a"], (None, True)),
     ("artist", ["A; A; a"], ("A; a", True)),
-    ("title", ["A; A"], (None, False)),                  # a title is not a list of names
+    ("title", ["A; A"], (None, True)),                   # a title takes no separator
+    ("album", ["A; B", "A; B"], ("A; B", True)),
+    ("genre", ["Rock; Pop"], (None, False)),
     ("title", ["Help!"], (None, False)),
     ("title", [], (None, False)),
     ("title", ["", "Help!", " "], (None, False)),
@@ -91,10 +93,28 @@ def test_apply_then_undo(lib, tmp_path):
     assert fields.read(lib / NUITS)["composer"] == ["Louis Bertignac; Téléphone; Louis Bertignac"]
 
 
-def test_organize_reports_the_values_to_decide(lib, tmp_path, capsys):
-    assert organize_main(["--root", str(lib), "--state-dir", str(tmp_path / "state")]) == 2
+def test_organize_reports_the_credits_to_decide(tmp_path, make_track, capsys):
+    root = tmp_path / "Music"
+    p = make_track(root / "Walk Off The Earth/Fire In My Soul/01 Fire In My Soul.m4a",
+                   title="Fire In My Soul", albumartist="Walk Off The Earth", album="Fire In My Soul",
+                   track=1)
+    tag_m4a(p, artist=["Walk Off The Earth", "Walk Off the Earth"])
+    state = tmp_path / "state"
+    assert organize_main(["--root", str(root), "--state-dir", str(state)]) == 2
     out = capsys.readouterr().out
-    assert f"MULTIPLE title: 'Toujours pizza; Toujours pizza (Flavien Berger Remix)'  {PIZZA}" in out
-    assert "multiple values: 1" in out and "Copain de soupe'" not in out
-    report = organize.organize_pass(organize.Options(root=lib, state_dir=tmp_path / "state"), Log())
+    assert "MULTIPLE artist: 'Walk Off The Earth; Walk Off the Earth'  Walk Off The Earth/" in out
+    assert "multiple values: 1" in out
+    report = organize.organize_pass(organize.Options(root=root, state_dir=state), Log())
     assert (report.code, report.multiple) == (0, 1)        # an import is not refused for it
+
+
+def test_organize_refuses_several_titles(tmp_path, make_track, capsys):
+    root = tmp_path / "Music"
+    p = make_track(root / "In/1.m4a", artist="A", albumartist="A", album="B", track=1)
+    tag_m4a(p, title=["Un", "Un (Remix)"])
+    make_track(root / "In/2.m4a", title="Movement 1; Largo", artist="A", albumartist="A", album="B", track=2)
+    assert organize_main(["--root", str(root), "--state-dir", str(tmp_path / "state"), "--apply"]) == 2
+    out = capsys.readouterr().out
+    assert """SKIPPED  (title takes one value, without ";": 'Un; Un (Remix)')  In/1.m4a""" in out
+    assert """SKIPPED  (title takes one value, without ";": 'Movement 1; Largo')  In/2.m4a""" in out
+    assert p.exists() and not (root / "A").exists()

@@ -159,3 +159,19 @@ def test_replaygain_removed_then_undone(lib, run, capsys):
 def test_replaygain_takes_no_value(lib, run):
     with pytest.raises(SystemExit):
         run(lib / "Beyonce/4", "--set", "replaygain=-7 dB")
+
+
+@pytest.mark.parametrize("setting", ["title=Movement 1; Largo", "album=4; 5"])
+def test_a_separator_in_a_title_or_an_album_refused(lib, run, setting, capsys):
+    with pytest.raises(SystemExit):
+        run(lib / "Beyonce/4", "--set", setting)
+    assert 'takes one value, without ";"' in capsys.readouterr().err
+
+
+def test_a_separator_refused_from_the_dashboard(lib, tmp_path, capsys):
+    track = lib / "Beyonce/4/01 Run the World.m4a"
+    opts = tag.Options(root=lib, state_dir=tmp_path / "state", apply=True, edits=[
+        tag.Edit(track, "title", "Run; the World", seen=["Run the World"])])
+    assert tag.run(opts, Log()) == 2
+    assert fields.read(track)["title"] == ["Run the World"]
+    assert 'ERROR    (title takes one value, without ";")' in capsys.readouterr().out

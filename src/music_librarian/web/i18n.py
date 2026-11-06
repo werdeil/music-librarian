@@ -197,12 +197,15 @@ TRANSLATIONS = {
         "repeats_page_intro": ("Les albums dont des morceaux ont un champ qui tient une valeur en double "
                                "ou plusieurs valeurs : deux titres, un artiste nommé deux fois. enrich "
                                "garde chaque semaine une seule fois une valeur répétée à l'identique ; "
-                               "des valeurs qui diffèrent se corrigent sur la page de l'album."),
+                               "des valeurs qui diffèrent se corrigent sur la page de l'album. Le titre et "
+                               "l'album ne prennent qu'une valeur, sans « ; » : organize ne range pas, et "
+                               "l'import refuse, un morceau qui en tient plusieurs."),
         "repeats_none": "Aucun morceau n'a de valeur répétée.",
         "tile_repeats": "Morceaux aux valeurs répétées",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
-                             "valeurs, séparées par « ; » : garder la bonne seule."),
-        "repeated_differ": "Plusieurs valeurs : garder la bonne seule",
+                             "valeurs, séparées par « ; » : garder la bonne seule. Le titre et l'album "
+                             "ne prennent qu'une valeur, sans « ; »."),
+        "repeated_differ": "Plusieurs valeurs : garder la bonne seule, sans « ; » dans un titre ou un album",
         "repeated_same": "Une valeur en double : enrich n'en garde qu'une",
         "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
@@ -469,12 +472,14 @@ TRANSLATIONS = {
         "repeats_page_intro": ("The albums whose tracks have a field holding a value twice or several "
                                "values: two titles, an artist named twice. enrich keeps a value "
                                "repeated as is only once every week; values that differ are fixed on "
-                               "the album's page."),
+                               "the album's page. The title and the album take one value, without "
+                               "\";\": organize does not file, and import refuses, a track holding several."),
         "repeats_none": "No track has a repeated value.",
         "tile_repeats": "Tracks with repeated values",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
-                             "by \"; \": keep only the right one."),
-        "repeated_differ": "Several values: keep only the right one",
+                             "by \"; \": keep only the right one. The title and the album take one "
+                             "value, without \";\"."),
+        "repeated_differ": "Several values: keep only the right one, without \";\" in a title or an album",
         "repeated_same": "A value twice: enrich keeps it only once",
         "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",

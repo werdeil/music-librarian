@@ -28,7 +28,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_librarian import organize
+from music_librarian import organize, repeats
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal
@@ -124,6 +124,8 @@ def plan(opts, log, stats):
         for edit in edits:
             try:
                 new = fields.check(edit.field, [edit.value])
+                if (why := repeats.refusal(edit.field, new)) is not None:
+                    raise fields.FieldError(why)
             except fields.FieldError as e:
                 log(f"ERROR    ({e})  {rel}")
                 stats["errors"] += 1
@@ -252,6 +254,8 @@ def setting(s):
         fields.check(name, [value])
     except fields.FieldError as e:
         raise argparse.ArgumentTypeError(str(e)) from None
+    if (why := repeats.refusal(name, [value])) is not None:
+        raise argparse.ArgumentTypeError(why)
     return name, value
 
 

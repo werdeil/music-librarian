@@ -8,6 +8,10 @@ someone twice ("A; A"), is rewritten with the value once, the names once each. V
 Earth"), or names that differ only in case, are reported as MULTIPLE and left for the album's page
 or `tag`: which one is right is not for the tool to guess.
 
+The title and the album take one value, without ";" (SINGLE): organize refuses a track whose
+title or album holds values that differ or a ";", and so import an item holding one, and tag and
+the dashboard refuse to write one (refusal).
+
 enrich runs it before split, which leaves a field with several values alone, and import on the
 folders it files (--no-repeats on enrich to leave them). organize and the dashboard report the
 fields it leaves.
@@ -28,6 +32,8 @@ from music_librarian.split.rules import LYRION_SEPARATOR, key, names_of
 
 FIELDS = ("title", "artist", "albumartist", "album", "year", "genre", "composer")
 CREDITS = ("artist", "albumartist", "composer")
+SINGLE = ("title", "album")
+SEPARATOR = ";"
 SNAPSHOT_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("albumartist", "album artist"),
                  "album": ("album",), "year": ("date", "year"), "genre": ("genre",),
                  "composer": ("composer",)}
@@ -45,15 +51,25 @@ def once(items):
     return list(kept.values())
 
 
+def refusal(field, values):
+    """Why `values` cannot be written in `field`, or None: a field of SINGLE takes one value,
+    without SEPARATOR."""
+    values = [v for v in values if v.strip()]
+    if field in SINGLE and (len(values) > 1 or any(SEPARATOR in v for v in values)):
+        return f'{field} takes one value, without "{SEPARATOR}"'
+    return None
+
+
 def check(field, values):
     """(the one value to write in place of `values`, or None when they hold no repeat; whether
-    they still hold values, or names of a credit, that differ, for someone to decide)."""
+    they still hold values, or names of a credit, that differ, or a field of SINGLE a ";", for
+    someone to decide)."""
     values = [v.strip() for v in values if v.strip()]
     distinct = once(values)
     if len(distinct) != 1:
         return None, len(distinct) > 1
     value = distinct[0]
-    differ = False
+    differ = refusal(field, [value]) is not None
     if field in CREDITS:
         names = once(names_of(value))
         differ = len({key(n) for n in names}) < len(names)

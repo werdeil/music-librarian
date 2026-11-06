@@ -18,7 +18,7 @@ from pathlib import Path
 from flask import (Flask, abort, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, url_for)
 
-from music_librarian import __version__, cover
+from music_librarian import __version__, cover, repeats
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.importer import ERRORS, list_items
@@ -448,6 +448,8 @@ def create_app(ctx: Context):
         for _, name, value, _ in asked:
             try:
                 fields.check(name, [value])
+                if (why := repeats.refusal(name, [value])) is not None:
+                    raise fields.FieldError(why)
             except fields.FieldError as e:
                 t = TRANSLATIONS[pick_lang(request.accept_languages)]
                 return render_template("not_found.html", message=t["bad_value"].format(error=e)), 400

@@ -292,11 +292,17 @@ def test_names_known_from_earlier_imports(env, make_track):
 
 
 def test_repeated_values_after_filing(env, make_track, capsys):
-    make_track(env.inbox / "Album/1.flac", title=["Un", "Un (Remix)"], artist=["A", "A"], albumartist="A",
+    make_track(env.inbox / "Album/1.flac", title=["Un", "Un"], artist=["A", "A"], albumartist="A",
                album="B", track=1)
     assert env.run("--apply") == 0
     tags = MP4(env.lib / "A/B/01 Un.m4a").tags
-    assert tags["\xa9ART"] == ["A"] and tags["\xa9nam"] == ["Un", "Un (Remix)"]
-    out = capsys.readouterr().out
-    assert "REPEAT   artist: 'A; A' → 'A'  A/B/01 Un.m4a" in out
-    assert "MULTIPLE title: 'Un; Un (Remix)'  A/B/01 Un.m4a" in out
+    assert tags["\xa9ART"] == ["A"] and tags["\xa9nam"] == ["Un"]
+    assert "REPEAT   artist: 'A; A' → 'A'  A/B/01 Un.m4a" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("title", [["Un", "Un (Remix)"], ["Un; Deux"]])
+def test_several_titles_refused(env, make_track, capsys, title):
+    make_track(env.inbox / "Album/1.flac", title=title, artist="A", albumartist="A", album="B", track=1)
+    assert env.run("--apply") == 2
+    assert files(env.inbox) == ["_failed/Album/1.flac"] and files(env.lib) == []
+    assert 'SKIPPED  (title takes one value, without ";": ' in capsys.readouterr().out

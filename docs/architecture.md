@@ -93,7 +93,7 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 ### organize: filing the Apple Music way
 
 1. **Pick the files to read**: the whole root, the paths given, or with `--since` only the folders where a file's ctime is newer than `last_run`, then the whole folder.
-2. **Read the tags through the metadata cache and compute the target** (see [naming-rules.md](naming-rules.md)). A file without enough tags is `SKIPPED` and its folder blocked. A field holding values that differ is reported as `MULTIPLE`: the command then exits with code 2, but `organize_pass` does not, so an import is not refused for it.
+2. **Read the tags through the metadata cache and compute the target** (see [naming-rules.md](naming-rules.md)). A file without enough tags is `SKIPPED` and its folder blocked. A title or an album holding several values or a `;` is `SKIPPED` too, so an import sends its item to `_failed/`. Another field holding values that differ is reported as `MULTIPLE`: the command then exits with code 2, but `organize_pass` does not, so an import is not refused for it.
 3. **Hold back what is doubtful**: an album whose tracks disagree on the compilation flag, or a target already taken, is a `CONFLICT` and stays where it is.
 4. **Leave alone what is already in place**, tolerating accents (NFC/NFD), case and truncated names, unless a folder spelled exactly as the target exists next to the variant: the file then joins it.
 5. **Put the MP4 index first**: an `.m4a` file whose `moov` atom comes after `mdat` is rewritten in place with `moov` first, without re-encoding and without a journal entry, so Lyrion streams it as `alc`.

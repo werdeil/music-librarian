@@ -32,7 +32,8 @@ One --apply pass at a time (state/lock). On SIGTERM or Ctrl-C, the current
 move completes and the rest is left for the next pass (second Ctrl-C: stop
 at once).
 
-Fields whose values differ (two titles, an artist spelled two ways) are reported as MULTIPLE.
+A track whose title or album holds values that differ or a ";" is SKIPPED (see repeats); other
+fields whose values differ (an artist spelled two ways) are reported as MULTIPLE.
 
 Exit codes: 0 = OK, 2 = conflicts, skipped files, MULTIPLE, failed rewrites or refused undos,
 3 = another pass is running, 4 = stopped before the end, 5 = Lyrion carry-over failed.
@@ -265,10 +266,18 @@ def organize_pass(opts: Options, log, journal=None):
                 stats["skipped"] += 1
                 blocked.add(p.parent)
                 continue
-            if p not in opts.overrides:
-                for name, values in values_to_decide(p, root, cache):
+            refused = None
+            for name, values in [] if p in opts.overrides else values_to_decide(p, root, cache):
+                if name in repeats.SINGLE:
+                    refused = refused or f"{repeats.refusal(name, values)}: {'; '.join(values)!r}"
+                else:
                     log(repeats.multiple_line(p, root, name, values))
                     stats["multiple values"] += 1
+            if refused:
+                log(f"SKIPPED  ({refused})  {relative(p, root)}")
+                stats["skipped"] += 1
+                blocked.add(p.parent)
+                continue
             if needs_faststart(p, root, cache):
                 rewrites.append(p)
             tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
