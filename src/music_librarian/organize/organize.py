@@ -228,43 +228,82 @@ def exact_folder_elsewhere(root, cur_rel, tgt_rel):
     return False
 
 
+@dataclass
+class Plan:
+    """What a pass found to do, and its counts. `blocked` holds the folders whose side files
+    must not move: a track of theirs stays behind."""
+    stats: defaultdict = field(default_factory=lambda: defaultdict(int))
+    entries: list = field(default_factory=list)   # (file, tags, relative target path)
+    junk: list = field(default_factory=list)
+    rewrites: list = field(default_factory=list)
+    moves: list = field(default_factory=list)     # (src, dst) of the tracks
+    extra: list = field(default_factory=list)     # (src, dst) of the side files
+    blocked: set = field(default_factory=set)
+
+    def skip(self, p: Path, why, root, log):
+        log(f"SKIPPED  ({why})  {relative(p, root)}")
+        self.stats["skipped"] += 1
+        self.blocked.add(p.parent)
+
+
 def organize_pass(opts: Options, log, journal=None):
     """A filing pass, without taking the lock: the caller holds it when `opts.apply`. Its moves
     go to `journal` when given, which the caller then closes, else to a journal of its own."""
     started = time.time()
-    root, state_dir = opts.root, opts.state_dir
-    scan = opts.paths or [root]
-    mode = "APPLY" if opts.apply else "DRY-RUN"
-    log(f"[{mode}] root: {root}")
+    scan = opts.paths or [opts.root]
+    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] root: {opts.root}")
+    plan = Plan()
+    read_entries(opts, scan, since_last_run(opts, log), plan, log)
+    dir_targets = plan_moves(opts, mixed_compilations(opts.root, plan, log), plan, log)
+    plan_side_files(opts.root, dir_targets, plan, log)
+    for p in plan.rewrites:
+        log(f"REWRITE  (moov after mdat)  {relative(p, opts.root)}")
+    for src, dst in plan.moves + plan.extra:
+        log(f"MOVE     {relative(src, opts.root)}\n         → {relative(dst, opts.root)}")
 
-    since = None
-    if opts.since:
-        since = last_run(state_dir)
-        if since is None:
-            log("no known last pass: everything is processed")
-        else:
-            log(f"since {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
+    own_journal = journal is None
+    if own_journal:
+        journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
+    done, stopped = apply_plan(opts, scan, started, plan, journal, log) if opts.apply else ([], False)
+    if own_journal:
+        journal.close()
+    lyrion_ok = summary(opts, plan, done, journal if own_journal else None, log)
 
-    entries = []                  # (file, tags, relative target path)
-    stats = defaultdict(int)
-    junk = []
-    rewrites = []
-    blocked = set()               # folders whose side files must not move
+    stats = plan.stats
+    code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] or stats["errors"] else 0
+    if code == 0 and not lyrion_ok:
+        code = lyrion.EXIT_LYRION
+    return Report(code, plan.moves + plan.extra, done, journal.path, stats["multiple values"])
 
-    with MetadataCache(state_dir) as cache:
+
+def since_last_run(opts: Options, log):
+    """The time --since reads the folders changed after, None for every folder."""
+    if not opts.since:
+        return None
+    since = last_run(opts.state_dir)
+    if since is None:
+        log("no known last pass: everything is processed")
+    else:
+        log(f"since {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(since))}")
+    return since
+
+
+def read_entries(opts: Options, scan, since, plan: Plan, log):
+    """Read the tags of every music file under `scan` into plan.entries, with its target; the
+    junk files, the MP4 files to rewrite and the files skipped go to the plan too."""
+    root = opts.root
+    with MetadataCache(opts.state_dir) as cache:
         for p in collect(scan, since):
             if is_junk(p):
-                junk.append(p)
+                plan.junk.append(p)
                 continue
             if p.suffix.lower() not in AUDIO_EXT:
                 continue
-            stats["scanned"] += 1
+            plan.stats["scanned"] += 1
             try:
                 tags = opts.overrides.get(p) or file_tags(p, root, cache)
             except Exception as e:
-                log(f"SKIPPED  (unreadable: {e})  {relative(p, root)}")
-                stats["skipped"] += 1
-                blocked.add(p.parent)
+                plan.skip(p, f"unreadable: {e}", root, log)
                 continue
             refused = None
             for name, values in [] if p in opts.overrides else values_to_decide(p, root, cache):
@@ -272,27 +311,24 @@ def organize_pass(opts: Options, log, journal=None):
                     refused = refused or f"{repeats.refusal(name, values)}: {'; '.join(values)!r}"
                 else:
                     log(repeats.multiple_line(p, root, name, values))
-                    stats["multiple values"] += 1
+                    plan.stats["multiple values"] += 1
             if refused:
-                log(f"SKIPPED  ({refused})  {relative(p, root)}")
-                stats["skipped"] += 1
-                blocked.add(p.parent)
+                plan.skip(p, refused, root, log)
                 continue
             if needs_faststart(p, root, cache):
-                rewrites.append(p)
+                plan.rewrites.append(p)
             tgt = target_rel(tags, p.suffix, opts.compilations_dir) if tags else None
             if tgt is None:
-                log(f"SKIPPED  (not enough tags)  {relative(p, root)}")
-                stats["skipped"] += 1
-                blocked.add(p.parent)
+                plan.skip(p, "not enough tags", root, log)
                 continue
-            entries.append((p, tags, tgt))
+            plan.entries.append((p, tags, tgt))
 
-    # Compilation safeguard: an album (same folder, same album tag) whose cpil
-    # flag differs between tracks would be split between Compilations/ and an
-    # artist folder, so it is left alone.
+
+def mixed_compilations(root, plan: Plan, log):
+    """The files of an album (same folder, same album tag) whose tracks differ on the
+    compilation flag: moved, it would be split between Compilations/ and an artist folder."""
     groups = defaultdict(list)
-    for e in entries:
+    for e in plan.entries:
         groups[(e[0].parent, nfc(e[1]["album"] or "").casefold())].append(e)
     mixed = set()
     for (d, _), grp in groups.items():
@@ -300,47 +336,47 @@ def organize_pass(opts: Options, log, journal=None):
         if 0 < n < len(grp):
             log(f"CONFLICT (inconsistent cpil: {n}/{len(grp)} tracks flagged compilation)"
                 f"  {relative(d, root)}  [{grp[0][1]['album']}]")
-            stats["conflicts"] += len(grp)
+            plan.stats["conflicts"] += len(grp)
             mixed.update(e[0] for e in grp)
-            blocked.add(d)
+            plan.blocked.add(d)
+    return mixed
 
-    moves = []                    # (src, dst)
-    seen_targets = {}             # dst -> src
-    dir_targets = defaultdict(set)  # source folder -> target folders
 
-    for p, tags, tgt in entries:
+def plan_moves(opts: Options, mixed, plan: Plan, log):
+    """Fill plan.moves with the tracks not in place, a target already taken left as a conflict;
+    return {source folder: its tracks' target folders}."""
+    root = opts.root
+    seen_targets = {}               # dst -> src
+    dir_targets = defaultdict(set)
+    for p, _, tgt in plan.entries:
         if p in mixed:
             continue
-        try:
-            cur_rel = p.relative_to(root)
-        except ValueError:
-            cur_rel = None  # file outside the library (Inbox)
-
+        cur_rel = p.relative_to(root) if p.is_relative_to(root) else None   # None: the Inbox
         if cur_rel is not None and is_in_place(cur_rel, tgt, opts.strict_case) \
                 and not exact_folder_elsewhere(root, cur_rel, tgt):
-            stats["in place"] += 1
+            plan.stats["in place"] += 1
             dir_targets[p.parent].add(p.parent)
             continue
-
         dst = root / tgt
         key = nfc(str(dst)).casefold()
         if key in seen_targets or (dst.exists() and not dst.samefile(p)):
             other = seen_targets.get(key, dst)
             log(f"CONFLICT {relative(p, root)}\n         → {relative(dst, root)}\n"
                 f"         (already taken by {relative(other, root)})")
-            stats["conflicts"] += 1
-            blocked.add(p.parent)
+            plan.stats["conflicts"] += 1
+            plan.blocked.add(p.parent)
             continue
         seen_targets[key] = p
-        moves.append((p, dst))
+        plan.moves.append((p, dst))
         dir_targets[p.parent].add(dst.parent)
+    return dir_targets
 
-    # Side files (folder.jpg, .lrc…) follow the album if every track in the
-    # folder goes to the same target folder and none stayed behind (conflict,
-    # missing tags).
-    extra = []
+
+def plan_side_files(root, dir_targets, plan: Plan, log):
+    """Fill plan.extra with the side files (folder.jpg, .lrc…) of the folders whose tracks all go
+    to one other folder, none left behind."""
     for src_dir, tdirs in dir_targets.items():
-        if len(tdirs) != 1 or src_dir in blocked:
+        if len(tdirs) != 1 or src_dir in plan.blocked:
             continue
         tdir = next(iter(tdirs))
         if tdir == src_dir:
@@ -350,75 +386,66 @@ def organize_pass(opts: Options, log, journal=None):
                 dst = tdir / p.name
                 if dst.exists():
                     log(f"CONFLICT (side file already there)  {relative(dst, root)}")
-                    stats["conflicts"] += 1
+                    plan.stats["conflicts"] += 1
                 else:
-                    extra.append((p, dst))
+                    plan.extra.append((p, dst))
 
-    for p in rewrites:
-        log(f"REWRITE  (moov after mdat)  {relative(p, root)}")
-    for src, dst in moves + extra:
-        log(f"MOVE     {relative(src, root)}\n         → {relative(dst, root)}")
 
-    own_journal = journal is None
-    if own_journal:
-        journal = Journal(state_dir, dict(root=str(root), started=started, argv=sys.argv[1:]))
-    done = []
-    stopped = False
-    if opts.apply:
-        stopped = rewrite_all(rewrites, root, opts.interruptible, stats, log)
-        touched = set()
-        for i, (src, dst) in enumerate([] if stopped else moves + extra):
-            if opts.interruptible and STOP.is_set():
-                log(f"STOP     requested: {count(len(moves) + len(extra) - i, 'move')} not done,"
-                    " left for the next pass")
-                stopped = True
-                break
-            if dst.exists() and not dst.samefile(src):
-                log(f"CONFLICT (appeared during the pass)  {relative(dst, root)}")
-                stats["conflicts"] += 1
-                continue
-            move_file(src, dst, journal)
-            done.append((src, dst))
-            stats["moved"] += 1
-            touched.add(src.parent)
-        for j in junk:
-            j.unlink(missing_ok=True)
-            touched.add(j.parent)
-        # emptied folders (never the root nor the folders passed as arguments)
-        protected = {root, *scan}
-        for d in sorted(touched, key=lambda d: -len(d.parts)):
-            stats["folders removed"] += prune_empty(d, protected)
-        # The last pass only moves forward after a pass over the whole root.
-        # Remaining conflicts do not hold it back: they show up again on the
-        # next full pass, or as soon as their folder is touched.
-        if scan == [root] and not stopped:
-            write_stamp(state_dir, LAST_RUN, started - SINCE_MARGIN)
-    if own_journal:
-        journal.close()
+def apply_plan(opts: Options, scan, started, plan: Plan, journal, log):
+    """Rewrite, move through `journal`, delete the junk and prune the emptied folders; return
+    (the moves done, whether a stop cut them short)."""
+    root, stats = opts.root, plan.stats
+    todo = plan.moves + plan.extra
+    done, touched = [], set()
+    stopped = rewrite_all(plan.rewrites, root, opts.interruptible, stats, log)
+    for i, (src, dst) in enumerate([] if stopped else todo):
+        if opts.interruptible and STOP.is_set():
+            log(f"STOP     requested: {count(len(todo) - i, 'move')} not done, left for the next pass")
+            stopped = True
+            break
+        if dst.exists() and not dst.samefile(src):
+            log(f"CONFLICT (appeared during the pass)  {relative(dst, root)}")
+            stats["conflicts"] += 1
+            continue
+        move_file(src, dst, journal)
+        done.append((src, dst))
+        stats["moved"] += 1
+        touched.add(src.parent)
+    for j in plan.junk:
+        j.unlink(missing_ok=True)
+        touched.add(j.parent)
+    protected = {root, *scan}       # never pruned, even emptied
+    for d in sorted(touched, key=lambda d: -len(d.parts)):
+        stats["folders removed"] += prune_empty(d, protected)
+    # Only a whole pass moves last_run forward; the conflicts left come back on the next one.
+    if scan == [root] and not stopped:
+        write_stamp(opts.state_dir, LAST_RUN, started - SINCE_MARGIN)
+    return done, stopped
 
-    stats["to rewrite"] = len(rewrites)
-    stats["to move"] = len(moves)
-    stats["side files to move"] = len(extra)
-    stats["junk files"] = len(junk)
+
+def summary(opts: Options, plan: Plan, done, journal, log):
+    """Log the summary, after carrying the Lyrion history over; `journal` is the pass's own one,
+    None when the caller's. Return whether the carry-over succeeded."""
+    stats = plan.stats
+    stats["to rewrite"] = len(plan.rewrites)
+    stats["to move"] = len(plan.moves)
+    stats["side files to move"] = len(plan.extra)
+    stats["junk files"] = len(plan.junk)
     log("\n--- Organize summary ---")
     for k in ("scanned", "in place", "to rewrite", "rewritten", "to move", "side files to move",
               "moved", "skipped", "conflicts", "multiple values", "errors", "junk files",
               "folders removed"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
-    lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else moves, opts.apply, log)
-    if own_journal and journal.path:
+    lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else plan.moves, opts.apply, log)
+    if journal and journal.path:
         log(f"{'journal':>20}: {journal.path}")
         log(f"{'undo':>20}: music-librarian undo {shlex.quote(str(journal.path))} "
-            f"--root {shlex.quote(str(root))} --apply")
+            f"--root {shlex.quote(str(opts.root))} --apply")
         if not lyrion_ok:
             log(f"{'Lyrion retry':>20}: music-librarian organize --lyrion-replay "
                 f"{shlex.quote(str(journal.path))} --apply")
-
-    code = EXIT_STOPPED if stopped else 2 if stats["conflicts"] or stats["skipped"] or stats["errors"] else 0
-    if code == 0 and not lyrion_ok:
-        code = lyrion.EXIT_LYRION
-    return Report(code, moves + extra, done, journal.path, stats["multiple values"])
+    return lyrion_ok
 
 
 def rewrite_all(rewrites, root, interruptible, stats, log):
