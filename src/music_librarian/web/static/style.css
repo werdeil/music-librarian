@@ -767,6 +767,29 @@ table.tracks input.number,
     width: 4rem;
 }
 
+table.tracks:not(.discs) .t-disc,
+table.tracks:not(.discs) .t-grouping,
+table.tracks:not(.discs) .disc-row {
+    display: none;
+}
+
+button[data-shows-discs] {
+    margin-bottom: 0.4rem;
+}
+
+table.tracks .disc-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-top: 0.5rem;
+    font-weight: 600;
+}
+
+table.tracks .disc-row input {
+    max-width: 24rem;
+    font-weight: normal;
+}
+
 a.button {
     display: inline-block;
     text-decoration: none;

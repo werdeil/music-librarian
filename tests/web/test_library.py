@@ -317,7 +317,8 @@ def test_album_page(dashboard):
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
     assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
-    assert 'href="/library">← Library</a>' in page and 'name="t0.disc"' not in page   # one disc
+    assert 'href="/library">← Library</a>' in page
+    assert '<table class="tracks" id="tracks">' in page and "Discs and grouping</button>" in page   # folded
 
 
 def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_path):
@@ -325,16 +326,39 @@ def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_pa
                album="4", track=1, disc=2, disctotal=2)
     scan.run(lib, tmp_path / "state", Log())
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert 'name="t2.disc" value="2"' in page
+    assert 'name="t2.disc" value="2"' in page and '<table class="tracks discs" id="tracks">' in page
+    assert "Disc 1" in page and 'name="d2.discsubtitle" value=""' in page
+    assert "Discs and grouping</button>" not in page
 
 
-def test_disc_name_shown_for_a_named_disc(dashboard, lib, tmp_path):
-    fields.write(lib / "Beyonce/4/01 Run the World.m4a", "discsubtitle", ["Deluxe"])
+def test_disc_name_once_per_disc(dashboard, lib, tmp_path):
+    for name in ("01 Run the World", "02 Best Thing"):
+        fields.write(lib / f"Beyonce/4/{name}.m4a", "discsubtitle", ["Deluxe"])
     fields.write(lib / "Beyonce/4/01 Run the World.m4a", "grouping", ["Bonus"])
     scan.run(lib, tmp_path / "state", Log())
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "<th>Disc name</th>" in page and 'name="t0.discsubtitle" value="Deluxe"' in page
-    assert "<th>Grouping</th>" in page and 'name="t0.grouping" value="Bonus"' in page
+    assert page.count('class="disc-row"') == 1 and 'name="d1.discsubtitle" value="Deluxe"' in page
+    assert '<th class="t-grouping">Grouping</th>' in page and 'name="t0.grouping" value="Bonus"' in page
+
+
+def test_disc_name_mixed_on_a_disc(dashboard, lib, tmp_path):
+    fields.write(lib / "Beyonce/4/01 Run the World.m4a", "discsubtitle", ["Deluxe"])
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert re.search(r'name="d1.discsubtitle" value=""\s+placeholder="various values"', page)
+    response = dashboard.client.post("/library/album", data=album_form(dashboard, "Beyonce/4"))
+    assert response.location.endswith("unchanged=1")
+
+
+def test_disc_name_edits_every_track_of_its_disc(dashboard, lib, make_track, tmp_path):
+    make_track(lib / "Beyonce/4/03 Bonus.m4a", title="Bonus", artist="Beyonce", albumartist="Beyonce",
+               album="4", track=1, disc=2, disctotal=2)
+    scan.run(lib, tmp_path / "state", Log())
+    form = album_form(dashboard, "Beyonce/4", **{"d1.discsubtitle": "Jupiter", "apply": "1"})
+    dashboard.client.post("/library/album", data=form)
+    [asked] = dashboard.requests.pending()
+    assert asked.options["edits"] == [["Beyonce/4/01 Run the World.m4a", "discsubtitle", "Jupiter", []],
+                                      ["Beyonce/4/02 Best Thing.m4a", "discsubtitle", "Jupiter", []]]
 
 
 @pytest.mark.parametrize("folder", ["../", "Beyonce/9", "Beyonce/4/01 Run the World.m4a"])

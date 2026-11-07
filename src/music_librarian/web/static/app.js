@@ -9,6 +9,20 @@
     });
 }());
 
+// The discs and groupings of an album's tracks, folded until asked for; without script, they stay so.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-shows-discs]").forEach(function (button) {
+        var table = document.getElementById(button.dataset.showsDiscs);
+        button.hidden = false;
+        button.addEventListener("click", function () {
+            table.classList.add("discs");
+            button.hidden = true;
+        });
+    });
+}());
+
 // A pass card opens its options in a dialog, each warning shown while its box makes the pass long, and
 // a box under another unticked and disabled while that one is; without script, the card submits the
 // options as ticked by default.
