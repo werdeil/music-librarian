@@ -90,8 +90,6 @@ class Stopped(Exception):
     """Stop requested while an item is being prepared: it stays in the Inbox."""
 
 
-# ---------- Inbox items ----------
-
 class Item:
     def __init__(self, path: Path):
         self.path = path                      # album folder or loose file
@@ -149,8 +147,6 @@ def free_name(d: Path, name, is_dir=True):
     return p
 
 
-# ---------- enrichment ----------
-
 def enrich_targets(dirs, log):
     ok = True
     for name, cmd in enrich.enrichers():
@@ -184,8 +180,6 @@ def fix_credits(opts, dirs, log):
     return ok
 
 
-# ---------- item processing ----------
-
 def organize_paths(opts, paths, apply, log):
     """Files `paths` with organize, under the lock import already holds."""
     return organize.organize_pass(organize.Options(
@@ -193,31 +187,40 @@ def organize_paths(opts, paths, apply, log):
         lyrion=opts.lyrion, interruptible=False), log)
 
 
+@dataclass
+class Contents:
+    """The files of an item, by what the import does with them."""
+    flacs: list = field(default_factory=list)     # converted to ALAC
+    audio: list = field(default_factory=list)     # ALAC or MP3, filed as they are
+    annexes: list = field(default_factory=list)   # side files that follow the album
+    left: list = field(default_factory=list)      # kept with the original in _done/
+    junk: list = field(default_factory=list)
+
+
 def classify(item):
-    """(flac, other accepted audio, side files, left behind, junk). Raises
-    Reject for an unhandled format."""
-    flacs, audio, annexes, left, junk = [], [], [], [], []
+    """The item's Contents. Raises Reject for an unhandled format or an item without audio."""
+    c = Contents()
     for p in item.files():
         ext = p.suffix.lower()
         if is_junk(p):
-            junk.append(p)
+            c.junk.append(p)
         elif ext == ".flac":
-            flacs.append(p)
+            c.flacs.append(p)
         elif ext in AUDIO_EXT:
             if ext == ".m4a":
                 codec, _ = probe(p)
                 if codec != "alac":
                     raise Reject(f"{p.name}: .m4a in {codec}, not ALAC")
-            audio.append(p)
+            c.audio.append(p)
         elif ext in OTHER_AUDIO:
             raise Reject(f"{p.name}: format {ext} not handled")
         elif ext in ANNEX_EXT:
-            annexes.append(p)
+            c.annexes.append(p)
         else:
-            left.append(p)
-    if not flacs and not audio:
+            c.left.append(p)
+    if not c.flacs and not c.audio:
         raise Reject("no audio file")
-    return flacs, audio, annexes, left, junk
+    return c
 
 
 def annex_names(item, annexes):
@@ -252,81 +255,88 @@ def to_errors(opts, item, reason, log):
 def process(opts, item, log):
     """Return (OK | FAILED | STOPPED, target folders)."""
     try:
-        flacs, audio, annexes, left, junk = classify(item)
+        contents = classify(item)
     except (Reject, subprocess.CalledProcessError, ValueError) as e:
         to_errors(opts, item, e, log)
         return FAILED, set()
 
-    log(f"\n=== {item.name}  ({len(flacs)} FLAC, {len(audio)} ALAC/MP3, "
-        f"{count(len(annexes), 'side file')})")
-    names = annex_names(item, annexes)
+    log(f"\n=== {item.name}  ({len(contents.flacs)} FLAC, {len(contents.audio)} ALAC/MP3, "
+        f"{count(len(contents.annexes), 'side file')})")
+    names = annex_names(item, contents.annexes)
     for p, rel in names.items():
         if rel.name != p.name:
             log(f"COVER    {item.rel(p)} → {rel.name}")
-    for p in left:
+    for p in contents.left:
         log(f"KEPT     {item.rel(p)}: kept with the original in {DONE}/")
-
     if not opts.apply:
-        for p in flacs:
-            log(f"CONVERT  {item.rel(p)}  → .m4a")
-        out = Buffer()
-        report = organize_paths(opts, [item.path], False, out)
-        if report.code:
-            log(out.text().rstrip())
-            log(f"ERROR    {item.name}: would go to {ERRORS}/ (see above)")
-            return FAILED, set()
-        for src, dst in report.moves:
-            if src in left:
-                continue
-            if src.suffix.lower() == ".flac":
-                dst = dst.with_suffix(".m4a")
-            elif src in names:
-                dst = dst.with_name(names[src].name)
-            log(f"ORGANIZE {item.rel(src)}\n         → {relative(dst, opts.root)}")
-        return OK, set()
+        return preview(opts, item, contents, names, log)
 
     work = opts.inbox / WORK / item.name
     if work.exists():
         log(f"ERROR    {item.name}: {work} already exists (interrupted pass?), "
             f"item left in place")
         return FAILED, set()
-
-    # 1. Work folder: converted FLAC, hard-linked ALAC/MP3 and side files.
     try:
-        for p in flacs:
-            if STOP.is_set():
-                raise Stopped
-            log(f"CONVERT  {item.rel(p)}")
-            convert(p, work / item.rel(p).with_suffix(".m4a"))
-        for p in audio:
-            link_or_copy(p, work / item.rel(p))
-        for p, rel in names.items():
-            link_or_copy(p, work / rel)
-        out = Buffer()
-        if organize_paths(opts, [work], False, out).code:
-            log(out.text().rstrip())
-            raise Reject("refused by organize (see above)")
+        build_work(opts, item, contents, names, work, log)
     except (Reject, ConversionError, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
-        shutil.rmtree(work, ignore_errors=True)
-        with contextlib.suppress(OSError):
-            work.parent.rmdir()
+        remove_work(work)
         if isinstance(e, Stopped):
             log(f"STOP     {item.name}: left in the Inbox for the next pass")
             return STOPPED, set()
         to_errors(opts, item, e, log)
         return FAILED, set()
 
-    # 2. Actual filing.
-    # organize logs under its own syslog tag
-    report = organize_paths(opts, [work], True, log.child("music-librarian"))
+    report = organize_paths(opts, [work], True, log.child("music-librarian"))  # organize's syslog tag
     if report.code:
         log(f"ERROR    {item.name}: filing incomplete, item and {work} left "
             f"in place (journal: {report.journal})")
         return FAILED, set()
-    targets = {dst.parent for src, dst in report.done if dst.suffix.lower() in AUDIO_EXT}
+    finish(opts, item, contents.junk, work, log)
+    return OK, {dst.parent for _, dst in report.done if dst.suffix.lower() in AUDIO_EXT}
 
-    # 3. The original goes to _done/; what is left in the work folder (side
-    #    files that did not follow) joins it.
+
+def preview(opts, item, contents: Contents, names, log):
+    """The dry run of an item: what it would convert, and where organize would file it."""
+    for p in contents.flacs:
+        log(f"CONVERT  {item.rel(p)}  → .m4a")
+    out = Buffer()
+    report = organize_paths(opts, [item.path], False, out)
+    if report.code:
+        log(out.text().rstrip())
+        log(f"ERROR    {item.name}: would go to {ERRORS}/ (see above)")
+        return FAILED, set()
+    for src, dst in report.moves:
+        if src in contents.left:
+            continue
+        if src.suffix.lower() == ".flac":
+            dst = dst.with_suffix(".m4a")
+        elif src in names:
+            dst = dst.with_name(names[src].name)
+        log(f"ORGANIZE {item.rel(src)}\n         → {relative(dst, opts.root)}")
+    return OK, set()
+
+
+def build_work(opts, item, contents: Contents, names, work: Path, log):
+    """Fill the work folder with the FLAC converted and the other tracks and side files linked,
+    then check that organize files it whole. Raises Stopped, or what makes the item fail."""
+    for p in contents.flacs:
+        if STOP.is_set():
+            raise Stopped
+        log(f"CONVERT  {item.rel(p)}")
+        convert(p, work / item.rel(p).with_suffix(".m4a"))
+    for p in contents.audio:
+        link_or_copy(p, work / item.rel(p))
+    for p, rel in names.items():
+        link_or_copy(p, work / rel)
+    out = Buffer()
+    if organize_paths(opts, [work], False, out).code:
+        log(out.text().rstrip())
+        raise Reject("refused by organize (see above)")
+
+
+def finish(opts, item, junk, work: Path, log):
+    """Move the filed item's original to _done/, with what stayed in the work folder (side files
+    that did not follow), then remove the work folder."""
     day = opts.inbox / DONE / date.today().isoformat()
     day.mkdir(parents=True, exist_ok=True)
     kept = free_name(day, item.name, item.is_dir)
@@ -340,10 +350,15 @@ def process(opts, item, log):
             link_or_copy(p, rest / p.relative_to(work))
         log(f"NOTE     {count(len(leftovers), 'unfiled file')} kept in {rest}")
     shutil.rmtree(work)
+    remove_work(work)
+    log(f"DONE     {item.name} → {kept}")
+
+
+def remove_work(work: Path):
+    """Remove the work folder, and _processing/ once empty."""
+    shutil.rmtree(work, ignore_errors=True)
     with contextlib.suppress(OSError):
         work.parent.rmdir()
-    log(f"DONE     {item.name} → {kept}")
-    return OK, targets
 
 
 def purge(opts, log):
@@ -361,8 +376,6 @@ def purge(opts, log):
             if opts.apply:
                 shutil.rmtree(p)
 
-
-# ---------- main ----------
 
 def parser(command="import", description="Import the Inbox into the library."):
     ap = arguments.parser(command, description)
@@ -449,17 +462,7 @@ def import_all(opts, log):
         counts[status] += 1
         targets |= t
 
-    enrich_ok = True
-    if targets and opts.enrich:
-        log("")
-        if STOP.is_set():
-            log("STOP     enrichment skipped: caught up by the weekly pass")
-        else:
-            enrich_ok = enrich_targets(sorted(targets), log)
-    if targets and not STOP.is_set():
-        log("")
-        enrich_ok = fix_credits(opts, sorted(targets), log) and enrich_ok
-
+    enrich_ok = enrich_imported(opts, sorted(targets), log) if targets else True
     log("\n--- Import summary ---")
     for k, v in (("imported", counts[OK]), ("failed", counts[FAILED]),
                  ("left (stopped)", counts[STOPPED] + counts["left (stopped)"]),
@@ -469,6 +472,22 @@ def import_all(opts, log):
     if STOP.is_set():
         return EXIT_STOPPED
     return 2 if counts[FAILED] or not enrich_ok else 0
+
+
+def enrich_imported(opts, dirs, log):
+    """Enrich the folders the items were filed into, then fix their credits; return whether
+    all of it succeeded. A stop leaves it to the weekly pass."""
+    ok = True
+    if opts.enrich:
+        log("")
+        if STOP.is_set():
+            log("STOP     enrichment skipped: caught up by the weekly pass")
+        else:
+            ok = enrich_targets(dirs, log)
+    if not STOP.is_set():
+        log("")
+        ok = fix_credits(opts, dirs, log) and ok
+    return ok
 
 
 if __name__ == "__main__":
