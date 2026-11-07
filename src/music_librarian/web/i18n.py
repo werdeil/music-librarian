@@ -7,6 +7,7 @@ DEFAULT_LANG = "en"
 TRANSLATIONS = {
     "fr": {
         "overview": "Vue d'ensemble",
+        "overview_short": "Accueil",
         "to_do": "À traiter",
         "tile_split": "Crédits à découper",
         "tile_dedupe": "Artistes à unifier",
@@ -61,6 +62,7 @@ TRANSLATIONS = {
         "not_scheduled": "Non programmé",
         "last_run": "Dernier passage",
         "next_run": "Prochain",
+        "next_run_label": "Prochain :",
         "never": "Jamais",
         "inbox": "Inbox",
         "inbox_missing": "Inbox introuvable : {path}",
@@ -332,6 +334,7 @@ TRANSLATIONS = {
     },
     "en": {
         "overview": "Overview",
+        "overview_short": "Home",
         "to_do": "To do",
         "tile_split": "Credits to split",
         "tile_dedupe": "Artists to unify",
@@ -385,6 +388,7 @@ TRANSLATIONS = {
         "not_scheduled": "Not scheduled",
         "last_run": "Last run",
         "next_run": "Next",
+        "next_run_label": "Next:",
         "never": "Never",
         "inbox": "Inbox",
         "inbox_missing": "Inbox not found: {path}",

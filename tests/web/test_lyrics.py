@@ -47,9 +47,10 @@ def tool(tmp_path, monkeypatch):
 def test_album_page_shows_each_track_s_lyrics(d):
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     flat = page.replace("\n", "").replace("  ", "")
-    assert ('<td class="cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
+    assert ('<td class="t-lyrics cell-link" data-label="Lyrics">'
+            '<a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
             'title="See and edit the lyrics">yes</a></td>') in flat
-    assert 'class="muted cell-link"' in flat and 'title="See and edit the lyrics">—</a>' in flat
+    assert 'class="t-lyrics muted cell-link"' in flat and 'title="See and edit the lyrics">—</a>' in flat
     assert "Look up the album&#39;s lyrics" in page and "in vain" not in page and "warning" not in flat
 
 
@@ -177,5 +178,6 @@ def test_track_marked_instrumental(d, lib):
     assert d.client.post("/library/track/lyrics", data=form).location.endswith("unchanged=1")
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     flat = page.replace("\n", "").replace("  ", "")
-    assert ('<td class="muted cell-link"><a href="/library/track/lyrics?folder=Beyonce/4&amp;file=02+T2.m4a" '
+    assert ('<td class="t-lyrics muted cell-link" data-label="Lyrics">'
+            '<a href="/library/track/lyrics?folder=Beyonce/4&amp;file=02+T2.m4a" '
             'title="See and edit the lyrics">instrumental</a></td>') in flat
