@@ -19,7 +19,7 @@ WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW",
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HISTORY_PAGE = 50
 ALBUM_PASSES = {"tag", "cover", "lyrics"}
-REVIEW_PASSES = {"split", "dedupe", "genres", "instrumental"}
+REVIEW_PASSES = {"split", "dedupe", "genres"}
 
 
 def kinds(lines, kind=""):

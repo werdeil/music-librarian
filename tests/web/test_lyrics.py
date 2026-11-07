@@ -1,15 +1,15 @@
-"""Lyrics on the dashboard: each track's state on its album's page, a lookup of the album, the
-tracks without lyrics."""
+"""Lyrics on the dashboard: each track's lyrics on its album's page, edited and previewed with the
+album's form, looked up online one track at a time; the tracks without lyrics."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import re
-import sys
 
 import pytest
 
-from music_librarian import enrich, scan
-from music_librarian.core import runs
+from music_librarian import scan
+from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.core.log import Log
+from music_librarian.lyrics import misses
 from music_librarian.lyrics.misses import Misses
 from music_librarian.media import fields, tags
 
@@ -34,43 +34,148 @@ def d(lib, tmp_path, serve):
     return serve(lib, tmp_path / "state", tmp_path / "Inbox")
 
 
-@pytest.fixture
-def tool(tmp_path, monkeypatch):
-    """A lyrics tool that records its arguments instead of looking anything up."""
-    calls = tmp_path / "calls.log"
-    script = (f"import sys; open({str(calls)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n'); "
-              "print('NONE     x')")
-    monkeypatch.setattr(enrich, "enrichers", lambda: [("lyrics", [sys.executable, "-c", script])])
-    return lambda: calls.read_text().splitlines() if calls.exists() else []
+def album_form(d, **changes):
+    """The album page's form as a browser would post it, the lyrics boxes included."""
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    form = {"csrf": d.token, "folder": "Beyonce/4"}
+    for tag_, name, value in re.findall(r'(<input[^>]* name="([^"]+)" value="([^"]*)"[^>]*>)', page):
+        if 'type="checkbox"' not in tag_ or " checked" in tag_:
+            form[name] = html.unescape(value)
+    for name, value in re.findall(r'<textarea name="([^"]+)"[^>]*>([^<]*)</textarea>', page):
+        form[name] = html.unescape(value)
+    form["seen"] = html.unescape(re.search(r'name="seen" value="([^"]*)"', page)[1])
+    form.update(changes)
+    return form
+
+
+def preview(d, **changes):
+    return d.client.post("/library/album", data=album_form(d, **changes), headers=EN).get_data(as_text=True)
+
+
+def apply(d, **changes):
+    """Apply the form's changes, then return the album's page following the pass."""
+    following = d.client.post("/library/album", data=album_form(d, apply="1", **changes)).location
+    d.requests.tick(Log())
+    return d.client.get(following, headers=EN).get_data(as_text=True)
 
 
 def test_album_page_shows_each_track_s_lyrics(d):
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    flat = page.replace("\n", "").replace("  ", "")
-    assert ('<td class="t-lyrics cell-link" data-label="Lyrics">'
-            '<a href="/library/track/lyrics?folder=Beyonce/4&amp;file=01+T1.m4a" '
-            'title="See and edit the lyrics">yes</a></td>') in flat
-    assert 'class="t-lyrics muted cell-link"' in flat and 'title="See and edit the lyrics">—</a>' in flat
-    assert "Look up the album&#39;s lyrics" in page and "in vain" not in page and "warning" not in flat
+    assert 'data-lyrics-toggle="lyrics-0"' in page and 'title="See and edit the lyrics">yes</button>' in page
+    box = '<textarea name="t{}.lyrics" class="lyrics" rows="8" aria-label="Lyrics · {}">{}</textarea>'
+    assert box.format(0, "01 T1.m4a", "la la") in page and box.format(1, "02 T2.m4a", "") in page
+    assert page.count("Looked up in vain on ") == 1 and page.count(">Look up online</button>") == 3
+    assert "data-open" not in page and "Look up the album" not in page
 
 
-def test_lookup_queued_then_applied(d, lib, tool):
-    response = d.client.post("/library/album/lyrics", data={"csrf": d.token, "folder": "Beyonce/4"})
-    assert response.status_code == 302
+def test_untouched_lyrics_ask_nothing(d):
+    response = d.client.post("/library/album", data=album_form(d, **{"t0.lyrics": "la la\r\n\r\n"}))
+    assert response.location.endswith("unchanged=1") and d.requests.pending() == []
+
+
+def test_lyrics_previewed_applied_then_undone(d, lib):
+    track = lib / "Beyonce/4/01 T1.m4a"
+    page = preview(d, **{"t0.lyrics": "la la\r\nlo lo  \r\n"})
+    assert "<del>1 line</del> → <ins>2 lines</ins>" in page and "· 01 T1.m4a" in page
+    assert 'id="lyrics-0" data-lyrics-row data-open' in page and 'id="lyrics-1" data-lyrics-row>' in page
+    assert tags.read_lyrics(track) == "la la"
+    page = apply(d, **{"t0.lyrics": "la la\r\nlo lo  \r\n"})
+    assert tags.read_lyrics(track) == "la la\nlo lo"
+    assert "<h2>Applied</h2>" in page and ">la la\nlo lo</textarea>" in page
+    journal = re.search(r'name="journal" value="([^"]+)"', page)[1]
+    d.client.post("/passes", data={"csrf": d.token, "command": "undo", "journal": journal, "apply": "1"})
     d.requests.tick(Log())
-    [dry] = runs.recent(d.state, 1)
-    assert (dry["command"], dry["apply"], dry["options"]) == ("lyrics", False, {"folder": "Beyonce/4"})
-    assert tool() == [f"--retry --look-up --dry-run {lib / 'Beyonce/4'}"]
-    assert "NONE     x" in runs.log_path(d.state, dry["id"]).read_text(encoding="utf-8")
-    d.client.post(f"/runs/{dry['id']}/apply", data={"csrf": d.token})
-    d.requests.tick(Log())
-    assert tool()[1] == f"--retry --look-up {lib / 'Beyonce/4'}"
+    assert tags.read_lyrics(track) == "la la"
 
 
-@pytest.mark.parametrize("folder", ["../", "Beyonce/9"])
-def test_lookup_of_a_folder_outside_the_library(d, folder):
-    response = d.client.post("/library/album/lyrics", data={"csrf": d.token, "folder": folder})
-    assert response.status_code == 404 and d.requests.pending() == []
+def test_lyrics_emptied_are_removed_and_looked_up_again(d, lib):
+    track, meta = lib / "Beyonce/4/01 T1.m4a", {"artist": "Beyonce", "title": "T1", "album": "4"}
+    with Misses(d.state) as misses:
+        misses.record(track, meta)
+    assert "<del>1 line</del> → <ins>(none)</ins>" in preview(d, **{"t0.lyrics": ""})
+    apply(d, **{"t0.lyrics": ""})
+    assert fields.lyrics(track) == []
+    with Misses(d.state) as misses:
+        assert not misses.recent(track, meta)
+
+
+def test_lyrics_changed_meanwhile_refused(d, lib):
+    form = album_form(d, **{"t0.lyrics": "new"})
+    tags.write_lyrics(lib / "Beyonce/4/01 T1.m4a", "other")
+    page = d.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert 'REFUSED  (lyrics changed since: &#34;1 line&#34;)' in page
+    assert tags.read_lyrics(lib / "Beyonce/4/01 T1.m4a") == "other"
+
+
+def test_track_marked_instrumental(d, lib):
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'name="t1.instrumental" value="1" data-instrumental="[Instrumental]" data-target="t1.lyrics">' \
+        in page
+    assert "<del>(none)</del> → <ins>instrumental</ins>" in preview(d, **{"t1.instrumental": "1"})
+    page = d.client.post("/library/album", data=album_form(d, **{"t0.lyrics": "a\nb"}),
+                         headers={"Accept-Language": "fr"}).get_data(as_text=True)
+    assert "<del>1 ligne</del> → <ins>2 lignes</ins>" in page
+    apply(d, **{"t1.instrumental": "1", "t1.lyrics": "typed"})
+    assert tags.read_lyrics(lib / "Beyonce/4/02 T2.m4a") == "[Instrumental]"
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'data-target="t1.lyrics" checked>' in page
+    assert 'title="See and edit the lyrics">instrumental</button>' in page
+    response = d.client.post("/library/album", data=album_form(d, **{"t1.instrumental": "1"}))
+    assert response.location.endswith("unchanged=1")
+
+
+@pytest.fixture
+def providers(monkeypatch):
+    """The providers' answer to the lookups, set by the test; the tracks asked for are kept."""
+    asked, answer = [], {}
+    monkeypatch.setattr(enrich_lyrics, "fetch_lyrics", lambda **kw: asked.append(kw) or dict(answer))
+    return asked, answer
+
+
+def look_up(d, file="02 T2.m4a"):
+    return d.client.post("/library/track/lyrics/lookup", headers=EN,
+                         data={"csrf": d.token, "folder": "Beyonce/4", "file": file})
+
+
+FOUND = "Found on {}: read them over, then preview."
+
+
+@pytest.mark.parametrize("answer, text, message", [
+    ({"lyrics": "found\ntext", "source": "lrclib"}, "found\ntext", FOUND.format("LRCLIB")),
+    ({"synced": "[00:01.00] sung", "source": "netease"}, "sung", FOUND.format("NetEase")),
+    ({"instrumental": True, "source": "lrclib"}, "[Instrumental]", "Instrumental according to LRCLIB."),
+    ({"source": "none"}, None, "Nothing found."),
+    ({"source": "rejected"}, None, "Found, but not for this track: the title, artist or duration differ."),
+    ({"source": "unavailable"}, None, "The providers do not answer: try again later."),
+])
+def test_lookup_of_one_track_writes_nothing(d, lib, providers, answer, text, message):
+    asked, providers_answer = providers
+    providers_answer.update(answer)
+    assert look_up(d).get_json() == {"text": text, "message": message}
+    assert [(a["artist"], a["title"], a["album"]) for a in asked] == [("Beyonce", "T2", "4")]
+    assert fields.lyrics(lib / "Beyonce/4/02 T2.m4a") == [] and d.requests.pending() == []
+
+
+def test_lookup_in_vain_recorded(d, lib, providers):
+    track = lib / "Beyonce/4/03 T3.m4a"
+    providers[1].update(source="unavailable")
+    look_up(d, "03 T3.m4a")
+    assert track not in misses_recorded(d)
+    providers[1].update(source="none")
+    look_up(d, "03 T3.m4a")
+    assert track in misses_recorded(d)
+
+
+def misses_recorded(d):
+    return misses.recorded(d.state)
+
+
+@pytest.mark.parametrize("folder, file", [("Beyonce/4", "../4/01 T1.m4a"), ("../", "x"),
+                                          ("Beyonce/4", "9.m4a")])
+def test_lookup_of_a_track_outside_the_library(d, providers, folder, file):
+    response = d.client.post("/library/track/lyrics/lookup",
+                             data={"csrf": d.token, "folder": folder, "file": file})
+    assert response.status_code == 404 and providers[0] == []
 
 
 def test_tracks_without_lyrics(d):
@@ -82,102 +187,3 @@ def test_tracks_without_lyrics(d):
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     tile = home[home.index("Tracks without lyrics") - 300:home.index("Tracks without lyrics")]
     assert 'class="tile-line tile-info"' in tile and '<span class="tile-value">2' in tile
-
-
-def lyrics_page(d, file):
-    response = d.client.get(f"/library/track/lyrics?folder=Beyonce/4&file={file}", headers=EN)
-    return response.get_data(as_text=True)
-
-
-def lyrics_form(d, file, **changes):
-    """The lyrics page's form as a browser would post it."""
-    page = lyrics_page(d, file)
-    form = {"csrf": d.token, "folder": "Beyonce/4", "file": file,
-            "seen": html.unescape(re.search(r'name="seen" value="([^"]*)"', page)[1]),
-            "lyrics": html.unescape(re.search(r'<textarea[^>]*>([^<]*)</textarea>', page)[1])}
-    form.update(changes)
-    return form
-
-
-def test_lyrics_page(d):
-    page = lyrics_page(d, "01 T1.m4a")
-    assert ">la la</textarea>" in page and "Preview the deletion" in page and "← 4</a>" in page
-    page = lyrics_page(d, "02 T2.m4a")
-    assert "></textarea>" in page and "Preview the deletion" not in page
-    for query in ("folder=Beyonce/4&file=../4/01 T1.m4a", "folder=../&file=x", "folder=Beyonce/4&file=9.m4a"):
-        assert d.client.get(f"/library/track/lyrics?{query}", headers=EN).status_code == 404
-
-
-def test_untouched_lyrics_ask_nothing(d):
-    form = lyrics_form(d, "01 T1.m4a", lyrics="la la\r\n\r\n")
-    assert d.client.post("/library/track/lyrics", data=form).location.endswith("unchanged=1")
-    assert d.requests.pending() == []
-
-
-def test_lyrics_edited_then_undone(d, lib):
-    track = lib / "Beyonce/4/01 T1.m4a"
-    d.client.post("/library/track/lyrics", data=lyrics_form(d, "01 T1.m4a", lyrics="la la\r\nlo lo  \r\n"))
-    [asked] = d.requests.pending()
-    assert (asked.command, asked.options) == ("tag", {"edits": [["Beyonce/4/01 T1.m4a", "lyrics",
-                                                                 "la la\r\nlo lo  \r\n", ["la la"]]]})
-    d.requests.tick(Log())
-    [dry] = runs.recent(d.state, 1)
-    page = d.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
-    assert "TAG      lyrics: &#34;1 line&#34; → &#34;2 lines&#34;  Beyonce/4/01 T1.m4a" in page
-    assert tags.read_lyrics(track) == "la la"
-    d.client.post(f"/runs/{dry['id']}/apply", data={"csrf": d.token})
-    d.requests.tick(Log())
-    assert tags.read_lyrics(track) == "la la\nlo lo"
-    [applied] = runs.recent(d.state, 1)
-    journal = re.search(r"journal: .*/(\S+\.jsonl)", runs.log_path(d.state, applied["id"]).read_text())[1]
-    d.client.post("/passes", data={"csrf": d.token, "command": "undo", "journal": journal, "apply": "1"})
-    d.requests.tick(Log())
-    assert tags.read_lyrics(track) == "la la"
-
-
-def test_lyrics_changed_are_looked_up_again(d, lib):
-    track, meta = lib / "Beyonce/4/01 T1.m4a", {"artist": "Beyonce", "title": "T1", "album": "4"}
-    with Misses(d.state) as misses:
-        misses.record(track, meta)
-    d.client.post("/library/track/lyrics", data=lyrics_form(d, "01 T1.m4a", delete="1"))
-    [asked] = d.requests.pending()
-    assert asked.options["edits"] == [["Beyonce/4/01 T1.m4a", "lyrics", "", ["la la"]]]
-    d.requests.tick(Log())
-    [dry] = runs.recent(d.state, 1)
-    assert tags.read_lyrics(track) == "la la"
-    d.client.post(f"/runs/{dry['id']}/apply", data={"csrf": d.token})
-    d.requests.tick(Log())
-    assert fields.lyrics(track) == []
-    with Misses(d.state) as misses:
-        assert not misses.recent(track, meta)
-    assert "Looked up in vain on " in lyrics_page(d, "02 T2.m4a")
-    assert "Looked up in vain on " not in lyrics_page(d, "01 T1.m4a")
-
-
-def test_lyrics_changed_meanwhile_refused(d, lib, capsys):
-    form = lyrics_form(d, "01 T1.m4a", lyrics="new")
-    tags.write_lyrics(lib / "Beyonce/4/01 T1.m4a", "other")
-    d.client.post("/library/track/lyrics", data=form)
-    d.requests.submit("tag", {"edits": d.requests.pending()[0].options["edits"]}, True)
-    d.requests.tick(Log())
-    assert tags.read_lyrics(lib / "Beyonce/4/01 T1.m4a") == "other"
-    assert 'REFUSED  (lyrics changed since: "1 line")' in capsys.readouterr().out
-
-
-def test_track_marked_instrumental(d, lib):
-    page = lyrics_page(d, "02 T2.m4a")
-    assert 'name="instrumental" value="1" data-instrumental="[Instrumental]">' in page
-    d.client.post("/library/track/lyrics", data=lyrics_form(d, "02 T2.m4a", instrumental="1", lyrics="typed"))
-    [asked] = d.requests.pending()
-    assert asked.options["edits"] == [["Beyonce/4/02 T2.m4a", "lyrics", "[Instrumental]", []]]
-    d.requests.submit("tag", asked.options, True)
-    d.requests.tick(Log())
-    assert tags.read_lyrics(lib / "Beyonce/4/02 T2.m4a") == "[Instrumental]"
-    assert 'data-instrumental="[Instrumental]" checked>' in lyrics_page(d, "02 T2.m4a")
-    form = lyrics_form(d, "02 T2.m4a", instrumental="1")
-    assert d.client.post("/library/track/lyrics", data=form).location.endswith("unchanged=1")
-    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    flat = page.replace("\n", "").replace("  ", "")
-    assert ('<td class="t-lyrics muted cell-link" data-label="Lyrics">'
-            '<a href="/library/track/lyrics?folder=Beyonce/4&amp;file=02+T2.m4a" '
-            'title="See and edit the lyrics">instrumental</a></td>') in flat

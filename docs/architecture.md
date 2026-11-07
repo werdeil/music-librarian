@@ -43,8 +43,7 @@ src/music_librarian/
 ├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
 │   ├── matching.py  is a provider's answer this recording?
-│   ├── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
-│   └── instrumentals.py  the tracks the dashboard's review answered as instrumental
+│   └── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), fields.py (every field tag and undo rewrite, in each
 │                    format), credit_tags.py (album artist, artist, composer), artwork.py (image
@@ -114,7 +113,7 @@ With `--apply`, the album folders are handed in batches of 20 to four modules ru
 
 Each step is announced with its rank (`ENRICH   (lyrics)  step 4/6`), and each batch ends on a `PROGRESS` line: the batch and folders done, the time spent on the tool and the time left, extrapolated from the folders done. The modules' per-batch summaries are not shown: their counts are added up into one summary per tool, with the time it took, and the final summary gives the time of the whole pass. On a stop request the current batch finishes, the tool's summary so far is shown and the rest waits for the next pass. `repeats.py`, `split` and `dedupe` then run over the whole library. A complete pass then drops the files gone from the library from the metadata cache.
 
-A dry run reads only the metadata cache and the library's folders, never the network nor ffmpeg, and calls each module once over the whole library. What is decided locally is shown change by change: the genres the list aligns, the covers to embed, the values held twice kept once, the credits split and the aliases applied. What needs a lookup or a measure is counted, with the time it would take: the albums to search on iTunes (3 s each, Apple's rate limit; the answers already kept in `genre_lookup.json` are used), the files to measure (their duration at 100 times real time per CPU) and the files whose lyrics to look up (1.5 s each, the `--delay` of 0.5 s included). The summary adds those times up, tool by tool. These rates are rough: a slow disk, a busy provider or a NAS CPU can double them. `enrich.lyrics --look-up`, which the album page uses, looks the lyrics up in a dry run anyway.
+A dry run reads only the metadata cache and the library's folders, never the network nor ffmpeg, and calls each module once over the whole library. What is decided locally is shown change by change: the genres the list aligns, the covers to embed, the values held twice kept once, the credits split and the aliases applied. What needs a lookup or a measure is counted, with the time it would take: the albums to search on iTunes (3 s each, Apple's rate limit; the answers already kept in `genre_lookup.json` are used), the files to measure (their duration at 100 times real time per CPU) and the files whose lyrics to look up (1.5 s each, the `--delay` of 0.5 s included). The summary adds those times up, tool by tool. These rates are rough: a slow disk, a busy provider or a NAS CPU can double them. `enrich.lyrics --look-up` looks the lyrics up in a dry run anyway; the dashboard looks up one track's lyrics on its own, to fill its box on the album's page.
 
 ### split: credits holding several names
 
