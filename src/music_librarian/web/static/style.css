@@ -861,3 +861,12 @@ form.inline {
     gap: 8px;
     margin-left: auto;
 }
+
+.output summary {
+    cursor: pointer;
+}
+
+.output summary h2 {
+    display: inline;
+    margin-right: 8px;
+}

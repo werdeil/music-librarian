@@ -19,6 +19,7 @@ WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW",
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HISTORY_PAGE = 50
 ALBUM_PASSES = {"tag", "cover", "lyrics"}
+REVIEW_PASSES = {"split", "dedupe", "genres", "instrumental"}
 
 
 def kinds(lines, kind=""):
@@ -206,14 +207,17 @@ def register(app, ctx):
         lines, offset = runs.read_log(ctx.state_dir, run_id)
         journal = journal_of(run) if run["apply"] else None
         journal = journal if journal and journal_path(ctx.state_dir, journal) else None
+        album = album_url(ctx, run["command"], run["options"],
+                          journal and journal_path(ctx.state_dir, journal))
+        back = (album, "back_to_album") if album else \
+            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
+            (url_for("home"), "back_to_overview")
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             boxes=boxes_ticked(run["command"], run["options"])
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
-            can_stop=stoppable(ctx, run), journal=journal,
-            album=album_url(ctx, run["command"], run["options"],
-                            journal and journal_path(ctx.state_dir, journal)))
+            can_stop=stoppable(ctx, run), journal=journal, back=back)
 
     @app.get("/runs/<int:run_id>/log.json")
     def run_log(run_id):

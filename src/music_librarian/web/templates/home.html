@@ -62,12 +62,12 @@
             <input type="hidden" name="command" value="{{ command }}">
             <button type="submit"{% if names %} data-opens-dialog{% endif %}>
                 <span class="pass-title">{{ t.passes[command] }}</span>
-                <span class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</span>
+                <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
             </button>
             {% if names %}
             <dialog class="pass-dialog">
                 <h3>{{ t.passes[command] }}</h3>
-                <p class="pass-sub"><code>{{ command }}</code>{% if command != 'scan' %} · {{ t.dry_run }}{% endif %}</p>
+                <p class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</p>
                 {% for name in names %}
                 {% set box = name[3:] if name.startswith('no_') else name %}
                 <label{% if box in under %} class="sub-option"{% endif %}><input type="checkbox" name="{{ box }}" value="1"
