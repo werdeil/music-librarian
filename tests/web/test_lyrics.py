@@ -80,7 +80,7 @@ def test_tracks_without_lyrics(d):
     assert "<td>—</td>" not in page                         # one of them was looked up in vain
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     tile = home[home.index("Tracks without lyrics") - 300:home.index("Tracks without lyrics")]
-    assert 'class="tile tile-info"' in tile and '<span class="tile-value">2' in tile
+    assert 'class="tile-line tile-info"' in tile and '<span class="tile-value">2' in tile
 
 
 def lyrics_page(d, file):
