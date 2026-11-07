@@ -15,7 +15,6 @@ the end.
 """
 import secrets
 import shlex
-import subprocess
 import sys
 import tempfile
 import time
@@ -31,7 +30,7 @@ from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.enrich import covers
 from music_librarian.importer import COVER
-from music_librarian.media import artwork, tags
+from music_librarian.media import artwork, tags, tool
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.split.library import run_locked
 
@@ -79,9 +78,8 @@ def as_jpeg(data):
     with tempfile.TemporaryDirectory() as work:
         source, target = Path(work) / "image", Path(work) / "cover.jpg"
         source.write_bytes(data)
-        done = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(source), "-frames:v", "1",
-                               "-pix_fmt", "yuvj420p", "-q:v", "2", str(target)],
-                              capture_output=True, text=True, check=False)
+        done = tool.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(source), "-frames:v", "1",
+                         "-pix_fmt", "yuvj420p", "-q:v", "2", str(target)], tool.PROBE_SECONDS)
         converted = target.read_bytes() if done.returncode == 0 and target.exists() else b""
     dims = artwork.image_size(converted)
     if not dims:

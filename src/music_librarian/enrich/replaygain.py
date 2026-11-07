@@ -17,7 +17,6 @@ measuring them would take.
 import argparse
 import os
 import re
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -28,7 +27,7 @@ from music_librarian.core.lock import STOP, handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import ESTIMATE, album_folders, estimate, finish, label
-from music_librarian.media import tags
+from music_librarian.media import tags, tool
 from music_librarian.media.metadata_cache import MetadataCache
 
 REFERENCE_LUFS = -18
@@ -46,9 +45,8 @@ class MeasureError(Exception):
 
 def measure(path):
     """Return (integrated loudness in LUFS, sample peak from 0 to 1) of `path`."""
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-nostdin", "-i", path,
-                        "-map", "0:a:0", "-af", FILTERS, "-f", "null", "-"],
-                       capture_output=True, text=True, errors="replace", check=False)
+    r = tool.run(["ffmpeg", "-hide_banner", "-nostats", "-nostdin", "-i", path,
+                  "-map", "0:a:0", "-af", FILTERS, "-f", "null", "-"], tool.FILE_SECONDS, errors="replace")
     peak, loudness = PEAK.search(r.stderr), LOUDNESS.search(r.stderr)
     if r.returncode != 0 or not peak or not loudness:
         last = r.stderr.strip().splitlines()[-1:] or ["no output"]
