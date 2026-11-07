@@ -146,3 +146,26 @@ def test_replaygain_brief():
 def test_replaygain_only_removed(values):
     with pytest.raises(fields.FieldError):
         fields.check(fields.REPLAYGAIN, values)
+
+
+@pytest.mark.parametrize("ext", FORMATS)
+@pytest.mark.parametrize("name", ["discsubtitle", "grouping"])
+def test_disc_name_and_grouping_round_trip(track, ext, name):
+    p = track(ext)
+    fields.write(p, name, ["Jupiter"])
+    values = fields.read(p)
+    assert values[name] == ["Jupiter"] and values["disc"] == ["1"]
+    assert values["grouping" if name == "discsubtitle" else "discsubtitle"] == []
+    fields.write(p, name, [])
+    assert fields.read(p)[name] == []
+
+
+@pytest.mark.parametrize("ext, frame", [(".mp3", "TSST"), (".mp3", "GRP1"), (".m4a", "©grp")])
+def test_tags_lyrion_reads(track, ext, frame):
+    p = track(ext)
+    fields.write(p, "discsubtitle", ["Jupiter"])
+    fields.write(p, "grouping", ["Jupiter"])
+    f = MP3(p) if ext == ".mp3" else MP4(p)
+    assert frame in f.tags and "TIT1" not in f.tags
+    if ext == ".m4a":
+        assert "----:com.apple.iTunes:DISCSUBTITLE" in f.tags

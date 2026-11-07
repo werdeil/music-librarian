@@ -198,3 +198,49 @@ def test_problem_lines_keep_their_continuation():
     lines = ["TAG      x", "CONFLICT a\n         → b", "         (taken)", "MOVE     c", "         → d",
              "ERROR    e"]
     assert tag.problem_lines(lines) == ["CONFLICT a\n         → b\n         (taken)", "ERROR    e"]
+
+
+@pytest.fixture
+def arcadium(lib, make_track):
+    folder = lib / "Red Hot Chili Peppers/Stadium Arcadium"
+    for disc, grouping in ((1, "Jupiter"), (2, "Mars")):
+        for n in (1, 2):
+            p = make_track(folder / f"{disc}-0{n} Song {disc}{n}.m4a", title=f"Song {disc}{n}",
+                           artist="Red Hot Chili Peppers", albumartist="Red Hot Chili Peppers",
+                           album="Stadium Arcadium", track=n, disc=disc, disctotal=2)
+            fields.write(p, "grouping", [grouping])
+    return folder
+
+
+def test_disc_names_copied_from_the_grouping_then_undone(lib, run, arcadium, capsys):
+    fields.write(lib / "Beyonce/4/01 Run the World.m4a", "grouping", ["Single"])
+    assert run(lib, "--disc-names") == 0
+    out = capsys.readouterr().out
+    assert 'TAG      discsubtitle: "(none)" → "Mars"' in out
+    assert "KEPT     (grouping not one per disc)  Beyonce/4" in out
+    assert fields.read(arcadium / "2-01 Song 21.m4a")["discsubtitle"] == []
+    assert run(lib, "--disc-names", "--apply") == 0
+    values = fields.read(arcadium / "2-01 Song 21.m4a")
+    assert values["discsubtitle"] == ["Mars"] and values["grouping"] == ["Mars"]
+    assert fields.read(arcadium / "1-02 Song 12.m4a")["discsubtitle"] == ["Jupiter"]
+    assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["discsubtitle"] == []
+    [journal] = (run.state / "journal").glob("*.jsonl")
+    assert cli.main(["undo", str(journal), "--root", str(lib), "--state-dir", str(run.state), "--apply"]) == 0
+    assert fields.read(arcadium / "2-01 Song 21.m4a")["discsubtitle"] == []
+
+
+@pytest.mark.parametrize("groupings", [("Jupiter", "Jupiter"), ("Jupiter", None)])
+def test_disc_names_left_when_the_grouping_is_not_one_per_disc(lib, run, arcadium, groupings, capsys):
+    for n, grouping in zip((1, 2), groupings):
+        fields.write(arcadium / f"2-0{n} Song 2{n}.m4a", "grouping", [grouping] if grouping else [])
+    assert run(lib, "--disc-names", "--apply") == 0
+    out = capsys.readouterr().out
+    assert "KEPT     (grouping not one per disc)  Red Hot Chili Peppers/Stadium Arcadium" in out
+    assert fields.read(arcadium / "1-01 Song 11.m4a")["discsubtitle"] == []
+
+
+def test_disc_names_keep_a_disc_name_already_there(lib, run, arcadium):
+    fields.write(arcadium / "1-01 Song 11.m4a", "discsubtitle", ["Jupiter (Disc 1)"])
+    assert run(lib, "--disc-names", "--apply") == 0
+    assert fields.read(arcadium / "1-01 Song 11.m4a")["discsubtitle"] == ["Jupiter (Disc 1)"]
+    assert fields.read(arcadium / "1-02 Song 12.m4a")["discsubtitle"] == ["Jupiter"]

@@ -106,8 +106,8 @@
         <table class="tracks{{ ' discs' if discs }}">
             <thead>
                 <tr>
-                    {% if discs %}<th>{{ t.field_disc }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
-                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
+                    {% if discs %}<th>{{ t.field_disc }}</th><th>{{ t.field_discsubtitle }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th>{% if discs %}<th>{{ t.field_grouping }}</th>{% endif %}<th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,11 +115,12 @@
             {% for file, values in tracks %}
                 <tr>
                 {% if values %}
-                    {% for name in (('disc', 'track') if discs else ('track',)) %}
+                    {% for name in (('disc', 'discsubtitle', 'track') if discs else ('track',)) %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
-                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input class="number" name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
+                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
+                               {%- if name != 'discsubtitle' %} class="number" inputmode="numeric"{% endif %}></td>
                     {% endfor %}
-                    {% for name in ('title', 'artist', 'composer') %}
+                    {% for name in ('title', 'artist', 'composer') + (('grouping',) if discs else ()) %}
                     {% set flag = repeated.get(file, {}).get(name) %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
                     <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
@@ -127,7 +128,7 @@
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
                 {% else %}
-                    <td colspan="{{ 5 if discs else 4 }}" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td>
+                    <td colspan="{{ 7 if discs else 4 }}" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td>
                 {% endif %}
                     {% set state = lyrics.get(file) %}
                     {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state

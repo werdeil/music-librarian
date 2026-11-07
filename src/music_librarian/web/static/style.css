@@ -1004,6 +1004,7 @@ form.inline {
     table.tracks.discs .t-title,
     table.tracks .t-artist,
     table.tracks .t-composer,
+    table.tracks .t-grouping,
     table.tracks td[colspan] {
         grid-column: 1 / -1;
     }
