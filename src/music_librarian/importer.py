@@ -32,6 +32,7 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -319,11 +320,7 @@ def preview(opts, item, contents: Contents, names, log):
 def build_work(opts, item, contents: Contents, names, work: Path, log):
     """Fill the work folder with the FLAC converted and the other tracks and side files linked,
     then check that organize files it whole. Raises Stopped, or what makes the item fail."""
-    for p in contents.flacs:
-        if STOP.is_set():
-            raise Stopped
-        log(f"CONVERT  {item.rel(p)}")
-        convert(p, work / item.rel(p).with_suffix(".m4a"))
+    convert_all(item, contents.flacs, work, log)
     for p in contents.audio:
         link_or_copy(p, work / item.rel(p))
     for p, rel in names.items():
@@ -332,6 +329,35 @@ def build_work(opts, item, contents: Contents, names, work: Path, log):
     if organize_paths(opts, [work], False, out).code:
         log(out.text().rstrip())
         raise Reject("refused by organize (see above)")
+
+
+def convert_all(item, flacs, work: Path, log):
+    """Convert the item's FLAC into the work folder, one per CPU at a time, each logged once done,
+    in order. Raises the first file's error, or Stopped when a stop came before the last ended."""
+    def one(p):
+        if STOP.is_set():
+            raise Stopped
+        convert(p, work / item.rel(p).with_suffix(".m4a"))
+
+    with ThreadPoolExecutor(max(min(cpus(), len(flacs)), 1)) as pool:
+        futures = [pool.submit(one, p) for p in flacs]
+        try:
+            for p, future in zip(flacs, futures):
+                future.result()
+                log(f"CONVERT  {item.rel(p)}")
+        except BaseException:
+            pool.shutdown(cancel_futures=True)
+            raise
+    if STOP.is_set():
+        raise Stopped
+
+
+def cpus():
+    """The CPUs this process may run on."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
 
 
 def finish(opts, item, junk, work: Path, log):

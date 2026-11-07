@@ -84,7 +84,7 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 
 1. **Wait for the copy to finish.** An item (an album folder or a loose file) must not have changed for `--settle` seconds (10 by default), otherwise it is reported `WAITING` and left for the next pass.
 2. **Sort its files** into FLAC, ALAC or MP3, side files (jpg, pdf, lrc, cue) and junk. Any other audio format sends the item to `_failed/`.
-3. **Build a work folder** in `_processing/`: FLAC converted to ALAC (`media/convert.py`: codec, duration within 0.1 s, tags and cover checked), the other files hard-linked (copied across disks), `cover.jpg` or `front.jpg` renamed `folder.jpg`. A failed check sends the item to `_failed/`.
+3. **Build a work folder** in `_processing/`: FLAC converted to ALAC, one file per CPU at a time (`media/convert.py`: codec, duration within 0.1 s, tags and cover checked), the other files hard-linked (copied across disks), `cover.jpg` or `front.jpg` renamed `folder.jpg`. A failed check sends the item to `_failed/`.
 4. **Ask organize, in a dry run, whether it would file all of it.** A single conflict or missing tag sends the whole item to `_failed/`.
 5. **File it** through `organize_pass`, not interruptible: a stop request lets the whole item finish.
 6. **Move the original** to `_done/YYYY-MM-DD/`, purged after `--keep-days` (7 by default).

@@ -306,3 +306,56 @@ def test_several_titles_refused(env, make_track, capsys, title):
     assert env.run("--apply") == 2
     assert files(env.inbox) == ["_failed/Album/1.flac"] and files(env.lib) == []
     assert 'SKIPPED  (title takes one value, without ";": ' in capsys.readouterr().out
+
+
+def test_flac_converted_side_by_side_and_logged_in_order(env, make_track, monkeypatch, capsys):
+    d = env.inbox / "Album"
+    for i in range(1, 6):
+        make_track(d / f"x{i}.flac", artist="A", albumartist="A", album="B", title=f"T{i}", track=i)
+    running, most = set(), []
+    real = importer.convert
+
+    def slow(src, dst):
+        running.add(src)
+        most.append(len(running))
+        real(src, dst)
+        importer.time.sleep(0.05)
+        running.discard(src)
+
+    monkeypatch.setattr(importer, "convert", slow)
+    monkeypatch.setattr(importer, "cpus", lambda: 3)
+    assert env.run("--apply") == 0
+    out = capsys.readouterr().out
+    assert max(most) > 1
+    assert [line.split()[1] for line in out.splitlines() if line.startswith("CONVERT")] == \
+        [f"x{i}.flac" for i in range(1, 6)]
+    assert files(env.lib) == [f"A/B/0{i} T{i}.m4a" for i in range(1, 6)]
+
+
+def test_a_failed_conversion_fails_the_item(env, make_track, monkeypatch, capsys):
+    flac_album(env, make_track)
+
+    def broken(src, dst):
+        raise convert.ConversionError(f"ffmpeg failed on {src.name}")
+
+    monkeypatch.setattr(importer, "convert", broken)
+    assert env.run("--apply") == 2
+    assert "ERROR    Album: ffmpeg failed on x1.flac" in capsys.readouterr().out
+    assert files(env.lib) == [] and not (env.inbox / importer.WORK).exists()
+    assert (env.inbox / importer.ERRORS / "Album" / "x1.flac").exists()
+
+
+def test_a_stop_during_the_conversions_leaves_the_item(env, make_track, monkeypatch, capsys):
+    flac_album(env, make_track)
+    real = importer.convert
+
+    def then_stop(src, dst):
+        real(src, dst)
+        importer.STOP.set()
+
+    monkeypatch.setattr(importer, "convert", then_stop)
+    monkeypatch.setattr(importer, "cpus", lambda: 1)
+    assert env.run("--apply") == 4
+    assert "STOP     Album: left in the Inbox for the next pass" in capsys.readouterr().out
+    assert files(env.lib) == [] and (env.inbox / "Album" / "x1.flac").exists()
+    assert not (env.inbox / importer.WORK).exists()
