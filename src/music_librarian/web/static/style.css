@@ -870,3 +870,20 @@ form.inline {
     display: inline;
     margin-right: 8px;
 }
+
+.search {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.search .sort {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+
+.filters.only {
+    margin-bottom: 0.8rem;
+}

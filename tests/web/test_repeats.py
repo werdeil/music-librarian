@@ -30,7 +30,7 @@ def test_tile_and_list(d):
     tile = home[home.index("Tracks with repeated values") - 300:home.index("Tracks with repeated values")]
     assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
-    assert 'Tracks with repeated values: 2 <a href="/library/repeats">see</a>' in library_page
+    assert 'href="/library?only=repeats">Repeated values <span class="muted">1</span></a>' in library_page
     page = d.client.get("/library/repeats", headers=EN).get_data(as_text=True)
     assert "/library/album?folder=A/B" in page and "<td>2 / 3</td>" in page and "C/D" not in page
 

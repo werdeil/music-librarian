@@ -237,3 +237,68 @@
 
     setTimeout(poll, POLL_MS);
 }());
+
+// The library's search runs as the words are typed or the sort changes: the results are swapped in
+// place, asked again while the album list is being built, and the address follows; without script,
+// the button searches.
+(function () {
+    "use strict";
+
+    var TYPING_MS = 250;
+    var BUILDING_MS = 2000;
+    var form = document.querySelector("[data-live-search]");
+    var results = document.getElementById("results");
+    if (!form || !results) {
+        return;
+    }
+    var input = form.elements.namedItem("q");
+    var timer = null;
+    var wanted = null;
+
+    function address() {
+        var params = new URLSearchParams(new FormData(form));
+        if (!params.get("q")) {
+            params.delete("q");
+        }
+        if (params.get("sort") === "artist") {
+            params.delete("sort");
+        }
+        var query = params.toString();
+        return form.action + (query ? "?" + query : "");
+    }
+
+    function search() {
+        var url = address();
+        if (url === wanted) {
+            return;
+        }
+        wanted = url;
+        fetch(url)
+            .then(function (response) { return response.text(); })
+            .then(function (html) {
+                var fresh = new DOMParser().parseFromString(html, "text/html").getElementById("results");
+                if (fresh && url === wanted) {
+                    results.innerHTML = fresh.innerHTML;
+                    window.history.replaceState(null, "", url);
+                    if (fresh.querySelector("[data-reload-when-built]")) {
+                        setTimeout(function () { wanted = null; search(); }, BUILDING_MS);
+                    }
+                }
+            })
+            .catch(function () { wanted = null; });
+    }
+
+    input.addEventListener("input", function () {
+        clearTimeout(timer);
+        timer = setTimeout(search, TYPING_MS);
+    });
+    form.addEventListener("change", function () {
+        clearTimeout(timer);
+        search();
+    });
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        clearTimeout(timer);
+        search();
+    });
+}());
