@@ -252,6 +252,34 @@ def test_security_headers_and_health(client):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
+@pytest.mark.parametrize("host", ["localhost", "127.0.0.1:8080", "[::1]:8080", "192.168.1.20", "nas:8080",
+                                  "nas.local", "NAS.Lan.", "music.home.arpa:8080", "box.internal"])
+def test_local_names_answered(client, host):
+    assert client.get("/", headers={"Host": host}).status_code == 200
+
+
+@pytest.mark.parametrize("host", ["attacker.example", "attacker.example:8080", "192.168.1.20.nip.io",
+                                  "localhost.attacker.example"])
+def test_other_names_refused(client, host):
+    response = client.get("/", headers={"Host": host, **EN})
+    assert response.status_code == 403 and response.mimetype == "text/plain"
+    assert "does not answer to the name" in response.get_data(as_text=True)
+
+
+def test_other_names_refused_before_any_form_or_token(tmp_path):
+    dashboard = web.create_app(web.Context(root=tmp_path, inbox=tmp_path, state_dir=tmp_path / "state",
+                                           requests=object())).test_client()
+    response = dashboard.post("/passes", data={"command": "organize"}, headers={"Host": "attacker.example"})
+    assert response.status_code == 403 and "csrf" not in response.get_data(as_text=True)
+
+
+def test_names_given_answered(ctx):
+    ctx.hosts = frozenset({"music.example.org"})
+    client = web.create_app(ctx).test_client()
+    assert client.get("/", headers={"Host": "Music.Example.org:8080"}).status_code == 200
+    assert client.get("/", headers={"Host": "other.example.org"}).status_code == 403
+
+
 @pytest.mark.parametrize("now, slot", [
     (datetime(2026, 10, 18, 2, 0), datetime(2026, 10, 18, 3, 0)),   # Sunday, before the slot
     (datetime(2026, 10, 18, 3, 0), datetime(2026, 10, 25, 3, 0)),   # on it: the next one

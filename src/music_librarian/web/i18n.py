@@ -163,6 +163,8 @@ TRANSLATIONS = {
         "nothing_changed": "Rien n'a changé.",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
+        "host_refused": ("Refusé : ce dashboard ne répond pas au nom {host}. Si c'est bien le sien, "
+                         "ajoutez-le à MUSIC_LIBRARIAN_WEB_HOSTS."),
         "lyrics": "Paroles",
         "lyrics_present": "oui",
         "lyrics_missed": "Cherchées en vain le {date}.",
@@ -438,6 +440,8 @@ TRANSLATIONS = {
         "nothing_changed": "Nothing changed.",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
+        "host_refused": ("Refused: this dashboard does not answer to the name {host}. If it is its name, "
+                         "add it to MUSIC_LIBRARIAN_WEB_HOSTS."),
         "lyrics": "Lyrics",
         "lyrics_present": "yes",
         "lyrics_missed": "Looked up in vain on {date}.",

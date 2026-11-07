@@ -69,6 +69,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` pour chercher les genres que la liste ne sait pas aligner (activé dans le fichier compose), et le magasin interrogé (défaut `us`) |
 | `MUSIC_LIBRARIAN_LISTEN` | Adresse du dashboard, `[HÔTE:]PORT` (`watch --listen` ; le fichier compose fixe `8080`, et `WEB_PORT` le port de l'hôte) |
+| `MUSIC_LIBRARIAN_WEB_HOSTS` | Noms par lesquels on atteint le dashboard, séparés par des virgules, en plus d'une adresse IP, d'un nom sans point et des suffixes locaux `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` (`watch --web-hosts`) |
 
 Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
 
@@ -84,7 +85,7 @@ Avec `GENRE_LOOKUP=itunes`, un album dont la liste ne sait pas aligner le genre,
 
 ## Sécurité
 
-Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port voit les chemins de la bibliothèque, l'Inbox et la sortie de chaque passage, et peut lancer n'importe quelle commande sur la bibliothèque. Gardez-le sur le réseau de la maison : pas de redirection de port, pas de reverse proxy public. Pour y accéder de l'extérieur, rejoignez le réseau par un VPN comme WireGuard ou Tailscale.
+Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port voit les chemins de la bibliothèque, l'Inbox et la sortie de chaque passage, et peut lancer n'importe quelle commande sur la bibliothèque. Gardez-le sur le réseau de la maison : pas de redirection de port, pas de reverse proxy public. Pour y accéder de l'extérieur, rejoignez le réseau par un VPN comme WireGuard ou Tailscale. Un autre site ne peut pas l'atteindre par un nom à lui (DNS rebinding) : le dashboard ne répond qu'à une adresse IP, à un nom local et aux noms de `MUSIC_LIBRARIAN_WEB_HOSTS` ; détails dans [docs/web.md](docs/web.md#security) (en anglais).
 
 ## Documentation
 
