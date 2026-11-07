@@ -11,7 +11,7 @@ from flask import abort, jsonify, redirect, render_template, request, send_file,
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.web import library
-from music_librarian.web.common import paged, submit, when
+from music_librarian.web.common import paged, place, submit, when
 from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, box, boxes_ticked, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
@@ -129,7 +129,7 @@ def register(app, ctx):
             run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
             journal = run_journal(ctx, run)
             moved = moved_to(journal, ctx.root, folder) if journal else folder
-            album = url_for("album_page", folder=moved, request=request_id)
+            album = url_for("album_page", folder=moved, request=request_id, **place())
         return jsonify(done=done, album=album)
 
     @app.post("/passes")
@@ -172,7 +172,7 @@ def register(app, ctx):
             abort(404)
         album = album_followed(ctx)
         if album is not None:
-            return redirect(url_for("album_page", folder=album, request=request_id))
+            return redirect(url_for("album_page", folder=album, request=request_id, **place()))
         return redirect(url_for("request_page", request_id=request_id))
 
     @app.post("/runs/<int:run_id>/stop")

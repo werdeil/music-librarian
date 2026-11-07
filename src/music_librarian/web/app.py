@@ -16,7 +16,7 @@ from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, reviews, security
-from music_librarian.web.common import texts, when
+from music_librarian.web.common import place, texts, when
 from music_librarian.web.history import PROBLEMS, shown, stoppable
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS, UNDER
@@ -79,7 +79,7 @@ def create_app(ctx: Context):
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
                     rebuilding=request.endpoint in shows and not settled(request.endpoint),
-                    cover_url=cover_url, build_percent=lambda: build_percent(request.endpoint))
+                    cover_url=cover_url, build_percent=lambda: build_percent(request.endpoint), place=place())
 
     def cover_url(rel):
         return url_for("album_cover", folder=rel, v=library.cover_version(ctx.root, rel))

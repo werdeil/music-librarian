@@ -6,21 +6,25 @@
 {{ t['origin_' ~ run.origin] }}{% if run.trigger %} · {{ t['trigger_' ~ run.trigger] }}{% endif %}
 {%- endmacro %}
 
-{% macro cancel_form(t, csrf, asked, album=none) -%}
+{% macro place_fields(place) -%}
+{% for key, value in place.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+{%- endmacro %}
+
+{% macro cancel_form(t, csrf, asked, album=none, place={}) -%}
 <form method="post" action="{{ url_for('cancel_request', request_id=asked.id) }}" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    {% if album is not none %}<input type="hidden" name="album" value="{{ album }}">{% endif %}
+    {% if album is not none %}<input type="hidden" name="album" value="{{ album }}">{{ place_fields(place) }}{% endif %}
     <button type="submit" class="small">{{ t.cancel_button }}</button>
 </form>
 {%- endmacro %}
 
-{% macro followed_pass(t, ctx, csrf, f, album) -%}
+{% macro followed_pass(t, ctx, csrf, f, album, place) -%}
 {% set asked, run = f.asked, f.run %}
 <section class="panel" aria-live="polite"{% if not f.done %} data-follow="{{ f.poll }}"{% endif %}>
 {% if not f.done %}
     <p class="following"><span class="spinner" aria-hidden="true"></span>
        {{ t.follow_queued if asked.state == 'queued' else t.follow_applying if asked.apply else t.follow_previewing }}</p>
-    {% if asked.state == 'queued' %}<div class="actions">{{ cancel_form(t, csrf, asked, album) }}</div>{% endif %}
+    {% if asked.state == 'queued' %}<div class="actions">{{ cancel_form(t, csrf, asked, album, place) }}</div>{% endif %}
 {% elif asked.state == 'cancelled' %}
     <p class="muted">{{ t.request_cancelled }}</p>
 {% elif f.locked %}
@@ -42,6 +46,7 @@
         <form method="post" action="{{ url_for('apply_run', run_id=run.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="album" value="{{ album }}">
+            {{ place_fields(place) }}
             <button type="submit" class="primary">{{ t.album_apply }}</button>
         </form>
         {% endif %}
@@ -52,6 +57,7 @@
             <input type="hidden" name="journal" value="{{ f.journal }}">
             <input type="hidden" name="apply" value="1">
             <input type="hidden" name="album" value="{{ album }}">
+            {{ place_fields(place) }}
             <button type="submit">{{ t.follow_undo }}</button>
         </form>
         {% endif %}

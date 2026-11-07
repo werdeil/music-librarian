@@ -638,3 +638,48 @@ def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib):
 def test_no_replaygain_to_strike_without_any(dashboard):
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert "replaygain_delete" not in page
+
+
+def test_album_opened_from_a_work_list_steps_through_it(dashboard):
+    page = settled(lambda: dashboard.client.get("/library/lyrics", headers=EN)).get_data(as_text=True)
+    assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0"' in page
+    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1"' in page
+    first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
+    page = first.get_data(as_text=True)
+    assert 'href="/library/lyrics">← Without lyrics</a>' in page and "Album 1 of 2" in page
+    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1">Next →</a>' in page
+    assert "← Previous" not in page and "← Library" not in page
+    track = "/library/track/lyrics?folder=Beyonce/4&amp;file=01+Run+the+World.m4a&amp;list=lyrics"
+    assert f'href="{track}' in page
+    page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
+                                headers=EN).get_data(as_text=True)
+    assert "Album 2 of 2" in page and "Last of the list" in page
+    assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">← Previous</a>' in page
+
+
+def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
+    settled(lambda: dashboard.client.get("/library/repeats"))
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)
+    page = page.get_data(as_text=True)
+    assert 'href="/library/repeats">← Repeated values</a>' in page and "Albums left: 0" in page
+    assert "Last of the list" in page and "Next →" not in page
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=nope", headers=EN)
+    page = page.get_data(as_text=True)
+    assert "← Library" in page and "work-list" not in page
+
+
+def test_work_list_kept_through_preview_and_apply(dashboard):
+    settled(lambda: dashboard.client.get("/library/lyrics"))
+    form = album_form(dashboard, "Beyonce/4&list=lyrics&at=0", **{"album.year": "2011"})
+    form["folder"] = "Beyonce/4"
+    assert (form["list"], form["at"]) == ("lyrics", "0")
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert "To apply" in page and "Album 1 of 2" in page and 'name="list" value="lyrics"' in page
+    following = dashboard.client.post("/library/album", data={**form, "apply": "1"}).location
+    [asked] = dashboard.requests.pending()
+    assert following == f"/library/album?folder=Beyonce/4&request={asked.id}&list=lyrics&at=0"
+    page = dashboard.client.get(following, headers=EN).get_data(as_text=True)
+    assert f'data-follow="/requests/{asked.id}.json?folder=Beyonce/4&amp;list=lyrics&amp;at=0"' in page
+    dashboard.requests.tick(Log())
+    state = dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4&list=lyrics&at=0").get_json()
+    assert state["album"] == f"/library/album?folder=Beyonce/4&request={asked.id}&list=lyrics&at=0"

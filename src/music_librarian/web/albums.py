@@ -13,7 +13,7 @@ from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library
-from music_librarian.web.common import paged, refused, submit, when
+from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, when
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload
 
 MAX_UPLOAD = 32 * 1024 * 1024
@@ -48,7 +48,35 @@ def register(app, ctx, index):
         return dict(asked=asked, run=history.shown(run) if run else None,
                     done=asked.state in (DONE, CANCELLED), journal=journal.name if journal else None,
                     locked=asked.state == DONE and asked.code == EXIT_LOCKED,
-                    poll=url_for("request_state", request_id=asked.id, folder=rel))
+                    poll=url_for("request_state", request_id=asked.id, folder=rel, **place()))
+
+    def work_list(name):
+        """The albums of the work list `name`, in its order; None until the album list is built."""
+        everything = index.get()
+        if everything is None:
+            return None
+        if name == "repeats":
+            return library.with_repeats(everything)
+        return [a for a, _ in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
+
+    def in_work_list(rel):
+        """Where the album stands in the work list it was opened from, with its neighbours; for
+        an album the list no longer holds (fixed), its neighbours where it stood. None without one."""
+        where = place()
+        albums = work_list(where["list"]) if where else None
+        if albums is None:
+            return None
+        folders = [a.folder for a in albums]
+        if rel in folders:
+            at = folders.index(rel)
+            before, after = at - 1, at + 1
+        else:
+            at = None
+            after = min(where["at"], len(folders))
+            before = after - 1
+        return dict(name=where["list"], page=url_for(WORK_LISTS[where["list"]]), position=at,
+                    total=len(folders), previous=(folders[before], before) if before >= 0 else None,
+                    next=(folders[after], after) if after < len(folders) else None)
 
     def album_view(rel, folder, status=200, **shown):
         """The album's page, `shown` adding what a form posted to it asks to show."""
@@ -67,7 +95,7 @@ def register(app, ctx, index):
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
-                               followed=followed(rel), **shown)
+                               followed=followed(rel), work=in_work_list(rel), **shown)
         return page, status
 
     @app.get("/library/album")
@@ -93,7 +121,7 @@ def register(app, ctx, index):
         albums = [(a, when(at) if at else None)
                   for a, at in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
         shown, page, pages = paged(albums, library.PAGE)
-        return render_template("lyrics.html", albums=shown,
+        return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
                                days=f"{misses.retry_days():g}")
 
@@ -104,7 +132,7 @@ def register(app, ctx, index):
             return render_template("repeats.html", building=True)
         albums = library.with_repeats(everything)
         shown, page, pages = paged(albums, library.PAGE)
-        return render_template("repeats.html", albums=shown,
+        return render_template("repeats.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.repeated for a in albums), page=page, pages=pages)
 
     @app.post("/library/album")

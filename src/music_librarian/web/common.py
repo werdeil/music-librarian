@@ -4,9 +4,13 @@ import math
 from datetime import datetime
 
 from flask import abort, redirect, render_template, request, url_for
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import OPTIONS
+
+
+WORK_LISTS = {"repeats": "repeated_values", "lyrics": "missed_lyrics"}   # name: its page
 
 
 def when(timestamp):
@@ -31,6 +35,19 @@ def refused(key, status=400, **values):
     return render_template("not_found.html", message=texts()[key].format(**values)), status
 
 
+def place():
+    """The work list an album's page was opened from, as the request carries it on: {"list": name,
+    "at": the album's position in it}, {} for none. The album's page keeps it in its links and forms."""
+    try:
+        values = request.values
+    except RequestEntityTooLarge:   # the 413 page: its form is the one too large to read
+        return {}
+    name = values.get("list")
+    if name not in WORK_LISTS:
+        return {}
+    return {"list": name, "at": max(values.get("at", 0, type=int), 0)}
+
+
 def submit(ctx, command, options, apply, album=None):
     """Queue the pass for watch and redirect to its page, or to the page of `album` (a folder
     relative to the root) that follows it; 403 without a queue, for an unknown command, or to
@@ -39,5 +56,5 @@ def submit(ctx, command, options, apply, album=None):
         abort(403)
     request_id = ctx.requests.submit(command, options, apply).id
     if album is not None:
-        return redirect(url_for("album_page", folder=album, request=request_id))
+        return redirect(url_for("album_page", folder=album, request=request_id, **place()))
     return redirect(url_for("request_page", request_id=request_id))

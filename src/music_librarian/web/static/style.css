@@ -846,3 +846,18 @@ form.inline {
 .following .spinner {
     flex: none;
 }
+
+.work-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin: 0 0 12px;
+}
+
+.work-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
