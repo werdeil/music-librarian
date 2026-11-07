@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import io
+import json
 import os
 import re
 import struct
@@ -349,6 +350,16 @@ def test_album_field_edits_every_track(dashboard):
         ["Beyonce/4/02 Best Thing.m4a", "albumartist", "Beyoncé", ["Beyonce"]],
         ["Beyonce/4/02 Best Thing.m4a", "title", "Best Thing I Never Had", ["Best Thing"]],
     ]
+
+
+@pytest.mark.parametrize("name", ["../../Compilations/Hits/01 One.flac", "03 Missing.m4a", 3])
+def test_edit_of_a_track_not_in_the_album_refused(dashboard, name):
+    form = album_form(dashboard, "Beyonce/4", **{"t0.title": "Other"})
+    seen = json.loads(form["seen"])
+    seen["tracks"][0][0] = name
+    form["seen"] = json.dumps(seen)
+    assert dashboard.client.post("/library/album", data=form).status_code == 400
+    assert dashboard.requests.pending() == []
 
 
 def test_mixed_values_left_alone_unless_set(dashboard):

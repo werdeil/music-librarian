@@ -440,7 +440,10 @@ def create_app(ctx: Context):
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
         try:
-            asked = library.edits(rel, request.form, json.loads(request.form.get("seen", "")))
+            seen = json.loads(request.form.get("seen", ""))
+            if any(library.track_file(ctx.root, rel, name) is None for name, _ in seen["tracks"]):
+                abort(400)
+            asked = library.edits(rel, request.form, seen)
         except (ValueError, KeyError, TypeError):
             abort(400)
         if not asked:
