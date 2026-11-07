@@ -1,7 +1,21 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}{{ common.album or folder }} · music-librarian{% endblock %}
 {% block content %}
+{% if work %}
+<nav class="work-list" aria-label="{{ t['work_' ~ work.name] }}">
+    <a href="{{ work.page }}">← {{ t['work_' ~ work.name] }}</a>
+    <span class="muted">{{ t.work_position.format(i=work.position + 1, n=work.total) if work.position is not none
+                           else t.work_left.format(n=work.total) }}</span>
+    <span class="work-steps">
+    {% if work.previous %}<a class="button" href="{{ url_for('album_page', folder=work.previous[0], list=work.name, at=work.previous[1]) }}">{{ t.work_previous }}</a>{% endif %}
+    {% if work.next %}<a class="button primary" href="{{ url_for('album_page', folder=work.next[0], list=work.name, at=work.next[1]) }}">{{ t.work_next }}</a>
+    {% else %}<span class="muted">{{ t.work_last }}</span>{% endif %}
+    </span>
+</nav>
+{% else %}
 <p class="back"><a href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
+{% endif %}
 <section class="album-head">
     <img src="{{ cover_url(folder) }}" alt="" width="160" height="160">
     <div>
@@ -11,13 +25,52 @@
     </div>
 </section>
 
+{% if followed %}{{ m.followed_pass(t, ctx, csrf, followed, folder, place) }}{% endif %}
+
+{% if preview %}
+<section class="panel" aria-live="polite">
+    <h2>{{ t.album_preview }}</h2>
+    {% if preview.fields %}
+    <ul class="changes">
+    {% for name, before, after, files in preview.fields %}
+        <li><strong>{{ t.get('field_' ~ name, t.get(name, name)) }}</strong>
+            <del>{{ before }}</del> → <ins>{{ after }}</ins>
+            <span class="muted">· {{ files[0] if files | length == 1 else t.track_many.format(n=files | length) }}</span></li>
+    {% endfor %}
+    {% for old, new in preview.folders %}
+        <li><strong>{{ t.album_folder }}</strong> <del>{{ old }}</del> → <ins>{{ new }}</ins></li>
+    {% endfor %}
+    {% if preview.renamed %}
+        <li>{{ (t.album_renamed_one if preview.renamed == 1 else t.album_renamed_many).format(n=preview.renamed) }}</li>
+    {% endif %}
+    </ul>
+    {% else %}
+    <p class="muted">{{ t.album_preview_none }}</p>
+    {% endif %}
+    {% if preview.problems %}
+    <h3>{{ t.album_left_alone }}</h3>
+    <pre class="log">{% for line in preview.problems %}<span class="line warning">{{ line }}</span>
+{% endfor %}</pre>
+    {% endif %}
+    {% if preview.fields and not ctx.apply %}<p class="warning">{{ t.album_read_only }}</p>{% endif %}
+    <div class="actions">
+        {% if preview.fields and ctx.apply %}
+        <button type="submit" form="album-form" name="apply" value="1" class="primary">{{ t.album_apply }}</button>
+        {% endif %}
+        <a class="button" href="{{ url_for('album_page', folder=folder, **place) }}">{{ t.album_discard }}</a>
+    </div>
+</section>
+{% endif %}
+
 {% if unchanged %}<p class="warning">{{ t.nothing_changed }}</p>{% endif %}
+{% if bad_value %}<p class="warning">{{ t.bad_value.format(error=bad_value) }}</p>{% endif %}
 {% if repeated %}<p class="warning">{{ t.repeated_warning }}</p>{% endif %}
 
-<form method="post" action="{{ url_for('edit_album') }}">
+<form method="post" action="{{ url_for('edit_album') }}" id="album-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="folder" value="{{ folder }}">
     <input type="hidden" name="seen" value="{{ seen }}">
+    {{ m.place_fields(place) }}
 
     <section>
         <h2>{{ t.album_fields }}</h2>
@@ -25,7 +78,7 @@
         {% for name in ('albumartist', 'album', 'year', 'genre', 'disctotal') %}
             {% set flag = repeated_album.get(name) %}
             <label>{{ t['field_' ~ name] }}
-                <input name="album.{{ name }}" value="{{ common[name] or '' }}"
+                <input name="album.{{ name }}" value="{{ form.get('album.' ~ name, '') if form else common[name] or '' }}"
                        {% if flag is not none %}class="repeated" title="{{ t.repeated_differ if flag else t.repeated_same }}"{% endif %}
                        {% if common[name] is none %}placeholder="{{ t.mixed }}"{% endif %}
                        {% if name == 'genre' and genres %}list="genres"{% endif %}
@@ -33,10 +86,12 @@
             </label>
         {% endfor %}
             <label>{{ t.field_compilation }}
+                {% set compilation = form.get('album.compilation') if form
+                                     else '' if common.compilation is none else common.compilation or '0' %}
                 <select name="album.compilation">
-                    {% if common.compilation is none %}<option value="" selected>{{ t.mixed }}</option>{% endif %}
-                    <option value="1"{% if common.compilation == '1' %} selected{% endif %}>{{ t.yes }}</option>
-                    <option value="0"{% if common.compilation == '' %} selected{% endif %}>{{ t.no }}</option>
+                    {% if common.compilation is none %}<option value=""{% if compilation == '' %} selected{% endif %}>{{ t.mixed }}</option>{% endif %}
+                    <option value="1"{% if compilation == '1' %} selected{% endif %}>{{ t.yes }}</option>
+                    <option value="0"{% if compilation == '0' %} selected{% endif %}>{{ t.no }}</option>
                 </select>
             </label>
         </div>
@@ -61,11 +116,13 @@
                 <tr>
                 {% if values %}
                     {% for name in (('disc', 'track') if discs else ('track',)) %}
-                    <td><input class="number" name="t{{ ns.i }}.{{ name }}" value="{{ values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
+                    {% set input = 't' ~ ns.i ~ '.' ~ name %}
+                    <td><input class="number" name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
                     {% endfor %}
                     {% for name in ('title', 'artist', 'composer') %}
                     {% set flag = repeated.get(file, {}).get(name) %}
-                    <td><input name="t{{ ns.i }}.{{ name }}" value="{{ values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
+                    {% set input = 't' ~ ns.i ~ '.' ~ name %}
+                    <td><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
                                {%- if flag is not none %} class="repeated" title="{{ t.repeated_differ if flag else t.repeated_same }}"{% endif %}></td>
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
@@ -79,7 +136,7 @@
                     <td class="{{ ['' if state is sameas true else 'muted',
                                    'cell-link' if linked else ''] | select | join(' ') }}">
                         {%- if linked -%}
-                        <a href="{{ url_for('track_lyrics', folder=folder, file=file) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
+                        <a href="{{ url_for('track_lyrics', folder=folder, file=file, **place) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
                         {%- else %}{{ shown }}{% endif -%}
                     </td>
                     {% set gain = gains.get(file) %}
@@ -87,7 +144,8 @@
                     <td class="{{ 'gain' if gain else 'muted' }}">
                         {%- if gain and values and ctx.requests -%}
                         <label title="{{ t.replaygain_click }}"><input type="checkbox" name="t{{ ns.i - 1 }}.replaygain_delete"
-                               value="1" aria-label="{{ t.replaygain_click }}"><span>{{ gain_shown }}</span></label>
+                               value="1" aria-label="{{ t.replaygain_click }}"
+                               {%- if form and form.get('t' ~ (ns.i - 1) ~ '.replaygain_delete') %} checked{% endif %}><span>{{ gain_shown }}</span></label>
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
@@ -99,7 +157,7 @@
     </section>
 
     {% if ctx.requests %}
-    <div class="actions">
+    <div class="actions sticky">
         <button type="submit" class="primary">{{ t.preview_button }}</button>
     </div>
     {% endif %}
@@ -111,6 +169,7 @@
     <form method="post" action="{{ url_for('album_new_cover') }}" enctype="multipart/form-data" class="cover-form">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="folder" value="{{ folder }}">
+        {{ m.place_fields(place) }}
         <input type="file" name="image" accept="image/*" required aria-label="{{ t.cover_file }}">
         <button type="submit">{{ t.cover_button }}</button>
     </form>
@@ -121,6 +180,7 @@
     <form method="post" action="{{ url_for('album_lyrics') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="folder" value="{{ folder }}">
+        {{ m.place_fields(place) }}
         <button type="submit">{{ t.lyrics_button }}</button>
     </form>
 </section>

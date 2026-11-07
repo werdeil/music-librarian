@@ -1,9 +1,11 @@
 """The dashboard (web/): its pages, read from a state folder of synthetic runs."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import html
 import os
 import socket
 import sqlite3
 from datetime import datetime, time
+from types import SimpleNamespace
 
 import pytest
 
@@ -162,6 +164,31 @@ def test_run_page(client, ctx):
     assert '<span class="line section">--- Summary ---</span>' in page
     assert "<dt>journal</dt><dd>/state/journal/1.jsonl</dd>" in page
     assert "data-live" not in page
+
+
+@pytest.mark.parametrize("command, back", [
+    ("scan", '<a class="button" href="/">Back to the overview</a>'),
+    ("split", '<a class="button" href="/reviews">Back to the reviews</a>')])
+def test_ended_run_leads_with_its_outcome_and_the_way_back(client, ctx, command, back):
+    run_id = record(ctx, command, code=2, apply=False)
+    page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
+    assert back in page and "<h2>Ended with problems</h2>" in page
+    assert page.index("Ended with problems") < page.index("<dt>Mode</dt>") < page.index('id="log"')
+    assert '<details class="output">' in page
+
+
+def test_running_run_output_open(client, ctx):
+    run_id = unfinished(ctx, "enrich", os.getpid())
+    page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
+    assert '<details class="output" open>' in page
+    assert "Back to the overview" not in page
+
+
+def test_pass_cards_say_a_preview_comes_first(client, ctx):
+    ctx.requests = SimpleNamespace(pending=lambda: [])
+    page = html.unescape(client.get("/", headers=FR).get_data(as_text=True))
+    assert "<code>organize</code> · aperçu d'abord, rien n'est modifié" in page
+    assert "<code>scan</code> · ne modifie aucun fichier" in page
 
 
 def test_trigger_shown_with_the_origin(client, ctx):

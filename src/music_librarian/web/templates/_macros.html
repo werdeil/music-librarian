@@ -6,11 +6,65 @@
 {{ t['origin_' ~ run.origin] }}{% if run.trigger %} · {{ t['trigger_' ~ run.trigger] }}{% endif %}
 {%- endmacro %}
 
-{% macro cancel_form(t, csrf, asked) -%}
+{% macro place_fields(place) -%}
+{% for key, value in place.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+{%- endmacro %}
+
+{% macro cancel_form(t, csrf, asked, album=none, place={}) -%}
 <form method="post" action="{{ url_for('cancel_request', request_id=asked.id) }}" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if album is not none %}<input type="hidden" name="album" value="{{ album }}">{{ place_fields(place) }}{% endif %}
     <button type="submit" class="small">{{ t.cancel_button }}</button>
 </form>
+{%- endmacro %}
+
+{% macro followed_pass(t, ctx, csrf, f, album, place) -%}
+{% set asked, run = f.asked, f.run %}
+<section class="panel" aria-live="polite"{% if not f.done %} data-follow="{{ f.poll }}"{% endif %}>
+{% if not f.done %}
+    <p class="following"><span class="spinner" aria-hidden="true"></span>
+       {{ t.follow_queued if asked.state == 'queued' else t.follow_applying if asked.apply else t.follow_previewing }}</p>
+    {% if asked.state == 'queued' %}<div class="actions">{{ cancel_form(t, csrf, asked, album, place) }}</div>{% endif %}
+{% elif asked.state == 'cancelled' %}
+    <p class="muted">{{ t.request_cancelled }}</p>
+{% elif f.locked %}
+    <p class="warning">{{ t.request_locked }}</p>
+{% else %}
+    {% set ok = asked.code == 0 %}
+    <h2>{{ t.follow_undone if asked.command == 'undo' and ok else t.follow_applied if asked.apply and ok
+           else t.follow_preview if ok else t.follow_problems }}</h2>
+    {% if run and run.summary %}
+    <dl class="summary">
+    {% for entry in run.summary %}
+        {% set key, value = entry.split(': ', 1) %}
+        {% if key not in ('journal', 'undo', 'Lyrion retry') %}<dt>{{ t.summary_keys.get(key, key) }}</dt><dd>{{ value }}</dd>{% endif %}
+    {% endfor %}
+    </dl>
+    {% endif %}
+    <div class="actions">
+        {% if run and not asked.apply and ctx.apply and run.options is not none %}
+        <form method="post" action="{{ url_for('apply_run', run_id=run.id) }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="album" value="{{ album }}">
+            {{ place_fields(place) }}
+            <button type="submit" class="primary">{{ t.album_apply }}</button>
+        </form>
+        {% endif %}
+        {% if f.journal and asked.command != 'undo' %}
+        <form method="post" action="{{ url_for('new_pass') }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="command" value="undo">
+            <input type="hidden" name="journal" value="{{ f.journal }}">
+            <input type="hidden" name="apply" value="1">
+            <input type="hidden" name="album" value="{{ album }}">
+            {{ place_fields(place) }}
+            <button type="submit">{{ t.follow_undo }}</button>
+        </form>
+        {% endif %}
+        {% if run %}<a class="aside" href="{{ url_for('run_page', run_id=run.id) }}">{{ t.follow_details }}</a>{% endif %}
+    </div>
+{% endif %}
+</section>
 {%- endmacro %}
 
 {% macro stop_form(t, csrf, run) -%}

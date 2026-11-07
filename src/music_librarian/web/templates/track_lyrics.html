@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}{{ t.lyrics }} · {{ values.title | join('; ') or file }} · music-librarian{% endblock %}
 {% block content %}
-<p class="back"><a href="{{ url_for('album_page', folder=folder) }}">← {{ values.album | join('; ') or folder }}</a></p>
+<p class="back"><a href="{{ url_for('album_page', folder=folder, **place) }}">← {{ values.album | join('; ') or folder }}</a></p>
 <section>
     <h2>{{ values.title | join('; ') or file }}</h2>
     <p class="muted">{{ values.artist | join('; ') }}</p>
@@ -15,6 +16,7 @@
     <input type="hidden" name="folder" value="{{ folder }}">
     <input type="hidden" name="file" value="{{ file }}">
     <input type="hidden" name="seen" value="{{ seen }}">
+    {{ m.place_fields(place) }}
     <section>
         <h2>{{ t.lyrics }}</h2>
         {% if missed %}<p class="muted">{{ t.lyrics_missed.format(date=missed) }}</p>{% endif %}

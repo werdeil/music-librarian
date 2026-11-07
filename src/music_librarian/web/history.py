@@ -11,7 +11,7 @@ from flask import abort, jsonify, redirect, render_template, request, send_file,
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.web import library
-from music_librarian.web.common import paged, submit, when
+from music_librarian.web.common import paged, place, submit, when
 from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, box, boxes_ticked, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
@@ -19,6 +19,7 @@ WARNING_TAGS = {"WARNING", "SKIPPED", "REFUSED", "UNKNOWN", "GUARDED", "REVIEW",
 PROBLEMS = {runs.INTERRUPTED, runs.ISSUES, runs.STOPPED, runs.FAILED}
 HISTORY_PAGE = 50
 ALBUM_PASSES = {"tag", "cover", "lyrics"}
+REVIEW_PASSES = {"split", "dedupe", "genres", "instrumental"}
 
 
 def kinds(lines, kind=""):
@@ -100,8 +101,37 @@ def stoppable(ctx, run):
                 and run["host"] == socket.gethostname())
 
 
+def album_followed(ctx):
+    """The album folder a form posted from an album's page names, that page then following the
+    pass; None for any other form."""
+    rel = request.form.get("album")
+    return rel if rel is not None and library.album_folder(ctx.root, rel) else None
+
+
+def run_journal(ctx, run):
+    """The journal of an applied run, while it is still in the state folder, else None."""
+    name = journal_of(run) if run and run["apply"] else None
+    return journal_path(ctx.state_dir, name) if name else None
+
+
 def register(app, ctx):
     """Add the pages of the run history and of the passes asked for to the app."""
+
+    @app.get("/requests/<int:request_id>.json")
+    def request_state(request_id):
+        """Whether the pass has ended, and the page of the album ?folder= names, where it is now."""
+        asked = ctx.requests.get(request_id) if ctx.requests else None
+        if asked is None:
+            abort(404)
+        done = asked.state in (DONE, CANCELLED)
+        folder = request.args.get("folder")
+        album = None
+        if done and folder is not None:
+            run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
+            journal = run_journal(ctx, run)
+            moved = moved_to(journal, ctx.root, folder) if journal else folder
+            album = url_for("album_page", folder=moved, request=request_id, **place())
+        return jsonify(done=done, album=album)
 
     @app.post("/passes")
     def new_pass():
@@ -115,14 +145,14 @@ def register(app, ctx):
             options["journal"] = request.form.get("journal", "")
             if journal_path(ctx.state_dir, options["journal"]) is None:
                 abort(404)
-        return submit(ctx, command, options, request.form.get("apply") == "1")
+        return submit(ctx, command, options, request.form.get("apply") == "1", album_followed(ctx))
 
     @app.post("/runs/<int:run_id>/apply")
     def apply_run(run_id):
         run = runs.get(ctx.state_dir, run_id)
         if run is None or run["options"] is None or run["apply"] or runs.status(run) == runs.RUNNING:
             abort(404)
-        return submit(ctx, run["command"], run["options"], True)
+        return submit(ctx, run["command"], run["options"], True, album_followed(ctx))
 
     @app.get("/requests/<int:request_id>")
     def request_page(request_id):
@@ -141,6 +171,9 @@ def register(app, ctx):
     def cancel_request(request_id):
         if ctx.requests is None or not ctx.requests.cancel(request_id):
             abort(404)
+        album = album_followed(ctx)
+        if album is not None:
+            return redirect(url_for("album_page", folder=album, request=request_id, **place()))
         return redirect(url_for("request_page", request_id=request_id))
 
     @app.post("/runs/<int:run_id>/stop")
@@ -174,14 +207,17 @@ def register(app, ctx):
         lines, offset = runs.read_log(ctx.state_dir, run_id)
         journal = journal_of(run) if run["apply"] else None
         journal = journal if journal and journal_path(ctx.state_dir, journal) else None
+        album = album_url(ctx, run["command"], run["options"],
+                          journal and journal_path(ctx.state_dir, journal))
+        back = (album, "back_to_album") if album else \
+            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
+            (url_for("home"), "back_to_overview")
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             boxes=boxes_ticked(run["command"], run["options"])
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
-            can_stop=stoppable(ctx, run), journal=journal,
-            album=album_url(ctx, run["command"], run["options"],
-                            journal and journal_path(ctx.state_dir, journal)))
+            can_stop=stoppable(ctx, run), journal=journal, back=back)
 
     @app.get("/runs/<int:run_id>/log.json")
     def run_log(run_id):

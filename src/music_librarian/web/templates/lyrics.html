@@ -14,7 +14,7 @@
         <tbody>
         {% for album, at in albums %}
             <tr>
-                <td><a href="{{ url_for('album_page', folder=album.folder) }}">{{ album.folder }}</a></td>
+                <td><a href="{{ url_for('album_page', folder=album.folder, list='lyrics', at=offset + loop.index0) }}">{{ album.folder }}</a></td>
                 <td>{{ album.without_lyrics }} / {{ album.tracks }}</td>
                 <td>{{ at or '—' }}</td>
             </tr>

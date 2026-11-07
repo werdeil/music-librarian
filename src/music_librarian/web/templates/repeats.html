@@ -14,7 +14,7 @@
         <tbody>
         {% for album in albums %}
             <tr>
-                <td><a href="{{ url_for('album_page', folder=album.folder) }}">{{ album.folder }}</a></td>
+                <td><a href="{{ url_for('album_page', folder=album.folder, list='repeats', at=offset + loop.index0) }}">{{ album.folder }}</a></td>
                 <td>{{ album.repeated }} / {{ album.tracks }}</td>
             </tr>
         {% endfor %}

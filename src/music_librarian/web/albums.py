@@ -6,13 +6,15 @@ from pathlib import Path
 
 from flask import abort, redirect, render_template, request, send_from_directory, url_for
 
-from music_librarian import cover, repeats
+from music_librarian import cover, repeats, tag
+from music_librarian.core import runs
+from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
-from music_librarian.web import library
-from music_librarian.web.common import paged, refused, submit, when
-from music_librarian.web.passes import keep_upload
+from music_librarian.web import history, library
+from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, when
+from music_librarian.web.passes import CANCELLED, DONE, keep_upload
 
 MAX_UPLOAD = 32 * 1024 * 1024
 
@@ -35,12 +37,49 @@ def register(app, ctx, index):
                                without_lyrics=sum(a.without_lyrics for a in everything),
                                repeated=sum(a.repeated for a in everything))
 
-    @app.get("/library/album")
-    def album_page():
-        rel = request.args.get("folder", "")
-        folder = library.album_folder(ctx.root, rel)
-        if folder is None:
-            return refused("album_gone", 404)
+    def followed(rel):
+        """The pass ?request= names, as the album's page follows it: the request, its run once
+        recorded, the journal it wrote, and where to ask whether it ended; None without one."""
+        asked = ctx.requests.get(request.args.get("request", type=int)) if ctx.requests else None
+        if asked is None:
+            return None
+        run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
+        journal = history.run_journal(ctx, run)
+        return dict(asked=asked, run=history.shown(run) if run else None,
+                    done=asked.state in (DONE, CANCELLED), journal=journal.name if journal else None,
+                    locked=asked.state == DONE and asked.code == EXIT_LOCKED,
+                    poll=url_for("request_state", request_id=asked.id, folder=rel, **place()))
+
+    def work_list(name):
+        """The albums of the work list `name`, in its order; None until the album list is built."""
+        everything = index.get()
+        if everything is None:
+            return None
+        if name == "repeats":
+            return library.with_repeats(everything)
+        return [a for a, _ in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
+
+    def in_work_list(rel):
+        """Where the album stands in the work list it was opened from, with its neighbours; for
+        an album the list no longer holds (fixed), its neighbours where it stood. None without one."""
+        where = place()
+        albums = work_list(where["list"]) if where else None
+        if albums is None:
+            return None
+        folders = [a.folder for a in albums]
+        if rel in folders:
+            at = folders.index(rel)
+            before, after = at - 1, at + 1
+        else:
+            at = None
+            after = min(where["at"], len(folders))
+            before = after - 1
+        return dict(name=where["list"], page=url_for(WORK_LISTS[where["list"]]), position=at,
+                    total=len(folders), previous=(folders[before], before) if before >= 0 else None,
+                    next=(folders[after], after) if after < len(folders) else None)
+
+    def album_view(rel, folder, status=200, **shown):
+        """The album's page, `shown` adding what a form posted to it asks to show."""
         tracks = library.tracks_of(folder)
         repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
@@ -49,21 +88,30 @@ def register(app, ctx, index):
         for name, values in tracks:
             if values:
                 values[fields.REPLAYGAIN] = gains[name]
-        return render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
+        page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
-                               unchanged=request.args.get("unchanged") == "1",
                                lyrics=library.lyrics_state(folder, names),
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
-                                      for n, v in gains.items()})
+                                      for n, v in gains.items()},
+                               followed=followed(rel), work=in_work_list(rel), **shown)
+        return page, status
+
+    @app.get("/library/album")
+    def album_page():
+        rel = request.args.get("folder", "")
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
+            return refused("album_gone", 404)
+        return album_view(rel, folder, unchanged=request.args.get("unchanged") == "1")
 
     @app.post("/library/album/lyrics")
     def album_lyrics():
         rel = request.form.get("folder", "")
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
-        return submit(ctx, "lyrics", {"folder": rel}, False)
+        return submit(ctx, "lyrics", {"folder": rel}, False, rel)
 
     @app.get("/library/lyrics")
     def missed_lyrics():
@@ -73,7 +121,7 @@ def register(app, ctx, index):
         albums = [(a, when(at) if at else None)
                   for a, at in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
         shown, page, pages = paged(albums, library.PAGE)
-        return render_template("lyrics.html", albums=shown,
+        return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
                                days=f"{misses.retry_days():g}")
 
@@ -84,13 +132,15 @@ def register(app, ctx, index):
             return render_template("repeats.html", building=True)
         albums = library.with_repeats(everything)
         shown, page, pages = paged(albums, library.PAGE)
-        return render_template("repeats.html", albums=shown,
+        return render_template("repeats.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.repeated for a in albums), page=page, pages=pages)
 
     @app.post("/library/album")
     def edit_album():
+        """Show what the form changes on the album's page, or with apply=1, queue it applied."""
         rel = request.form.get("folder", "")
-        if library.album_folder(ctx.root, rel) is None:
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
             abort(404)
         try:
             seen = json.loads(request.form.get("seen", ""))
@@ -107,8 +157,13 @@ def register(app, ctx, index):
                 if (why := repeats.refusal(name, [value])) is not None:
                     raise fields.FieldError(why)
             except fields.FieldError as e:
-                return refused("bad_value", error=e)
-        return submit(ctx, "tag", {"edits": asked}, False)
+                return album_view(rel, folder, 400, form=request.form, bad_value=str(e))
+        if request.form.get("apply") == "1":
+            return submit(ctx, "tag", {"edits": asked}, True, rel)
+        edits = [tag.Edit(ctx.root / path, name, value, seen) for path, name, value, seen in asked]
+        shown = tag.preview(tag.Options(root=ctx.root, edits=edits, state_dir=ctx.state_dir))
+        return album_view(rel, folder, form=request.form,
+                          preview=library.preview_changes(shown, ctx.root))
 
     @app.post("/library/album/cover")
     def album_new_cover():
@@ -125,7 +180,7 @@ def register(app, ctx, index):
             jpeg, _dims = cover.as_jpeg(data)
         except (cover.NotAnImage, OSError):
             return refused("cover_not_an_image")
-        return submit(ctx, "cover", {"folder": rel, "image": keep_upload(ctx.state_dir, jpeg)}, False)
+        return submit(ctx, "cover", {"folder": rel, "image": keep_upload(ctx.state_dir, jpeg)}, False, rel)
 
     @app.errorhandler(413)
     def too_large(_error):
@@ -166,7 +221,8 @@ def register(app, ctx, index):
                  else request.form.get("lyrics", ""))
         if fields.check(fields.LYRICS, [value]) == seen:
             return redirect(url_for("track_lyrics", folder=rel, file=name, unchanged="1"))
-        return submit(ctx, "tag", {"edits": [[str(Path(rel) / name), fields.LYRICS, value, seen]]}, False)
+        edit = [str(Path(rel) / name), fields.LYRICS, value, seen]
+        return submit(ctx, "tag", {"edits": [edit]}, False, rel)
 
     @app.get("/library/cover")
     def album_cover():
