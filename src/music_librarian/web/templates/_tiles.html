@@ -1,15 +1,45 @@
-{% macro tile(t, value, label, href, none_text=None, info=False) -%}
-<a class="tile {{ 'tile-none' if value is none else 'tile-info' if info else 'tile-todo' if value else 'tile-ok' }}" href="{{ href }}">
-    <span class="tile-value">{{ '—' if value is none else value }}{% if value == 0 and not info %} <span aria-hidden="true">✓</span>{% endif %}</span>
-    <span class="tile-label">{{ label }}</span>
-    {% if value is none %}<span class="tile-note">{{ none_text or t.tile_building }}</span>{% endif %}
-</a>
-{%- endmacro %}
+{% set entries = [
+    dict(value=todo.split, label=t.tile_split, href=url_for('review_split'), go=t.tile_go_answer),
+    dict(value=todo.dedupe, label=t.tile_dedupe, href=url_for('review_dedupe'), go=t.tile_go_answer),
+    dict(value=todo.genres if genre_list else None, label=t.tile_genres, href=url_for('review_genres'),
+         go=t.tile_go_answer, note=None if genre_list else t.tile_no_genre_list),
+    dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1'),
+         go=t.tile_go_see),
+    dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values'), go=t.tile_go_fix),
+    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics'), go=t.tile_go_see, info=True),
+] %}
+{% set ns = namespace(todo=[], ok=[], aside=[]) %}
+{% for e in entries %}
+    {% if e.value is none or e.info %}{% set ns.aside = ns.aside + [e] %}
+    {% elif e.value %}{% set ns.todo = ns.todo + [e] %}
+    {% else %}{% set ns.ok = ns.ok + [e] %}{% endif %}
+{% endfor %}
 
-    {{ tile(t, todo.split, t.tile_split, url_for('review_split')) }}
-    {{ tile(t, todo.dedupe, t.tile_dedupe, url_for('review_dedupe')) }}
-    {{ tile(t, todo.genres if genre_list else None, t.tile_genres, url_for('review_genres'),
-            none_text=None if genre_list else t.tile_no_genre_list) }}
-    {{ tile(t, todo.failed, t.tile_failed, url_for('history', command='import', problems='1')) }}
-    {{ tile(t, todo.repeats, t.tile_repeats, url_for('repeated_values')) }}
-    {{ tile(t, todo.lyrics, t.tile_lyrics, url_for('missed_lyrics'), info=True) }}
+{% if ns.todo %}
+<div class="tiles">
+{% for e in ns.todo | sort(attribute='value', reverse=True) %}
+    <a class="tile tile-todo" href="{{ e.href }}">
+        <span class="tile-value">{{ e.value }}</span>
+        <span class="tile-label">{{ e.label }}</span>
+        <span class="tile-go">{{ e.go }} →</span>
+    </a>
+{% endfor %}
+</div>
+{% else %}
+<p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
+{% endif %}
+
+{% if ns.aside %}
+<p class="tile-aside">
+{% for e in ns.aside %}
+    <a class="tile-line {{ 'tile-none' if e.value is none else 'tile-info' }}" href="{{ e.href }}">
+        <span class="tile-value">{{ '—' if e.value is none else e.value }}</span>
+        <span class="tile-label">{{ e.label }}</span>{% if e.value is none %} <span class="tile-note">({{ e.note or t.tile_building }})</span>{% endif %}</a>
+{% endfor %}
+</p>
+{% endif %}
+
+{% if ns.ok and ns.todo %}
+<p class="tile-ok-line muted"><span aria-hidden="true">✓</span> {{ t.tile_up_to_date }}
+{% for e in ns.ok %}<a class="tile-line tile-ok" href="{{ e.href }}">{{ e.label }}</a>{{ ', ' if not loop.last }}{% endfor %}</p>
+{% endif %}

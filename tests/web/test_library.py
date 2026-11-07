@@ -214,9 +214,9 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
         assert "Being worked out" in page and '<progress class="building" max="100" value="' in page
         assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
-        assert 'class="tile tile-none"' in tiles and "being worked out" in tiles
+        assert 'class="tile-line tile-none"' in tiles and "being worked out" in tiles
         assert 'data-refresh="/tiles"' in tiles and "data-reload-when-built" not in tiles
-        assert 'class="tile tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
+        assert 'class="tile-line tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
         assert client.get("/built").get_json()["ready"] is False
     finally:
         release.set()

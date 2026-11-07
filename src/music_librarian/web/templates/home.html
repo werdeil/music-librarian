@@ -4,7 +4,7 @@
 {% block content %}
 <section>
     <h2>{{ t.to_do }}</h2>
-    <div id="tiles" class="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
+    <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 
 {% if inbox is none or waiting_items %}
