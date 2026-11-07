@@ -22,7 +22,7 @@ from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS, UNDER
 
 HOME_PASSES = ("import", "organize", "enrich", "scan")
-POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
+POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover", "request_state"}
 
 
 @dataclass

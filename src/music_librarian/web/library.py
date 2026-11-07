@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from music_librarian import repeats
-from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.lyrics import is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -317,6 +317,20 @@ def edits(folder_rel, form, seen):
         if form.get(f"t{i}.replaygain_delete") and values.get(fields.REPLAYGAIN):
             out.append([str(Path(folder_rel) / file), fields.REPLAYGAIN, "", values[fields.REPLAYGAIN]])
     return out
+
+
+def preview_changes(preview, root: Path):
+    """What an album's page shows of a tag.Preview: the changes, [(field, before, after, [file
+    names])] one per distinct change, the folders the tracks move between, [(from, to)], relative
+    to `root`, the number of files renamed in their folder, and the problem lines."""
+    groups = defaultdict(list)
+    for path, name, old, new in preview.writes:
+        groups[(name, fields.brief(name, old), fields.brief(name, new))].append(path.name)
+    moved = sorted({(relative(src.parent, root), relative(dst.parent, root))
+                    for src, dst in preview.moves if src.parent != dst.parent})
+    return dict(fields=[(*key, files) for key, files in groups.items()], folders=moved,
+                renamed=sum(1 for src, dst in preview.moves if src.parent == dst.parent),
+                problems=preview.problems)
 
 
 def cover_file(folder: Path):
