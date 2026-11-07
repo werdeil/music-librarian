@@ -73,7 +73,7 @@ The pages are in French or English, after the browser's preferred language, Engl
 
 ## Security
 
-The dashboard has **no authentication**: it is meant for a trusted home network. Anyone who can reach its port sees the library's paths, the names in the Inbox and the output of every pass, and can run any command, applied when `watch` runs with `--apply`. Each form carries a token of the page, so another website open in a browser of the network cannot post to it. Never expose the port to the Internet (no port forwarding, no public reverse proxy); for remote access, join the home network through a VPN such as WireGuard or Tailscale.
+The dashboard has **no authentication**: it is meant for a trusted home network. Anyone who can reach its port sees the library's paths, the names in the Inbox and the output of every pass, and can run any command, applied when `watch` runs with `--apply`. Each form carries a token of the page, so another website open in a browser of the network cannot post to it. Nor can it read the pages through DNS rebinding, a name of its own pointed at the dashboard's address: the dashboard answers only to an IP address, a name without a dot (`nas`), a name under `.local`, `.lan`, `.home`, `.home.arpa` or `.internal`, and the names listed in `MUSIC_LIBRARIAN_WEB_HOSTS` (`watch --web-hosts`, comma-separated, e.g. `nas.example.org` or a Tailscale name); any other name gets a 403 that names the setting. Never expose the port to the Internet (no port forwarding, no public reverse proxy); for remote access, join the home network through a VPN such as WireGuard or Tailscale.
 
 ## Endpoints
 

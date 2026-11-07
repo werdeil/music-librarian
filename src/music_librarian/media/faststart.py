@@ -2,12 +2,12 @@
 comes first as alcx (AAC as mp4x) and transcodes it instead of streaming it."""
 import contextlib
 import os
-import subprocess
 from pathlib import Path
 
 from mutagen.mp4 import MP4
 
 from music_librarian.media.atoms import leading_mdat
+from music_librarian.media import tool
 from music_librarian.media.convert import MAX_DRIFT, probe
 
 
@@ -16,9 +16,8 @@ class RewriteError(Exception):
 
 
 def packets_md5(p: Path):
-    out = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(p), "-map", "0:a:0",
-                          "-c", "copy", "-f", "md5", "-"],
-                         capture_output=True, text=True, check=True)
+    out = tool.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(p), "-map", "0:a:0",
+                    "-c", "copy", "-f", "md5", "-"], tool.FILE_SECONDS, check=True)
     return out.stdout.strip()
 
 
@@ -27,10 +26,9 @@ def faststart(p: Path):
     Raises RewriteError and leaves p untouched if anything is off."""
     tmp = p.with_name(f".{p.stem}.faststart{p.suffix}")
     try:
-        r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(p),
-                            "-map", "0:a:0", "-c", "copy", "-map_metadata", "-1",
-                            "-fflags", "+bitexact", "-movflags", "+faststart", str(tmp)],
-                           capture_output=True, text=True, check=False)
+        r = tool.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(p),
+                      "-map", "0:a:0", "-c", "copy", "-map_metadata", "-1",
+                      "-fflags", "+bitexact", "-movflags", "+faststart", str(tmp)], tool.FILE_SECONDS)
         if r.returncode:
             raise RewriteError(f"ffmpeg failed on {p.name}: {r.stderr.strip()[-300:]}")
         src = MP4(p)

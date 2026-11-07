@@ -69,6 +69,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` to look up the genres the list cannot align (on in the compose file), and the store asked (default `us`) |
 | `MUSIC_LIBRARIAN_LISTEN` | Address of the dashboard, `[HOST:]PORT` (`watch --listen`; the compose file sets `8080`, and `WEB_PORT` the host's port) |
+| `MUSIC_LIBRARIAN_WEB_HOSTS` | Names the dashboard is reached by, comma-separated, besides an IP address, a name without a dot and the local suffixes `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` (`watch --web-hosts`) |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
 
@@ -84,7 +85,7 @@ With `GENRE_LOOKUP=itunes`, an album whose genre the list cannot align, or that 
 
 ## Security
 
-The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass, and can run any command on the library. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale.
+The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass, and can run any command on the library. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale. Another website cannot reach it through a name of its own (DNS rebinding): the dashboard answers only to an IP address, a local name and the names of `MUSIC_LIBRARIAN_WEB_HOSTS`; details in [docs/web.md](docs/web.md#security).
 
 ## Documentation
 

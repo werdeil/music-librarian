@@ -1,11 +1,11 @@
 """FLAC → ALAC conversion: ffmpeg for the audio, mutagen for the tags and artwork, then checks."""
 import json
-import subprocess
 from pathlib import Path
 
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 
+from music_librarian.media import tool
 from music_librarian.organize.scan import parse_pair, read_tags
 
 MAX_DRIFT = 0.1  # duration drift allowed between FLAC and ALAC, in seconds
@@ -17,9 +17,9 @@ class ConversionError(Exception):
 
 def probe(p: Path):
     """(audio codec, duration in seconds)"""
-    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
-                          "format=duration:stream=codec_type,codec_name", "-of", "json", str(p)],
-                         capture_output=True, text=True, check=True)
+    out = tool.run(["ffprobe", "-v", "error", "-show_entries",
+                    "format=duration:stream=codec_type,codec_name", "-of", "json", str(p)],
+                   tool.PROBE_SECONDS, check=True)
     j = json.loads(out.stdout)
     codec = next((s.get("codec_name") for s in j.get("streams", [])
                   if s.get("codec_type") == "audio"), None)
@@ -80,10 +80,9 @@ def convert(src: Path, dst: Path):
     """FLAC → ALAC, then checks. Raises ConversionError if anything is off."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     # moov ahead of mdat: Lyrion types an ALAC file with a leading mdat as alcx and transcodes it.
-    r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
-                        "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
-                        "-fflags", "+bitexact", "-movflags", "+faststart", str(dst)],
-                       capture_output=True, text=True, check=False)
+    r = tool.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(src),
+                  "-map", "0:a:0", "-c:a", "alac", "-map_metadata", "-1",
+                  "-fflags", "+bitexact", "-movflags", "+faststart", str(dst)], tool.FILE_SECONDS)
     if r.returncode:
         raise ConversionError(f"ffmpeg failed on {src.name}: {r.stderr.strip()[-300:]}")
 

@@ -46,6 +46,8 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       - TZ=${TZ:-UTC}  # date of the _done/YYYY-MM-DD folders
+      # names the dashboard answers to besides an address or a local name
+      - MUSIC_LIBRARIAN_WEB_HOSTS=${MUSIC_LIBRARIAN_WEB_HOSTS:-}
       - MUSIC_LIBRARIAN_ROOT=${MUSIC_LIBRARIAN_ROOT:?set it in .env}
       - MUSIC_LIBRARIAN_INBOX=${MUSIC_LIBRARIAN_INBOX:?set it in .env}
       # Lyrion history carried over to moved files, off without LYRION_PREFS_DIR

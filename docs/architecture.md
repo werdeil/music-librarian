@@ -49,7 +49,8 @@ src/music_librarian/
 │                    tags kept between passes), fields.py (every field tag and undo rewrite, in each
 │                    format), credit_tags.py (album artist, artist, composer), artwork.py (image
 │                    sizes), convert.py (FLAC → ALAC and its checks), atoms.py (where moov sits in
-│                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files)
+│                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files),
+│                    tool.py (ffmpeg and ffprobe killed past a time limit)
 ├── integrations/    lyrion.py (see lyrion.md), itunes.py (album genres)
 └── web/             the dashboard served by watch --listen, see web.md
     ├── app.py       the pages, read from the state folder and the Inbox on each request

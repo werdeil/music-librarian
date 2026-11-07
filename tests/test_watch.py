@@ -294,3 +294,9 @@ def test_watch_goes_on_after_a_pass_stopped_alone(inbox_dir, calls, ticks):
     went_on = []
     assert ticks(inbox_dir, [stop_pass, lambda: went_on.append(True)]) == 0
     assert went_on == [True]
+
+
+def test_web_hosts():
+    names = watch.host_names(" NAS.example.org., music.example.org ,")
+    assert names == {"nas.example.org", "music.example.org"}
+    assert watch.host_names("") == set()

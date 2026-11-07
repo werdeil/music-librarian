@@ -6,6 +6,7 @@ Everything shown is read from the state folder and the Inbox on each request; th
 themselves change nothing.
 """
 import hmac
+import ipaddress
 import json
 import math
 import os
@@ -38,6 +39,7 @@ HISTORY_PAGE = 50
 MAX_UPLOAD = 32 * 1024 * 1024
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover"}
 ALBUM_PASSES = {"tag", "cover", "lyrics"}
+LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal")
 
 
 @dataclass
@@ -51,6 +53,25 @@ class Context:
     organize_at: time | None = None
     enrich_at: tuple | None = None   # (weekday, time), as watch.weekly parses it
     requests: object = None          # web.passes.Requests; None shows no form
+    hosts: frozenset = frozenset()   # the names it answers to besides local_host's
+
+
+def host_name(host):
+    """The name or address of a Host header, its port and an IPv6 address's brackets aside."""
+    if host.startswith("["):
+        return host[1:].partition("]")[0]
+    return host.rpartition(":")[0] if host.count(":") == 1 else host
+
+
+def local_host(name):
+    """Whether no public DNS can point `name` at the dashboard: an address, a name without a dot,
+    or under a suffix kept for local networks. A DNS rebinding page is refused by its name."""
+    name = name.lower().rstrip(".")
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        return "." not in name or name.endswith(LOCAL_SUFFIXES)
 
 
 def kinds(lines, kind=""):
@@ -153,6 +174,15 @@ def create_app(ctx: Context):
              "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
              "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
              "review_instrumental": (instrumental_queue,)}
+
+    @app.before_request
+    def known_host():
+        name = host_name(request.host).lower().rstrip(".")
+        if not local_host(name) and name not in ctx.hosts:
+            t = TRANSLATIONS[pick_lang(request.accept_languages)]
+            return app.response_class(t["host_refused"].format(host=name), 403,
+                                      mimetype="text/plain; charset=utf-8")
+        return None
 
     @app.context_processor
     def language():
@@ -440,7 +470,10 @@ def create_app(ctx: Context):
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
         try:
-            asked = library.edits(rel, request.form, json.loads(request.form.get("seen", "")))
+            seen = json.loads(request.form.get("seen", ""))
+            if any(library.track_file(ctx.root, rel, name) is None for name, _ in seen["tracks"]):
+                abort(400)
+            asked = library.edits(rel, request.form, seen)
         except (ValueError, KeyError, TypeError):
             abort(400)
         if not asked:

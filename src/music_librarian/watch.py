@@ -26,7 +26,9 @@ pass, the first one runs at the next slot, not at startup.
 With --listen [HOST:]PORT, the dashboard (web/) is served on that address
 (every interface without a host): the recent runs and their output, the
 schedule and the Inbox. The passes it asks for are queued and run by this
-loop, between its other jobs; it can only apply them when watch does.
+loop, between its other jobs; it can only apply them when watch does. It
+answers to an address, a name without a dot or under a local suffix (.local,
+.lan…), and the names of --web-hosts, never to another name (DNS rebinding).
 
 The import options (--settle, --no-enrich…) apply to every import; --root,
 --state-dir and the Lyrion ones to organize too.
@@ -88,6 +90,11 @@ def address(s):
         return host or "0.0.0.0", int(port)
     except ValueError:
         raise argparse.ArgumentTypeError(f"expected [HOST:]PORT: {s!r}") from None
+
+
+def host_names(s):
+    """'nas.example.org, music.example.org' -> {'nas.example.org', 'music.example.org'}"""
+    return {name.strip().lower().rstrip(".") for name in s.split(",") if name.strip()}
 
 
 def last_slot(t: datetime, day, at):
@@ -187,7 +194,7 @@ def start_dashboard(args, import_opts, requests, log):
     from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
     ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
                          apply=args.apply, interval=args.interval, organize_at=args.organize_at,
-                         enrich_at=args.enrich_at, requests=requests)
+                         enrich_at=args.enrich_at, requests=requests, hosts=frozenset(args.web_hosts))
     return server.serve(ctx, args.listen, log)
 
 
@@ -211,6 +218,11 @@ def main(argv=None):
     ap.add_argument("--listen", type=address, metavar="[HOST:]PORT",
                     default=os.environ.get("MUSIC_LIBRARIAN_LISTEN"),
                     help="serve the dashboard on this address (default: $MUSIC_LIBRARIAN_LISTEN)")
+    ap.add_argument("--web-hosts", type=host_names, metavar="NAME,…",
+                    default=host_names(os.environ.get("MUSIC_LIBRARIAN_WEB_HOSTS", "")),
+                    help="names the dashboard is reached by besides an address, a name without a dot "
+                         "or under .local, .lan, .home, .home.arpa or .internal "
+                         "(default: $MUSIC_LIBRARIAN_WEB_HOSTS)")
     args = ap.parse_args(argv)
     import_opts = importer.options(args)
     state_dir = import_opts.state_dir
