@@ -10,6 +10,7 @@ import pytest
 from music_librarian.core import runs
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
+from music_librarian.web import history
 from music_librarian.web.i18n import TRANSLATIONS
 
 EN, FR = {"Accept-Language": "en"}, {"Accept-Language": "fr-FR,fr;q=0.9"}
@@ -120,10 +121,10 @@ def test_missing_inbox(client, ctx):
 
 
 def test_history_in_pages_of_fifty(client, ctx):
-    for _ in range(web.HISTORY_PAGE + 5):
+    for _ in range(history.HISTORY_PAGE + 5):
         record(ctx, "scan", code=2)
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert page.count('<td><code>scan</code></td>') == web.HISTORY_PAGE and "1 / 2" in page
+    assert page.count('<td><code>scan</code></td>') == history.HISTORY_PAGE and "1 / 2" in page
     assert 'href="/runs?problems=1&amp;page=2"' in page
     page = client.get("/runs?problems=1&page=2", headers=EN).get_data(as_text=True)
     assert page.count('<td><code>scan</code></td>') == 5 and "Previous" in page
@@ -296,4 +297,4 @@ def test_next_daily():
 
 @pytest.mark.parametrize("seconds, text", [(5, "5 s"), (125, "2 min 05 s"), (3725, "1 h 02 min")])
 def test_duration(seconds, text):
-    assert web.duration(seconds) == text
+    assert history.duration(seconds) == text

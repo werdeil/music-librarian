@@ -104,7 +104,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 
 ## For contributors
 
-The package is `web/`: `app.py` (the pages, read on each request, and the forms), `passes.py` (the queue `watch` runs, how each command is built from the options of `watch`, and the uploaded covers), `library.py` (the albums from the cache, an album's fields, the edits of its form), `reviews.py` (the split, dedupe and genre reviews and their routes), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
+The package is `web/`: `app.py` (the overview, the header's activity and the app put together), `security.py` (the names it answers to, the forms' token and the response headers), `history.py` (the run history, a run's page and output, and the forms that queue, apply, cancel or stop a pass), `albums.py` (the library's pages and their forms), `common.py` (what the pages share: times, strings, a page of a list, a refusal, a queued pass), `passes.py` (the queue `watch` runs, how each command is built from the options of `watch`, and the uploaded covers), `library.py` (the albums from the cache, an album's fields, the edits of its form), `reviews.py` (the split, dedupe and genre reviews and their routes), `server.py` (waitress in a thread of `watch`), `i18n.py`, `templates/` and `static/`. Flask is only imported with `--listen`.
 
 - Every string shown lives in `web/i18n.py`, in `fr` and `en` with the same keys; a test checks they match.
 - The Content Security Policy is `default-src 'self'`: no inline script or style, everything from `static/`.
