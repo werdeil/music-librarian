@@ -30,7 +30,7 @@ MP4_KEYS = {"title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "alb
             "albumartist_mbid": MB + "Album Artist Id", "artist_mbid": MB + "Artist Id"}
 MP4_PAIRS = {"track": "trkn", "disc": "disk"}
 MP3_KEYS = {"title": "TIT2", "artist": "TPE1", "albumartist": "TPE2", "album": "TALB",
-            "year": "TDRC", "genre": "TCON", "composer": "TCOM", "compilation": "TCMP", "grouping": "TIT1",
+            "year": "TDRC", "genre": "TCON", "composer": "TCOM", "compilation": "TCMP", "grouping": "GRP1",
             "albumartist_mbid": "TXXX:MusicBrainz Album Artist Id",
             "artist_mbid": "TXXX:MusicBrainz Artist Id"}
 MP3_PAIRS = {"track": "TRCK", "disc": "TPOS"}
