@@ -244,3 +244,20 @@ def test_disc_names_keep_a_disc_name_already_there(lib, run, arcadium):
     assert run(lib, "--disc-names", "--apply") == 0
     assert fields.read(arcadium / "1-01 Song 11.m4a")["discsubtitle"] == ["Jupiter (Disc 1)"]
     assert fields.read(arcadium / "1-02 Song 12.m4a")["discsubtitle"] == ["Jupiter"]
+
+
+def test_disc_names_report_a_path_that_is_no_track_of_the_library(lib, run, tmp_path, capsys):
+    (lib / "Beyonce/4/notes.txt").write_text("")
+    for path in (tmp_path / "Library", lib / "Beyonce/9", lib / "Beyonce/4/notes.txt"):
+        assert run(path, "--disc-names") == 2
+        out = capsys.readouterr().out
+        assert "SKIPPED  (not a track of the library)" in out and "skipped: 1" in out
+
+
+@pytest.mark.usefixtures("arcadium")
+def test_disc_names_read_only_the_albums_the_cache_finds_a_grouping_in(lib, run, monkeypatch):
+    read = []
+    real = fields.read
+    monkeypatch.setattr(fields, "read", lambda path: read.append(path.parent.name) or real(path))
+    assert run(lib, "--disc-names") == 0
+    assert set(read) == {"Stadium Arcadium"}

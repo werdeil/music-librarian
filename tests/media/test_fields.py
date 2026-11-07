@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import pytest
 from mutagen.flac import FLAC
+from mutagen.id3 import TIT1
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
@@ -169,3 +170,12 @@ def test_tags_lyrion_reads(track, ext, frame):
     assert frame in f.tags and "TIT1" not in f.tags
     if ext == ".m4a":
         assert "----:com.apple.iTunes:DISCSUBTITLE" in f.tags
+
+
+def test_the_snapshot_takes_the_mp3_grouping_from_grp1(track):
+    p = track(".mp3")
+    fields.write(p, "grouping", ["Jupiter"])
+    f = MP3(p)
+    f.tags.add(TIT1(encoding=3, text=["Symphony No. 41"]))
+    f.save()
+    assert tags.read_snapshot(p)["tags"]["grouping"] == ["Jupiter"]

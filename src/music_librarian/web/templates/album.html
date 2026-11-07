@@ -102,25 +102,35 @@
 
     <section>
         <h2>{{ t.tracks }}</h2>
+        {% if not discs %}<button type="button" class="small" data-shows-discs="tracks" hidden>{{ t.show_discs }}</button>{% endif %}
         <div class="table-wrap">
-        <table class="tracks{{ ' discs' if discs }}">
+        <table class="tracks{{ ' discs' if discs }}" id="tracks">
             <thead>
                 <tr>
-                    {% if discs %}<th>{{ t.field_disc }}</th><th>{{ t.field_discsubtitle }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
-                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th>{% if discs %}<th>{{ t.field_grouping }}</th>{% endif %}<th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
+                    <th class="t-disc">{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
+                    <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th class="t-grouping">{{ t.field_grouping }}</th>
+                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
-            {% set ns = namespace(i=0) %}
+            {% set ns = namespace(i=0, disc=none) %}
             {% for file, values in tracks %}
+                {% if values and disc_of(values) != ns.disc %}
+                {% set ns.disc = disc_of(values) %}
+                {% set input = 'd' ~ ns.disc ~ '.discsubtitle' %}
+                <tr class="disc-row">
+                    <td colspan="9"><label>{{ t.disc_numbered.format(n=ns.disc) }}
+                        <input name="{{ input }}" value="{{ form.get(input, '') if form else disc_names[ns.disc] or '' }}"
+                               placeholder="{{ t.mixed if disc_names[ns.disc] is none else t.field_discsubtitle }}" aria-label="{{ t.field_discsubtitle }}"></label></td>
+                </tr>
+                {% endif %}
                 <tr>
                 {% if values %}
-                    {% for name in (('disc', 'discsubtitle', 'track') if discs else ('track',)) %}
+                    {% for name in ('disc', 'track') %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
-                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
-                               {%- if name != 'discsubtitle' %} class="number" inputmode="numeric"{% endif %}></td>
+                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" class="number" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
                     {% endfor %}
-                    {% for name in ('title', 'artist', 'composer') + (('grouping',) if discs else ()) %}
+                    {% for name in ('title', 'artist', 'composer', 'grouping') %}
                     {% set flag = repeated.get(file, {}).get(name) %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
                     <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
@@ -128,7 +138,7 @@
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
                 {% else %}
-                    <td colspan="{{ 7 if discs else 4 }}" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td>
+                    <td class="t-disc"></td><td colspan="4" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td><td class="t-grouping"></td>
                 {% endif %}
                     {% set state = lyrics.get(file) %}
                     {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state

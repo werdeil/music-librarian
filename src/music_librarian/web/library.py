@@ -21,7 +21,7 @@ from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
 ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilation")
-TRACK_FIELDS = ("disc", "discsubtitle", "track", "title", "artist", "composer", "grouping")
+TRACK_FIELDS = ("disc", "track", "title", "artist", "composer", "grouping")
 PAGE = 60
 PATIENCE = 1.0
 REBUILD_EVERY = 60
@@ -311,8 +311,22 @@ def with_repeats(albums):
     return sorted((a for a in albums if a.repeated), key=lambda a: (-a.repeated, a.folder))
 
 
+def disc_of(values):
+    """The disc a track's fields put it on, "1" without a disc number."""
+    return (values["disc"] or ["1"])[0]
+
+
+def disc_names(tracks):
+    """{disc: the name every readable track of it holds, or None when they differ}, in track order."""
+    seen = {}
+    for _, values in tracks:
+        if values:
+            seen.setdefault(disc_of(values), set()).add(joined(values["discsubtitle"]))
+    return {disc: names.pop() if len(names) == 1 else None for disc, names in seen.items()}
+
+
 def several_discs(tracks):
-    """Whether the album page shows the disc numbers and names and the groupings: not for one disc
+    """Whether the album page opens with the discs and the groupings shown: not for one disc
     numbered 1 or not at all, without a name nor a grouping."""
     return (any(values and (values["disc"] not in ([], ["1"]) or values["discsubtitle"] or values["grouping"])
                 for _, values in tracks)
@@ -321,7 +335,7 @@ def several_discs(tracks):
 
 def seen_state(tracks):
     """What the album page shows, carried by its form and compared on submit."""
-    return json.dumps({"album": common(tracks),
+    return json.dumps({"album": common(tracks), "discs": disc_names(tracks),
                        "tracks": [[name, values] for name, values in tracks if values]})
 
 
@@ -336,7 +350,8 @@ def same(name, value, shown):
 def edits(folder_rel, form, seen):
     """The edits an album form asks for, as tag's dashboard options: [[path, field, value,
     values seen]] for each field whose value differs from the one shown. An album field
-    applies to every track; one left empty while its tracks differed (shown None) is left alone."""
+    applies to every track, a disc's name to every track of the disc; one left empty while its
+    tracks differed (shown None) is left alone."""
     out = []
     tracks = seen["tracks"]
     for name in ALBUM_FIELDS:
@@ -344,6 +359,12 @@ def edits(folder_rel, form, seen):
         if (not value and shown is None) or (shown is not None and same(name, value, shown)):
             continue
         out += [[str(Path(folder_rel) / file), name, value, values[name]] for file, values in tracks]
+    for disc, shown in seen["discs"].items():
+        value = form.get(f"d{disc}.discsubtitle")
+        if value is None or (not value.strip() and shown is None) or value.strip() == shown:
+            continue
+        out += [[str(Path(folder_rel) / file), "discsubtitle", value.strip(), values["discsubtitle"]]
+                for file, values in tracks if disc_of(values) == disc]
     for i, (file, values) in enumerate(tracks):
         for name in TRACK_FIELDS:
             value = form.get(f"t{i}.{name}")
