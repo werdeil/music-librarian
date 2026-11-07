@@ -103,7 +103,7 @@
     <section>
         <h2>{{ t.tracks }}</h2>
         <div class="table-wrap">
-        <table class="tracks">
+        <table class="tracks{{ ' discs' if discs }}">
             <thead>
                 <tr>
                     {% if discs %}<th>{{ t.field_disc }}</th>{% endif %}<th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
@@ -117,12 +117,12 @@
                 {% if values %}
                     {% for name in (('disc', 'track') if discs else ('track',)) %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
-                    <td><input class="number" name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
+                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input class="number" name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" inputmode="numeric" aria-label="{{ t['field_' ~ name] }}"></td>
                     {% endfor %}
                     {% for name in ('title', 'artist', 'composer') %}
                     {% set flag = repeated.get(file, {}).get(name) %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
-                    <td><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
+                    <td class="t-{{ name }}" data-label="{{ t['field_' ~ name] }}"><input name="{{ input }}" value="{{ form.get(input, '') if form else values[name] | join('; ') }}" aria-label="{{ t['field_' ~ name] }}"
                                {%- if flag is not none %} class="repeated" title="{{ t.repeated_differ if flag else t.repeated_same }}"{% endif %}></td>
                     {% endfor %}
                     {% set ns.i = ns.i + 1 %}
@@ -133,22 +133,22 @@
                     {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state
                                    else t.lyrics_none %}
                     {% set linked = values and (ctx.requests or state) %}
-                    <td class="{{ ['' if state is sameas true else 'muted',
-                                   'cell-link' if linked else ''] | select | join(' ') }}">
+                    <td class="{{ ['t-lyrics', '' if state is sameas true else 'muted',
+                                   'cell-link' if linked else ''] | select | join(' ') }}" data-label="{{ t.lyrics }}">
                         {%- if linked -%}
                         <a href="{{ url_for('track_lyrics', folder=folder, file=file, **place) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
                         {%- else %}{{ shown }}{% endif -%}
                     </td>
                     {% set gain = gains.get(file) %}
                     {% set gain_shown = t.replaygain_unknown if gain == '?' else gain or t.lyrics_none %}
-                    <td class="{{ 'gain' if gain else 'muted' }}">
+                    <td class="t-gain {{ 'gain' if gain else 'muted' }}" data-label="{{ t.replaygain }}">
                         {%- if gain and values and ctx.requests -%}
                         <label title="{{ t.replaygain_click }}"><input type="checkbox" name="t{{ ns.i - 1 }}.replaygain_delete"
                                value="1" aria-label="{{ t.replaygain_click }}"
                                {%- if form and form.get('t' ~ (ns.i - 1) ~ '.replaygain_delete') %} checked{% endif %}><span>{{ gain_shown }}</span></label>
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
-                    <td><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
+                    <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                 </tr>
             {% endfor %}
             </tbody>

@@ -41,7 +41,7 @@
                         <span class="muted">{{ t.never }}</span>
                     {% endif %}
                 </td>
-                <td>{{ next or '' }}</td>
+                <td data-label="{{ t.next_run_label }}">{{ next or '' }}</td>
             </tr>
         {% endfor %}
         </tbody>

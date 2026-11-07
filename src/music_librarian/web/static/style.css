@@ -58,6 +58,16 @@ section {
     border-bottom: 1px solid var(--border-color);
 }
 
+.nav-short {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .nav-short {
+        display: inline;
+    }
+}
+
 .brand {
     display: flex;
     align-items: center;
@@ -917,4 +927,165 @@ form.inline {
 .tile-ok-line {
     margin: 0.6rem 0 0;
     font-size: var(--fs-sm);
+}
+
+@media (max-width: 640px) {
+    .top {
+        gap: 0.5rem 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .brand-name {
+        display: none;
+    }
+
+    .top nav {
+        order: 3;
+        flex-basis: 100%;
+        gap: 0.3rem 0.9rem;
+        font-size: 0.95rem;
+    }
+
+    .top-right {
+        margin-left: auto;
+    }
+
+    .nav-long {
+        display: none;
+    }
+
+    .albums {
+        grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+        gap: 1rem 0.8rem;
+    }
+
+    .album-head img {
+        width: 88px;
+    }
+
+    .album-fields {
+        grid-template-columns: 1fr;
+    }
+
+    table.tracks thead {
+        display: none;
+    }
+
+    table.tracks,
+    table.tracks tbody {
+        display: block;
+    }
+
+    table.tracks tr {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.4rem 0.6rem;
+        padding: 0.7rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    table.tracks td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+
+    table.tracks td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    table.tracks .t-title {
+        grid-column: span 2;
+    }
+
+    table.tracks.discs .t-title,
+    table.tracks .t-artist,
+    table.tracks .t-composer,
+    table.tracks td[colspan] {
+        grid-column: 1 / -1;
+    }
+
+    table.tracks input {
+        width: 100%;
+    }
+
+    table.runs th:nth-child(4),
+    table.runs td:nth-child(4),
+    table.runs th:nth-child(5),
+    table.runs td:nth-child(5) {
+        display: none;
+    }
+
+    .names-choice label {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .names-choice .names input {
+        display: block;
+        width: 100%;
+        margin-top: 0.3rem;
+    }
+
+    .search input[type="search"] {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
+    table.schedule thead {
+        display: none;
+    }
+
+    table.schedule,
+    table.schedule tbody {
+        display: block;
+    }
+
+    table.schedule tr {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.2rem 0.8rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    table.schedule td {
+        padding: 0;
+        border: 0;
+        white-space: normal;
+    }
+
+    table.schedule td:nth-child(3) {
+        text-align: right;
+    }
+
+    table.schedule td:nth-child(2),
+    table.schedule td:nth-child(4) {
+        order: 1;
+        grid-column: 1 / -1;
+        color: var(--text-muted);
+        font-size: var(--fs-sm);
+    }
+
+    table.schedule td:nth-child(4):empty {
+        display: none;
+    }
+
+    table.schedule td:nth-child(4)::before {
+        content: attr(data-label) " ";
+    }
+
+    .actions.sticky {
+        margin-left: calc(-1 * var(--page-pad));
+        margin-right: calc(-1 * var(--page-pad));
+        padding-left: var(--page-pad);
+        padding-right: var(--page-pad);
+    }
+}
+
+main {
+    overflow-wrap: break-word;
 }
