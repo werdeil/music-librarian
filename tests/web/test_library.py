@@ -363,7 +363,7 @@ def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_pa
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert 'name="t2.disc" value="2"' in page and '<table class="tracks discs" id="tracks">' in page
     assert "Disc 1" in page and 'name="d2.discsubtitle" value=""' in page
-    assert "Discs and grouping</button>" not in page
+    assert ">Grouping</button>" in page   # no track has a grouping
 
 
 def test_disc_name_once_per_disc(dashboard, lib, tmp_path):
@@ -374,6 +374,15 @@ def test_disc_name_once_per_disc(dashboard, lib, tmp_path):
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert page.count('class="disc-row"') == 1 and 'name="d1.discsubtitle" value="Deluxe"' in page
     assert '<th class="t-grouping">Grouping</th>' in page and 'name="t0.grouping" value="Bonus"' in page
+    assert '<table class="tracks discs groupings" id="tracks">' in page and "data-shows-discs" not in page
+
+
+def test_grouping_shown_without_the_discs(dashboard, lib, tmp_path):
+    fields.write(lib / "Beyonce/4/01 Run the World.m4a", "grouping", ["Bonus"])
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert '<table class="tracks groupings" id="tracks">' in page and ">Discs</button>" in page
+    assert 'colspan="8" data-full-row' in page
 
 
 def test_disc_name_mixed_on_a_disc(dashboard, lib, tmp_path):

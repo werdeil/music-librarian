@@ -358,11 +358,16 @@ def disc_names(tracks):
 
 
 def several_discs(tracks):
-    """Whether the album page opens with the discs and the groupings shown: not for one disc
-    numbered 1 or not at all, without a name nor a grouping."""
-    return (any(values and (values["disc"] not in ([], ["1"]) or values["discsubtitle"] or values["grouping"])
+    """Whether the album page opens with the discs shown: not for one disc numbered 1 or not at
+    all, without a name."""
+    return (any(values and (values["disc"] not in ([], ["1"]) or values["discsubtitle"])
                 for _, values in tracks)
             or common(tracks)["disctotal"] not in ("", "1"))
+
+
+def has_groupings(tracks):
+    """Whether the album page opens with the groupings shown: when a track has one."""
+    return any(values and values["grouping"] for _, values in tracks)
 
 
 def seen_state(tracks):

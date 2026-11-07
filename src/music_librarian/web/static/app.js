@@ -17,7 +17,10 @@
         var table = document.getElementById(button.dataset.showsDiscs);
         button.hidden = false;
         button.addEventListener("click", function () {
-            table.classList.add("discs");
+            table.classList.add("discs", "groupings");
+            table.querySelectorAll("[data-full-row]").forEach(function (cell) {
+                cell.colSpan = table.tHead.rows[0].cells.length;
+            });
             button.hidden = true;
         });
     });

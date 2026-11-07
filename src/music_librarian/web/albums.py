@@ -153,7 +153,8 @@ def register(app, ctx, index):
             if values:
                 values[fields.REPLAYGAIN] = gains[name]
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
-                               discs=library.several_discs(tracks), disc_of=library.disc_of,
+                               discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
+                               disc_of=library.disc_of,
                                disc_names=library.disc_names(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                lyrics=lyrics, mark=INSTRUMENTAL,

@@ -118,9 +118,13 @@
 
     <section>
         <h2>{{ t.tracks }}</h2>
-        {% if not discs %}<button type="button" class="small" data-shows-discs="tracks" hidden>{{ t.show_discs }}</button>{% endif %}
+        {% if not (discs and groupings) %}
+        <button type="button" class="small" data-shows-discs="tracks" hidden>
+            {{- t.show_grouping if discs else t.show_discs if groupings else t.show_discs_grouping }}</button>
+        {% endif %}
+        {% set width = 7 + (1 if discs else 0) + (1 if groupings else 0) %}
         <div class="table-wrap">
-        <table class="tracks{{ ' discs' if discs }}" id="tracks">
+        <table class="{{ ['tracks', 'discs' if discs, 'groupings' if groupings] | select | join(' ') }}" id="tracks">
             <thead>
                 <tr>
                     <th class="t-disc">{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
@@ -135,7 +139,7 @@
                 {% set ns.disc = disc_of(values) %}
                 {% set input = 'd' ~ ns.disc ~ '.discsubtitle' %}
                 <tr class="disc-row">
-                    <td colspan="9"><label>{{ t.disc_numbered.format(n=ns.disc) }}
+                    <td colspan="{{ width }}" data-full-row><label>{{ t.disc_numbered.format(n=ns.disc) }}
                         <input name="{{ input }}" value="{{ form.get(input, '') if form else disc_names[ns.disc] or '' }}"
                                placeholder="{{ t.mixed if disc_names[ns.disc] is none else t.field_discsubtitle }}" aria-label="{{ t.field_discsubtitle }}"></label></td>
                 </tr>
@@ -184,7 +188,7 @@
                 {% set text = values.lyrics[0] if values.lyrics else '' %}
                 {% set typed = form.get(input, text) if form else text %}
                 <tr class="lyrics-row" id="lyrics-{{ i }}" data-lyrics-row{% if form and typed.replace('\r\n', '\n').strip() != text %} data-open{% endif %}>
-                    <td colspan="{{ 10 if discs else 7 }}">
+                    <td colspan="{{ width }}" data-full-row>
                         {% if missed.get(file) and not text %}<p class="muted">{{ t.lyrics_missed.format(date=missed[file]) }}</p>{% endif %}
                         <textarea name="{{ input }}" class="lyrics" rows="8" aria-label="{{ t.lyrics }} · {{ file }}"
                                   {%- if not ctx.requests %} readonly{% endif %}>{{ typed }}</textarea>
