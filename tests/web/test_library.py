@@ -683,3 +683,39 @@ def test_work_list_kept_through_preview_and_apply(dashboard):
     dashboard.requests.tick(Log())
     state = dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4&list=lyrics&at=0").get_json()
     assert state["album"] == f"/library/album?folder=Beyonce/4&request={asked.id}&list=lyrics&at=0"
+
+
+def album(folder, artist="", title="", year="", changed=0, **kw):
+    return library.Album(folder, artist, title, 1, "", year=year, changed=changed, **kw)
+
+
+def test_browse_sorts_and_keeps():
+    albums = [album("a", "Abba", "Zoo", "1976", 3, without_lyrics=1), album("b", "Beck", "Odelay", "1996", 1),
+              album("c", "", "", "", 2, compilation=True, repeated=2)]
+    for sort, order in (("artist", "abc"), ("title", "cba"), ("year", "bac"), ("recent", "acb")):
+        assert "".join(a.folder for a in library.browse(albums, sort, None)[0]) == order
+    kept, counts = library.browse(albums, "artist", "compilations")
+    assert [a.folder for a in kept] == ["c"] and counts == {"lyrics": 1, "repeats": 1, "compilations": 1}
+
+
+def test_library_sorted_and_filtered(dashboard):
+    page = settled(lambda: dashboard.client.get("/library?only=lyrics&sort=title", headers=EN))
+    page = page.get_data(as_text=True)
+    assert "Albums: 2" in page and page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
+    assert '<option value="title" selected>Album</option>' in page and 'name="only" value="lyrics"' in page
+    assert '<a href="/library?sort=title">All</a>' in page
+    assert 'href="/library?only=lyrics&amp;sort=title" aria-current="true">Without lyrics' in page
+    compilations = 'href="/library?only=compilations&amp;sort=title">Compilations <span class="muted">0'
+    assert compilations in page
+    assert 'href="/library/lyrics">one by one</a>' in page
+    page = dashboard.client.get("/library?only=repeats", headers=EN).get_data(as_text=True)
+    assert "No album matches" in page
+    page = dashboard.client.get("/library?sort=nope&only=nope", headers=EN).get_data(as_text=True)
+    assert "Albums: 2" in page and '<option value="artist" selected>' in page
+
+
+def test_library_pages_keep_the_search(dashboard, monkeypatch):
+    monkeypatch.setattr(library, "PAGE", 1)
+    page = settled(lambda: dashboard.client.get("/library?q=e&sort=year", headers=EN)).get_data(as_text=True)
+    assert 'href="/library?page=2&amp;q=e&amp;sort=year">Next' in page
+    assert 'id="results"' in page and "data-live-search" in page

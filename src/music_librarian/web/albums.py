@@ -26,16 +26,16 @@ def register(app, ctx, index):
     @app.get("/library")
     def library_page():
         query = request.args.get("q", "").strip()
+        sort = request.args.get("sort") if request.args.get("sort") in library.SORTS else "artist"
+        only = request.args.get("only") if request.args.get("only") in library.ONLY else None
+        shown = dict(query=query, sort=sort, only=only)
         everything = index.get()
         if everything is None:
-            return render_template("library.html", query=query, building=True)
-        albums = index.search(query) if query else everything
-        shown, page, pages = paged(albums, library.PAGE)
-        return render_template("library.html", query=query, total=len(albums), page=page, pages=pages,
-                               albums=shown,
-                               empty=not everything,
-                               without_lyrics=sum(a.without_lyrics for a in everything),
-                               repeated=sum(a.repeated for a in everything))
+            return render_template("library.html", building=True, **shown)
+        albums, counts = library.browse(index.search(query) if query else everything, sort, only)
+        listed, page, pages = paged(albums, library.PAGE)
+        return render_template("library.html", total=len(albums), page=page, pages=pages,
+                               albums=listed, counts=counts, empty=not everything, **shown)
 
     def followed(rel):
         """The pass ?request= names, as the album's page follows it: the request, its run once

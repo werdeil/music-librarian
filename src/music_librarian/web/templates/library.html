@@ -3,20 +3,36 @@
 {% block content %}
 <section>
     <h1 class="visually-hidden">{{ t.library }}</h1>
-    <form method="get" action="{{ url_for('library_page') }}" class="search">
+    {% set keep = dict(q=query or None, sort=None if sort == 'artist' else sort) %}
+    <form method="get" action="{{ url_for('library_page') }}" class="search" data-live-search>
         <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
+        <label class="sort">{{ t.sort_by }}
+            <select name="sort">
+            {% for name in ('artist', 'title', 'year', 'recent') %}
+                <option value="{{ name }}"{% if sort == name %} selected{% endif %}>{{ t['sort_' ~ name] }}</option>
+            {% endfor %}
+            </select>
+        </label>
+        {% if only %}<input type="hidden" name="only" value="{{ only }}">{% endif %}
         <button type="submit">{{ t.search_button }}</button>
     </form>
+    <div id="results">
     {% if building %}
         {% include "_building.html" %}
     {% elif empty %}
         <p class="muted">{{ t.library_empty }}</p>
-    {% elif not albums %}
-        <p class="muted">{{ t.no_album }}</p>
     {% else %}
-        <p class="muted">{{ t.albums_found.format(n=total) }}
-            {% if without_lyrics %} · {{ t.tracks_without_lyrics.format(n=without_lyrics) }} <a href="{{ url_for('missed_lyrics') }}">{{ t.see }}</a>{% endif %}
-            {% if repeated %} · {{ t.tracks_repeated.format(n=repeated) }} <a href="{{ url_for('repeated_values') }}">{{ t.see }}</a>{% endif %}</p>
+        <p class="filters only">
+            <a href="{{ url_for('library_page', **keep) }}"{% if not only %} aria-current="true"{% endif %}>{{ t.only_all }}</a>
+            {% for name in ('lyrics', 'repeats', 'compilations') %}
+            <a href="{{ url_for('library_page', only=name, **keep) }}"{% if only == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">{{ counts[name] }}</span></a>
+            {% endfor %}
+            {% if only in ('lyrics', 'repeats') %}<a class="aside" href="{{ url_for('missed_lyrics' if only == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>{% endif %}
+        </p>
+        {% if not albums %}
+        <p class="muted">{{ t.no_album }}</p>
+        {% else %}
+        <p class="muted">{{ t.albums_found.format(n=total) }}</p>
         <ul class="albums">
         {% for album in albums %}
             <li>
@@ -35,11 +51,13 @@
         </ul>
         {% if pages > 1 %}
         <p class="filters">
-            {% if page > 1 %}<a href="{{ url_for('library_page', q=query or None, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+            {% if page > 1 %}<a href="{{ url_for('library_page', only=only, page=page - 1, **keep) }}">{{ t.page_previous }}</a>{% endif %}
             <span class="muted">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ url_for('library_page', q=query or None, page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+            {% if page < pages %}<a href="{{ url_for('library_page', only=only, page=page + 1, **keep) }}">{{ t.page_next }}</a>{% endif %}
         </p>
         {% endif %}
+        {% endif %}
     {% endif %}
+    </div>
 </section>
 {% endblock %}

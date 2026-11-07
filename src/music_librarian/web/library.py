@@ -47,6 +47,37 @@ class Album:
     without_lyrics: int = 0
     compilation: bool = False
     repeated: int = 0   # tracks with a field holding a value twice or several values
+    year: str = ""
+    changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
+
+
+SORTS = {
+    "artist": None,   # the index's own order
+    "title": lambda a: (fold(a.title or a.folder), fold(a.artist), a.folder),
+    "year": lambda a: (not a.year[:4].isdigit(), -int(a.year[:4]) if a.year[:4].isdigit() else 0,
+                       fold(a.artist), fold(a.title)),
+    "recent": lambda a: (-a.changed, a.folder),
+}
+ONLY = {"lyrics": lambda a: a.without_lyrics, "repeats": lambda a: a.repeated,
+        "compilations": lambda a: a.compilation}
+
+
+def browse(albums, sort, only):
+    """The albums sorted by `sort` and kept by `only` (keys of SORTS and ONLY, None for neither),
+    and how many each filter of ONLY keeps of them: (albums, {filter: count})."""
+    counts = {name: sum(1 for a in albums if keep(a)) for name, keep in ONLY.items()}
+    if only in ONLY:
+        albums = [a for a in albums if ONLY[only](a)]
+    if SORTS.get(sort):
+        albums = sorted(albums, key=SORTS[sort])
+    return albums, counts
+
+
+def folder_changed(folder: Path):
+    try:
+        return folder.stat().st_mtime
+    except OSError:
+        return 0
 
 
 def first(track, *keys):
@@ -205,8 +236,10 @@ class Index:
             title = next((a for t in tracks if (a := first(t, "album"))), "")
             words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
             rel = str(folder.relative_to(self.root))
+            year = next((y[:4] for t in tracks if (y := first(t, "date", "year"))), "")
             albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder],
-                                all(first(t, "compilation") == "1" for t in tracks), repeated[folder]))
+                                all(first(t, "compilation") == "1" for t in tracks), repeated[folder],
+                                year, folder_changed(folder)))
         return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
 
     def search(self, query):
