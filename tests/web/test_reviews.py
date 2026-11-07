@@ -1,5 +1,6 @@
 """The split and dedupe reviews on the dashboard (web/reviews.py)."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import contextlib
 import html
 import json
 import re
@@ -149,6 +150,8 @@ def test_apply_the_answers_as_a_dry_run(d):
 
 def test_counts_while_the_first_build_runs(d, monkeypatch):
     monkeypatch.setattr(library, "PATIENCE", 0.01)
+    # the album list builds beside the blocked review build instead of waiting for it
+    monkeypatch.setattr(library, "_one_build", contextlib.nullcontext())
     release = threading.Event()
     monkeypatch.setattr(reviews.Reviews, "_build", lambda self: release.wait(5) and None)
     client = web.create_app(d.ctx).test_client()
