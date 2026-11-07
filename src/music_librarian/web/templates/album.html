@@ -133,11 +133,10 @@
                     {% set state = lyrics.get(file) %}
                     {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state
                                    else t.lyrics_none %}
-                    {% set linked = values and (ctx.requests or state) %}
-                    <td class="{{ ['t-lyrics', '' if state is sameas true else 'muted',
-                                   'cell-link' if linked else ''] | select | join(' ') }}" data-label="{{ t.lyrics }}">
-                        {%- if linked -%}
-                        <a href="{{ url_for('track_lyrics', folder=folder, file=file, **place) }}" title="{{ t.lyrics_open }}">{{ shown }}</a>
+                    <td class="t-lyrics{{ '' if state is sameas true else ' muted' }}" data-label="{{ t.lyrics }}">
+                        {%- if values -%}
+                        <button type="button" class="link" data-lyrics-toggle="lyrics-{{ ns.i - 1 }}" aria-controls="lyrics-{{ ns.i - 1 }}"
+                                aria-expanded="true" title="{{ t.lyrics_open }}">{{ shown }}</button>
                         {%- else %}{{ shown }}{% endif -%}
                     </td>
                     {% set gain = gains.get(file) %}
@@ -151,6 +150,28 @@
                     </td>
                     <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                 </tr>
+                {% if values %}
+                {% set i = ns.i - 1 %}
+                {% set input = 't' ~ i ~ '.lyrics' %}
+                {% set text = values.lyrics[0] if values.lyrics else '' %}
+                {% set typed = form.get(input, text) if form else text %}
+                <tr class="lyrics-row" id="lyrics-{{ i }}" data-lyrics-row{% if form and typed.replace('\r\n', '\n').strip() != text %} data-open{% endif %}>
+                    <td colspan="{{ 10 if discs else 7 }}">
+                        {% if missed.get(file) and not text %}<p class="muted">{{ t.lyrics_missed.format(date=missed[file]) }}</p>{% endif %}
+                        <textarea name="{{ input }}" class="lyrics" rows="8" aria-label="{{ t.lyrics }} · {{ file }}"
+                                  {%- if not ctx.requests %} readonly{% endif %}>{{ typed }}</textarea>
+                        {% if ctx.requests %}
+                        <div class="actions">
+                            <label><input type="checkbox" name="t{{ i }}.instrumental" value="1" data-instrumental="{{ mark }}" data-target="{{ input }}"
+                                          {%- if (form and form.get('t' ~ i ~ '.instrumental')) or (not form and state == 'instrumental') %} checked{% endif %}> {{ t.lyrics_instrumental_box }}</label>
+                            <button type="button" data-lookup="{{ url_for('look_up_lyrics') }}" data-file="{{ file }}" data-target="{{ input }}"
+                                    data-running="{{ t.lookup_running }}">{{ t.lookup_button }}</button>
+                            <span class="muted" data-lookup-status aria-live="polite"></span>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
             {% endfor %}
             </tbody>
         </table>
@@ -176,14 +197,5 @@
     </form>
 </section>
 
-<section>
-    <h2>{{ t.lyrics }}</h2>
-    <form method="post" action="{{ url_for('album_lyrics') }}">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="folder" value="{{ folder }}">
-        {{ m.place_fields(place) }}
-        <button type="submit">{{ t.lyrics_button }}</button>
-    </form>
-</section>
 {% endif %}
 {% endblock %}

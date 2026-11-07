@@ -1,22 +1,23 @@
 """The library's pages: the albums of the metadata cache, those without lyrics or with a field
-holding a value twice, an album's page and its cover, a track's lyrics, and the forms that queue
-their edits."""
+holding a value twice, an album's page with its tracks' lyrics and its cover, and the forms that
+queue their edits."""
 import json
-from pathlib import Path
 
-from flask import abort, redirect, render_template, request, send_from_directory, url_for
+from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from music_librarian import cover, repeats, tag
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED
-from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
+from music_librarian.enrich import lyrics as enrich_lyrics
+from music_librarian.lyrics import INSTRUMENTAL, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library
-from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, when
+from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, when
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload
 
 MAX_UPLOAD = 32 * 1024 * 1024
+PROVIDERS = {"lrclib": "LRCLIB", "netease": "NetEase", "musixmatch": "Musixmatch"}
 
 
 def register(app, ctx, index):
@@ -78,12 +79,26 @@ def register(app, ctx, index):
                     total=len(folders), previous=(folders[before], before) if before >= 0 else None,
                     next=(folders[after], after) if after < len(folders) else None)
 
+    def shown_value(name, values):
+        """A field's values as the preview shows them, the lyrics by their number of lines."""
+        t = texts()
+        if not values:
+            return t["value_none"]
+        if name != fields.LYRICS:
+            return fields.brief(name, values)
+        if values[0] == INSTRUMENTAL:
+            return t["lyrics_instrumental"]
+        lines = len(values[0].split("\n"))
+        return (t["line_one"] if lines == 1 else t["line_many"]).format(n=lines)
+
     def album_view(rel, folder, status=200, **shown):
         """The album's page, `shown` adding what a form posted to it asks to show."""
         tracks = library.tracks_of(folder)
         repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         names = [n for n, _ in tracks]
+        lyrics = library.with_lyrics(folder, tracks)
+        missed = misses.recorded(ctx.state_dir)
         gains = library.replaygain_state(folder, names)
         for name, values in tracks:
             if values:
@@ -91,7 +106,8 @@ def register(app, ctx, index):
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
-                               lyrics=library.lyrics_state(folder, names),
+                               lyrics=lyrics, mark=INSTRUMENTAL,
+                               missed={n: when(missed[folder / n]) for n in names if folder / n in missed},
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
@@ -105,13 +121,6 @@ def register(app, ctx, index):
         if folder is None:
             return refused("album_gone", 404)
         return album_view(rel, folder, unchanged=request.args.get("unchanged") == "1")
-
-    @app.post("/library/album/lyrics")
-    def album_lyrics():
-        rel = request.form.get("folder", "")
-        if library.album_folder(ctx.root, rel) is None:
-            abort(404)
-        return submit(ctx, "lyrics", {"folder": rel}, False, rel)
 
     @app.get("/library/lyrics")
     def missed_lyrics():
@@ -163,7 +172,7 @@ def register(app, ctx, index):
         edits = [tag.Edit(ctx.root / path, name, value, seen) for path, name, value, seen in asked]
         shown = tag.preview(tag.Options(root=ctx.root, edits=edits, state_dir=ctx.state_dir))
         return album_view(rel, folder, form=request.form,
-                          preview=library.preview_changes(shown, ctx.root))
+                          preview=library.preview_changes(shown, ctx.root, shown_value))
 
     @app.post("/library/album/cover")
     def album_new_cover():
@@ -186,43 +195,23 @@ def register(app, ctx, index):
     def too_large(_error):
         return refused("cover_too_large", 413, mb=MAX_UPLOAD // 1024 // 1024)
 
-    @app.get("/library/track/lyrics")
-    def track_lyrics():
-        rel, name = request.args.get("folder", ""), request.args.get("file", "")
-        path = library.track_file(ctx.root, rel, name)
+    @app.post("/library/track/lyrics/lookup")
+    def look_up_lyrics():
+        """What the providers have for one track of an album's page, for its lyrics box:
+        {"text": the lyrics, the INSTRUMENTAL mark or null, "message": what was found}."""
+        path = library.track_file(ctx.root, request.form.get("folder", ""), request.form.get("file", ""))
         if path is None:
-            return refused("album_gone", 404)
-        try:
-            values, text = fields.read(path), fields.lyrics(path)
-        except Exception:
-            return refused("track_unreadable", 404)
-        return render_template("track_lyrics.html", folder=rel, file=name, values=values,
-                               text=text[0] if text else "", seen=json.dumps(text),
-                               instrumental=bool(text) and is_instrumental(text[0]), mark=INSTRUMENTAL,
-                               missed=None if text else when_missed(path),
-                               unchanged=request.args.get("unchanged") == "1")
-
-    def when_missed(path):
-        at = misses.recorded(ctx.state_dir).get(path)
-        return when(at) if at else None
-
-    @app.post("/library/track/lyrics")
-    def edit_lyrics():
-        rel, name = request.form.get("folder", ""), request.form.get("file", "")
-        if library.track_file(ctx.root, rel, name) is None:
             abort(404)
-        try:
-            seen = json.loads(request.form.get("seen", ""))
-        except ValueError:
-            abort(400)
-        if not isinstance(seen, list) or not all(isinstance(v, str) for v in seen):
-            abort(400)
-        value = ("" if request.form.get("delete") else INSTRUMENTAL if request.form.get("instrumental")
-                 else request.form.get("lyrics", ""))
-        if fields.check(fields.LYRICS, [value]) == seen:
-            return redirect(url_for("track_lyrics", folder=rel, file=name, unchanged="1"))
-        edit = [str(Path(rel) / name), fields.LYRICS, value, seen]
-        return submit(ctx, "tag", {"edits": [edit]}, False, rel)
+        if ctx.requests is None:
+            abort(403)
+        text, source = enrich_lyrics.look_up_track(path, ctx.state_dir)
+        t = texts()
+        if text is None:
+            message = t.get(f"lookup_{source}".replace(" ", "_"), t["lookup_none"])
+        else:
+            key = "lookup_instrumental" if text == INSTRUMENTAL else "lookup_found"
+            message = t[key].format(source=PROVIDERS.get(source, source))
+        return jsonify(text=text, message=message)
 
     @app.get("/library/cover")
     def album_cover():

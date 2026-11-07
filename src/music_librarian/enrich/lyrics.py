@@ -127,18 +127,39 @@ def parse_args(argv):
 
 def lookup(meta, args):
     """The plain lyrics found online for a track and the provider's answer."""
-    result = fetch_lyrics(
-        artist=meta["artist"],
-        title=meta["title"],
-        album=meta.get("album"),
-        duration=meta.get("duration"),
-        verify=not args.no_verify,
-    )
+    plain, result = found(meta, verify=not args.no_verify)
     time.sleep(args.delay)
+    return plain, result
+
+
+def found(meta, verify=True):
+    """The plain lyrics the providers have for a track ({artist, title, album, duration}), synced
+    ones made plain, and the provider's answer."""
+    result = fetch_lyrics(artist=meta["artist"], title=meta["title"], album=meta.get("album"),
+                          duration=meta.get("duration"), verify=verify)
     plain = result.get("lyrics")
     if not plain and result.get("synced"):
         plain = tags.lrc_to_plain(result["synced"])
     return plain, result
+
+
+def look_up_track(path, state_dir):
+    """What the providers have for the file at `path`, for its album's page: (its plain lyrics,
+    the INSTRUMENTAL mark, or None; where the answer came from, or why there is none: "no
+    metadata", "none", "rejected", "unavailable"). A lookup in vain is recorded as a pass does."""
+    meta = metadata_cache.metadata(tags.read_snapshot(path))
+    if not meta or not meta.get("artist") or not meta.get("title"):
+        return None, "no metadata"
+    plain, result = found(meta)
+    source = result.get("source")
+    if plain:
+        return plain, source
+    if result.get("instrumental"):
+        return INSTRUMENTAL, source
+    if source != "unavailable":
+        with Misses(state_dir) as misses:
+            misses.record(path, meta)
+    return None, source
 
 
 def write(path, rel, plain, args, log, note=""):

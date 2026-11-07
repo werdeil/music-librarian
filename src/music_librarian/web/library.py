@@ -16,7 +16,7 @@ from pathlib import Path
 
 from music_librarian import repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
-from music_librarian.lyrics import is_instrumental, misses
+from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -349,18 +349,24 @@ def edits(folder_rel, form, seen):
             value = form.get(f"t{i}.{name}")
             if value is not None and not same(name, value.strip(), joined(values[name])):
                 out.append([str(Path(folder_rel) / file), name, value.strip(), values[name]])
+        text = form.get(f"t{i}.lyrics")
+        if text is not None and fields.LYRICS in values:
+            value = INSTRUMENTAL if form.get(f"t{i}.instrumental") else text
+            if fields.check(fields.LYRICS, [value]) != values[fields.LYRICS]:
+                out.append([str(Path(folder_rel) / file), fields.LYRICS, value, values[fields.LYRICS]])
         if form.get(f"t{i}.replaygain_delete") and values.get(fields.REPLAYGAIN):
             out.append([str(Path(folder_rel) / file), fields.REPLAYGAIN, "", values[fields.REPLAYGAIN]])
     return out
 
 
-def preview_changes(preview, root: Path):
+def preview_changes(preview, root: Path, shown=fields.brief):
     """What an album's page shows of a tag.Preview: the changes, [(field, before, after, [file
-    names])] one per distinct change, the folders the tracks move between, [(from, to)], relative
-    to `root`, the number of files renamed in their folder, and the problem lines."""
+    names])] one per distinct change, the values as shown(field, values) gives them, the folders
+    the tracks move between, [(from, to)], relative to `root`, the number of files renamed in their
+    folder, and the problem lines."""
     groups = defaultdict(list)
     for path, name, old, new in preview.writes:
-        groups[(name, fields.brief(name, old), fields.brief(name, new))].append(path.name)
+        groups[(name, shown(name, old), shown(name, new))].append(path.name)
     moved = sorted({(relative(src.parent, root), relative(dst.parent, root))
                     for src, dst in preview.moves if src.parent != dst.parent})
     return dict(fields=[(*key, files) for key, files in groups.items()], folders=moved,
@@ -399,15 +405,20 @@ def cover(folder: Path):
     return None
 
 
-def lyrics_state(folder: Path, names):
-    """{file name: "instrumental" when its lyrics are the INSTRUMENTAL mark, else whether it has some}."""
+def with_lyrics(folder: Path, tracks):
+    """Add to the values of each readable track its lyrics, as fields.lyrics() gives them, which
+    the page shows and its form carries; return {file name: "instrumental" when they are the
+    INSTRUMENTAL mark, else whether it has some}."""
     out = {}
-    for name in names:
-        try:
-            text = tags.read_lyrics(folder / name)
-        except Exception:
-            text = None
-        out[name] = "instrumental" if is_instrumental(text) else bool(text)
+    for name, values in tracks:
+        text = []
+        if values:
+            try:
+                text = fields.lyrics(folder / name)
+            except Exception:
+                text = []
+            values[fields.LYRICS] = text
+        out[name] = "instrumental" if text and is_instrumental(text[0]) else bool(text)
     return out
 
 

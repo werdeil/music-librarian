@@ -185,12 +185,13 @@
     setTimeout(poll, POLL_INTERVAL_MS);
 }());
 
-// The instrumental box puts the mark in the lyrics and locks them; unticked, the text it replaced comes back.
+// The instrumental box puts the mark in its track's lyrics and locks them; unticked, the text it
+// replaced comes back.
 (function () {
     "use strict";
 
     document.querySelectorAll("[data-instrumental]").forEach(function (box) {
-        var text = box.form.elements.namedItem("lyrics");
+        var text = box.form.elements.namedItem(box.dataset.target);
         var mark = box.dataset.instrumental;
         var kept = "";
 
@@ -206,6 +207,69 @@
 
         box.addEventListener("change", update);
         update();
+    });
+}());
+
+// A track's lyrics open under it from their cell; those changed in the form stay open.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-lyrics-toggle]").forEach(function (button) {
+        var row = document.getElementById(button.dataset.lyricsToggle);
+        if (!row) {
+            return;
+        }
+        function show(open) {
+            row.hidden = !open;
+            button.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+        show(row.hasAttribute("data-open"));
+        button.addEventListener("click", function () {
+            show(row.hidden);
+            if (!row.hidden) {
+                row.querySelector("textarea").focus();
+            }
+        });
+    });
+}());
+
+// Look up online puts what the providers have for the track in its lyrics box, to preview with the
+// rest of the form; the instrumental box follows.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-lookup]").forEach(function (button) {
+        var form = button.form;
+        var text = form.elements.namedItem(button.dataset.target);
+        var status = button.parentElement.querySelector("[data-lookup-status]");
+        var box = button.parentElement.querySelector("[data-instrumental]");
+
+        button.addEventListener("click", function () {
+            var data = new FormData();
+            data.append("csrf", form.elements.namedItem("csrf").value);
+            data.append("folder", form.elements.namedItem("folder").value);
+            data.append("file", button.dataset.file);
+            button.disabled = true;
+            status.textContent = button.dataset.running;
+            fetch(button.dataset.lookup, { method: "POST", body: data })
+                .then(function (response) { return response.json(); })
+                .then(function (found) {
+                    status.textContent = found.message;
+                    if (found.text === null) {
+                        return;
+                    }
+                    var instrumental = found.text === box.dataset.instrumental;
+                    if (box.checked !== instrumental) {
+                        box.checked = instrumental;
+                        box.dispatchEvent(new window.Event("change"));
+                    }
+                    if (!instrumental) {
+                        text.value = found.text;
+                    }
+                })
+                .catch(function () { status.textContent = ""; })
+                .then(function () { button.disabled = false; });
+        });
     });
 }());
 
