@@ -3,13 +3,18 @@ tag — rewrites tag fields of tracks, then files them again where their new tag
 
   music-librarian tag PATH... --set FIELD=VALUE [--set FIELD=VALUE…]   # dry run
   music-librarian tag "Beyonce/4" --set albumartist=Beyoncé --apply
+  music-librarian tag PATH... --disc-names [--apply]
 
 PATH is a track or a folder (every track under it) of the library. FIELD is one of title,
-artist, albumartist, album, track, tracktotal, disc, disctotal, grouping (the disc's name),
-year, genre, composer and compilation (1 or 0); an empty VALUE removes the field. A genre takes
+artist, albumartist, album, track, tracktotal, disc, disctotal, discsubtitle (the disc's name),
+grouping, year, genre, composer and compilation (1 or 0); an empty VALUE removes the field. A genre takes
 the spelling of the validated list (state/genres.txt) when the list knows it. replaygain only
 takes an empty VALUE: it removes every REPLAYGAIN_* tag, which the next pass of
 enrich.replaygain measures again.
+
+--disc-names copies the grouping into the disc name of the tracks without one, on the albums
+of several discs whose discs each hold a grouping of their own (Apple Music shows only the
+grouping, Lyrion takes the disc name from discsubtitle); the others are reported as KEPT.
 
 The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
 looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
@@ -67,6 +72,7 @@ class Options:
     state_dir: Path = field(default_factory=state_path)
     lyrion: Lyrion | None = None
     refile: bool = True
+    disc_names: list = field(default_factory=list)   # the tracks --disc-names looks at
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
@@ -207,6 +213,7 @@ def tag_pass(opts: Options, log):
     started = time.time()
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] tagging under {opts.root}")
     stats = defaultdict(int)
+    opts.edits += disc_names(opts.disc_names, opts.root, log)
     writes, planned = plan(opts, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped, written = False, []
@@ -284,6 +291,31 @@ def tracks(paths):
     return out
 
 
+def disc_names(paths, root, log):
+    """The edits of --disc-names for the tracks of `paths`, folder by folder."""
+    albums = defaultdict(list)
+    for path in paths:
+        try:
+            albums[path.parent].append((path, fields.read(path)))
+        except Exception:
+            continue
+    edits = []
+    for folder, album in sorted(albums.items()):
+        if not any(values["grouping"] for _, values in album):
+            continue
+        discs = defaultdict(set)
+        for _, values in album:
+            discs[(values["disc"] or ["1"])[0]].add(tuple(values["grouping"]))
+        groupings = [next(iter(g)) for g in discs.values() if len(g) == 1]
+        if (len(discs) < 2 or len(groupings) < len(discs) or len(set(groupings)) < len(groupings)
+                or any(len(g) != 1 for g in groupings)):
+            log(f"KEPT     (grouping not one per disc)  {relative(folder, root)}")
+            continue
+        edits += [Edit(path, "discsubtitle", values["grouping"][0], seen=[])
+                  for path, values in album if not values["discsubtitle"]]
+    return edits
+
+
 def setting(s):
     """'FIELD=VALUE' -> (field, value)."""
     name, sep, value = s.partition("=")
@@ -302,17 +334,22 @@ def main(argv=None):
     ap = arguments.parser("tag", "Rewrite tag fields of tracks, then file them again.")
     arguments.add_root(ap)
     ap.add_argument("paths", nargs="+", help="tracks or folders of the library")
-    ap.add_argument("--set", dest="settings", type=setting, action="append", required=True,
-                    metavar="FIELD=VALUE", help="the value to write (empty: remove the field)")
+    what = ap.add_mutually_exclusive_group(required=True)
+    what.add_argument("--set", dest="settings", type=setting, action="append",
+                      metavar="FIELD=VALUE", help="the value to write (empty: remove the field)")
+    what.add_argument("--disc-names", action="store_true",
+                      help="copy the grouping into the disc name, on albums of one grouping per disc")
     ap.add_argument("--no-refile", action="store_true", help="leave the edited tracks where they are")
     arguments.add_apply(ap, "write the tags")
     lyrion.add_arguments(ap)
     arguments.add_state_dir(ap)
     arguments.add_syslog(ap)
     args = ap.parse_args(argv)
+    found = tracks(args.paths)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    refile=not args.no_refile,
-                   edits=[Edit(p, name, value) for p in tracks(args.paths) for name, value in args.settings])
+                   edits=[Edit(p, name, value) for p in found for name, value in args.settings or []],
+                   disc_names=[p for p in found if p.suffix.lower() in AUDIO_EXT] if args.disc_names else [])
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "tag", opts.apply)
