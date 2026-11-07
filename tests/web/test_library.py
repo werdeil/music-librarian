@@ -341,10 +341,11 @@ def test_untouched_form_asks_nothing(dashboard):
 
 def test_album_field_edits_every_track(dashboard):
     form = album_form(dashboard, "Beyonce/4",
-                      **{"album.albumartist": "Beyoncé", "t1.title": "Best Thing I Never Had"})
-    assert dashboard.client.post("/library/album", data=form).status_code == 302
+                      **{"album.albumartist": "Beyoncé", "t1.title": "Best Thing I Never Had", "apply": "1"})
+    response = dashboard.client.post("/library/album", data=form)
     [asked] = dashboard.requests.pending()
-    assert (asked.command, asked.apply) == ("tag", False)
+    assert response.location == f"/library/album?folder=Beyonce/4&request={asked.id}"
+    assert (asked.command, asked.apply) == ("tag", True)
     assert asked.options["edits"] == [
         ["Beyonce/4/01 Run the World.m4a", "albumartist", "Beyoncé", ["Beyonce"]],
         ["Beyonce/4/02 Best Thing.m4a", "albumartist", "Beyoncé", ["Beyonce"]],
@@ -365,17 +366,19 @@ def test_edit_of_a_track_not_in_the_album_refused(dashboard, name):
 def test_mixed_values_left_alone_unless_set(dashboard):
     form = album_form(dashboard, "Compilations/Hits", **{"t0.track": "01"})
     assert dashboard.client.post("/library/album", data=form).location.endswith("unchanged=1")
-    form = album_form(dashboard, "Compilations/Hits", **{"album.compilation": "0"})
+    form = album_form(dashboard, "Compilations/Hits", **{"album.compilation": "0", "apply": "1"})
     dashboard.client.post("/library/album", data=form)
     [asked] = dashboard.requests.pending()
     assert [(e[1], e[2], e[3]) for e in asked.options["edits"]] == [("compilation", "0", ["1"]),
                                                                     ("compilation", "0", [])]
 
 
-def test_bad_value_refused(dashboard):
-    form = album_form(dashboard, "Beyonce/4", **{"t0.track": "first"})
+def test_bad_value_refused_on_the_album_page_as_typed(dashboard):
+    form = album_form(dashboard, "Beyonce/4", **{"t0.track": "first", "t1.title": "Typed"})
     response = dashboard.client.post("/library/album", data=form, headers=EN)
-    assert response.status_code == 400 and "Value refused" in response.get_data(as_text=True)
+    page = response.get_data(as_text=True)
+    assert response.status_code == 400 and "Value refused" in page
+    assert 'name="t0.track" value="first"' in page and 'name="t1.title" value="Typed"' in page
     assert dashboard.requests.pending() == []
 
 
@@ -397,36 +400,79 @@ def test_placeholder_without_a_cover(dashboard, lib):
     assert response.status_code == 200 and response.mimetype == "image/svg+xml"
 
 
-def test_edit_previewed_then_applied(dashboard, lib):
-    form = album_form(dashboard, "Beyonce/4", **{"album.albumartist": "Beyoncé", "album.year": "2011"})
-    dashboard.client.post("/library/album", data=form)
-    dashboard.requests.tick(Log())
-    [dry] = runs.recent(dashboard.state, 1)
-    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
-    assert 'TAG      albumartist: &#34;Beyonce&#34; → &#34;Beyoncé&#34;' in page and "Apply this pass" in page
-    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
-    assert (lib / "Beyonce/4/01 Run the World.m4a").exists()
+def test_edit_previewed_on_the_album_page(dashboard, lib):
+    form = album_form(dashboard, "Beyonce/4", **{"album.albumartist": "Beyoncé", "t1.title": "Best"})
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert "To apply" in page and dashboard.requests.pending() == []
+    assert "<del>Beyonce</del> → <ins>Beyoncé</ins>" in page and "· 2 tracks" in page
+    assert "<del>Best Thing</del> → <ins>Best</ins>" in page and "· 02 Best Thing.m4a" in page
+    assert "<del>Beyonce/4</del> → <ins>Beyoncé/4</ins>" in page
+    assert 'name="album.albumartist" value="Beyoncé"' in page                  # as typed
+    assert 'form="album-form" name="apply" value="1"' in page
+    assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["albumartist"] == ["Beyonce"]
+    assert not (dashboard.state / "journal").exists()
 
-    queued = dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token}).location
-    assert "Back to the album" in dashboard.client.get(queued, headers=EN).get_data(as_text=True)
+
+def test_edit_applied_then_undone_from_the_album_page(dashboard, lib):
+    form = album_form(dashboard, "Beyonce/4", **{"album.albumartist": "Beyoncé", "album.year": "2011",
+                                                 "apply": "1"})
+    following = dashboard.client.post("/library/album", data=form).location
+    [asked] = dashboard.requests.pending()
+    page = dashboard.client.get(following, headers=EN).get_data(as_text=True)
+    assert "Queued: starts" in page and f'data-follow="/requests/{asked.id}.json?folder=Beyonce/4"' in page
+    assert dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4").get_json() == \
+        {"done": False, "album": None}
+
     dashboard.requests.tick(Log())
-    [applied] = runs.recent(dashboard.state, 1)
-    page = dashboard.client.get(f"/runs/{applied['id']}", headers=EN).get_data(as_text=True)
-    assert 'href="/library/album?folder=Beyonc%C3%A9/4">Back to the album' in page   # where it was refiled
+    state = dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4").get_json()
+    assert state == {"done": True, "album": f"/library/album?folder=Beyonc%C3%A9/4&request={asked.id}"}
+    page = dashboard.client.get(state["album"], headers=EN).get_data(as_text=True)
+    assert "<h2>Applied</h2>" in page and ">Undo</button>" in page and "see the details" in page
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()
     albums = settled(lambda: dashboard.client.get("/library", headers=EN)).get_data(as_text=True)
     assert "folder=Beyonc%C3%A9/4" in albums and "folder=Beyonce/4" not in albums
 
+    journal = re.search(r'name="journal" value="([^"]+)"', page)[1]
+    asked_undo = {"csrf": dashboard.token, "command": "undo", "journal": journal, "apply": "1",
+                  "album": "Beyoncé/4"}
+    undo = dashboard.client.post("/passes", data=asked_undo).location
+    [undoing] = dashboard.requests.pending()
+    assert undo == f"/library/album?folder=Beyonc%C3%A9/4&request={undoing.id}"
+    dashboard.requests.tick(Log())
+    state = dashboard.client.get(f"/requests/{undoing.id}.json?folder=Beyoncé/4").get_json()
+    assert state["album"] == f"/library/album?folder=Beyonce/4&request={undoing.id}"
+    assert "<h2>Undone</h2>" in dashboard.client.get(state["album"], headers=EN).get_data(as_text=True)
+    assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["albumartist"] == ["Beyonce"]
 
-def test_edit_refused_when_the_track_changed_meanwhile(dashboard, lib, capsys):
+
+def test_queued_pass_cancelled_from_the_album_page(dashboard):
+    form = album_form(dashboard, "Beyonce/4", **{"album.year": "2011", "apply": "1"})
+    dashboard.client.post("/library/album", data=form)
+    [asked] = dashboard.requests.pending()
+    back = dashboard.client.post(f"/requests/{asked.id}/cancel",
+                                 data={"csrf": dashboard.token, "album": "Beyonce/4"}).location
+    assert back == f"/library/album?folder=Beyonce/4&request={asked.id}"
+    assert "Request cancelled" in dashboard.client.get(back, headers=EN).get_data(as_text=True)
+
+
+def test_no_apply_offered_while_watch_runs_without_apply(dashboard):
+    dashboard.ctx.apply = False
+    form = album_form(dashboard, "Beyonce/4", **{"album.year": "2011"})
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert "watch runs without --apply" in page and 'name="apply" value="1"' not in page
+    form["apply"] = "1"
+    assert dashboard.client.post("/library/album", data=form).status_code == 403
+
+
+def test_edit_refused_when_the_track_changed_meanwhile(dashboard, lib):
     form = album_form(dashboard, "Beyonce/4", **{"t0.composer": "The-Dream"})
     fields.write(lib / "Beyonce/4/01 Run the World.m4a", "composer", ["Someone Else"])
-    dashboard.client.post("/library/album", data=form)
-    dashboard.requests.tick(Log())
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert "Nothing to write" in page and "Left alone" in page
+    assert "REFUSED  (composer changed since" in page and 'name="apply" value="1"' not in page
     assert fields.read(lib / "Beyonce/4/01 Run the World.m4a")["composer"] == ["Someone Else"]
-    assert "REFUSED  (composer changed since" in capsys.readouterr().out
 
 
 def test_rebuilt_at_most_every_minute_while_a_pass_writes_the_cache(dashboard, lib, tmp_path, monkeypatch):
@@ -570,26 +616,23 @@ def test_replaygain_struck_then_removed_with_the_album_form(dashboard, lib):
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert 'name="t0.replaygain_delete"' in page and "<span>-7.12 dB</span>" in page
     form = album_form(dashboard, "Beyonce/4", **{"t0.replaygain_delete": "1"})
-    dashboard.client.post("/library/album", data=form)
-    dashboard.requests.tick(Log())
-    [dry] = runs.recent(dashboard.state, 1)
-    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
-    assert "TAG      replaygain: &#34;track gain -7.12 dB&#34; → &#34;(none)&#34;" in page
-    assert "-5.50 dB" not in page and tags.has_replaygain(one)
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert "<del>track gain -7.12 dB</del> → <ins>(none)</ins>" in page
+    assert re.search(r'name="t0.replaygain_delete"[^>]* checked>', page)            # still struck
+    assert tags.has_replaygain(one)
 
-    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    dashboard.client.post("/library/album", data={**form, "apply": "1"})
     dashboard.requests.tick(Log())
     assert not tags.has_replaygain(one) and tags.has_replaygain(two)
 
 
-def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib, capsys):
+def test_replaygain_removal_refused_when_it_changed_since_shown(dashboard, lib):
     track = lib / "Beyonce/4/01 Run the World.m4a"
     tags.write_replaygain(track, -7.12, 0.98)
     form = album_form(dashboard, "Beyonce/4", **{"t0.replaygain_delete": "1"})
     tags.write_replaygain(track, -3.0, 0.5)
-    dashboard.client.post("/library/album", data=form)
-    dashboard.requests.tick(Log())
-    assert tags.has_replaygain(track) and "REFUSED  (replaygain changed since" in capsys.readouterr().out
+    page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
+    assert tags.has_replaygain(track) and "REFUSED  (replaygain changed since" in page
 
 
 def test_no_replaygain_to_strike_without_any(dashboard):

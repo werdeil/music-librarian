@@ -208,3 +208,32 @@
         update();
     });
 }());
+
+// A page following a pass asks every few seconds whether it ended, then goes to the page the server
+// names (the album where the pass left it), else reloads.
+(function () {
+    "use strict";
+
+    var POLL_MS = 2000;
+    var panel = document.querySelector("[data-follow]");
+    if (!panel) {
+        return;
+    }
+
+    function poll() {
+        fetch(panel.dataset.follow)
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (!data.done) {
+                    setTimeout(poll, POLL_MS);
+                } else if (data.album) {
+                    window.location.replace(data.album);
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(function () { setTimeout(poll, POLL_MS * 5); });
+    }
+
+    setTimeout(poll, POLL_MS);
+}());

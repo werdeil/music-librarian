@@ -100,8 +100,37 @@ def stoppable(ctx, run):
                 and run["host"] == socket.gethostname())
 
 
+def album_followed(ctx):
+    """The album folder a form posted from an album's page names, that page then following the
+    pass; None for any other form."""
+    rel = request.form.get("album")
+    return rel if rel is not None and library.album_folder(ctx.root, rel) else None
+
+
+def run_journal(ctx, run):
+    """The journal of an applied run, while it is still in the state folder, else None."""
+    name = journal_of(run) if run and run["apply"] else None
+    return journal_path(ctx.state_dir, name) if name else None
+
+
 def register(app, ctx):
     """Add the pages of the run history and of the passes asked for to the app."""
+
+    @app.get("/requests/<int:request_id>.json")
+    def request_state(request_id):
+        """Whether the pass has ended, and the page of the album ?folder= names, where it is now."""
+        asked = ctx.requests.get(request_id) if ctx.requests else None
+        if asked is None:
+            abort(404)
+        done = asked.state in (DONE, CANCELLED)
+        folder = request.args.get("folder")
+        album = None
+        if done and folder is not None:
+            run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
+            journal = run_journal(ctx, run)
+            moved = moved_to(journal, ctx.root, folder) if journal else folder
+            album = url_for("album_page", folder=moved, request=request_id)
+        return jsonify(done=done, album=album)
 
     @app.post("/passes")
     def new_pass():
@@ -115,14 +144,14 @@ def register(app, ctx):
             options["journal"] = request.form.get("journal", "")
             if journal_path(ctx.state_dir, options["journal"]) is None:
                 abort(404)
-        return submit(ctx, command, options, request.form.get("apply") == "1")
+        return submit(ctx, command, options, request.form.get("apply") == "1", album_followed(ctx))
 
     @app.post("/runs/<int:run_id>/apply")
     def apply_run(run_id):
         run = runs.get(ctx.state_dir, run_id)
         if run is None or run["options"] is None or run["apply"] or runs.status(run) == runs.RUNNING:
             abort(404)
-        return submit(ctx, run["command"], run["options"], True)
+        return submit(ctx, run["command"], run["options"], True, album_followed(ctx))
 
     @app.get("/requests/<int:request_id>")
     def request_page(request_id):
@@ -141,6 +170,9 @@ def register(app, ctx):
     def cancel_request(request_id):
         if ctx.requests is None or not ctx.requests.cancel(request_id):
             abort(404)
+        album = album_followed(ctx)
+        if album is not None:
+            return redirect(url_for("album_page", folder=album, request=request_id))
         return redirect(url_for("request_page", request_id=request_id))
 
     @app.post("/runs/<int:run_id>/stop")

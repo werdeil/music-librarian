@@ -175,3 +175,26 @@ def test_a_separator_refused_from_the_dashboard(lib, tmp_path, capsys):
     assert tag.run(opts, Log()) == 2
     assert fields.read(track)["title"] == ["Run the World"]
     assert 'ERROR    (title takes one value, without ";")' in capsys.readouterr().out
+
+
+def test_preview_lists_the_writes_moves_and_problems_and_writes_nothing(lib, tmp_path, capsys):
+    one, two = lib / "Beyonce/4/01 Run the World.m4a", lib / "Beyonce/4/02 Best Thing.m4a"
+    before = files(lib)
+    shown = tag.preview(tag.Options(root=lib, state_dir=tmp_path / "state", edits=[
+        tag.Edit(one, "albumartist", "Beyoncé"), tag.Edit(two, "albumartist", "Beyoncé"),
+        tag.Edit(two, "title", "Best", seen=["Other"]),
+    ]))
+    assert [(p.name, name, old, new) for p, name, old, new in shown.writes] == [
+        ("01 Run the World.m4a", "albumartist", ["Beyonce"], ["Beyoncé"]),
+        ("02 Best Thing.m4a", "albumartist", ["Beyonce"], ["Beyoncé"])]
+    assert sorted(dst.relative_to(lib).as_posix() for _, dst in shown.moves) == [
+        "Beyoncé/4/01 Run the World.m4a", "Beyoncé/4/02 Best Thing.m4a", "Beyoncé/4/folder.jpg"]
+    assert shown.problems == ['REFUSED  (title changed since: "Best Thing")  Beyonce/4/02 Best Thing.m4a']
+    assert files(lib) == before and not (tmp_path / "state/journal").exists()
+    assert capsys.readouterr().out == ""
+
+
+def test_problem_lines_keep_their_continuation():
+    lines = ["TAG      x", "CONFLICT a\n         → b", "         (taken)", "MOVE     c", "         → d",
+             "ERROR    e"]
+    assert tag.problem_lines(lines) == ["CONFLICT a\n         → b\n         (taken)", "ERROR    e"]

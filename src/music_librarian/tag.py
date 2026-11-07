@@ -33,7 +33,7 @@ from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal
 from music_librarian.core.lock import EXIT_STOPPED, STOP, handle_stop_signals
-from music_librarian.core.log import Log, count
+from music_librarian.core.log import Buffer, Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.enrich import genres
@@ -161,6 +161,44 @@ def cached(written, moved, state_dir):
             cache.snapshot(path)
             if name == fields.LYRICS:
                 misses.forget(path)
+
+
+PROBLEMS = {"REFUSED", "ERROR", "SKIPPED", "CONFLICT", "UNKNOWN"}
+
+
+@dataclass
+class Preview:
+    """What a tag pass would do: `writes` as plan() returns them, `moves` (src, dst) the refiling
+    they lead to, `problems` the lines logged for what it would refuse or leave alone."""
+    writes: list
+    moves: list
+    problems: list
+
+
+def preview(opts: Options):
+    """A dry run of the pass, logged nowhere: nothing is written but the metadata cache."""
+    out, stats = Buffer(), defaultdict(int)
+    writes, planned = plan(opts, out, stats)
+    moves = []
+    if opts.refile and writes:
+        moves = organize.organize_pass(organize.Options(
+            root=opts.root, paths=sorted({path.parent for path, *_ in writes}), state_dir=opts.state_dir,
+            interruptible=False, overrides=planned), out).moves
+    return Preview(writes, moves, problem_lines(out.lines))
+
+
+def problem_lines(lines):
+    """The lines tagged as a problem, each with the indented lines that continue it."""
+    out, keep = [], False
+    for line in lines:
+        if line[:1].isspace() and line.strip():
+            if keep:
+                out[-1] += "\n" + line
+            continue
+        keep = line[:8].strip() in PROBLEMS
+        if keep:
+            out.append(line)
+    return out
 
 
 def tag_pass(opts: Options, log):

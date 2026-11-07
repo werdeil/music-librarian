@@ -31,9 +31,13 @@ def refused(key, status=400, **values):
     return render_template("not_found.html", message=texts()[key].format(**values)), status
 
 
-def submit(ctx, command, options, apply):
-    """Queue the pass for watch and redirect to its page; 403 without a queue, for an unknown
-    command, or to apply while watch runs without --apply."""
+def submit(ctx, command, options, apply, album=None):
+    """Queue the pass for watch and redirect to its page, or to the page of `album` (a folder
+    relative to the root) that follows it; 403 without a queue, for an unknown command, or to
+    apply while watch runs without --apply."""
     if ctx.requests is None or command not in OPTIONS or (apply and not ctx.apply):
         abort(403)
-    return redirect(url_for("request_page", request_id=ctx.requests.submit(command, options, apply).id))
+    request_id = ctx.requests.submit(command, options, apply).id
+    if album is not None:
+        return redirect(url_for("album_page", folder=album, request=request_id))
+    return redirect(url_for("request_page", request_id=request_id))
