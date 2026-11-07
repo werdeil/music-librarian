@@ -146,3 +146,13 @@ def test_replaygain_brief():
 def test_replaygain_only_removed(values):
     with pytest.raises(fields.FieldError):
         fields.check(fields.REPLAYGAIN, values)
+
+
+@pytest.mark.parametrize("ext", FORMATS)
+def test_disc_name_round_trip(track, ext):
+    p = track(ext)
+    fields.write(p, "grouping", ["The Bonus Disc"])
+    values = fields.read(p)
+    assert values["grouping"] == ["The Bonus Disc"] and values["disc"] == ["1"]
+    fields.write(p, "grouping", [])
+    assert fields.read(p)["grouping"] == []

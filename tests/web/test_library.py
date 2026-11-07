@@ -328,6 +328,13 @@ def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_pa
     assert 'name="t2.disc" value="2"' in page
 
 
+def test_disc_name_shown_for_a_named_disc(dashboard, lib, tmp_path):
+    fields.write(lib / "Beyonce/4/01 Run the World.m4a", "grouping", ["Deluxe"])
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "<th>Disc name</th>" in page and 'name="t0.grouping" value="Deluxe"' in page
+
+
 @pytest.mark.parametrize("folder", ["../", "Beyonce/9", "Beyonce/4/01 Run the World.m4a"])
 def test_album_not_in_the_library(dashboard, folder):
     response = dashboard.client.get(f"/library/album?folder={folder}", headers=EN)

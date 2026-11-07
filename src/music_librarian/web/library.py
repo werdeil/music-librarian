@@ -21,7 +21,7 @@ from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
 ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilation")
-TRACK_FIELDS = ("disc", "track", "title", "artist", "composer")
+TRACK_FIELDS = ("disc", "grouping", "track", "title", "artist", "composer")
 PAGE = 60
 PATIENCE = 1.0
 REBUILD_EVERY = 60
@@ -312,8 +312,9 @@ def with_repeats(albums):
 
 
 def several_discs(tracks):
-    """Whether the album page shows the disc numbers: not for one disc numbered 1 or not at all."""
-    return (any(values and values["disc"] not in ([], ["1"]) for _, values in tracks)
+    """Whether the album page shows the disc numbers and names: not for one disc numbered 1 or not
+    at all, and without a name."""
+    return (any(values and (values["disc"] not in ([], ["1"]) or values["grouping"]) for _, values in tracks)
             or common(tracks)["disctotal"] not in ("", "1"))
 
 

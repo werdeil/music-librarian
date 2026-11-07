@@ -17,7 +17,7 @@ from music_librarian.core.log import count
 from music_librarian.media import tags as media_tags
 
 FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "disc", "disctotal",
-          "year", "genre", "composer", "compilation", "albumartist_mbid", "artist_mbid")
+          "grouping", "year", "genre", "composer", "compilation", "albumartist_mbid", "artist_mbid")
 LYRICS = "lyrics"
 REPLAYGAIN = "replaygain"
 NUMBERS = ("track", "tracktotal", "disc", "disctotal")
@@ -26,17 +26,19 @@ PAIRS = {"track": ("track", 0), "tracktotal": ("track", 1), "disc": ("disc", 0),
 MB = "----:com.apple.iTunes:MusicBrainz "
 MP4_KEYS = {"title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "album": "\xa9alb",
             "year": "\xa9day", "genre": "\xa9gen", "composer": "\xa9wrt",
+            "grouping": "\xa9grp",
             "albumartist_mbid": MB + "Album Artist Id", "artist_mbid": MB + "Artist Id"}
 MP4_PAIRS = {"track": "trkn", "disc": "disk"}
 MP3_KEYS = {"title": "TIT2", "artist": "TPE1", "albumartist": "TPE2", "album": "TALB",
-            "year": "TDRC", "genre": "TCON", "composer": "TCOM", "compilation": "TCMP",
+            "year": "TDRC", "genre": "TCON", "composer": "TCOM", "compilation": "TCMP", "grouping": "TIT1",
             "albumartist_mbid": "TXXX:MusicBrainz Album Artist Id",
             "artist_mbid": "TXXX:MusicBrainz Artist Id"}
 MP3_PAIRS = {"track": "TRCK", "disc": "TPOS"}
 # the first name is the one written; the others are read, and removed on a write
 FLAC_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("albumartist", "album artist"),
              "album": ("album",), "track": ("tracknumber",), "tracktotal": ("tracktotal", "totaltracks"),
-             "disc": ("discnumber",), "disctotal": ("disctotal", "totaldiscs"), "year": ("date", "year"),
+             "disc": ("discnumber",), "disctotal": ("disctotal", "totaldiscs"),
+             "grouping": ("grouping",), "year": ("date", "year"),
              "genre": ("genre",), "composer": ("composer",), "compilation": ("compilation",),
              "albumartist_mbid": ("musicbrainz_albumartistid",),
              "artist_mbid": ("musicbrainz_artistid",)}

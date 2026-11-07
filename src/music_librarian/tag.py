@@ -5,10 +5,11 @@ tag — rewrites tag fields of tracks, then files them again where their new tag
   music-librarian tag "Beyonce/4" --set albumartist=Beyoncé --apply
 
 PATH is a track or a folder (every track under it) of the library. FIELD is one of title,
-artist, albumartist, album, track, tracktotal, disc, disctotal, year, genre, composer and
-compilation (1 or 0); an empty VALUE removes the field. A genre takes the spelling of the
-validated list (state/genres.txt) when the list knows it. replaygain only takes an empty VALUE:
-it removes every REPLAYGAIN_* tag, which the next pass of enrich.replaygain measures again.
+artist, albumartist, album, track, tracktotal, disc, disctotal, grouping (the disc's name),
+year, genre, composer and compilation (1 or 0); an empty VALUE removes the field. A genre takes
+the spelling of the validated list (state/genres.txt) when the list knows it. replaygain only
+takes an empty VALUE: it removes every REPLAYGAIN_* tag, which the next pass of
+enrich.replaygain measures again.
 
 The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
 looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
