@@ -11,7 +11,7 @@ from pathlib import Path
 from music_librarian.media import tags
 
 FILE = "metadata.db"
-VERSION = 4  # bumped when read_snapshot returns other fields
+VERSION = 5  # bumped when read_snapshot returns other fields
 COMMIT_EVERY = 200
 
 

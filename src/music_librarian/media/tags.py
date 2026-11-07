@@ -391,9 +391,14 @@ def read_snapshot(path):
     if audio is None or easy is None:
         return None
     cover = _cover(audio)
+    found = {k: [str(v) for v in easy[k]] for k in (easy.keys() if easy.tags else ())
+             if k.lower() not in _BULKY}
+    if isinstance(audio, MP3):   # easy tags take TIT1 as the grouping, which Lyrion reads as the work
+        found.pop("grouping", None)
+        if audio.tags and audio.tags.get("GRP1"):
+            found["grouping"] = [str(v) for v in audio.tags["GRP1"].text]
     return {
-        "tags": {k: [str(v) for v in easy[k]] for k in (easy.keys() if easy.tags else ())
-                 if k.lower() not in _BULKY},
+        "tags": found,
         "duration": getattr(getattr(audio, "info", None), "length", None),
         "lyrics": bool(_read_lyrics(audio)),
         "replaygain": _has_replaygain(audio),

@@ -213,7 +213,7 @@ def tag_pass(opts: Options, log):
     started = time.time()
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] tagging under {opts.root}")
     stats = defaultdict(int)
-    opts.edits += disc_names(opts.disc_names, opts.root, log)
+    opts.edits += disc_names(opts, log, stats)
     writes, planned = plan(opts, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped, written = False, []
@@ -291,14 +291,35 @@ def tracks(paths):
     return out
 
 
-def disc_names(paths, root, log):
-    """The edits of --disc-names for the tracks of `paths`, folder by folder."""
+def grouped(opts, log, stats):
+    """The tracks of opts.disc_names in folders where the metadata cache finds a grouping."""
+    snapshots = []
+    with MetadataCache(opts.state_dir) as cache:
+        for path in opts.disc_names:
+            rel = relative(path, opts.root)
+            if (not path.is_relative_to(opts.root) or path.suffix.lower() not in AUDIO_EXT
+                    or not path.is_file()):
+                log(f"SKIPPED  (not a track of the library)  {rel}")
+                stats["skipped"] += 1
+            elif (snap := cache.snapshot(path)) is None:
+                log(f"SKIPPED  (unreadable)  {rel}")
+                stats["skipped"] += 1
+            else:
+                snapshots.append((path, snap))
+    folders = {path.parent for path, snap in snapshots if snap["tags"].get("grouping")}
+    return [path for path, _ in snapshots if path.parent in folders]
+
+
+def disc_names(opts, log, stats):
+    """The edits of --disc-names, folder by folder."""
+    root = opts.root
     albums = defaultdict(list)
-    for path in paths:
+    for path in grouped(opts, log, stats):
         try:
             albums[path.parent].append((path, fields.read(path)))
-        except Exception:
-            continue
+        except Exception as e:
+            log(f"SKIPPED  (unreadable: {e})  {relative(path, root)}")
+            stats["skipped"] += 1
     edits = []
     for folder, album in sorted(albums.items()):
         if not any(values["grouping"] for _, values in album):
@@ -349,7 +370,7 @@ def main(argv=None):
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    refile=not args.no_refile,
                    edits=[Edit(p, name, value) for p in found for name, value in args.settings or []],
-                   disc_names=[p for p in found if p.suffix.lower() in AUDIO_EXT] if args.disc_names else [])
+                   disc_names=found if args.disc_names else [])
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     log = Log(args.syslog)
     return recorded(lambda: run(opts, log), log, opts.state_dir, "tag", opts.apply)
