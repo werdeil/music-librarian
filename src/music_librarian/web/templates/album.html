@@ -71,7 +71,7 @@
         {% if changed and ctx.apply %}
         <button type="submit" form="album-form" name="apply" value="1" class="primary">{{ m.icon('apply') }}{{ t.album_apply }}</button>
         {% endif %}
-        <a class="button" href="{{ url_for('album_page', folder=folder, **place) }}">{{ m.icon('cancel') }}{{ t.album_discard }}</a>
+        <a class="button" href="{{ url_for('album_page', folder=folder, **place) }}" data-discards>{{ m.icon('cancel') }}{{ t.album_discard }}</a>
     </div>
 </section>
 {% endif %}
@@ -81,7 +81,7 @@
 {% if cover_refused %}<p class="warning">{{ t.cover_not_an_image }}</p>{% endif %}
 {% if repeated %}<p class="warning">{{ t.repeated_warning }}</p>{% endif %}
 
-<form method="post" action="{{ url_for('edit_album') }}" id="album-form" enctype="multipart/form-data">
+<form method="post" action="{{ url_for('edit_album') }}" id="album-form" enctype="multipart/form-data"{% if preview %} data-unsaved{% endif %}>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="folder" value="{{ folder }}">
     <input type="hidden" name="seen" value="{{ seen }}">

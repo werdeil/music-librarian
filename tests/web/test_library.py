@@ -636,6 +636,13 @@ def test_cover_picked_previewed_then_applied_with_the_form(dashboard, lib):
         html.unescape(re.search(r'<img src="(/library/cover[^"]+)"', page)[1])
 
 
+def test_leaving_asks_while_a_preview_is_shown(dashboard):
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'id="album-form" enctype="multipart/form-data">' in page and "data-discards" not in page
+    page = upload(dashboard, big_jpeg(500, 500)).get_data(as_text=True)
+    assert 'enctype="multipart/form-data" data-unsaved>' in page and '" data-discards>' in page
+
+
 def test_cover_and_fields_in_one_pass(dashboard):
     page = upload(dashboard, big_jpeg(500, 500), **{"album.year": "2011"}).get_data(as_text=True)
     kept = re.search(r'name="cover" value="([^"]+)"', page)[1]

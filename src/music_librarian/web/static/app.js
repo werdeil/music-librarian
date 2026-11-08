@@ -242,6 +242,42 @@
     });
 }());
 
+// Leaving an album's page with changes neither applied nor discarded asks first: a field changed, an image
+// picked, or a preview shown. The browser words the question; sending the form or discarding asks nothing.
+(function () {
+    "use strict";
+
+    var form = document.getElementById("album-form");
+    if (!form) {
+        return;
+    }
+    var leaving = false;
+
+    function changed(el) {
+        if (el.type === "file") {
+            return el.files.length > 0;
+        }
+        if (el.type === "checkbox" || el.type === "radio") {
+            return el.checked !== el.defaultChecked;
+        }
+        if (el.tagName === "SELECT") {
+            return Array.prototype.some.call(el.options, function (o) { return o.selected !== o.defaultSelected; });
+        }
+        return el.type !== "hidden" && "defaultValue" in el && el.value !== el.defaultValue;
+    }
+
+    form.addEventListener("submit", function () { leaving = true; });
+    document.querySelectorAll("[data-discards]").forEach(function (link) {
+        link.addEventListener("click", function () { leaving = true; });
+    });
+    window.addEventListener("beforeunload", function (event) {
+        if (!leaving && (form.hasAttribute("data-unsaved") || Array.prototype.some.call(form.elements, changed))) {
+            event.preventDefault();
+            event.returnValue = "";
+        }
+    });
+}());
+
 // The cover chosen for the album form shows in place of the album's until the form is sent.
 (function () {
     "use strict";
