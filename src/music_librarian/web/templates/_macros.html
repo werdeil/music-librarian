@@ -1,6 +1,7 @@
 {% macro status(t, run) -%}
-<span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
-{%- if run.problem and run.checked %} <span class="status status-checked">{{ t.status_checked }}</span>{% endif %}
+{% set checked = run.problem and run.checked %}
+{%- if not (checked and run.status == 'issues') %}<span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>{% endif %}
+{%- if checked %}{{ ' ' if run.status != 'issues' }}<span class="status status-checked">{{ t.status_checked }}</span>{% endif %}
 {%- endmacro %}
 
 {% macro check_form(t, csrf, ids, label, back={}, checked=true, small=false) -%}

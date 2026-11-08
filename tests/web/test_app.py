@@ -279,6 +279,7 @@ def test_problems_marked_checked(client, ctx):
         as_text=True)
     page = client.get("/runs", headers=EN).get_data(as_text=True)
     assert f"/runs/{first}\"" in page and page.count('class="status status-checked"') == 1
+    assert page.count('class="status status-issues"') == 0 and page.count('class="status status-failed"') == 1
     page = client.get(f"/runs/{first}", headers=EN).get_data(as_text=True)
     assert "Mark unchecked" in page
     client.post("/runs/checked", data={"csrf": token_of(page), "run": [first, second], "checked": "0",
