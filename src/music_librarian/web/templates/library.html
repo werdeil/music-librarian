@@ -15,12 +15,7 @@
                 {% endfor %}
                 </select>
             </label>
-            <fieldset class="toggle">
-                <legend class="visually-hidden">{{ t.view_label }}</legend>
-                {% for name in ('albums', 'tracks') %}
-                <label><input type="radio" name="view" value="{{ name }}"{% if view == name %} checked{% endif %}><span>{{ t['view_' ~ name] }}</span></label>
-                {% endfor %}
-            </fieldset>
+            <input type="hidden" name="view" value="{{ view }}">
             <button type="submit">{{ t.search_button }}</button>
         </div>
         <details class="advanced"{% if search.conditions %} open{% endif %}>
@@ -69,19 +64,25 @@
     {% elif empty %}
         <p class="muted">{{ t.library_empty }}</p>
     {% else %}
+        {% set custom = search.conditions and not search.preset %}
         <p class="filters only">
-            <a href="{{ url_for('library_page', **keep) }}"{% if not search.conditions %} aria-current="true"{% endif %}>{{ t.only_all }}</a>
+            <span class="toggle" role="group" aria-label="{{ t.view_label }}">
+            {% for name, href in views.items() %}<a href="{{ href }}"{% if view == name %} aria-current="true"{% endif %}>{{ t['view_' ~ name] }}</a>{% endfor %}
+            </span>
+            <a href="{{ url_for('library_page', **keep) }}"{% if not search.conditions %} aria-current="true"{% endif %}>{{ t.only_all }} <span class="muted">({{ counts.all }})</span></a>
             {% for name, held in presets.items() if counts[name] or search.preset == name %}
-            <a href="{{ url_for('library_page', c=held|list, **keep) }}"{% if search.preset == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">{{ counts[name] }}</span></a>
+            <a href="{{ url_for('library_page', c=held|list, **keep) }}"{% if search.preset == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">({{ counts[name] }})</span></a>
             {% endfor %}
         </p>
         {% if not listed %}
         <p class="muted">{{ t.no_track if view == 'tracks' else t.no_album }}</p>
         {% else %}
-        <p class="muted">{{ (t.tracks_count if view == 'tracks' else t.albums_found).format(n=total) }}
-            {% if search.preset in ('lyrics', 'repeats') %}· <a href="{{ url_for('missed_lyrics' if search.preset == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>
-            {% elif filtered and first_album %}· <a href="{{ url_for('album_page', folder=first_album, list='search', at=0, search=address) }}">{{ t.only_one_by_one }}</a>{% endif %}
+        {% if custom or (filtered and first_album) %}
+        <p class="muted">{% if custom %}{{ (t.tracks_count if view == 'tracks' else t.albums_found).format(n=total) }}{% endif %}
+            {% if search.preset in ('lyrics', 'repeats') %}{% if custom %}· {% endif %}<a href="{{ url_for('missed_lyrics' if search.preset == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>
+            {% elif filtered and first_album %}{% if custom %}· {% endif %}<a href="{{ url_for('album_page', folder=first_album, list='search', at=0, search=address) }}">{{ t.only_one_by_one }}</a>{% endif %}
         </p>
+        {% endif %}
         {% if view == 'tracks' %}
         <div class="table-wrap">
         <table class="found-tracks">

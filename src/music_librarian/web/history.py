@@ -75,7 +75,9 @@ def album_asked(command, options):
         return None
     if command == "tag":
         edits = options.get("edits") or []
-        return str(Path(edits[0][0]).parent) if edits else None
+        if edits:
+            return str(Path(edits[0][0]).parent)
+        return options["cover"][0] if options.get("cover") else None
     return options.get("folder")
 
 

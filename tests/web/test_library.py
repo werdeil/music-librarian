@@ -12,7 +12,6 @@ import time
 import pytest
 
 from music_librarian import scan
-from music_librarian.core import runs
 from music_librarian.core.log import Log
 from music_librarian.media import artwork, fields, tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -20,6 +19,8 @@ from music_librarian.web import app as web
 from music_librarian.web import library, passes, query, reviews
 
 EN = {"Accept-Language": "en"}
+BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
+        '<use href="/static/icons.svg#back"></use></svg>')
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
 
 
@@ -317,14 +318,18 @@ def test_no_reload_on_a_page_without_the_lists(dashboard, monkeypatch):
 
 def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
-    assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
+    assert '<a href="/library" aria-current="true">All <span class="muted">(2)</span>' in page
+    assert "Albums: " not in page and "/library/album?folder=Beyonce/4" in page
+    switch = '<a href="/library" aria-current="true">Albums</a><a href="/library?view=tracks">Tracks</a>'
+    assert switch in page
     assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
     hits = page[page.index("folder=Compilations/Hits"):]
     assert '<span class="muted">Beyonce</span>' in page
     assert 'class="muted compilation">Compilation</span>' not in hits         # one track only flagged
     assert "Tracks: " not in page
     page = dashboard.client.get("/library?q=hits", headers=EN).get_data(as_text=True)
-    assert "Albums: 1" in page and "Beyonce/4" not in page
+    assert 'aria-current="true">All <span class="muted">(1)</span>' in page and "Beyonce/4" not in page
+    assert 'href="/library?q=hits&amp;view=tracks">Tracks</a>' in page
     assert "No album matches" in dashboard.client.get("/library?q=zz", headers=EN).get_data(as_text=True)
 
 
@@ -347,7 +352,7 @@ def test_album_page(dashboard):
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
     assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
-    assert 'href="/library">← Library</a>' in page
+    assert f'href="/library">{BACK}Library</a>' in page
     assert '<table class="tracks" id="tracks">' in page and "Discs and grouping</button>" in page   # folded
 
 
@@ -592,29 +597,34 @@ def big_jpeg(width, height):
     return b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 17, 8, height, width, 3) + b"\x01\x11\x00" * 3
 
 
-def upload(d, data, folder="Beyonce/4", name="new.jpg"):
-    return d.client.post("/library/album/cover", headers=EN, content_type="multipart/form-data",
-                         data={"csrf": d.token, "folder": folder, "image": (io.BytesIO(data), name)})
+def upload(d, data, name="new.jpg", **changes):
+    """The album form posted with the image `data` picked for its cover."""
+    form = album_form(d, "Beyonce/4", **changes)
+    form["cover_image"] = (io.BytesIO(data), name)
+    return d.client.post("/library/album", headers=EN, content_type="multipart/form-data", data=form)
 
 
-def test_cover_uploaded_previewed_then_applied(dashboard, lib):
+def test_cover_picked_previewed_then_applied_with_the_form(dashboard, lib):
     new = big_jpeg(1000, 1000)
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "Preview the new cover" in page
+    assert 'name="cover_image" form="album-form"' in page and 'enctype="multipart/form-data"' in page
     shown = re.search(r'<img src="(/library/cover[^"]+)"', page)[1]
     assert shown.startswith("/library/cover?folder=Beyonce/4&amp;v=")
-    assert upload(dashboard, new).status_code == 302
-    [asked] = dashboard.requests.pending()
-    assert (asked.command, asked.options["folder"]) == ("cover", "Beyonce/4")
-    assert passes.upload_path(dashboard.state, asked.options["image"]).read_bytes() == new
-    dashboard.requests.tick(Log())
-    [dry] = runs.recent(dashboard.state, 1)
-    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
-    assert "WOULD    embed 1000x1000 into 2 of 2 tracks" in page and "Apply this pass" in page
-    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
+
+    page = upload(dashboard, new).get_data(as_text=True)
+    kept = re.search(r'<input type="hidden" name="cover" value="([0-9a-f]+\.jpg)">', page)[1]
+    assert f'<img src="/library/upload/{kept}"' in page
+    assert "<strong>Cover</strong> <del>(none)</del> → <ins>1000 × 1000</ins>" in page
+    assert 'value="1" class="primary"><svg class="icon"' in page
+    assert '#apply"></use></svg>Apply</button>' in page
+    assert dashboard.requests.pending() == []
+    assert dashboard.client.get(f"/library/upload/{kept}").data == new
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
 
-    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    applied = album_form(dashboard, "Beyonce/4", cover=kept, apply="1")
+    assert dashboard.client.post("/library/album", data=applied).status_code == 302
+    [asked] = dashboard.requests.pending()
+    assert (asked.command, asked.apply, asked.options["cover"]) == ("tag", True, ["Beyonce/4", kept])
     dashboard.requests.tick(Log())
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == new
     assert tags.read_cover(lib / "Beyonce/4/01 Run the World.m4a") == new
@@ -626,36 +636,55 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
         html.unescape(re.search(r'<img src="(/library/cover[^"]+)"', page)[1])
 
 
-@pytest.mark.parametrize("data, status, message", [
-    (b"", 400, "No image was sent"),
-    (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, 400, "This file is not a readable image"),
-    (b"not an image at all", 400, "This file is not a readable image"),
-])
-def test_cover_upload_refused(dashboard, data, status, message):
+def test_leaving_asks_while_a_preview_is_shown(dashboard):
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'id="album-form" enctype="multipart/form-data">' in page and "data-discards" not in page
+    page = upload(dashboard, big_jpeg(500, 500)).get_data(as_text=True)
+    assert 'enctype="multipart/form-data" data-unsaved>' in page and '" data-discards>' in page
+
+
+def test_cover_and_fields_in_one_pass(dashboard):
+    page = upload(dashboard, big_jpeg(500, 500), **{"album.year": "2011"}).get_data(as_text=True)
+    kept = re.search(r'name="cover" value="([^"]+)"', page)[1]
+    assert "<ins>500 × 500</ins>" in page and "<ins>2011</ins>" in page
+    dashboard.client.post("/library/album", data=album_form(dashboard, "Beyonce/4", cover=kept, apply="1",
+                                                            **{"album.year": "2011"}))
+    [asked] = dashboard.requests.pending()
+    assert len(asked.options["edits"]) == 2 and asked.options["cover"] == ["Beyonce/4", kept]
+
+
+@pytest.mark.parametrize("data", [b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, b"not an image at all"])
+def test_cover_refused(dashboard, data):
     response = upload(dashboard, data)
-    assert response.status_code == status and message in response.get_data(as_text=True)
+    assert response.status_code == 400
+    assert "This file is not a readable image" in response.get_data(as_text=True)
     assert dashboard.requests.pending() == [] and not (dashboard.state / passes.UPLOADS).exists()
 
 
-def test_cover_upload_converted_to_jpeg(dashboard, image):
-    assert upload(dashboard, image("cover.webp", 64, 48), name="cover.webp").status_code == 302
-    [asked] = dashboard.requests.pending()
-    kept = passes.upload_path(dashboard.state, asked.options["image"]).read_bytes()
-    assert artwork.image_size(kept) == ("jpeg", 64, 48)
+def test_no_image_picked_changes_nothing(dashboard):
+    assert "unchanged=1" in upload(dashboard, b"").location
 
 
-def test_cover_upload_too_large(dashboard):
+def test_cover_converted_to_jpeg(dashboard, image):
+    page = upload(dashboard, image("cover.webp", 64, 48), name="cover.webp").get_data(as_text=True)
+    kept = re.search(r'name="cover" value="([^"]+)"', page)[1]
+    assert artwork.image_size(passes.upload_path(dashboard.state, kept).read_bytes()) == ("jpeg", 64, 48)
+
+
+def test_cover_too_large(dashboard):
     dashboard.client.application.config["MAX_CONTENT_LENGTH"] = 1000
     response = upload(dashboard, big_jpeg(10, 10) + b"\x00" * 2000)
     assert response.status_code == 413 and "Image too large" in response.get_data(as_text=True)
 
 
-def test_cover_upload_outside_the_library(dashboard):
-    assert upload(dashboard, big_jpeg(10, 10), folder="../").status_code == 404
+def test_cover_kept_name_checked(dashboard):
+    assert "unchanged=1" in dashboard.client.post(
+        "/library/album", data=album_form(dashboard, "Beyonce/4", cover="../x.jpg")).location
+    assert dashboard.client.get("/library/upload/..%2Fx.jpg").status_code == 404
 
 
 def test_cover_upload_gone(dashboard, capsys):
-    dashboard.requests.submit("cover", {"folder": "Beyonce/4", "image": "0" * 32 + ".jpg"}, False)
+    dashboard.requests.submit("tag", {"edits": [], "cover": ["Beyonce/4", "0" * 32 + ".jpg"]}, False)
     dashboard.requests.tick(Log())
     assert "ERROR    the uploaded image is gone" in capsys.readouterr().out
 
@@ -709,9 +738,9 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1"' in page
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
-    assert 'href="/library/lyrics">← Without lyrics</a>' in page and "Album 1 of 2" in page
+    assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
     assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1">Next →</a>' in page
-    assert "← Previous" not in page and "← Library" not in page
+    assert "← Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
                                 headers=EN).get_data(as_text=True)
@@ -723,11 +752,11 @@ def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
     settled(lambda: dashboard.client.get("/library/repeats"))
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)
     page = page.get_data(as_text=True)
-    assert 'href="/library/repeats">← Repeated values</a>' in page and "Albums left: 0" in page
+    assert f'href="/library/repeats">{BACK}Repeated values</a>' in page and "Albums left: 0" in page
     assert "Last of the list" in page and "Next →" not in page
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=nope", headers=EN)
     page = page.get_data(as_text=True)
-    assert "← Library" in page and "work-list" not in page
+    assert f"{BACK}Library" in page and "work-list" not in page
 
 
 def test_work_list_kept_through_preview_and_apply(dashboard):
@@ -750,24 +779,24 @@ def test_work_list_kept_through_preview_and_apply(dashboard):
 def test_library_sorted_and_filtered(dashboard):
     page = settled(lambda: dashboard.client.get("/library?only=lyrics&sort=title", headers=EN))
     page = page.get_data(as_text=True)
-    assert "Albums: 2" in page and page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
+    assert page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
     assert '<option value="title" selected>Album</option>' in page
-    assert '<a href="/library?sort=title">All</a>' in page
+    assert '<a href="/library?sort=title">All <span class="muted">(2)</span></a>' in page
     assert 'href="/library?c=lyrics:no&amp;sort=title" aria-current="true">Without lyrics' in page
-    assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">1' in page
+    assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">(1)' in page
     assert 'href="/library/lyrics">one by one</a>' in page
     assert "Repeated values" not in page                                        # keeps no album
     page = dashboard.client.get("/library?c=repeated:yes", headers=EN).get_data(as_text=True)
     assert "No album matches" in page and "<details class=\"advanced\" open>" in page
-    assert 'aria-current="true">Repeated values <span class="muted">0</span>' in page
+    assert 'aria-current="true">Repeated values <span class="muted">(0)</span>' in page
     page = dashboard.client.get("/library?sort=nope&only=nope&c=nope:is:x", headers=EN).get_data(as_text=True)
-    assert "Albums: 2" in page and '<option value="artist" selected>' in page
+    assert "All <span class=\"muted\">(2)" in page and '<option value="artist" selected>' in page
     assert '<a href="/library" aria-current="true">All' in page
 
 
 def test_library_searched_field_by_field(dashboard):
     page = dashboard.client.get("/library?c=composer:empty", headers=EN).get_data(as_text=True)
-    assert "Albums: 1" in page and "Beyonce/4" not in page
+    assert "Albums: " not in page and "Beyonce/4" not in page
     assert '<span class="track-count" title="2 of 2 tracks match"' not in page        # every track kept
     assert 'aria-current="true">Without composer' in page and "1 condition" in page
     link = "/library/album?folder=Compilations/Hits&amp;list=search&amp;at=0&amp;search=c%3Dcomposer:empty"
@@ -807,7 +836,7 @@ def test_album_opened_from_a_search_steps_through_it(dashboard):
     search = "search=c%3Dlyrics:no%26sort%3Dtitle"
     page = dashboard.client.get(f"/library/album?folder=Beyonce/4&list=search&at=0&{search}", headers=EN)
     page = page.get_data(as_text=True)
-    assert 'href="/library?c=lyrics:no&amp;sort=title">← Search</a>' in page and "Album 1 of 2" in page
+    assert f'href="/library?c=lyrics:no&amp;sort=title">{BACK}Search</a>' in page and "Album 1 of 2" in page
     following = f"/library/album?folder=Compilations/Hits&amp;list=search&amp;{search}&amp;at=1"
     assert f'href="{following}">Next' in page
     assert '<input type="hidden" name="search" value="c=lyrics:no&amp;sort=title">' in page

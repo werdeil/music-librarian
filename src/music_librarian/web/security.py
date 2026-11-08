@@ -48,7 +48,7 @@ def register(app, ctx):
 
     @app.after_request
     def security_headers(response):
-        response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         return response

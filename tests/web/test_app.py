@@ -121,7 +121,7 @@ def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):
     for name in ("One", "Two"):
         (ctx.inbox / "_failed" / name).mkdir(parents=True)
     page = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert page.count('class="tile tile-todo"') == 1 and "Answer →" not in page and "See →" in page
+    assert page.count('class="tile tile-todo"') == 1 and "Failed imports" in page
     assert "Nothing to handle" not in page
     ok = page[page.index("Up to date:"):]
     assert ok.count('class="tile-line tile-ok"') == 3
@@ -177,9 +177,13 @@ def test_run_page(client, ctx):
     assert "data-live" not in page
 
 
+BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
+        '<use href="/static/icons.svg#back"></use></svg>')
+
+
 @pytest.mark.parametrize("command, back", [
-    ("scan", '<a class="button" href="/runs">Back to the history</a>'),
-    ("split", '<a class="button" href="/reviews">Back to the reviews</a>')])
+    ("scan", f'<a class="button" href="/runs">{BACK}Back to the history</a>'),
+    ("split", f'<a class="button" href="/reviews">{BACK}Back to the reviews</a>')])
 def test_ended_run_leads_with_its_outcome_and_the_way_back(client, ctx, command, back):
     run_id = record(ctx, command, code=2, apply=False)
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
@@ -192,7 +196,8 @@ def test_running_run_output_open(client, ctx):
     run_id = unfinished(ctx, "enrich", os.getpid())
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
     assert '<details class="output" open>' in page
-    assert '<a class="button" href="/runs">Back to the history</a>' in page and "Mark checked" not in page
+    assert f'<a class="button" href="/runs">{BACK}Back to the history</a>' in page
+    assert "Mark checked" not in page
 
 
 def test_pass_cards_say_a_preview_comes_first(client, ctx):
@@ -271,7 +276,8 @@ def test_problems_marked_checked_from_their_page(client, ctx):
     page = client.get("/runs?problems=1&command=enrich", headers=EN).get_data(as_text=True)
     assert "Mark checked" not in page and f'href="/runs/{first}?command=enrich&amp;problems=1"' in page
     page = client.get(f"/runs/{first}?command=enrich&problems=1", headers=EN).get_data(as_text=True)
-    assert '<a class="button" href="/runs?command=enrich&amp;problems=1">Back to the history</a>' in page
+    history = f'<a class="button" href="/runs?command=enrich&amp;problems=1">{BACK}Back to the history</a>'
+    assert history in page
     response = client.post(f"/runs/{first}/checked", data={"csrf": token_of(page), "command": "enrich",
                                                             "problems": "1"})
     assert response.location.endswith(f"/runs/{first}?command=enrich&problems=1")
@@ -321,7 +327,7 @@ def test_history_of_version_0_1_read(ctx):
 def test_security_headers_and_health(client):
     response = client.get("/health")
     assert response.get_json()["status"] == "ok"
-    assert response.headers["Content-Security-Policy"] == "default-src 'self'"
+    assert response.headers["Content-Security-Policy"] == "default-src 'self'; img-src 'self' blob:"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 

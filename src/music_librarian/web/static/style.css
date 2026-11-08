@@ -232,8 +232,7 @@ footer .folders .facts {
 }
 
 .back {
-    margin: 0 0 0.5rem;
-    font-size: var(--fs-sm);
+    margin: 0 0 12px;
 }
 
 .muted,
@@ -387,14 +386,40 @@ footer {
     gap: 0.8rem;
 }
 
+.icon,
+.pass-icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icon {
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 0.45em;
+    vertical-align: -0.2em;
+}
+
+.pass-icon {
+    position: absolute;
+    top: 0.85rem;
+    left: 0.9rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    color: var(--accent);
+}
+
 .pass-card > button {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
     width: 100%;
     height: 100%;
     min-height: 5rem;
-    padding: 0.7rem 0.9rem;
+    padding: 0.7rem 0.9rem 0.7rem 3.2rem;
     text-align: left;
     border-radius: 8px;
 }
@@ -494,13 +519,6 @@ footer {
 
 .tile-todo .tile-value {
     color: var(--warning);
-}
-
-.tile-go {
-    margin-top: auto;
-    padding-top: 0.4rem;
-    color: var(--accent);
-    font-size: var(--fs-sm);
 }
 
 .all-clear {
@@ -657,13 +675,6 @@ td.cell-link a:focus-visible {
     color: var(--text-bright);
 }
 
-.cover-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-}
-
 .search input {
     flex: 1;
     max-width: 28rem;
@@ -732,6 +743,50 @@ td.cell-link a:focus-visible {
 .album-head img {
     width: 120px;
     flex: none;
+}
+
+.album-head > div {
+    min-width: 0;
+}
+
+.cover-pick {
+    position: relative;
+    flex: none;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.cover-pick img {
+    display: block;
+}
+
+.cover-hint {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 0.3rem;
+    border-radius: 0 0 6px 6px;
+    background: rgb(0 0 0 / 65%);
+    color: #fff;
+    font-size: var(--fs-sm);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.cover-pick:hover .cover-hint,
+.cover-pick:focus-within .cover-hint {
+    opacity: 1;
+}
+
+.cover-pick:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .cover-hint {
+        opacity: 1;
+    }
 }
 
 .album-fields {
@@ -964,6 +1019,7 @@ form.inline {
 }
 
 .filters.only {
+    align-items: center;
     margin-bottom: 0.8rem;
 }
 
@@ -977,30 +1033,20 @@ form.inline {
     font-size: var(--fs-sm);
 }
 
-.toggle label {
-    position: relative;
-    cursor: pointer;
-}
-
-.toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-}
-
-.toggle span {
+.filters .toggle a {
     display: block;
-    padding: 0.3rem 0.8rem;
+    padding: 0.2rem 0.8rem;
     color: var(--text-muted);
     background: #181818;
 }
 
-.toggle input:checked + span {
+.filters .toggle a[aria-current] {
     color: #111;
     background: var(--accent);
+    border-bottom: 0;
 }
 
-.toggle input:focus-visible + span {
+.filters .toggle a:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
 }

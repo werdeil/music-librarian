@@ -12,6 +12,7 @@ export default [
                 fetch: "readonly",
                 setTimeout: "readonly",
                 clearTimeout: "readonly",
+                URL: "readonly",
                 URLSearchParams: "readonly",
                 FormData: "readonly",
                 DOMParser: "readonly",

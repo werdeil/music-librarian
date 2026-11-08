@@ -87,16 +87,22 @@ def undo(args, root, state_dir, log, db=None):
     stopped = False
 
     todo, refused = [], 0
+    freed, taken = set(), set()   # the places the restores before this one empty or fill
+    there = lambda p: p in taken or (p not in freed and p.exists())
     for cur, orig in moves:
-        if not cur.exists():
+        if not there(cur):
             log(f"REFUSED  (file missing)  {relative(cur, root)}")
             refused += 1
-        elif orig.exists():
+        elif there(orig):
             log(f"REFUSED  (original place taken)  {relative(orig, root)}")
             refused += 1
         else:
             log(f"RESTORE  {relative(cur, root)}\n         → {relative(orig, root)}")
             todo.append((cur, orig))
+            taken.discard(cur)
+            freed.add(cur)
+            freed.discard(orig)
+            taken.add(orig)
     tags, tags_refused = plan_tags(recs, root, log)
     refused += tags_refused
 

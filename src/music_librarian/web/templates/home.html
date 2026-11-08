@@ -61,6 +61,7 @@
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="command" value="{{ command }}">
             <button type="submit"{% if names %} data-opens-dialog{% endif %}>
+                {{ m.icon(command, "pass-icon") }}
                 <span class="pass-title">{{ t.passes[command] }}</span>
                 <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
             </button>
@@ -78,8 +79,8 @@
                 {% endif %}
                 {% endfor %}
                 <div class="actions">
-                    <button type="submit" class="primary" autofocus>{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
-                    <button type="button" data-closes-dialog>{{ t.cancel_button }}</button>
+                    <button type="submit" class="primary" autofocus>{{ m.icon('start' if command == 'scan' else 'preview') }}{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
+                    <button type="button" data-closes-dialog>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
                 </div>
             </dialog>
             {% endif %}

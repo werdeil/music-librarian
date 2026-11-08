@@ -67,7 +67,7 @@ class Found:
     albums: list    # the albums holding a track kept, sorted
     tracks: list    # the tracks kept, in the albums' order
     matched: dict   # {folder: tracks kept in it}, empty for a library neither searched nor filtered
-    counts: dict    # {preset: the albums, or the tracks in the track list, it keeps of those searched}
+    counts: dict    # {preset or "all": the albums, or tracks in the track list, kept of those the words keep}
 
 
 def find(catalog, words, search, sort, view):
@@ -91,6 +91,7 @@ def find(catalog, words, search, sort, view):
             kept_albums[name].add(t.folder)
     counts = {name: kept_tracks[name] if view == "tracks" else len(kept_albums[name])
               for name in query.PRESETS}
+    counts["all"] = len(searched) if view == "tracks" else len({t.folder for t in searched})
     return Found(albums, tracks, matched, counts)
 
 
