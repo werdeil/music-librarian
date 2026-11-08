@@ -721,6 +721,14 @@ td.cell-link a:focus-visible {
     flex: none;
 }
 
+.album-head > div {
+    min-width: 0;
+}
+
+.cover-form input[type="file"] {
+    max-width: 100%;
+}
+
 .album-fields {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

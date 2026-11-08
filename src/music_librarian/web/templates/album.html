@@ -22,6 +22,16 @@
         <h2>{{ common.album or folder }}</h2>
         <p class="muted">{{ common.albumartist or '' }}</p>
         <p><code class="muted">{{ folder }}</code></p>
+        {% if ctx.requests %}
+        <form method="post" action="{{ url_for('album_new_cover') }}" enctype="multipart/form-data" class="cover-form"
+              aria-label="{{ t.cover }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="folder" value="{{ folder }}">
+            {{ m.place_fields(place) }}
+            <input type="file" name="image" accept="image/*" required aria-label="{{ t.cover_file }}">
+            <button type="submit">{{ t.cover_button }}</button>
+        </form>
+        {% endif %}
     </div>
 </section>
 
@@ -197,17 +207,4 @@
     {% endif %}
 </form>
 
-{% if ctx.requests %}
-<section>
-    <h2>{{ t.cover }}</h2>
-    <form method="post" action="{{ url_for('album_new_cover') }}" enctype="multipart/form-data" class="cover-form">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="folder" value="{{ folder }}">
-        {{ m.place_fields(place) }}
-        <input type="file" name="image" accept="image/*" required aria-label="{{ t.cover_file }}">
-        <button type="submit">{{ t.cover_button }}</button>
-    </form>
-</section>
-
-{% endif %}
 {% endblock %}

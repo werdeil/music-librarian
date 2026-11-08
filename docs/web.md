@@ -43,7 +43,7 @@ A track's lyrics open under it from their cell of the album's page, in a text bo
 
 ### Cover
 
-**Preview the new cover** sends an image (32 MB at most), in any format ffmpeg reads (JPEG, PNG, WebP, GIF, BMP, HEIC…), converted to JPEG at once when it is not one, and queues a dry run of `cover` (see `music-librarian cover`) on the album, which the album's page follows: its summary says into how many tracks it would be embedded, the run's page which `folder.jpg` it replaces, then it offers to apply. Applied, the image becomes the album's `folder.jpg`, the previous one being kept in `covers/` in the state folder, and is embedded into the tracks; **Undo this pass** puts the previous `folder.jpg` back, which the next `enrich` embeds again. The image waits in `uploads/` in the state folder until then, removed after 7 days: an older dry run can no longer be applied.
+**Preview the new cover**, beside the cover at the top of the album's page, sends an image (32 MB at most), in any format ffmpeg reads (JPEG, PNG, WebP, GIF, BMP, HEIC…), converted to JPEG at once when it is not one, and queues a dry run of `cover` (see `music-librarian cover`) on the album, which the album's page follows: its summary says into how many tracks it would be embedded, the run's page which `folder.jpg` it replaces, then it offers to apply. Applied, the image becomes the album's `folder.jpg`, the previous one being kept in `covers/` in the state folder, and is embedded into the tracks; **Undo this pass** puts the previous `folder.jpg` back, which the next `enrich` embeds again. The image waits in `uploads/` in the state folder until then, removed after 7 days: an older dry run can no longer be applied.
 
 ## Reviews
 
