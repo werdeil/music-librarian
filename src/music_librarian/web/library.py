@@ -8,8 +8,7 @@ import json
 import os
 import threading
 import time
-import unicodedata
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,10 +18,13 @@ from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.web import query
+from music_librarian.web.query import fold
 
 ALBUM_FIELDS = ("albumartist", "album", "year", "genre", "disctotal", "compilation")
 TRACK_FIELDS = ("disc", "track", "title", "artist", "composer", "grouping")
 PAGE = 60
+TRACK_PAGE = 100
 PATIENCE = 1.0
 REBUILD_EVERY = 60
 REPORT_EVERY = 200
@@ -31,19 +33,12 @@ _building = threading.local()
 _one_build = threading.Lock()
 
 
-def fold(text):
-    """The text as searched: no case, no accents."""
-    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold())
-                   if not unicodedata.combining(c))
-
-
 @dataclass
 class Album:
     folder: str   # relative to the root
     artist: str
     title: str
     tracks: int
-    text: str     # what a search matches, folded
     without_lyrics: int = 0
     compilation: bool = False
     repeated: int = 0   # tracks with a field holding a value twice or several values
@@ -58,19 +53,45 @@ SORTS = {
                        fold(a.artist), fold(a.title)),
     "recent": lambda a: (-a.changed, a.folder),
 }
-ONLY = {"lyrics": lambda a: a.without_lyrics, "repeats": lambda a: a.repeated,
-        "compilations": lambda a: a.compilation}
+VIEWS = ("albums", "tracks")
 
 
-def browse(albums, sort, only):
-    """The albums sorted by `sort` and kept by `only` (keys of SORTS and ONLY, None for neither),
-    and how many each filter of ONLY keeps of them: (albums, {filter: count})."""
-    counts = {name: sum(1 for a in albums if keep(a)) for name, keep in ONLY.items()}
-    if only in ONLY:
-        albums = [a for a in albums if ONLY[only](a)]
+@dataclass
+class Catalog:
+    albums: list   # of Album, in the index's order
+    tracks: list   # of query.Track, album by album in that order, then by disc and number
+
+
+@dataclass
+class Found:
+    albums: list    # the albums holding a track kept, sorted
+    tracks: list    # the tracks kept, in the albums' order
+    matched: dict   # {folder: tracks kept in it}, empty for a library neither searched nor filtered
+    counts: dict    # {preset: the albums, or the tracks in the track list, it keeps of those searched}
+
+
+def find(catalog, words, search, sort, view):
+    """What the library shows for the words of the search box, a query.Search, a key of SORTS and
+    a view of VIEWS: a track is kept when its own text holds every word and the search keeps it,
+    an album when it holds a track kept."""
+    words = fold(words).split()
+    searched = [t for t in catalog.tracks if all(w in t.text for w in words)] if words else catalog.tracks
+    tracks = [t for t in searched if search.keeps(t)]
+    filtered = bool(words or search.conditions)
+    matched = Counter(t.folder for t in tracks) if filtered else {}
+    albums = [a for a in catalog.albums if a.folder in matched] if filtered else list(catalog.albums)
     if SORTS.get(sort):
         albums = sorted(albums, key=SORTS[sort])
-    return albums, counts
+        order = {a.folder: i for i, a in enumerate(albums)}
+        tracks = sorted(tracks, key=lambda t: order[t.folder])
+    kept_tracks, kept_albums = Counter(), defaultdict(set)
+    for t in searched:
+        for name in t.presets:
+            kept_tracks[name] += 1
+            kept_albums[name].add(t.folder)
+    counts = {name: kept_tracks[name] if view == "tracks" else len(kept_albums[name])
+              for name in query.PRESETS}
+    return Found(albums, tracks, matched, counts)
 
 
 def folder_changed(folder: Path):
@@ -206,8 +227,8 @@ class Refreshed:
 
 
 class Index:
-    """The albums of the metadata cache, one per folder holding tracks, rebuilt when the cache
-    changes. A file gone from the library since it was cached is left out."""
+    """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
+    when the cache changes. A file gone from the library since it was cached is left out."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
@@ -215,37 +236,47 @@ class Index:
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
+        catalog = self.albums.get()
+        return None if catalog is None else catalog.albums
+
+    def catalog(self):
+        """The Catalog, None until it is first built."""
         return self.albums.get()
 
     def _build(self):
         if cache_stamp(self.state_dir)[0] is None:
-            return []
+            return Catalog([], [])
         folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
+        tracks, rels = [], {}
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
         for path, snap in files:
-            folders[path.parent].append(snap["tags"])
-            bare[path.parent] += not snap.get("lyrics")
-            repeated[path.parent] += bool(repeats.findings(repeats.from_snapshot(snap)))
+            folder = path.parent
+            rel = rels.setdefault(folder, str(folder.relative_to(self.root)))
+            folders[folder].append(snap["tags"])
+            bare[folder] += not snap.get("lyrics")
+            twice = bool(repeats.findings(repeats.from_snapshot(snap)))
+            repeated[folder] += twice
+            flags = [name for name, held in (("lyrics", snap.get("lyrics")), ("cover", snap.get("cover")),
+                                              ("replaygain", snap.get("replaygain")), ("repeated", twice),
+                                              ("compilation", first(snap["tags"], "compilation") == "1"))
+                     if held]
+            tracks.append(query.track_of(rel, path.name, snap, flags))
         albums = []
-        for done, (folder, tracks) in enumerate(folders.items(), 1):
+        for done, (folder, held) in enumerate(folders.items(), 1):
             if done % REPORT_EVERY == 0:
                 report(0.5 + 0.5 * done / len(folders), 1)
-            artist = next((a for t in tracks if (a := first(t, "albumartist", "album artist", "artist"))),
-                          "")
-            title = next((a for t in tracks if (a := first(t, "album"))), "")
-            words = {artist, title, *(first(t, key) for t in tracks for key in ("artist", "title"))}
-            rel = str(folder.relative_to(self.root))
-            year = next((y[:4] for t in tracks if (y := first(t, "date", "year"))), "")
-            albums.append(Album(rel, artist, title, len(tracks), fold(" ".join([rel, *words])), bare[folder],
-                                all(first(t, "compilation") == "1" for t in tracks), repeated[folder],
+            artist = next((a for t in held if (a := first(t, "albumartist", "album artist", "artist"))), "")
+            title = next((a for t in held if (a := first(t, "album"))), "")
+            year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
+            albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
+                                all(first(t, "compilation") == "1" for t in held), repeated[folder],
                                 year, folder_changed(folder)))
-        return sorted(albums, key=lambda a: (fold(a.artist), fold(a.title), a.folder))
-
-    def search(self, query):
-        """The albums matching every word of `query`, None until they are first built."""
-        albums, words = self.get(), fold(query).split()
-        return None if albums is None else [a for a in albums if all(w in a.text for w in words)]
+        albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
+        order = {a.folder: i for i, a in enumerate(albums)}
+        tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
+                                   query.number_of(t, "track") or 0, t.name))
+        return Catalog(albums, tracks)
 
 
 def album_folder(root: Path, rel):

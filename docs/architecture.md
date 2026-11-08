@@ -55,7 +55,8 @@ src/music_librarian/
     ├── app.py       the pages, read from the state folder and the Inbox on each request
     ├── server.py    waitress in a thread of watch
     ├── passes.py    the passes asked for, queued for the watch loop, and how each is built
-    ├── library.py   the albums from the metadata cache, an album's fields and the edits of its form
+    ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
+    ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/

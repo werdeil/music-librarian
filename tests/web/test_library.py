@@ -17,7 +17,7 @@ from music_librarian.core.log import Log
 from music_librarian.media import artwork, fields, tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import app as web
-from music_librarian.web import library, passes, reviews
+from music_librarian.web import library, passes, query, reviews
 
 EN = {"Accept-Language": "en"}
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
@@ -67,8 +67,38 @@ def test_index_from_the_cache(lib, tmp_path):
     index = library.Index(lib, tmp_path / "state")
     assert [(a.folder, a.artist, a.title, a.tracks) for a in index.get()] == \
         [("Beyonce/4", "Beyonce", "4", 2), ("Compilations/Hits", "U2", "Hits", 2)]
-    assert [a.folder for a in index.search("moby")] == ["Compilations/Hits"]
-    assert [a.folder for a in index.search("beyoncé run")] == ["Beyonce/4"]
+    tracks = index.catalog().tracks
+    assert [(t.folder, t.name) for t in tracks] == [
+        ("Beyonce/4", "01 Run the World.m4a"), ("Beyonce/4", "02 Best Thing.m4a"),
+        ("Compilations/Hits", "01 One.flac"), ("Compilations/Hits", "02 Two.flac")]
+    one = tracks[2]
+    assert one.flags == {"cover", "compilation"} and one.format == "flac" and one.first("artist") == "U2"
+
+
+def found(index, words="", search=query.Search(), sort="artist", view="albums"):
+    return library.find(index.catalog(), words, search, sort, view)
+
+
+def test_find_by_words_track_by_track(lib, tmp_path):
+    index = library.Index(lib, tmp_path / "state")
+    hits = found(index, "moby")
+    assert [a.folder for a in hits.albums] == ["Compilations/Hits"]
+    assert hits.matched == {"Compilations/Hits": 1}
+    assert [t.name for t in found(index, "beyoncé run").tracks] == ["01 Run the World.m4a"]
+    assert not found(index).matched and len(found(index).albums) == 2
+
+
+def test_find_by_conditions(lib, tmp_path):
+    index = library.Index(lib, tmp_path / "state")
+    no_composer = query.Search((query.parse("composer:empty"),))
+    assert [t.name for t in found(index, search=no_composer).tracks] == ["01 One.flac", "02 Two.flac"]
+    either = query.Search((query.parse("artist:is:moby"), query.parse("title:starts:best")), either=True)
+    assert [t.name for t in found(index, search=either).tracks] == ["02 Best Thing.m4a", "02 Two.flac"]
+    counts = found(index, view="tracks").counts
+    assert counts["lyrics"] == 4 and counts["compilations"] == 1 and counts["cover"] == 3
+    assert found(index).counts["compilations"] == 1 and found(index, "beyonce").counts["composer"] == 0
+    by_title = found(index, search=no_composer, sort="title")
+    assert [a.folder for a in by_title.albums] == ["Compilations/Hits"]
 
 
 def test_reading_the_cache_leaves_its_stamp_alone(lib, tmp_path):
@@ -717,33 +747,68 @@ def test_work_list_kept_through_preview_and_apply(dashboard):
     assert state["album"] == f"/library/album?folder=Beyonce/4&request={asked.id}&list=lyrics&at=0"
 
 
-def album(folder, artist="", title="", year="", changed=0, **kw):
-    return library.Album(folder, artist, title, 1, "", year=year, changed=changed, **kw)
-
-
-def test_browse_sorts_and_keeps():
-    albums = [album("a", "Abba", "Zoo", "1976", 3, without_lyrics=1), album("b", "Beck", "Odelay", "1996", 1),
-              album("c", "", "", "", 2, compilation=True, repeated=2)]
-    for sort, order in (("artist", "abc"), ("title", "cba"), ("year", "bac"), ("recent", "acb")):
-        assert "".join(a.folder for a in library.browse(albums, sort, None)[0]) == order
-    kept, counts = library.browse(albums, "artist", "compilations")
-    assert [a.folder for a in kept] == ["c"] and counts == {"lyrics": 1, "repeats": 1, "compilations": 1}
-
-
 def test_library_sorted_and_filtered(dashboard):
     page = settled(lambda: dashboard.client.get("/library?only=lyrics&sort=title", headers=EN))
     page = page.get_data(as_text=True)
     assert "Albums: 2" in page and page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
-    assert '<option value="title" selected>Album</option>' in page and 'name="only" value="lyrics"' in page
+    assert '<option value="title" selected>Album</option>' in page
     assert '<a href="/library?sort=title">All</a>' in page
-    assert 'href="/library?only=lyrics&amp;sort=title" aria-current="true">Without lyrics' in page
-    compilations = 'href="/library?only=compilations&amp;sort=title">Compilations <span class="muted">0'
-    assert compilations in page
+    assert 'href="/library?c=lyrics:no&amp;sort=title" aria-current="true">Without lyrics' in page
+    assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">1' in page
     assert 'href="/library/lyrics">one by one</a>' in page
-    page = dashboard.client.get("/library?only=repeats", headers=EN).get_data(as_text=True)
-    assert "No album matches" in page
-    page = dashboard.client.get("/library?sort=nope&only=nope", headers=EN).get_data(as_text=True)
+    page = dashboard.client.get("/library?c=repeated:yes", headers=EN).get_data(as_text=True)
+    assert "No album matches" in page and "<details class=\"advanced\" open>" in page
+    page = dashboard.client.get("/library?sort=nope&only=nope&c=nope:is:x", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and '<option value="artist" selected>' in page
+    assert '<a href="/library" aria-current="true">All' in page
+
+
+def test_library_searched_field_by_field(dashboard):
+    page = dashboard.client.get("/library?c=composer:empty", headers=EN).get_data(as_text=True)
+    assert "Albums: 1" in page and "Beyonce/4" not in page
+    assert '<span class="track-count" title="2 of 2 tracks match"' not in page        # every track kept
+    assert 'aria-current="true">Without composer' in page and "1 condition" in page
+    link = "/library/album?folder=Compilations/Hits&amp;list=search&amp;at=0&amp;search=c%3Dcomposer:empty"
+    assert f'href="{link}"' in page
+    page = dashboard.client.get("/library?c=artist:is:moby", headers=EN).get_data(as_text=True)
+    assert 'title="1 of 2 tracks match" aria-label="1 of 2 tracks match">1/2</span>' in page
+    page = dashboard.client.get("/library?c=title:contains:THING&c=artist:is:u2&match=any&view=tracks",
+                                headers=EN).get_data(as_text=True)
+    assert "Tracks: 2" in page and "Best Thing" in page and "<td>U2</td>" in page
+    assert "Run the World" not in page
+    assert '<option value="any" selected>at least one condition</option>' in page
+    assert 'name="v" value="THING"' in page and 'name="v" value="u2"' in page
+
+
+def test_library_track_list_shows_the_fields_searched(dashboard):
+    page = dashboard.client.get("/library?view=tracks&c=composer:filled&c=cover:no&c=format:is:m4a",
+                                headers=EN).get_data(as_text=True)
+    assert "<th>Composer</th><th>Embedded cover</th><th>Format</th>" in page
+    assert '<td class="hit">Terius Nash</td>' in page and '<td class="hit">no</td>' in page
+    assert "Tracks: 2" in page and "Hits" not in page.split("<tbody>")[1]
+    page = dashboard.client.get("/library?view=tracks&c=composer:is:nobody", headers=EN)
+    page = page.get_data(as_text=True)
+    assert "No track matches" in page
+
+
+def test_library_form_rows_read_without_script(dashboard):
+    rows = "f=year&k=&o=empty&v=&w=&f=tag&k=ENCODER&o=filled&v=&w=&f=any&k=&o=contains&v=&w="
+    page = dashboard.client.get(f"/library?view=tracks&{rows}", headers=EN).get_data(as_text=True)
+    assert "Tracks: 2" in page and "<th>encoder</th>" in page and "2 conditions" in page
+    assert 'name="k" value="encoder"' in page
+    page = dashboard.client.get(f"/library?view=tracks&{rows}&drop=1", headers=EN).get_data(as_text=True)
+    assert "Tracks: 4" in page and "1 condition" in page
+
+
+def test_album_opened_from_a_search_steps_through_it(dashboard):
+    settled(lambda: dashboard.client.get("/library"))
+    search = "search=c%3Dlyrics:no%26sort%3Dtitle"
+    page = dashboard.client.get(f"/library/album?folder=Beyonce/4&list=search&at=0&{search}", headers=EN)
+    page = page.get_data(as_text=True)
+    assert 'href="/library?c=lyrics:no&amp;sort=title">← Search</a>' in page and "Album 1 of 2" in page
+    following = f"/library/album?folder=Compilations/Hits&amp;list=search&amp;{search}&amp;at=1"
+    assert f'href="{following}">Next' in page
+    assert '<input type="hidden" name="search" value="c=lyrics:no&amp;sort=title">' in page
 
 
 def test_library_pages_keep_the_search(dashboard, monkeypatch):
