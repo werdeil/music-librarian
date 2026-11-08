@@ -962,6 +962,119 @@ form.inline {
     margin-bottom: 0.8rem;
 }
 
+.toggle {
+    display: inline-flex;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: var(--fs-sm);
+}
+
+.toggle label {
+    position: relative;
+    cursor: pointer;
+}
+
+.toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+}
+
+.toggle span {
+    display: block;
+    padding: 0.3rem 0.8rem;
+    color: var(--text-muted);
+    background: #181818;
+}
+
+.toggle input:checked + span {
+    color: #111;
+    background: var(--accent);
+}
+
+.toggle input:focus-visible + span {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+details.advanced {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+details.advanced > summary {
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+    color: var(--text-bright);
+    font-size: var(--fs-sm);
+}
+
+.builder {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0 0.8rem 0.8rem;
+}
+
+.builder .match {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+
+.conditions {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.condition {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.condition [data-field],
+.condition [data-operator] {
+    width: 12rem;
+}
+
+.condition [data-value] {
+    width: 14rem;
+}
+
+.condition .tag-name,
+.condition .upto input {
+    width: 7rem;
+}
+
+.condition .upto {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+
+.builder .actions {
+    margin: 0;
+    align-items: center;
+}
+
+table.found-tracks td.hit {
+    color: var(--text-bright);
+    background: rgb(79 134 198 / 14%);
+}
+
+table.found-tracks td.number {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
 .tile-ok-line {
     margin: 0.6rem 0 0;
     font-size: var(--fs-sm);
@@ -1103,6 +1216,28 @@ form.inline {
     .search input[type="search"] {
         flex: 1 1 100%;
         max-width: none;
+    }
+
+    .condition {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+    }
+
+    .condition [data-field],
+    .condition [data-operator],
+    .condition [data-value],
+    .condition .tag-name {
+        width: 100%;
+    }
+
+    .condition [data-value],
+    .condition .upto {
+        grid-column: 1 / 3;
+    }
+
+    .condition [data-drop] {
+        grid-column: 3;
+        grid-row: 1;
     }
 
     table.schedule thead {

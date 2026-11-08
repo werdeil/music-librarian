@@ -8,8 +8,8 @@
     <span class="muted">{{ t.work_position.format(i=work.position + 1, n=work.total) if work.position is not none
                            else t.work_left.format(n=work.total) }}</span>
     <span class="work-steps">
-    {% if work.previous %}<a class="button" href="{{ url_for('album_page', folder=work.previous[0], list=work.name, at=work.previous[1]) }}">{{ t.work_previous }}</a>{% endif %}
-    {% if work.next %}<a class="button primary" href="{{ url_for('album_page', folder=work.next[0], list=work.name, at=work.next[1]) }}">{{ t.work_next }}</a>
+    {% if work.previous %}<a class="button" href="{{ work.previous }}">{{ t.work_previous }}</a>{% endif %}
+    {% if work.next %}<a class="button primary" href="{{ work.next }}">{{ t.work_next }}</a>
     {% else %}<span class="muted">{{ t.work_last }}</span>{% endif %}
     </span>
 </nav>

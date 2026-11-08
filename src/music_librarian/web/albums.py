@@ -1,9 +1,11 @@
-"""The library's pages: the albums of the metadata cache, those without lyrics or with a field
-holding a value twice, an album's page with its tracks' lyrics and its cover, and the forms that
-queue their edits."""
+"""The library's pages: the albums and tracks of the metadata cache, searched field by field, those
+without lyrics or with a field holding a value twice, an album's page with its tracks' lyrics and
+its cover, and the forms that queue their edits."""
 import json
+from urllib.parse import parse_qsl, urlencode
 
 from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
+from werkzeug.datastructures import MultiDict
 
 from music_librarian import cover, repeats, tag
 from music_librarian.core import runs
@@ -12,7 +14,7 @@ from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.lyrics import INSTRUMENTAL, misses
 from music_librarian.media import fields
 from music_librarian.tag import genre_list
-from music_librarian.web import history, library
+from music_librarian.web import history, library, query
 from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, when
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload
 
@@ -24,19 +26,52 @@ def register(app, ctx, index):
     """Add the library's pages to the app, the albums read from `index` (a library.Index)."""
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD
 
+    def searched(args):
+        """What the library page shows for the request's arguments `args`, the albums or tracks
+        found None until the album list is built."""
+        words = args.get("q", "").strip()
+        sort = args.get("sort") if args.get("sort") in library.SORTS else "artist"
+        view = args.get("view") if args.get("view") in library.VIEWS else "albums"
+        search = query.from_args(args)
+        keep = dict(q=words or None, sort=None if sort == "artist" else sort,
+                    view=None if view == "albums" else view)
+        address = urlencode({k: v for k, v in {**keep, **search.args()}.items() if v}, doseq=True, safe=":")
+        catalog = index.catalog()
+        found = None if catalog is None else library.find(catalog, words, search, sort, view)
+        return dict(query=words, sort=sort, view=view, search=search, keep=keep, address=address,
+                    filtered=bool(words or search.conditions), found=found,
+                    empty=catalog is not None and not catalog.albums)
+
     @app.get("/library")
     def library_page():
-        query = request.args.get("q", "").strip()
-        sort = request.args.get("sort") if request.args.get("sort") in library.SORTS else "artist"
-        only = request.args.get("only") if request.args.get("only") in library.ONLY else None
-        shown = dict(query=query, sort=sort, only=only)
-        everything = index.get()
-        if everything is None:
+        shown = searched(request.args)
+        rows = [condition_row(c) for c in shown["search"].conditions] + [condition_row(None)]
+        t = texts()
+        shown.update(rows=rows, groups=query.GROUPS, operators=query.OPERATORS, bare=query.BARE,
+                     kinds=query.FIELDS, presets=query.PRESETS,
+                     operator_names={op: t[f"op_{op}"] for ops in query.OPERATORS.values() for op in ops},
+                     paging={**shown["keep"], **shown["search"].args()})
+        found = shown.pop("found")
+        if found is None:
             return render_template("library.html", building=True, **shown)
-        albums, counts = library.browse(index.search(query) if query else everything, sort, only)
-        listed, page, pages = paged(albums, library.PAGE)
-        return render_template("library.html", total=len(albums), page=page, pages=pages,
-                               albums=listed, counts=counts, empty=not everything, **shown)
+        at = {a.folder: i for i, a in enumerate(found.albums)}
+        if shown["view"] == "tracks":
+            listed, page, pages = paged(found.tracks, library.TRACK_PAGE)
+            total = len(found.tracks)
+        else:
+            listed, page, pages = paged(found.albums, library.PAGE)
+            total = len(found.albums)
+        return render_template("library.html", total=total, page=page, pages=pages, listed=listed,
+                               counts=found.counts, matched=found.matched, at=at,
+                               columns=shown["search"].columns(), cell=query.cell,
+                               first_album=found.albums[0].folder if found.albums else None, **shown)
+
+    def condition_row(c):
+        """A row of the search form: a condition, or a blank one for None."""
+        if c is None:
+            return dict(field="any", tag="", op="contains", value="", upto="", kind=query.TEXT, blank=True)
+        field, name = ("tag", c.field[4:]) if c.field.startswith("tag.") else (c.field, "")
+        return dict(field=field, tag=name, op=c.op, value=c.value, upto=c.upto, kind=c.kind, blank=False)
 
     def followed(rel):
         """The pass ?request= names, as the album's page follows it: the request, its run once
@@ -53,6 +88,9 @@ def register(app, ctx, index):
 
     def work_list(name):
         """The albums of the work list `name`, in its order; None until the album list is built."""
+        if name == "search":
+            found = searched(MultiDict(parse_qsl(place().get("search", ""))))["found"]
+            return None if found is None else found.albums
         everything = index.get()
         if everything is None:
             return None
@@ -75,9 +113,17 @@ def register(app, ctx, index):
             at = None
             after = min(where["at"], len(folders))
             before = after - 1
-        return dict(name=where["list"], page=url_for(WORK_LISTS[where["list"]]), position=at,
-                    total=len(folders), previous=(folders[before], before) if before >= 0 else None,
-                    next=(folders[after], after) if after < len(folders) else None)
+        page = url_for(WORK_LISTS[where["list"]])
+        if where.get("search"):
+            page += "?" + where["search"]
+        keep = {k: v for k, v in where.items() if k != "at"}
+
+        def step(folder, position):
+            return url_for("album_page", folder=folder, **keep, at=position)
+        return dict(name=where["list"], page=page, position=at,
+                    total=len(folders),
+                    previous=step(folders[before], before) if before >= 0 else None,
+                    next=step(folders[after], after) if after < len(folders) else None)
 
     def shown_value(name, values):
         """A field's values as the preview shows them, the lyrics by their number of lines."""

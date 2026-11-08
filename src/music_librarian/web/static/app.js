@@ -334,9 +334,10 @@
     setTimeout(poll, POLL_MS);
 }());
 
-// The library's search runs as the words are typed or the sort changes: the results are swapped in
-// place, asked again while the album list is being built, and the address follows; without script,
-// the button searches.
+// The library's search runs as it is typed or changed: the results are swapped in place, asked again
+// while the album list is being built, and the address follows, each condition of the advanced search
+// in its short form (c=composer:empty); a field offers the operators of its kind, an operator the
+// values it takes. Without script, the button searches and the form's rows are read side by side.
 (function () {
     "use strict";
 
@@ -347,19 +348,84 @@
     if (!form || !results) {
         return;
     }
-    var input = form.elements.namedItem("q");
+    var kinds = JSON.parse(form.dataset.kinds);
+    var bare = JSON.parse(form.dataset.bare);
+    var operators = JSON.parse(form.dataset.operators);
+    var names = JSON.parse(form.dataset.operatorNames);
+    var list = form.querySelector("[data-conditions]");
+    var add = form.querySelector("[data-add-condition]");
     var timer = null;
     var wanted = null;
 
+    function part(row, selector) {
+        return row.querySelector(selector);
+    }
+
+    function shape(row) {
+        var op = part(row, "[data-operator]").value;
+        part(row, "[data-tag]").hidden = part(row, "[data-field]").value !== "tag";
+        part(row, "[data-value]").hidden = bare.indexOf(op) !== -1;
+        part(row, "[data-upto]").hidden = op !== "between";
+    }
+
+    function offer(row) {
+        var select = part(row, "[data-operator]");
+        var kept = select.value;
+        var ops = operators[kinds[part(row, "[data-field]").value]];
+        select.innerHTML = "";
+        ops.forEach(function (op) {
+            select.add(new window.Option(names[op], op, false, op === kept));
+        });
+        shape(row);
+    }
+
+    function condition(row) {
+        var field = part(row, "[data-field]").value;
+        var op = part(row, "[data-operator]").value;
+        var value = part(row, "[data-value]").value.trim();
+        var upto = row.querySelector("[name=w]").value.trim();
+        if (field === "tag") {
+            var tag = part(row, "[data-tag]").value.trim().toLowerCase();
+            if (!tag) {
+                return null;
+            }
+            field = "tag." + tag;
+        }
+        if (bare.indexOf(op) !== -1) {
+            return field + ":" + op;
+        }
+        if (!value || (op === "between" && !upto)) {
+            return null;
+        }
+        return field + ":" + op + ":" + value + (op === "between" ? ":" + upto : "");
+    }
+
     function address() {
-        var params = new URLSearchParams(new FormData(form));
-        if (!params.get("q")) {
-            params.delete("q");
+        var params = new URLSearchParams();
+        var q = form.elements.namedItem("q").value.trim();
+        var sort = form.elements.namedItem("sort").value;
+        var view = form.querySelector("[name=view]:checked");
+        var conditions = [];
+        if (q) {
+            params.append("q", q);
         }
-        if (params.get("sort") === "artist") {
-            params.delete("sort");
+        if (sort !== "artist") {
+            params.append("sort", sort);
         }
-        var query = params.toString();
+        if (view && view.value !== "albums") {
+            params.append("view", view.value);
+        }
+        list.querySelectorAll("[data-condition]").forEach(function (row) {
+            var c = condition(row);
+            if (c && conditions.indexOf(c) === -1) {
+                conditions.push(c);
+                params.append("c", c);
+            }
+        });
+        if (conditions.length && form.elements.namedItem("match").value === "any") {
+            params.append("match", "any");
+        }
+        var query = params.toString().replace(/%3A/gi, ":");
         return form.action + (query ? "?" + query : "");
     }
 
@@ -384,17 +450,69 @@
             .catch(function () { wanted = null; });
     }
 
-    input.addEventListener("input", function () {
+    function soon() {
         clearTimeout(timer);
         timer = setTimeout(search, TYPING_MS);
-    });
-    form.addEventListener("change", function () {
+    }
+
+    function now() {
         clearTimeout(timer);
         search();
+    }
+
+    function blank(row) {
+        var fresh = row.cloneNode(true);
+        fresh.querySelectorAll("input").forEach(function (input) { input.value = ""; });
+        part(fresh, "[data-field]").value = "any";
+        offer(fresh);
+        part(fresh, "[data-operator]").value = "contains";
+        shape(fresh);
+        part(fresh, "[data-drop]").hidden = false;
+        return fresh;
+    }
+
+    list.querySelectorAll("[data-condition]").forEach(function (row) {
+        part(row, "[data-drop]").hidden = false;
+    });
+    add.hidden = false;
+    add.addEventListener("click", function () {
+        var rows = list.querySelectorAll("[data-condition]");
+        var row = blank(rows[rows.length - 1]);
+        list.appendChild(row);
+        part(row, "[data-field]").focus();
+    });
+    list.addEventListener("click", function (event) {
+        var drop = event.target.closest("[data-drop]");
+        if (!drop) {
+            return;
+        }
+        event.preventDefault();
+        var row = drop.closest("[data-condition]");
+        if (list.querySelectorAll("[data-condition]").length > 1) {
+            row.remove();
+        } else {
+            list.replaceChild(blank(row), row);
+        }
+        now();
+    });
+    form.addEventListener("input", function (event) {
+        if (event.target.tagName === "INPUT" && event.target.type !== "radio") {
+            soon();
+        }
+    });
+    form.addEventListener("change", function (event) {
+        var row = event.target.closest("[data-condition]");
+        if (row && event.target.matches("[data-field]")) {
+            offer(row);
+        } else if (row && event.target.matches("[data-operator]")) {
+            shape(row);
+        }
+        if (event.target.tagName === "SELECT" || event.target.type === "radio") {
+            now();
+        }
     });
     form.addEventListener("submit", function (event) {
         event.preventDefault();
-        clearTimeout(timer);
-        search();
+        now();
     });
 }());

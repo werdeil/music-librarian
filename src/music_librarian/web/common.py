@@ -10,7 +10,8 @@ from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import OPTIONS
 
 
-WORK_LISTS = {"repeats": "repeated_values", "lyrics": "missed_lyrics"}   # name: its page
+WORK_LISTS = {"repeats": "repeated_values", "lyrics": "missed_lyrics",   # name: its page
+              "search": "library_page"}
 
 
 def when(timestamp):
@@ -37,7 +38,8 @@ def refused(key, status=400, **values):
 
 def place():
     """The work list an album's page was opened from, as the request carries it on: {"list": name,
-    "at": the album's position in it}, {} for none. The album's page keeps it in its links and forms."""
+    "at": the album's position in it}, and for a search of the library {"search": its address's
+    query}; {} for none. The album's page keeps it in its links and forms."""
     try:
         values = request.values
     except RequestEntityTooLarge:   # the 413 page: its form is the one too large to read
@@ -45,7 +47,8 @@ def place():
     name = values.get("list")
     if name not in WORK_LISTS:
         return {}
-    return {"list": name, "at": max(values.get("at", 0, type=int), 0)}
+    out = {"list": name, "at": max(values.get("at", 0, type=int), 0)}
+    return {**out, "search": values.get("search", "")} if name == "search" else out
 
 
 def submit(ctx, command, options, apply, album=None):

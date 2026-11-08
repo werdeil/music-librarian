@@ -3,18 +3,65 @@
 {% block content %}
 <section>
     <h1 class="visually-hidden">{{ t.library }}</h1>
-    {% set keep = dict(q=query or None, sort=None if sort == 'artist' else sort) %}
-    <form method="get" action="{{ url_for('library_page') }}" class="search" data-live-search>
-        <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
-        <label class="sort">{{ t.sort_by }}
-            <select name="sort">
-            {% for name in ('artist', 'title', 'year', 'recent') %}
-                <option value="{{ name }}"{% if sort == name %} selected{% endif %}>{{ t['sort_' ~ name] }}</option>
-            {% endfor %}
-            </select>
-        </label>
-        {% if only %}<input type="hidden" name="only" value="{{ only }}">{% endif %}
-        <button type="submit">{{ t.search_button }}</button>
+    <form method="get" action="{{ url_for('library_page') }}" data-live-search
+          data-kinds='{{ kinds|tojson }}' data-bare='{{ bare|tojson }}'
+          data-operators='{{ operators|tojson }}' data-operator-names='{{ operator_names|tojson }}'>
+        <div class="search">
+            <input type="search" name="q" value="{{ query }}" placeholder="{{ t.search_placeholder }}" aria-label="{{ t.search_placeholder }}">
+            <label class="sort">{{ t.sort_by }}
+                <select name="sort">
+                {% for name in ('artist', 'title', 'year', 'recent') %}
+                    <option value="{{ name }}"{% if sort == name %} selected{% endif %}>{{ t['sort_' ~ name] }}</option>
+                {% endfor %}
+                </select>
+            </label>
+            <fieldset class="toggle">
+                <legend class="visually-hidden">{{ t.view_label }}</legend>
+                {% for name in ('albums', 'tracks') %}
+                <label><input type="radio" name="view" value="{{ name }}"{% if view == name %} checked{% endif %}><span>{{ t['view_' ~ name] }}</span></label>
+                {% endfor %}
+            </fieldset>
+            <button type="submit">{{ t.search_button }}</button>
+        </div>
+        <details class="advanced"{% if search.conditions %} open{% endif %}>
+            <summary>{{ t.advanced_search }}{% if search.conditions %} <span class="muted">· {{ (t.condition_one if search.conditions|length == 1 else t.condition_many).format(n=search.conditions|length) }}</span>{% endif %}</summary>
+            <div class="builder">
+                <label class="match">{{ t.match_label }}
+                    <select name="match">
+                        <option value="all"{% if not search.either %} selected{% endif %}>{{ t.match_all }}</option>
+                        <option value="any"{% if search.either %} selected{% endif %}>{{ t.match_any }}</option>
+                    </select>
+                </label>
+                <div class="conditions" data-conditions>
+                {% for row in rows %}
+                    <div class="condition" data-condition>
+                        <select name="f" aria-label="{{ t.condition_field }}" data-field>
+                        {% for group, names in groups %}
+                            <optgroup label="{{ t['group_' ~ group] }}">
+                            {% for name in names %}
+                                <option value="{{ name }}"{% if row.field == name %} selected{% endif %}>{{ t['q_' ~ name] }}</option>
+                            {% endfor %}
+                            </optgroup>
+                        {% endfor %}
+                        </select>
+                        <input name="k" value="{{ row.tag }}" placeholder="{{ t.condition_tag }}" aria-label="{{ t.condition_tag }}" class="tag-name" data-tag{% if row.field != 'tag' %} hidden{% endif %}>
+                        <select name="o" aria-label="{{ t.condition_operator }}" data-operator>
+                        {% for op in operators[row.kind] %}
+                            <option value="{{ op }}"{% if row.op == op %} selected{% endif %}>{{ t['op_' ~ op] }}</option>
+                        {% endfor %}
+                        </select>
+                        <input name="v" value="{{ row.value }}" placeholder="{{ t.condition_value }}" aria-label="{{ t.condition_value }}" data-value{% if row.op in bare %} hidden{% endif %}>
+                        <span class="upto" data-upto{% if row.op != 'between' %} hidden{% endif %}>{{ t.condition_upto }} <input name="w" value="{{ row.upto }}" aria-label="{{ t.condition_upto_value }}"></span>
+                        <button type="submit" class="small" name="drop" value="{{ loop.index0 }}" title="{{ t.condition_remove }}" aria-label="{{ t.condition_remove }}" data-drop{% if row.blank %} hidden{% endif %}>✕</button>
+                    </div>
+                {% endfor %}
+                </div>
+                <p class="actions">
+                    <button type="button" data-add-condition hidden>{{ t.condition_add }}</button>
+                    {% if search.conditions %}<a href="{{ url_for('library_page', **keep) }}">{{ t.conditions_clear }}</a>{% endif %}
+                </p>
+            </div>
+        </details>
     </form>
     <div id="results">
     {% if building %}
@@ -23,24 +70,55 @@
         <p class="muted">{{ t.library_empty }}</p>
     {% else %}
         <p class="filters only">
-            <a href="{{ url_for('library_page', **keep) }}"{% if not only %} aria-current="true"{% endif %}>{{ t.only_all }}</a>
-            {% for name in ('lyrics', 'repeats', 'compilations') %}
-            <a href="{{ url_for('library_page', only=name, **keep) }}"{% if only == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">{{ counts[name] }}</span></a>
+            <a href="{{ url_for('library_page', **keep) }}"{% if not search.conditions %} aria-current="true"{% endif %}>{{ t.only_all }}</a>
+            {% for name, held in presets.items() if counts[name] or search.preset == name %}
+            <a href="{{ url_for('library_page', c=held|list, **keep) }}"{% if search.preset == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">{{ counts[name] }}</span></a>
             {% endfor %}
-            {% if only in ('lyrics', 'repeats') %}<a class="aside" href="{{ url_for('missed_lyrics' if only == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>{% endif %}
         </p>
-        {% if not albums %}
-        <p class="muted">{{ t.no_album }}</p>
+        {% if not listed %}
+        <p class="muted">{{ t.no_track if view == 'tracks' else t.no_album }}</p>
         {% else %}
-        <p class="muted">{{ t.albums_found.format(n=total) }}</p>
+        <p class="muted">{{ (t.tracks_count if view == 'tracks' else t.albums_found).format(n=total) }}
+            {% if search.preset in ('lyrics', 'repeats') %}· <a href="{{ url_for('missed_lyrics' if search.preset == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>
+            {% elif filtered and first_album %}· <a href="{{ url_for('album_page', folder=first_album, list='search', at=0, search=address) }}">{{ t.only_one_by_one }}</a>{% endif %}
+        </p>
+        {% if view == 'tracks' %}
+        <div class="table-wrap">
+        <table class="found-tracks">
+            <thead><tr>
+                <th>{{ t.field_album }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th><th>{{ t.field_artist }}</th>
+                {% for name in columns %}<th>{{ name[4:] if name.startswith('tag.') else t['q_' ~ name] }}</th>{% endfor %}
+            </tr></thead>
+            <tbody>
+            {% for track in listed %}
+                <tr>
+                    <td><a href="{{ url_for('album_page', folder=track.folder, list='search', at=at[track.folder], search=address) if filtered else url_for('album_page', folder=track.folder) }}" title="{{ track.folder }}/{{ track.name }}">{{ track.first('album') or track.folder }}</a></td>
+                    <td class="number">{{ track.first('track').split('/')[0] }}</td>
+                    <td>{{ track.first('title') or track.name }}</td>
+                    <td>{{ cell(track, 'artist') or '' }}</td>
+                    {% for name in columns %}{% set value = cell(track, name) %}
+                    <td class="hit">{% if value is sameas true %}{{ t.yes }}{% elif value is sameas false %}{{ t.no }}{% elif value %}{{ value }}{% else %}<span class="muted">{{ t.value_none }}</span>{% endif %}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
         <ul class="albums">
-        {% for album in albums %}
+        {% for album in listed %}
             <li>
-                <a href="{{ url_for('album_page', folder=album.folder) }}">
+                <a href="{{ url_for('album_page', folder=album.folder, list='search', at=at[album.folder], search=address) if filtered else url_for('album_page', folder=album.folder) }}">
+                    {% if matched and matched[album.folder] < album.tracks %}
+                    {% set count = t.tracks_matched.format(m=matched[album.folder], n=album.tracks) %}
+                    {% set corner = matched[album.folder] ~ '/' ~ album.tracks %}
+                    {% else %}
                     {% set count = (t.track_one if album.tracks == 1 else t.track_many).format(n=album.tracks) %}
+                    {% set corner = album.tracks %}
+                    {% endif %}
                     <span class="cover">
                         <img src="{{ cover_url(album.folder) }}" alt="" loading="lazy" width="160" height="160">
-                        <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ album.tracks }}</span>
+                        <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ corner }}</span>
                     </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>
                     {% if album.compilation %}<span class="muted compilation">{{ t.field_compilation }}</span>
@@ -49,11 +127,12 @@
             </li>
         {% endfor %}
         </ul>
+        {% endif %}
         {% if pages > 1 %}
         <p class="filters">
-            {% if page > 1 %}<a href="{{ url_for('library_page', only=only, page=page - 1, **keep) }}">{{ t.page_previous }}</a>{% endif %}
+            {% if page > 1 %}<a href="{{ url_for('library_page', page=page - 1, **paging) }}">{{ t.page_previous }}</a>{% endif %}
             <span class="muted">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ url_for('library_page', only=only, page=page + 1, **keep) }}">{{ t.page_next }}</a>{% endif %}
+            {% if page < pages %}<a href="{{ url_for('library_page', page=page + 1, **paging) }}">{{ t.page_next }}</a>{% endif %}
         </p>
         {% endif %}
         {% endif %}
