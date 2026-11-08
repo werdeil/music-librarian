@@ -318,7 +318,8 @@ def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
     assert '<a href="/library" aria-current="true">All <span class="muted">(2)</span>' in page
     assert "Albums: " not in page and "/library/album?folder=Beyonce/4" in page
-    assert '<a href="/library" aria-current="true">Albums</a><a href="/library?view=tracks">Tracks</a>' in page
+    switch = '<a href="/library" aria-current="true">Albums</a><a href="/library?view=tracks">Tracks</a>'
+    assert switch in page
     assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
     hits = page[page.index("folder=Compilations/Hits"):]
     assert '<span class="muted">Beyonce</span>' in page

@@ -67,7 +67,7 @@ class Found:
     albums: list    # the albums holding a track kept, sorted
     tracks: list    # the tracks kept, in the albums' order
     matched: dict   # {folder: tracks kept in it}, empty for a library neither searched nor filtered
-    counts: dict    # {preset, or "all": the albums, or the tracks in the track list, it keeps of those searched}
+    counts: dict    # {preset or "all": the albums, or tracks in the track list, it keeps of those the words keep}
 
 
 def find(catalog, words, search, sort, view):
