@@ -604,7 +604,7 @@ textarea.lyrics:read-only {
 
 td.gain label {
     position: relative;
-    display: inline-block;
+    display: block;
     cursor: pointer;
     white-space: nowrap;
 }
@@ -617,18 +617,13 @@ table.tracks td.gain input {
 }
 
 td.gain span {
-    display: inline-block;
-    font-size: var(--fs-sm);
-    padding: 0.1rem 0.6rem;
-    color: var(--text-bright);
-    background: var(--surface);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
 }
 
 td.gain label:hover span,
 td.gain input:focus-visible + span {
-    border-color: var(--accent);
+    color: var(--text-bright);
 }
 
 td.gain input:checked + span {
@@ -1298,6 +1293,20 @@ table.found-tracks td.number {
 
 main {
     overflow-wrap: break-word;
+}
+
+button.link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline dotted;
+    cursor: pointer;
+}
+
+button.link:hover {
+    color: var(--accent);
 }
 
 .lyrics-row td {

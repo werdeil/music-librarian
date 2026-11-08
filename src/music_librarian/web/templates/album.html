@@ -145,7 +145,7 @@
                                    else t.lyrics_none %}
                     <td class="t-lyrics{{ '' if state is sameas true else ' muted' }}" data-label="{{ t.lyrics }}">
                         {%- if values -%}
-                        <button type="button" class="small" data-lyrics-toggle="lyrics-{{ ns.i - 1 }}" aria-controls="lyrics-{{ ns.i - 1 }}"
+                        <button type="button" class="link" data-lyrics-toggle="lyrics-{{ ns.i - 1 }}" aria-controls="lyrics-{{ ns.i - 1 }}"
                                 aria-expanded="true" title="{{ t.lyrics_open }}">{{ shown }}</button>
                         {%- else %}{{ shown }}{% endif -%}
                     </td>
