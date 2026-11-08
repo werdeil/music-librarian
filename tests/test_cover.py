@@ -68,6 +68,14 @@ def test_applied_then_undone(lib, run, tmp_path, capsys):
     assert (lib / "Beyonce/4/Folder.jpg").read_bytes() == OLD
 
 
+def test_undone_when_the_cover_takes_its_previous_name(lib, run):
+    (lib / "Beyonce/4/Folder.jpg").rename(lib / "Beyonce/4/folder.jpg")
+    assert run("--apply") == 0
+    [journal] = (run.state / "journal").glob("*.jsonl")
+    assert cli.main(["undo", str(journal), "--root", str(lib), "--state-dir", str(run.state), "--apply"]) == 0
+    assert (lib / "Beyonce/4/folder.jpg").read_bytes() == OLD
+
+
 def test_same_image_only_embedded(lib, run, capsys):
     (lib / "Beyonce/4/Folder.jpg").write_bytes(NEW)
     assert run("--apply") == 0
