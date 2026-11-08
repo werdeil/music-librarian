@@ -558,7 +558,8 @@ button.small {
     padding: 0.1rem 0.6rem;
 }
 
-button:hover {
+button:hover,
+a.button:hover {
     border-color: var(--accent);
 }
 
