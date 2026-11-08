@@ -313,6 +313,7 @@ TRANSLATIONS = {
             "scanned": "examinés", "in place": "déjà en place", "to rewrite": "à réécrire",
             "rewritten": "réécrits", "to move": "à déplacer",
             "side files to move": "fichiers annexes à déplacer",
+            "side files renamed": "fichiers annexes renommés",
             "moved": "déplacés", "skipped": "ignorés", "conflicts": "conflits", "errors": "erreurs",
             "junk files": "fichiers parasites", "folders removed": "dossiers supprimés",
             "journal": "journal", "undo": "annuler", "Lyrion retry": "relancer Lyrion",
