@@ -232,8 +232,7 @@ footer .folders .facts {
 }
 
 .back {
-    margin: 0 0 0.5rem;
-    font-size: var(--fs-sm);
+    margin: 0 0 12px;
 }
 
 .muted,

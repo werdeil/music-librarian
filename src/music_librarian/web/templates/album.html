@@ -4,7 +4,7 @@
 {% block content %}
 {% if work %}
 <nav class="work-list" aria-label="{{ t['work_' ~ work.name] }}">
-    <a href="{{ work.page }}">← {{ t['work_' ~ work.name] }}</a>
+    <a class="button" href="{{ work.page }}">← {{ t['work_' ~ work.name] }}</a>
     <span class="muted">{{ t.work_position.format(i=work.position + 1, n=work.total) if work.position is not none
                            else t.work_left.format(n=work.total) }}</span>
     <span class="work-steps">
@@ -14,7 +14,7 @@
     </span>
 </nav>
 {% else %}
-<p class="back"><a href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
+<p class="back"><a class="button" href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
 {% endif %}
 <section class="album-head">
     <img src="{{ cover_url(folder) }}" alt="" width="160" height="160">
