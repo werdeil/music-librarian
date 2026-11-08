@@ -4,7 +4,7 @@
 {% block content %}
 {% if work %}
 <nav class="work-list" aria-label="{{ t['work_' ~ work.name] }}">
-    <a class="button" href="{{ work.page }}">← {{ t['work_' ~ work.name] }}</a>
+    <a class="button" href="{{ work.page }}">{{ m.icon('back') }}{{ t['work_' ~ work.name] }}</a>
     <span class="muted">{{ t.work_position.format(i=work.position + 1, n=work.total) if work.position is not none
                            else t.work_left.format(n=work.total) }}</span>
     <span class="work-steps">
@@ -14,7 +14,7 @@
     </span>
 </nav>
 {% else %}
-<p class="back"><a class="button" href="{{ url_for('library_page') }}">← {{ t.library }}</a></p>
+<p class="back"><a class="button" href="{{ url_for('library_page') }}">{{ m.icon('back') }}{{ t.library }}</a></p>
 {% endif %}
 <section class="album-head">
     {% set shown_cover = url_for('uploaded_cover', name=new_cover) if new_cover else cover_url(folder) %}
@@ -69,9 +69,9 @@
     {% if changed and not ctx.apply %}<p class="warning">{{ t.album_read_only }}</p>{% endif %}
     <div class="actions">
         {% if changed and ctx.apply %}
-        <button type="submit" form="album-form" name="apply" value="1" class="primary">{{ t.album_apply }}</button>
+        <button type="submit" form="album-form" name="apply" value="1" class="primary">{{ m.icon('apply') }}{{ t.album_apply }}</button>
         {% endif %}
-        <a class="button" href="{{ url_for('album_page', folder=folder, **place) }}">{{ t.album_discard }}</a>
+        <a class="button" href="{{ url_for('album_page', folder=folder, **place) }}">{{ m.icon('cancel') }}{{ t.album_discard }}</a>
     </div>
 </section>
 {% endif %}
@@ -208,7 +208,7 @@
 
     {% if ctx.requests %}
     <div class="actions sticky">
-        <button type="submit" class="primary">{{ t.preview_button }}</button>
+        <button type="submit" class="primary">{{ m.icon('preview') }}{{ t.preview_button }}</button>
     </div>
     {% endif %}
 </form>

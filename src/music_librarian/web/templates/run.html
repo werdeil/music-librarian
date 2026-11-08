@@ -26,7 +26,7 @@
             {% if can_apply %}
             <form method="post" action="{{ url_for('apply_run', run_id=run.id) }}">
                 <input type="hidden" name="csrf" value="{{ csrf }}">
-                <button type="submit" class="primary">{{ t.apply_button }}</button>
+                <button type="submit" class="primary">{{ m.icon('apply') }}{{ t.apply_button }}</button>
             </form>
             {% endif %}
             {% if journal and ctx.requests %}
@@ -34,10 +34,10 @@
                 <input type="hidden" name="csrf" value="{{ csrf }}">
                 <input type="hidden" name="command" value="undo">
                 <input type="hidden" name="journal" value="{{ journal }}">
-                <button type="submit">{{ t.undo_button }}</button>
+                <button type="submit">{{ m.icon('undo') }}{{ t.undo_button }}</button>
             </form>
             {% endif %}
-            <a class="button" href="{{ back[0] }}">{{ t[back[1]] }}</a>
+            <a class="button" href="{{ back[0] }}">{{ m.icon('back') }}{{ t[back[1]] }}</a>
         </div>
     </div>
     {% endif %}

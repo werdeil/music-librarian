@@ -1,3 +1,7 @@
+{% macro icon(name, class="icon") -%}
+<svg class="{{ class }}" aria-hidden="true" focusable="false"><use href="{{ url_for('static', filename='icons.svg') }}#{{ name }}"></use></svg>
+{%- endmacro %}
+
 {% macro status(t, run) -%}
 <span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
 {%- endmacro %}
@@ -14,7 +18,7 @@
 <form method="post" action="{{ url_for('cancel_request', request_id=asked.id) }}" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     {% if album is not none %}<input type="hidden" name="album" value="{{ album }}">{{ place_fields(place) }}{% endif %}
-    <button type="submit" class="small">{{ t.cancel_button }}</button>
+    <button type="submit" class="small">{{ icon('cancel') }}{{ t.cancel_button }}</button>
 </form>
 {%- endmacro %}
 
@@ -47,7 +51,7 @@
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="album" value="{{ album }}">
             {{ place_fields(place) }}
-            <button type="submit" class="primary">{{ t.album_apply }}</button>
+            <button type="submit" class="primary">{{ icon('apply') }}{{ t.album_apply }}</button>
         </form>
         {% endif %}
         {% if f.journal and asked.command != 'undo' %}
@@ -58,10 +62,10 @@
             <input type="hidden" name="apply" value="1">
             <input type="hidden" name="album" value="{{ album }}">
             {{ place_fields(place) }}
-            <button type="submit">{{ t.follow_undo }}</button>
+            <button type="submit">{{ icon('undo') }}{{ t.follow_undo }}</button>
         </form>
         {% endif %}
-        {% if run %}<a class="aside" href="{{ url_for('run_page', run_id=run.id) }}">{{ t.follow_details }}</a>{% endif %}
+        {% if run %}<a class="aside" href="{{ url_for('run_page', run_id=run.id) }}">{{ icon('details') }}{{ t.follow_details }}</a>{% endif %}
     </div>
 {% endif %}
 </section>
@@ -70,7 +74,7 @@
 {% macro stop_form(t, csrf, run) -%}
 <form method="post" action="{{ url_for('stop_run', run_id=run.id) }}" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <button type="submit" class="small">{{ t.stop_button }}</button>
+    <button type="submit" class="small">{{ icon('stop') }}{{ t.stop_button }}</button>
 </form>
 {%- endmacro %}
 

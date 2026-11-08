@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% set title = {'genres': t.rules_genres, 'aliases': t.rules_aliases, 'decisions': t.rules_decisions}[kind] %}
 {% block title %}{{ title }} · music-librarian{% endblock %}
+{% import "_macros.html" as m %}
 {% block content %}
-<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">← {{ t.reviews }}</a></p>
+<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ m.icon('back') }}{{ t.reviews }}</a></p>
 <section>
     <h2>{{ title }} <code class="aside">{{ path.name }}</code></h2>
     <p class="muted">{{ t['rules_' ~ kind ~ '_intro'] }}</p>

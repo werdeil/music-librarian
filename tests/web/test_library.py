@@ -19,6 +19,8 @@ from music_librarian.web import app as web
 from music_librarian.web import library, passes, query, reviews
 
 EN = {"Accept-Language": "en"}
+BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
+        '<use href="/static/icons.svg#back"></use></svg>')
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
 
 
@@ -350,7 +352,7 @@ def test_album_page(dashboard):
     assert 'name="t1.artist" value="Moby"' in page
     assert '<option value="" selected>various values</option>' in page        # one flagged, one not
     assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
-    assert 'href="/library">← Library</a>' in page
+    assert f'href="/library">{BACK}Library</a>' in page
     assert '<table class="tracks" id="tracks">' in page and "Discs and grouping</button>" in page   # folded
 
 
@@ -613,7 +615,9 @@ def test_cover_picked_previewed_then_applied_with_the_form(dashboard, lib):
     kept = re.search(r'<input type="hidden" name="cover" value="([0-9a-f]+\.jpg)">', page)[1]
     assert f'<img src="/library/upload/{kept}"' in page
     assert "<strong>Cover</strong> <del>(none)</del> → <ins>1000 × 1000</ins>" in page
-    assert 'value="1" class="primary">Apply</button>' in page and dashboard.requests.pending() == []
+    assert 'value="1" class="primary"><svg class="icon"' in page
+    assert '#apply"></use></svg>Apply</button>' in page
+    assert dashboard.requests.pending() == []
     assert dashboard.client.get(f"/library/upload/{kept}").data == new
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
 
@@ -727,9 +731,9 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1"' in page
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
-    assert 'href="/library/lyrics">← Without lyrics</a>' in page and "Album 1 of 2" in page
+    assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
     assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1">Next →</a>' in page
-    assert "← Previous" not in page and "← Library" not in page
+    assert "← Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
                                 headers=EN).get_data(as_text=True)
@@ -741,11 +745,11 @@ def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
     settled(lambda: dashboard.client.get("/library/repeats"))
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)
     page = page.get_data(as_text=True)
-    assert 'href="/library/repeats">← Repeated values</a>' in page and "Albums left: 0" in page
+    assert f'href="/library/repeats">{BACK}Repeated values</a>' in page and "Albums left: 0" in page
     assert "Last of the list" in page and "Next →" not in page
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=nope", headers=EN)
     page = page.get_data(as_text=True)
-    assert "← Library" in page and "work-list" not in page
+    assert f"{BACK}Library" in page and "work-list" not in page
 
 
 def test_work_list_kept_through_preview_and_apply(dashboard):
@@ -825,7 +829,7 @@ def test_album_opened_from_a_search_steps_through_it(dashboard):
     search = "search=c%3Dlyrics:no%26sort%3Dtitle"
     page = dashboard.client.get(f"/library/album?folder=Beyonce/4&list=search&at=0&{search}", headers=EN)
     page = page.get_data(as_text=True)
-    assert 'href="/library?c=lyrics:no&amp;sort=title">← Search</a>' in page and "Album 1 of 2" in page
+    assert f'href="/library?c=lyrics:no&amp;sort=title">{BACK}Search</a>' in page and "Album 1 of 2" in page
     following = f"/library/album?folder=Compilations/Hits&amp;list=search&amp;{search}&amp;at=1"
     assert f'href="{following}">Next' in page
     assert '<input type="hidden" name="search" value="c=lyrics:no&amp;sort=title">' in page

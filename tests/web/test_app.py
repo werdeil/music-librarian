@@ -177,9 +177,13 @@ def test_run_page(client, ctx):
     assert "data-live" not in page
 
 
+BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
+        '<use href="/static/icons.svg#back"></use></svg>')
+
+
 @pytest.mark.parametrize("command, back", [
-    ("scan", '<a class="button" href="/">Back to the overview</a>'),
-    ("split", '<a class="button" href="/reviews">Back to the reviews</a>')])
+    ("scan", f'<a class="button" href="/">{BACK}Back to the overview</a>'),
+    ("split", f'<a class="button" href="/reviews">{BACK}Back to the reviews</a>')])
 def test_ended_run_leads_with_its_outcome_and_the_way_back(client, ctx, command, back):
     run_id = record(ctx, command, code=2, apply=False)
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
