@@ -50,7 +50,10 @@ def register(app, ctx, index):
         shown.update(rows=rows, groups=query.GROUPS, operators=query.OPERATORS, bare=query.BARE,
                      kinds=query.FIELDS, presets=query.PRESETS,
                      operator_names={op: t[f"op_{op}"] for ops in query.OPERATORS.values() for op in ops},
-                     paging={**shown["keep"], **shown["search"].args()})
+                     paging={**shown["keep"], **shown["search"].args()},
+                     views={name: url_for("library_page", **{**shown["keep"], **shown["search"].args(),
+                                                             "view": None if name == "albums" else name})
+                            for name in library.VIEWS})
         found = shown.pop("found")
         if found is None:
             return render_template("library.html", building=True, **shown)

@@ -426,7 +426,7 @@
         var params = new URLSearchParams();
         var q = form.elements.namedItem("q").value.trim();
         var sort = form.elements.namedItem("sort").value;
-        var view = form.querySelector("[name=view]:checked");
+        var view = form.elements.namedItem("view");
         var conditions = [];
         if (q) {
             params.append("q", q);

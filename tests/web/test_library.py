@@ -316,14 +316,17 @@ def test_no_reload_on_a_page_without_the_lists(dashboard, monkeypatch):
 
 def test_library_page(dashboard):
     page = dashboard.client.get("/library", headers=EN).get_data(as_text=True)
-    assert "Albums: 2" in page and "/library/album?folder=Beyonce/4" in page
+    assert '<a href="/library" aria-current="true">All <span class="muted">(2)</span>' in page
+    assert "Albums: " not in page and "/library/album?folder=Beyonce/4" in page
+    assert '<a href="/library" aria-current="true">Albums</a><a href="/library?view=tracks">Tracks</a>' in page
     assert '<span class="track-count" title="2 tracks" aria-label="2 tracks">2</span>' in page
     hits = page[page.index("folder=Compilations/Hits"):]
     assert '<span class="muted">Beyonce</span>' in page
     assert 'class="muted compilation">Compilation</span>' not in hits         # one track only flagged
     assert "Tracks: " not in page
     page = dashboard.client.get("/library?q=hits", headers=EN).get_data(as_text=True)
-    assert "Albums: 1" in page and "Beyonce/4" not in page
+    assert 'aria-current="true">All <span class="muted">(1)</span>' in page and "Beyonce/4" not in page
+    assert 'href="/library?q=hits&amp;view=tracks">Tracks</a>' in page
     assert "No album matches" in dashboard.client.get("/library?q=zz", headers=EN).get_data(as_text=True)
 
 
@@ -764,24 +767,24 @@ def test_work_list_kept_through_preview_and_apply(dashboard):
 def test_library_sorted_and_filtered(dashboard):
     page = settled(lambda: dashboard.client.get("/library?only=lyrics&sort=title", headers=EN))
     page = page.get_data(as_text=True)
-    assert "Albums: 2" in page and page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
+    assert page.index("folder=Beyonce/4") < page.index("folder=Compilations/Hits")
     assert '<option value="title" selected>Album</option>' in page
-    assert '<a href="/library?sort=title">All</a>' in page
+    assert '<a href="/library?sort=title">All <span class="muted">(2)</span></a>' in page
     assert 'href="/library?c=lyrics:no&amp;sort=title" aria-current="true">Without lyrics' in page
-    assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">1' in page
+    assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">(1)' in page
     assert 'href="/library/lyrics">one by one</a>' in page
     assert "Repeated values" not in page                                        # keeps no album
     page = dashboard.client.get("/library?c=repeated:yes", headers=EN).get_data(as_text=True)
     assert "No album matches" in page and "<details class=\"advanced\" open>" in page
-    assert 'aria-current="true">Repeated values <span class="muted">0</span>' in page
+    assert 'aria-current="true">Repeated values <span class="muted">(0)</span>' in page
     page = dashboard.client.get("/library?sort=nope&only=nope&c=nope:is:x", headers=EN).get_data(as_text=True)
-    assert "Albums: 2" in page and '<option value="artist" selected>' in page
+    assert "All <span class=\"muted\">(2)" in page and '<option value="artist" selected>' in page
     assert '<a href="/library" aria-current="true">All' in page
 
 
 def test_library_searched_field_by_field(dashboard):
     page = dashboard.client.get("/library?c=composer:empty", headers=EN).get_data(as_text=True)
-    assert "Albums: 1" in page and "Beyonce/4" not in page
+    assert "Albums: " not in page and "Beyonce/4" not in page
     assert '<span class="track-count" title="2 of 2 tracks match"' not in page        # every track kept
     assert 'aria-current="true">Without composer' in page and "1 condition" in page
     link = "/library/album?folder=Compilations/Hits&amp;list=search&amp;at=0&amp;search=c%3Dcomposer:empty"

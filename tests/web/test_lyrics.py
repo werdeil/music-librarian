@@ -186,7 +186,7 @@ def test_lookup_of_a_track_outside_the_library(d, providers, folder, file):
 
 def test_tracks_without_lyrics(d):
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
-    assert 'href="/library?c=lyrics:no">Without lyrics <span class="muted">1</span></a>' in library_page
+    assert 'href="/library?c=lyrics:no">Without lyrics <span class="muted">(1)</span></a>' in library_page
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
     assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 3</td>" in page
     assert "<td>—</td>" not in page                         # one of them was looked up in vain

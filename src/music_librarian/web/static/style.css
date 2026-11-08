@@ -988,6 +988,7 @@ form.inline {
 }
 
 .filters.only {
+    align-items: center;
     margin-bottom: 0.8rem;
 }
 
@@ -1001,30 +1002,20 @@ form.inline {
     font-size: var(--fs-sm);
 }
 
-.toggle label {
-    position: relative;
-    cursor: pointer;
-}
-
-.toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-}
-
-.toggle span {
+.filters .toggle a {
     display: block;
-    padding: 0.3rem 0.8rem;
+    padding: 0.2rem 0.8rem;
     color: var(--text-muted);
     background: #181818;
 }
 
-.toggle input:checked + span {
+.filters .toggle a[aria-current] {
     color: #111;
     background: var(--accent);
+    border-bottom: 0;
 }
 
-.toggle input:focus-visible + span {
+.filters .toggle a:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
 }
