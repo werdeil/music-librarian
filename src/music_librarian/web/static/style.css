@@ -828,8 +828,8 @@ table.tracks input.number,
 }
 
 table.tracks:not(.discs) .t-disc,
-table.tracks:not(.discs) .t-grouping,
-table.tracks:not(.discs) .disc-row {
+table.tracks:not(.discs) .disc-row,
+table.tracks:not(.groupings) .t-grouping {
     display: none;
 }
 
