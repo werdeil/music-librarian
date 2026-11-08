@@ -133,8 +133,10 @@ def journal_path(state_dir, name):
 
 def upload_path(state_dir, name):
     """The uploaded image of that file name in the state folder, or None for any other name."""
-    path = state_dir / UPLOADS / name
-    return path if UPLOAD_NAME.match(name) and path.is_file() else None
+    folder = state_dir / UPLOADS
+    if not UPLOAD_NAME.match(name) or not folder.is_dir():
+        return None
+    return next((p for p in folder.iterdir() if p.name == name and p.is_file()), None)
 
 
 def keep_upload(state_dir, data):
