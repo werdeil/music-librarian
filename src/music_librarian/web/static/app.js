@@ -242,6 +242,28 @@
     });
 }());
 
+// The cover chosen for the album form shows in place of the album's until the form is sent.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-cover-file]").forEach(function (input) {
+        var shown = input.parentElement.querySelector("[data-cover-shown]");
+        var url = null;
+
+        input.addEventListener("change", function () {
+            var file = input.files[0];
+            if (!file) {
+                return;
+            }
+            if (url) {
+                URL.revokeObjectURL(url);
+            }
+            url = URL.createObjectURL(file);
+            shown.src = url;
+        });
+    });
+}());
+
 // A track's lyrics open under it from their cell; those changed in the form stay open.
 (function () {
     "use strict";

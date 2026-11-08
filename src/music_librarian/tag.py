@@ -17,7 +17,8 @@ of several discs whose discs each hold a grouping of their own (Apple Music show
 grouping, Lyrion takes the disc name from discsubtitle); the others are reported as KEPT.
 
 The dashboard also edits the lyrics through it (field lyrics): a track whose lyrics change is
-looked up again by the next pass of enrich.lyrics, removed lyrics without waiting.
+looked up again by the next pass of enrich.lyrics, removed lyrics without waiting. It replaces an
+album's cover through it too, as `cover` does, before the album is filed again.
 
 The folders of the edited tracks are then filed by organize (--no-refile to leave them), the
 tag changes and the moves going to the same journal: `music-librarian undo` restores both.
@@ -34,7 +35,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_librarian import organize, repeats
+from music_librarian import cover, organize, repeats
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, prune_empty, relative
 from music_librarian.core.journal import Journal
@@ -73,11 +74,14 @@ class Options:
     lyrion: Lyrion | None = None
     refile: bool = True
     disc_names: list = field(default_factory=list)   # the tracks --disc-names looks at
+    cover: tuple | None = None                       # (album folder, image) to put as its folder.jpg
 
     def __post_init__(self):
         self.root = Path(self.root).resolve()
         for edit in self.edits:
             edit.path = Path(edit.path).resolve()
+        if self.cover is not None:
+            self.cover = tuple(Path(p).resolve() for p in self.cover)
 
 
 def shown(values, name=None):
@@ -215,6 +219,7 @@ def tag_pass(opts: Options, log):
     stats = defaultdict(int)
     opts.edits += disc_names(opts, log, stats)
     writes, planned = plan(opts, log, stats)
+    placing = cover_planned(opts, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped, written = False, []
     if opts.apply:
@@ -232,6 +237,17 @@ def tag_pass(opts: Options, log):
             journal.tag(path, name, old, new)
             written.append((path, name, new))
             stats["written"] += 1
+    if placing is not None and not stopped:
+        if not opts.apply:
+            cover.would(placing, log)
+            stats["to embed"] = len(placing.outdated)
+        elif STOP.is_set():
+            log("STOP     requested: the cover is left as it was, nor any track filed")
+            stopped = True
+        else:
+            failures = cover.place(placing, opts.state_dir, journal, log)
+            stats["embedded"] = len(placing.outdated) - failures
+            stats["errors"] += failures
 
     report = None
     if opts.refile and writes and not stopped:
@@ -256,8 +272,8 @@ def tag_pass(opts: Options, log):
     if report:
         stats["moved" if opts.apply else "to move"] = len(report.done if opts.apply else report.moves)
     log("\n--- Tag summary ---")
-    for k in ("tracks", "tags to write", "written", "unchanged", "to move", "moved", "folders removed",
-              "refused", "skipped", "errors"):
+    for k in ("tracks", "tags to write", "written", "unchanged", "to embed", "embedded", "to move", "moved",
+              "folders removed", "refused", "skipped", "errors"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     if journal.path:
@@ -272,6 +288,22 @@ def tag_pass(opts: Options, log):
     if stats["refused"] or stats["skipped"] or stats["errors"]:
         return 2
     return report.code if report else 0
+
+
+def cover_planned(opts, log, stats):
+    """The cover.Placing of opts.cover, or None without one or once refused."""
+    if opts.cover is None:
+        return None
+    folder, image = opts.cover
+    rel = relative(folder, opts.root)
+    placing = None
+    if folder.is_relative_to(opts.root):
+        placing = cover.planned(folder, image, rel, opts.state_dir, log)
+    else:
+        log(f"REFUSED  (not an album folder of the library)  {rel}")
+    if placing is None:
+        stats["refused"] += 1
+    return placing
 
 
 def run(opts: Options, log):

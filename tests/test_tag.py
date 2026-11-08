@@ -1,5 +1,7 @@
 """tag: tag fields rewritten, then the tracks filed again (tag.py)."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import struct
+
 import pytest
 
 from music_librarian import cli, tag
@@ -261,3 +263,35 @@ def test_disc_names_read_only_the_albums_the_cache_finds_a_grouping_in(lib, run,
     monkeypatch.setattr(fields, "read", lambda path: read.append(path.parent.name) or real(path))
     assert run(lib, "--disc-names") == 0
     assert set(read) == {"Stadium Arcadium"}
+
+
+def test_cover_put_with_the_tags_then_filed_and_undone(lib, tmp_path, capsys):
+    new = b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 17, 8, 600, 600, 3) + b"\x01\x11\x00" * 3
+    image = tmp_path / "new.jpg"
+    image.write_bytes(new)
+    state = tmp_path / "state"
+
+    def opts(apply):
+        album = lib / "Beyonce/4"
+        edits = [tag.Edit(path, "albumartist", "Beyoncé") for path in sorted(album.glob("*.m4a"))]
+        return tag.Options(root=lib, edits=edits, apply=apply, state_dir=state, cover=(album, image))
+
+    assert tag.run(opts(False), Log()) == 0
+    out = capsys.readouterr().out
+    assert "COVER    folder.jpg  600x600, replacing an unreadable image  Beyonce/4" in out
+    assert "WOULD    embed 600x600 into 2 of 2 tracks" in out and "to embed: 2" in out
+    assert (lib / "Beyonce/4/folder.jpg").read_bytes() == b"jpg"
+
+    assert tag.run(opts(True), Log()) == 0
+    assert "embedded: 2" in capsys.readouterr().out
+    assert (lib / "Beyoncé/4/folder.jpg").read_bytes() == new
+    assert tags.read_cover(lib / "Beyoncé/4/01 Run the World.m4a") == new
+    [journal] = (state / "journal").glob("*.jsonl")
+    assert cli.main(["undo", str(journal), "--root", str(lib), "--state-dir", str(state), "--apply"]) == 0
+    assert (lib / "Beyonce/4/folder.jpg").read_bytes() == b"jpg"
+
+
+def test_cover_outside_the_library_refused(lib, tmp_path, capsys):
+    opts = tag.Options(root=lib, state_dir=tmp_path / "state", cover=(tmp_path, tmp_path / "x.jpg"))
+    assert tag.run(opts, Log()) == 2
+    assert "REFUSED  (not an album folder of the library)" in capsys.readouterr().out

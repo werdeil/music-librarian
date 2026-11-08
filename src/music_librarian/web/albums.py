@@ -12,11 +12,11 @@ from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.lyrics import INSTRUMENTAL, misses
-from music_librarian.media import fields
+from music_librarian.media import artwork, fields
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library, query
 from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, when
-from music_librarian.web.passes import CANCELLED, DONE, keep_upload
+from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
 MAX_UPLOAD = 32 * 1024 * 1024
 PROVIDERS = {"lrclib": "LRCLIB", "netease": "NetEase", "musixmatch": "Musixmatch"}
@@ -205,7 +205,11 @@ def register(app, ctx, index):
             asked = library.edits(rel, request.form, seen)
         except (ValueError, KeyError, TypeError):
             abort(400)
-        if not asked:
+        try:
+            new_cover = sent_cover()
+        except (cover.NotAnImage, OSError):
+            return album_view(rel, folder, 400, form=request.form, cover_refused=True)
+        if not asked and new_cover is None:
             return redirect(url_for("album_page", folder=rel, unchanged="1"))
         for _, name, value, _ in asked:
             try:
@@ -213,30 +217,43 @@ def register(app, ctx, index):
                 if (why := repeats.refusal(name, [value])) is not None:
                     raise fields.FieldError(why)
             except fields.FieldError as e:
-                return album_view(rel, folder, 400, form=request.form, bad_value=str(e))
+                return album_view(rel, folder, 400, form=request.form, bad_value=str(e), new_cover=new_cover)
         if request.form.get("apply") == "1":
-            return submit(ctx, "tag", {"edits": asked}, True, rel)
+            options = {"edits": asked, "cover": [rel, new_cover] if new_cover else None}
+            return submit(ctx, "tag", options, True, rel)
         edits = [tag.Edit(ctx.root / path, name, value, seen) for path, name, value, seen in asked]
         shown = tag.preview(tag.Options(root=ctx.root, edits=edits, state_dir=ctx.state_dir))
-        return album_view(rel, folder, form=request.form,
-                          preview=library.preview_changes(shown, ctx.root, shown_value))
+        changes = library.preview_changes(shown, ctx.root, shown_value)
+        changes["cover"] = cover_change(folder, new_cover) if new_cover else None
+        return album_view(rel, folder, form=request.form, preview=changes, new_cover=new_cover)
 
-    @app.post("/library/album/cover")
-    def album_new_cover():
-        rel = request.form.get("folder", "")
-        if library.album_folder(ctx.root, rel) is None:
-            abort(404)
-        upload = request.files.get("image")
-        data = upload.read() if upload else b""
-        if not data:
-            return refused("cover_missing")
+    def sent_cover():
+        """The upload name of the cover the album form sends: its image, converted to JPEG and kept,
+        else the one a preview kept; None for none. Raises cover.NotAnImage."""
         if ctx.requests is None:
-            abort(403)
-        try:
-            jpeg, _dims = cover.as_jpeg(data)
-        except (cover.NotAnImage, OSError):
-            return refused("cover_not_an_image")
-        return submit(ctx, "cover", {"folder": rel, "image": keep_upload(ctx.state_dir, jpeg)}, False, rel)
+            return None
+        image = request.files.get("cover_image")
+        data = image.read() if image else b""
+        if data:
+            return keep_upload(ctx.state_dir, cover.as_jpeg(data)[0])
+        name = request.form.get("cover", "")
+        return name if upload_path(ctx.state_dir, name) else None
+
+    def cover_change(folder, name):
+        """(the album's cover, the one sent) as their sizes show them."""
+        def size(data):
+            dims = artwork.image_size(data)
+            return cover.dimensions(dims).replace("x", " × ") if dims else texts()["value_none"]
+        previous = cover.present(folder)
+        return (size(previous.read_bytes()) if previous else texts()["value_none"],
+                size(upload_path(ctx.state_dir, name).read_bytes()))
+
+    @app.get("/library/upload/<name>")
+    def uploaded_cover(name):
+        path = upload_path(ctx.state_dir, name)
+        if path is None:
+            abort(404)
+        return send_from_directory(path.parent, path.name, mimetype="image/jpeg")
 
     @app.errorhandler(413)
     def too_large(_error):

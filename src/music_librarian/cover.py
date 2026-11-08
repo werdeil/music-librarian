@@ -8,7 +8,7 @@ FOLDER is an album folder of the library, IMAGE an image file, copied: it is lef
 An image in another format than JPEG (PNG, WebP, HEIC…) is converted to JPEG with ffmpeg.
 The folder.jpg it replaces is kept in the state folder (covers/), and both moves go to the
 journal: `music-librarian undo` puts the previous folder.jpg back, which the next enrich
-embeds again. The dashboard uploads its covers through it.
+embeds again. The dashboard's album form puts its covers in place through `tag`, the same way.
 
 Exit codes: 0 = OK, 2 = refused or failed, 3 = another pass is running, 4 = stopped before
 the end.
@@ -87,33 +87,88 @@ def as_jpeg(data):
     return converted, dims
 
 
-def read_image(opts, log):
-    """(JPEG bytes, artwork.image_size() of them) of the image, or None once refused."""
+def read_image(image: Path, log):
+    """(JPEG bytes, artwork.image_size() of them) of the image file, or None once refused."""
     try:
-        data = opts.image.read_bytes()
+        data = image.read_bytes()
     except OSError as e:
-        log(f"REFUSED  (cannot read the image: {e.strerror})  {opts.image}")
+        log(f"REFUSED  (cannot read the image: {e.strerror})  {image}")
         return None
     try:
         jpeg, dims = as_jpeg(data)
     except (NotAnImage, OSError) as e:
-        log(f"REFUSED  (not an image: {e})  {opts.image}")
+        log(f"REFUSED  (not an image: {e})  {image}")
         return None
     if jpeg is not data:
-        log(f"CONVERT  {opts.image.name} to JPEG")
+        log(f"CONVERT  {image.name} to JPEG")
     return jpeg, dims
 
 
-def put_in_place(opts, data, previous, journal):
+def put_in_place(folder, data, previous, state_dir, journal):
     """The image moved in as folder.jpg, the previous one moved out to the state folder."""
-    kept = opts.state_dir / KEPT
+    kept = state_dir / KEPT
     kept.mkdir(parents=True, exist_ok=True)
     stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}"
     staged = kept / f"{stamp}.jpg"
     staged.write_bytes(data)
     if previous is not None:
         move_file(previous, kept / f"{stamp}-previous.jpg", journal)
-    move_file(staged, opts.folder / COVER, journal)
+    move_file(staged, folder / COVER, journal)
+
+
+@dataclass
+class Placing:
+    """Where an image goes and what it replaces: the album `folder` and its `files`, the image's
+    JPEG `data` and `dims`, the folder.jpg it replaces (`previous`) and the tracks to embed it into."""
+    folder: Path
+    files: list
+    data: bytes
+    dims: tuple
+    previous: Path | None
+    outdated: list
+
+
+def planned(folder: Path, image: Path, rel, state_dir, log):
+    """The Placing of the image file in the album folder, logged as the dry run shows it, or None
+    once refused."""
+    files = tracks_of(folder) if folder.is_dir() else []
+    if not files:
+        log(f"REFUSED  (not an album folder of the library)  {rel}")
+        return None
+    image = read_image(image, log)
+    if image is None:
+        return None
+    data, dims = image
+    previous = present(folder)
+    if previous is not None and previous.read_bytes() == data:
+        log(f"SKIPPED  ({COVER} already holds this image)  {rel}")
+    else:
+        old = artwork.image_size(previous.read_bytes()) if previous else None
+        was = f"replacing {dimensions(old) if old else 'an unreadable image'}" if previous else "new"
+        log(f"COVER    {COVER}  {dimensions(dims)}, {was}  {rel}")
+    with MetadataCache(state_dir) as cache:
+        outdated = covers.stale(files, data, cache)
+    return Placing(folder, files, data, dims, previous, outdated)
+
+
+def would(placing, log):
+    if placing.outdated:
+        log(f"WOULD    embed {dimensions(placing.dims)} into {len(placing.outdated)} of "
+            f"{count(len(placing.files), 'track')}")
+
+
+def place(placing, state_dir, journal, log):
+    """The image put as folder.jpg (journaled) and embedded into the tracks that need it: the
+    number of tracks it failed to be embedded into."""
+    if placing.previous is None or placing.previous.read_bytes() != placing.data:
+        put_in_place(placing.folder, placing.data, placing.previous, state_dir, journal)
+    outdated = placing.outdated
+    failures = covers.process(str(placing.folder), outdated, placing.data, placing.dims, log) \
+        if outdated else []
+    with MetadataCache(state_dir) as cache:
+        for path in outdated:
+            cache.snapshot(path)
+    return len(failures)
 
 
 def cover_pass(opts: Options, log):
@@ -121,43 +176,25 @@ def cover_pass(opts: Options, log):
     started = time.time()
     rel = relative(opts.folder, opts.root)
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] cover of {rel}")
-    files = tracks_of(opts.folder) if opts.folder.is_relative_to(opts.root) and opts.folder.is_dir() else []
-    if not files:
+    if not opts.folder.is_relative_to(opts.root):
         log(f"REFUSED  (not an album folder of the library)  {rel}")
         return 2
-    image = read_image(opts, log)
-    if image is None:
+    placing = planned(opts.folder, opts.image, rel, opts.state_dir, log)
+    if placing is None:
         return 2
-    data, dims = image
-    previous = present(opts.folder)
-    old = artwork.image_size(previous.read_bytes()) if previous else None
-    same = previous is not None and previous.read_bytes() == data
-    stats = {"tracks": len(files)}
-    if same:
-        log(f"SKIPPED  ({COVER} already holds this image)  {rel}")
-    else:
-        was = f"replacing {dimensions(old) if old else 'an unreadable image'}" if previous else "new"
-        log(f"COVER    {COVER}  {dimensions(dims)}, {was}  {rel}")
-    with MetadataCache(opts.state_dir) as cache:
-        outdated = covers.stale(files, data, cache)
+    stats = {"tracks": len(placing.files)}
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped = failed = False
     if not opts.apply:
-        if outdated:
-            log(f"WOULD    embed {dimensions(dims)} into {len(outdated)} of {count(len(files), 'track')}")
-        stats["to embed"] = len(outdated)
+        would(placing, log)
+        stats["to embed"] = len(placing.outdated)
     elif STOP.is_set():
         log("STOP     requested: the cover is left as it was")
         stopped = True
     else:
-        if not same:
-            put_in_place(opts, data, previous, journal)
-        failures = covers.process(str(opts.folder), outdated, data, dims, log) if outdated else []
-        with MetadataCache(opts.state_dir) as cache:
-            for path in outdated:
-                cache.snapshot(path)
-        stats["embedded"] = len(outdated) - len(failures)
-        stats["failed"] = len(failures)
+        failures = place(placing, opts.state_dir, journal, log)
+        stats["embedded"] = len(placing.outdated) - failures
+        stats["failed"] = failures
         failed = bool(failures)
     journal.close()
     log("\n--- Cover summary ---")

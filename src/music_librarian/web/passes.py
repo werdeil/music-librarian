@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 
-from music_librarian import cover, dedupe, enrich, importer, organize, scan, split, tag
+from music_librarian import dedupe, enrich, importer, organize, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
@@ -24,7 +24,7 @@ UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
 UPLOAD_DAYS = 7
 
 # the options each command takes from the dashboard: booleans, but undo's journal, tag's edits
-# ([[path relative to the root, field, value, values seen]]), the album folders and cover's upload
+# ([[path relative to the root, field, value, values seen]]) and cover ([album folder, upload name])
 OPTIONS = {
     "import": (),
     "organize": ("since",),
@@ -34,8 +34,7 @@ OPTIONS = {
     "split": (),
     "dedupe": (),
     "undo": ("journal",),
-    "tag": ("edits",),
-    "cover": ("folder", "image"),
+    "tag": ("edits", "cover"),
     "genres": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
@@ -43,7 +42,7 @@ LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
 # a box only offered while the box it refines is ticked
 UNDER = {"retry": "lyrics"}
 FORMS = {command: names for command, names in OPTIONS.items()
-         if command not in ("undo", "tag", "cover")}
+         if command not in ("undo", "tag")}
 
 
 def box(name):
@@ -194,21 +193,20 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
         return kept("undo", undo_journal, log, r)
 
     def run_tag(r, log):
-        edits = [tag.Edit(root / rel, name, value, seen) for rel, name, value, seen in r.options["edits"]]
-        opts = tag.Options(root=root, edits=edits, apply=r.apply, state_dir=state_dir,
-                           lyrion=import_opts.lyrion)
-        return kept("tag", lambda: tag.run(opts, log), log, r)
-
-    def run_cover(r, log):
-        def put():
-            image = upload_path(state_dir, r.options.get("image", ""))
-            if image is None:
-                log(f"ERROR    the uploaded image is gone (kept {UPLOAD_DAYS} days): upload it again")
-                return 2
-            opts = cover.Options(root=root, folder=r.options.get("folder", ""), image=image, apply=r.apply,
-                                 state_dir=state_dir)
-            return cover.run(opts, log)
-        return kept("cover", put, log, r)
+        def write():
+            edits = [tag.Edit(root / rel, name, value, seen) for rel, name, value, seen in r.options["edits"]]
+            new_cover = None
+            if r.options.get("cover"):
+                folder, name = r.options["cover"]
+                image = upload_path(state_dir, name)
+                if image is None:
+                    log(f"ERROR    the uploaded image is gone (kept {UPLOAD_DAYS} days): upload it again")
+                    return 2
+                new_cover = (root / folder, image)
+            opts = tag.Options(root=root, edits=edits, apply=r.apply, state_dir=state_dir,
+                               lyrion=import_opts.lyrion, cover=new_cover)
+            return tag.run(opts, log)
+        return kept("tag", write, log, r)
 
     def run_genres(r, log):
         opts = replace(enrich_opts, apply=r.apply)
@@ -216,4 +214,4 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "cover": run_cover, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "genres": run_genres}

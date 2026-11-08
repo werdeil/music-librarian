@@ -644,13 +644,6 @@ td.cell-link a:focus-visible {
     color: var(--text-bright);
 }
 
-.cover-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-}
-
 .search input {
     flex: 1;
     max-width: 28rem;
@@ -725,8 +718,44 @@ td.cell-link a:focus-visible {
     min-width: 0;
 }
 
-.cover-form input[type="file"] {
-    max-width: 100%;
+.cover-pick {
+    position: relative;
+    flex: none;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.cover-pick img {
+    display: block;
+}
+
+.cover-hint {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 0.3rem;
+    border-radius: 0 0 6px 6px;
+    background: rgb(0 0 0 / 65%);
+    color: #fff;
+    font-size: var(--fs-sm);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.cover-pick:hover .cover-hint,
+.cover-pick:focus-within .cover-hint {
+    opacity: 1;
+}
+
+.cover-pick:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .cover-hint {
+        opacity: 1;
+    }
 }
 
 .album-fields {

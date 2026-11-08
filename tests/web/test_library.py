@@ -12,7 +12,6 @@ import time
 import pytest
 
 from music_librarian import scan
-from music_librarian.core import runs
 from music_librarian.core.log import Log
 from music_librarian.media import artwork, fields, tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -592,29 +591,32 @@ def big_jpeg(width, height):
     return b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 17, 8, height, width, 3) + b"\x01\x11\x00" * 3
 
 
-def upload(d, data, folder="Beyonce/4", name="new.jpg"):
-    return d.client.post("/library/album/cover", headers=EN, content_type="multipart/form-data",
-                         data={"csrf": d.token, "folder": folder, "image": (io.BytesIO(data), name)})
+def upload(d, data, name="new.jpg", **changes):
+    """The album form posted with the image `data` picked for its cover."""
+    form = album_form(d, "Beyonce/4", **changes)
+    form["cover_image"] = (io.BytesIO(data), name)
+    return d.client.post("/library/album", headers=EN, content_type="multipart/form-data", data=form)
 
 
-def test_cover_uploaded_previewed_then_applied(dashboard, lib):
+def test_cover_picked_previewed_then_applied_with_the_form(dashboard, lib):
     new = big_jpeg(1000, 1000)
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert "Preview the new cover" in page
+    assert 'name="cover_image" form="album-form"' in page and 'enctype="multipart/form-data"' in page
     shown = re.search(r'<img src="(/library/cover[^"]+)"', page)[1]
     assert shown.startswith("/library/cover?folder=Beyonce/4&amp;v=")
-    assert upload(dashboard, new).status_code == 302
-    [asked] = dashboard.requests.pending()
-    assert (asked.command, asked.options["folder"]) == ("cover", "Beyonce/4")
-    assert passes.upload_path(dashboard.state, asked.options["image"]).read_bytes() == new
-    dashboard.requests.tick(Log())
-    [dry] = runs.recent(dashboard.state, 1)
-    page = dashboard.client.get(f"/runs/{dry['id']}", headers=EN).get_data(as_text=True)
-    assert "WOULD    embed 1000x1000 into 2 of 2 tracks" in page and "Apply this pass" in page
-    assert 'href="/library/album?folder=Beyonce/4">Back to the album' in page
+
+    page = upload(dashboard, new).get_data(as_text=True)
+    kept = re.search(r'<input type="hidden" name="cover" value="([0-9a-f]+\.jpg)">', page)[1]
+    assert f'<img src="/library/upload/{kept}"' in page
+    assert "<strong>Cover</strong> <del>(none)</del> → <ins>1000 × 1000</ins>" in page
+    assert 'value="1" class="primary">Apply</button>' in page and dashboard.requests.pending() == []
+    assert dashboard.client.get(f"/library/upload/{kept}").data == new
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == JPEG
 
-    dashboard.client.post(f"/runs/{dry['id']}/apply", data={"csrf": dashboard.token})
+    applied = album_form(dashboard, "Beyonce/4", cover=kept, apply="1")
+    assert dashboard.client.post("/library/album", data=applied).status_code == 302
+    [asked] = dashboard.requests.pending()
+    assert (asked.command, asked.apply, asked.options["cover"]) == ("tag", True, ["Beyonce/4", kept])
     dashboard.requests.tick(Log())
     assert (lib / "Beyonce/4/folder.jpg").read_bytes() == new
     assert tags.read_cover(lib / "Beyonce/4/01 Run the World.m4a") == new
@@ -626,36 +628,48 @@ def test_cover_uploaded_previewed_then_applied(dashboard, lib):
         html.unescape(re.search(r'<img src="(/library/cover[^"]+)"', page)[1])
 
 
-@pytest.mark.parametrize("data, status, message", [
-    (b"", 400, "No image was sent"),
-    (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, 400, "This file is not a readable image"),
-    (b"not an image at all", 400, "This file is not a readable image"),
-])
-def test_cover_upload_refused(dashboard, data, status, message):
+def test_cover_and_fields_in_one_pass(dashboard):
+    page = upload(dashboard, big_jpeg(500, 500), **{"album.year": "2011"}).get_data(as_text=True)
+    kept = re.search(r'name="cover" value="([^"]+)"', page)[1]
+    assert "<ins>500 × 500</ins>" in page and "<ins>2011</ins>" in page
+    dashboard.client.post("/library/album", data=album_form(dashboard, "Beyonce/4", cover=kept, apply="1",
+                                                            **{"album.year": "2011"}))
+    [asked] = dashboard.requests.pending()
+    assert len(asked.options["edits"]) == 2 and asked.options["cover"] == ["Beyonce/4", kept]
+
+
+@pytest.mark.parametrize("data", [b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, b"not an image at all"])
+def test_cover_refused(dashboard, data):
     response = upload(dashboard, data)
-    assert response.status_code == status and message in response.get_data(as_text=True)
+    assert response.status_code == 400
+    assert "This file is not a readable image" in response.get_data(as_text=True)
     assert dashboard.requests.pending() == [] and not (dashboard.state / passes.UPLOADS).exists()
 
 
-def test_cover_upload_converted_to_jpeg(dashboard, image):
-    assert upload(dashboard, image("cover.webp", 64, 48), name="cover.webp").status_code == 302
-    [asked] = dashboard.requests.pending()
-    kept = passes.upload_path(dashboard.state, asked.options["image"]).read_bytes()
-    assert artwork.image_size(kept) == ("jpeg", 64, 48)
+def test_no_image_picked_changes_nothing(dashboard):
+    assert "unchanged=1" in upload(dashboard, b"").location
 
 
-def test_cover_upload_too_large(dashboard):
+def test_cover_converted_to_jpeg(dashboard, image):
+    page = upload(dashboard, image("cover.webp", 64, 48), name="cover.webp").get_data(as_text=True)
+    kept = re.search(r'name="cover" value="([^"]+)"', page)[1]
+    assert artwork.image_size(passes.upload_path(dashboard.state, kept).read_bytes()) == ("jpeg", 64, 48)
+
+
+def test_cover_too_large(dashboard):
     dashboard.client.application.config["MAX_CONTENT_LENGTH"] = 1000
     response = upload(dashboard, big_jpeg(10, 10) + b"\x00" * 2000)
     assert response.status_code == 413 and "Image too large" in response.get_data(as_text=True)
 
 
-def test_cover_upload_outside_the_library(dashboard):
-    assert upload(dashboard, big_jpeg(10, 10), folder="../").status_code == 404
+def test_cover_kept_name_checked(dashboard):
+    assert "unchanged=1" in dashboard.client.post(
+        "/library/album", data=album_form(dashboard, "Beyonce/4", cover="../x.jpg")).location
+    assert dashboard.client.get("/library/upload/..%2Fx.jpg").status_code == 404
 
 
 def test_cover_upload_gone(dashboard, capsys):
-    dashboard.requests.submit("cover", {"folder": "Beyonce/4", "image": "0" * 32 + ".jpg"}, False)
+    dashboard.requests.submit("tag", {"edits": [], "cover": ["Beyonce/4", "0" * 32 + ".jpg"]}, False)
     dashboard.requests.tick(Log())
     assert "ERROR    the uploaded image is gone" in capsys.readouterr().out
 
