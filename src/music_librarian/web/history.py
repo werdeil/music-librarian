@@ -119,6 +119,11 @@ def run_journal(ctx, run):
     return journal_path(ctx.state_dir, name) if name else None
 
 
+def history_filters(args):
+    """The filters of the history (command, problems, page) a run's page was opened from."""
+    return {key: args[key] for key in ("command", "problems", "page") if args.get(key)}
+
+
 def register(app, ctx):
     """Add the pages of the run history and of the passes asked for to the app."""
 
@@ -204,17 +209,11 @@ def register(app, ctx):
                                queued=queued, commands=commands, command=command, problems=problems,
                                page=page, pages=pages)
 
-    @app.post("/runs/checked")
-    def check_runs():
-        ids = request.form.getlist("run", type=int)
-        if not ids:
+    @app.post("/runs/<int:run_id>/checked")
+    def check_run(run_id):
+        if not runs.check(ctx.state_dir, [run_id], request.form.get("checked") != "0"):
             abort(404)
-        runs.check(ctx.state_dir, ids, request.form.get("checked") != "0")
-        if request.form.get("from") == "run":
-            return redirect(url_for("run_page", run_id=ids[0]))
-        return redirect(url_for("history", command=request.form.get("command") or None,
-                                problems="1" if request.form.get("problems") else None,
-                                page=request.form.get("page", type=int)))
+        return redirect(url_for("run_page", run_id=run_id, **history_filters(request.form)))
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):
@@ -227,14 +226,15 @@ def register(app, ctx):
         album = album_url(ctx, run["command"], run["options"],
                           journal and journal_path(ctx.state_dir, journal))
         back = (album, "back_to_album") if album else \
-            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
-            (url_for("home"), "back_to_overview")
+            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else None
+        filters = history_filters(request.args)
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             boxes=boxes_ticked(run["command"], run["options"])
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
-            can_stop=stoppable(ctx, run), journal=journal, back=back)
+            can_stop=stoppable(ctx, run), journal=journal, back=back,
+            filters=filters, history_url=url_for("history", **filters))
 
     @app.get("/runs/<int:run_id>/log.json")
     def run_log(run_id):

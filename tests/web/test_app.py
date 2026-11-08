@@ -154,9 +154,9 @@ def test_history_filters(client, ctx):
     ok = record(ctx, "organize")
     issues = record(ctx, "enrich", code=2)
     page = client.get("/runs?command=enrich", headers=EN).get_data(as_text=True)
-    assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page
+    assert f"/runs/{issues}?command=enrich\"" in page and f"/runs/{ok}?" not in page
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert f"/runs/{issues}\"" in page and f"/runs/{ok}\"" not in page and "To check" in page
+    assert f"/runs/{issues}?problems=1\"" in page and f"/runs/{ok}?" not in page and "To check" in page
     assert 'name="problems" value="1" data-autosubmit checked' in page
     page = client.get("/runs?command=enrich", headers=EN).get_data(as_text=True)
     assert 'name="command" value="enrich"' in page and "data-autosubmit>" in page
@@ -178,7 +178,7 @@ def test_run_page(client, ctx):
 
 
 @pytest.mark.parametrize("command, back", [
-    ("scan", '<a class="button" href="/">Back to the overview</a>'),
+    ("scan", '<a class="button" href="/runs">Back to the history</a>'),
     ("split", '<a class="button" href="/reviews">Back to the reviews</a>')])
 def test_ended_run_leads_with_its_outcome_and_the_way_back(client, ctx, command, back):
     run_id = record(ctx, command, code=2, apply=False)
@@ -192,7 +192,7 @@ def test_running_run_output_open(client, ctx):
     run_id = unfinished(ctx, "enrich", os.getpid())
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
     assert '<details class="output" open>' in page
-    assert "Back to the overview" not in page
+    assert '<a class="button" href="/runs">Back to the history</a>' in page and "Mark checked" not in page
 
 
 def test_pass_cards_say_a_preview_comes_first(client, ctx):
@@ -265,37 +265,34 @@ def token_of(page):
     return html.unescape(page.split('name="csrf" value="', 1)[1].split('"', 1)[0])
 
 
-def test_problems_marked_checked(client, ctx):
+def test_problems_marked_checked_from_their_page(client, ctx):
     first = record(ctx, "enrich", code=2)
     second = record(ctx, "scan", code=1)
+    page = client.get("/runs?problems=1&command=enrich", headers=EN).get_data(as_text=True)
+    assert "Mark checked" not in page and f'href="/runs/{first}?command=enrich&amp;problems=1"' in page
+    page = client.get(f"/runs/{first}?command=enrich&problems=1", headers=EN).get_data(as_text=True)
+    assert '<a class="button" href="/runs?command=enrich&amp;problems=1">Back to the history</a>' in page
+    response = client.post(f"/runs/{first}/checked", data={"csrf": token_of(page), "command": "enrich",
+                                                            "problems": "1"})
+    assert response.location.endswith(f"/runs/{first}?command=enrich&problems=1")
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert page.count("Mark checked") == 2 and "Mark all checked" in page
-    response = client.post("/runs/checked", data={"csrf": token_of(page), "run": first, "problems": "1",
-                                                   "command": "", "page": "1"})
-    assert response.status_code == 302 and response.location.endswith("/runs?problems=1&page=1")
-    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert f"/runs/{first}\"" not in page and f"/runs/{second}\"" in page
+    assert f"/runs/{first}?problems=1\"" not in page and f"/runs/{second}?problems=1\"" in page
     assert "Unchecked runs with problems over the last 7 days: 1" in client.get("/", headers=EN).get_data(
         as_text=True)
     page = client.get("/runs", headers=EN).get_data(as_text=True)
-    assert f"/runs/{first}\"" in page and page.count('class="status status-checked"') == 1
+    assert page.count('class="status status-checked"') == 1
     assert page.count('class="status status-issues"') == 0 and page.count('class="status status-failed"') == 1
     page = client.get(f"/runs/{first}", headers=EN).get_data(as_text=True)
     assert "Mark unchecked" in page
-    client.post("/runs/checked", data={"csrf": token_of(page), "run": [first, second], "checked": "0",
-                                       "from": "run"})
+    client.post(f"/runs/{first}/checked", data={"csrf": token_of(page), "checked": "0"})
     assert runs.get(ctx.state_dir, first)["checked"] is None
-    client.post("/runs/checked", data={"csrf": token_of(page), "run": [first, second]})
-    assert "No run matches" in client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert "runs with problems" not in client.get("/", headers=EN).get_data(as_text=True)
 
 
 def test_running_run_not_marked_checked(client, ctx):
     run_id = unfinished(ctx, "scan", os.getpid())
-    assert "Mark checked" not in client.get("/runs", headers=EN).get_data(as_text=True)
     assert runs.check(ctx.state_dir, [run_id]) == 0
     token = token_of(client.get(f"/runs/{record(ctx, 'scan', code=2)}", headers=EN).get_data(as_text=True))
-    assert client.post("/runs/checked", data={"csrf": token}).status_code == 404
+    assert client.post(f"/runs/{run_id}/checked", data={"csrf": token}).status_code == 404
 
 
 def test_stale_runs_closed_at_start(ctx):
