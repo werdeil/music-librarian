@@ -68,6 +68,12 @@ def test_album_page_shows_each_track_s_lyrics(d):
     assert "data-open" not in page and "Look up the album" not in page
 
 
+def test_each_track_folds_behind_its_details_button(d):
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert page.count('data-track-more aria-expanded="true"') == 3
+    assert page.count('aria-label="Track details" title="Track details" hidden>') == 3
+
+
 def test_untouched_lyrics_ask_nothing(d):
     response = d.client.post("/library/album", data=album_form(d, **{"t0.lyrics": "la la\r\n\r\n"}))
     assert response.location.endswith("unchanged=1") and d.requests.pending() == []

@@ -159,6 +159,8 @@
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
+                    {% if values %}<td class="t-more"><button type="button" class="small" data-track-more aria-expanded="true"
+                            aria-label="{{ t.track_details }}" title="{{ t.track_details }}" hidden></button></td>{% endif %}
                 </tr>
                 {% if values %}
                 {% set i = ns.i - 1 %}

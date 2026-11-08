@@ -23,6 +23,24 @@
     });
 }());
 
+// On a phone, a track's card folds to its number and title; one holding a repeated value starts open.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-track-more]").forEach(function (button) {
+        var row = button.closest("tr");
+        function show(open) {
+            row.classList.toggle("folded", !open);
+            button.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+        button.hidden = false;
+        show(row.querySelector("input.repeated") !== null);
+        button.addEventListener("click", function () {
+            show(row.classList.contains("folded"));
+        });
+    });
+}());
+
 // A pass card opens its options in a dialog, each warning shown while its box makes the pass long, and
 // a box under another unticked and disabled while that one is; without script, the card submits the
 // options as ticked by default.

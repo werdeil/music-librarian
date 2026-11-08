@@ -773,6 +773,21 @@ table.tracks:not(.discs) .disc-row {
     display: none;
 }
 
+table.tracks td.t-more {
+    display: none;
+}
+
+button[data-track-more] {
+    width: 2.2rem;
+    height: 2rem;
+    padding: 0;
+    background: var(--surface) url("chevron.svg") no-repeat center / 0.9rem;
+}
+
+button[data-track-more][aria-expanded="true"] {
+    transform: rotate(180deg);
+}
+
 button[data-shows-discs] {
     margin-bottom: 0.4rem;
 }
@@ -1001,10 +1016,14 @@ form.inline {
 
     table.tracks tr {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 0.4rem 0.6rem;
-        padding: 0.7rem 0;
+        padding: 0.6rem 0;
         border-bottom: 1px solid var(--border-color);
+    }
+
+    table.tracks tr[hidden] {
+        display: none;
     }
 
     table.tracks td {
@@ -1021,10 +1040,19 @@ form.inline {
     }
 
     table.tracks .t-title {
+        grid-column: span 4;
+    }
+
+    table.tracks.discs .t-title {
+        grid-column: span 3;
+    }
+
+    table.tracks .t-lyrics,
+    table.tracks .t-gain,
+    table.tracks .t-format {
         grid-column: span 2;
     }
 
-    table.tracks.discs .t-title,
     table.tracks .t-artist,
     table.tracks .t-composer,
     table.tracks .t-grouping,
@@ -1032,8 +1060,26 @@ form.inline {
         grid-column: 1 / -1;
     }
 
-    table.tracks input {
+    table.tracks td.t-more {
+        display: flex;
+        grid-column: -2;
+        grid-row: 1;
+        align-items: flex-end;
+        justify-content: flex-end;
+    }
+
+    table.tracks tr.folded > td:is(.t-artist, .t-composer, .t-grouping, .t-lyrics, .t-gain, .t-format) {
+        display: none;
+    }
+
+    table.tracks tr.folded > td::before {
+        display: none;
+    }
+
+    table.tracks input,
+    table.tracks input.number {
         width: 100%;
+        min-width: 0;
     }
 
     table.runs th:nth-child(4),
