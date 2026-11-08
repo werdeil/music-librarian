@@ -374,7 +374,8 @@ def plan_moves(opts: Options, mixed, plan: Plan, log):
 
 def plan_side_files(root, dir_targets, plan: Plan, log):
     """Fill plan.extra with the side files (folder.jpg, .lrc…) of the folders whose tracks all go
-    to one other folder, none left behind."""
+    to one other folder, none left behind. One whose name is taken there gets a free one."""
+    taken = set()
     for src_dir, tdirs in dir_targets.items():
         if len(tdirs) != 1 or src_dir in plan.blocked:
             continue
@@ -383,12 +384,22 @@ def plan_side_files(root, dir_targets, plan: Plan, log):
             continue
         for p in sorted(src_dir.iterdir()):
             if p.is_file() and not is_junk(p) and p.suffix.lower() not in AUDIO_EXT:
-                dst = tdir / p.name
-                if dst.exists():
-                    log(f"CONFLICT (side file already there)  {relative(dst, root)}")
-                    plan.stats["conflicts"] += 1
-                else:
-                    plan.extra.append((p, dst))
+                dst = free_name(tdir / p.name, taken)
+                if dst.name != p.name:
+                    log(f"RENAME   (side file already there)  {relative(tdir / p.name, root)}"
+                        f"\n         → {dst.name}")
+                    plan.stats["side files renamed"] += 1
+                taken.add(nfc(str(dst)).casefold())
+                plan.extra.append((p, dst))
+
+
+def free_name(dst: Path, taken):
+    """`dst`, or `name (2).ext`, `name (3).ext`… when it exists or another side file takes it."""
+    candidate, n = dst, 1
+    while candidate.exists() or nfc(str(candidate)).casefold() in taken:
+        n += 1
+        candidate = dst.with_name(f"{dst.stem} ({n}){dst.suffix}")
+    return candidate
 
 
 def apply_plan(opts: Options, scan, started, plan: Plan, journal, log):
@@ -433,8 +444,8 @@ def summary(opts: Options, plan: Plan, done, journal, log):
     stats["junk files"] = len(plan.junk)
     log("\n--- Organize summary ---")
     for k in ("scanned", "in place", "to rewrite", "rewritten", "to move", "side files to move",
-              "moved", "skipped", "conflicts", "multiple values", "errors", "junk files",
-              "folders removed"):
+              "side files renamed", "moved", "skipped", "conflicts", "multiple values", "errors",
+              "junk files", "folders removed"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     lyrion_ok = lyrion.carry_over(opts.lyrion, done if opts.apply else plan.moves, opts.apply, log)

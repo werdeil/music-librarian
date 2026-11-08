@@ -50,7 +50,7 @@ These tolerances only keep a file where it is. When a folder of its target path 
 
 ## Around the audio files
 
-- **Side files** (`folder.jpg`, booklets, `.lrc`, anything that is not audio) follow their album, but only when every track of the folder goes to the same target folder and none stayed behind because of a conflict or missing tags. A side file whose target already exists is a conflict.
+- **Side files** (`folder.jpg`, booklets, `.lrc`, anything that is not audio) follow their album, but only when every track of the folder goes to the same target folder and none stayed behind because of a conflict or missing tags. A side file whose name is already taken in the target folder is not a conflict: it moves under the first free name, `folder (2).jpg`, then `folder (3).jpg`…
 - **Junk files** (`.DS_Store`, `Thumbs.db`, `desktop.ini`, AppleDouble `._*` files) are deleted.
 - **Emptied folders** are removed, up to the library root and the folders given as arguments, which are always kept.
 - **Inconsistent compilations**: tracks of one folder and one album that disagree on the compilation flag would be split between `Compilations/` and an artist folder. The whole album is reported as a conflict and left alone.

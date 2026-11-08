@@ -274,3 +274,19 @@ def test_case_variant_folder_alone_stays(lib, run, make_track):
                album="The Element Of Freedom", track=1)
     assert run("--apply") == 0
     assert files(lib) == ["Abd al Malik/Gibraltar/01 T.m4a", "Alicia Keys/The Element of Freedom/01 T.m4a"]
+
+
+def test_side_file_already_there_is_renamed(lib, run, make_track, capsys):
+    make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
+    (lib / "A/B/folder.jpg").write_bytes(b"old")
+    (lib / "A/B/folder (2).jpg").write_bytes(b"older")
+    make_track(lib / "vrac/2.m4a", title="Deux", artist="A", album="B", track=2)
+    (lib / "vrac/folder.jpg").write_bytes(b"new")
+
+    assert run("--apply") == 0
+    out = capsys.readouterr().out
+    assert "RENAME   (side file already there)  A/B/folder.jpg" in out
+    assert "CONFLICT" not in out
+    assert (lib / "A/B/folder (3).jpg").read_bytes() == b"new"
+    assert (lib / "A/B/folder.jpg").read_bytes() == b"old"
+    assert not (lib / "vrac").exists()
