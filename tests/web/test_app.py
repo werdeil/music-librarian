@@ -121,7 +121,7 @@ def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):
     for name in ("One", "Two"):
         (ctx.inbox / "_failed" / name).mkdir(parents=True)
     page = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert page.count('class="tile tile-todo"') == 1 and "Answer →" not in page and "See →" in page
+    assert page.count('class="tile tile-todo"') == 1 and "Failed imports" in page
     assert "Nothing to handle" not in page
     ok = page[page.index("Up to date:"):]
     assert ok.count('class="tile-line tile-ok"') == 3

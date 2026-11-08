@@ -1,12 +1,11 @@
 {% set entries = [
-    dict(value=todo.split, label=t.tile_split, href=url_for('review_split'), go=t.tile_go_answer),
-    dict(value=todo.dedupe, label=t.tile_dedupe, href=url_for('review_dedupe'), go=t.tile_go_answer),
+    dict(value=todo.split, label=t.tile_split, href=url_for('review_split')),
+    dict(value=todo.dedupe, label=t.tile_dedupe, href=url_for('review_dedupe')),
     dict(value=todo.genres if genre_list else None, label=t.tile_genres, href=url_for('review_genres'),
-         go=t.tile_go_answer, note=None if genre_list else t.tile_no_genre_list),
-    dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1'),
-         go=t.tile_go_see),
-    dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values'), go=t.tile_go_fix),
-    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics'), go=t.tile_go_see, info=True),
+         note=None if genre_list else t.tile_no_genre_list),
+    dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1')),
+    dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
+    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics'), info=True),
 ] %}
 {% set ns = namespace(todo=[], ok=[], aside=[]) %}
 {% for e in entries %}
@@ -21,7 +20,6 @@
     <a class="tile tile-todo" href="{{ e.href }}">
         <span class="tile-value">{{ e.value }}</span>
         <span class="tile-label">{{ e.label }}</span>
-        <span class="tile-go">{{ e.go }} →</span>
     </a>
 {% endfor %}
 </div>

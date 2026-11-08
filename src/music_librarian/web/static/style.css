@@ -491,13 +491,6 @@ footer {
     color: var(--warning);
 }
 
-.tile-go {
-    margin-top: auto;
-    padding-top: 0.4rem;
-    color: var(--accent);
-    font-size: var(--fs-sm);
-}
-
 .all-clear {
     font-size: 1.1rem;
     color: var(--ok);
