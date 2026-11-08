@@ -3,7 +3,9 @@
 {%- endmacro %}
 
 {% macro status(t, run) -%}
-<span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>
+{% set checked = run.problem and run.checked %}
+{%- if not (checked and run.status == 'issues') %}<span class="status status-{{ run.status }}">{{ t['status_' ~ run.status] }}</span>{% endif %}
+{%- if checked %}{{ ' ' if run.status != 'issues' }}<span class="status status-checked">{{ t.status_checked }}</span>{% endif %}
 {%- endmacro %}
 
 {% macro origin(t, run) -%}
@@ -78,7 +80,7 @@
 </form>
 {%- endmacro %}
 
-{% macro runs_table(t, runs, queued=(), csrf=None) -%}
+{% macro runs_table(t, runs, queued=(), csrf=None, filters={}) -%}
 <div class="table-wrap">
 <table class="runs">
     <thead>
@@ -104,7 +106,7 @@
     {% endfor %}
     {% for run in runs %}
         <tr>
-            <td><a href="{{ url_for('run_page', run_id=run.id) }}">{{ run.when }}</a></td>
+            <td><a href="{{ url_for('run_page', run_id=run.id, **filters) }}">{{ run.when }}</a></td>
             <td><code>{{ run.command }}</code></td>
             <td>{{ t.apply if run.apply else t.dry_run }}</td>
             <td>{{ origin(t, run) }}</td>

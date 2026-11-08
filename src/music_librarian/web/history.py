@@ -22,6 +22,11 @@ ALBUM_PASSES = {"tag", "cover", "lyrics"}
 REVIEW_PASSES = {"split", "dedupe", "genres"}
 
 
+def to_check(run):
+    """Whether the run ended with a problem nobody has marked as checked yet."""
+    return runs.status(run) in PROBLEMS and not run["checked"]
+
+
 def kinds(lines, kind=""):
     """The style of each log line, from its 8-character tag: "error", "warning", "section" or "".
     An indented line continues the previous one and takes its kind, unless that is a section."""
@@ -51,7 +56,7 @@ def shown(run):
     """The run as the templates show it: status, start and duration formatted."""
     status = runs.status(run)
     end = run["ended"] if run["ended"] is not None else datetime.now().timestamp()
-    return dict(run, status=status, when=when(run["started"]),
+    return dict(run, status=status, when=when(run["started"]), problem=status in PROBLEMS,
                 duration=None if status == runs.INTERRUPTED else duration(end - run["started"]))
 
 
@@ -114,6 +119,11 @@ def run_journal(ctx, run):
     """The journal of an applied run, while it is still in the state folder, else None."""
     name = journal_of(run) if run and run["apply"] else None
     return journal_path(ctx.state_dir, name) if name else None
+
+
+def history_filters(args):
+    """The filters of the history (command, problems, page) a run's page was opened from."""
+    return {key: args[key] for key in ("command", "problems", "page") if args.get(key)}
 
 
 def register(app, ctx):
@@ -192,7 +202,7 @@ def register(app, ctx):
         problems = request.args.get("problems") == "1"
         shown_runs = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP, command)]
         if problems:
-            shown_runs = [r for r in shown_runs if r["status"] in PROBLEMS]
+            shown_runs = [r for r in shown_runs if r["problem"] and not r["checked"]]
         commands = sorted(runs.latest(ctx.state_dir))
         page_runs, page, pages = paged(shown_runs, HISTORY_PAGE)
         queued = [] if problems or page > 1 or not ctx.requests else \
@@ -200,6 +210,12 @@ def register(app, ctx):
         return render_template("runs.html", runs=page_runs,
                                queued=queued, commands=commands, command=command, problems=problems,
                                page=page, pages=pages)
+
+    @app.post("/runs/<int:run_id>/checked")
+    def check_run(run_id):
+        if not runs.check(ctx.state_dir, [run_id], request.form.get("checked") != "0"):
+            abort(404)
+        return redirect(url_for("run_page", run_id=run_id, **history_filters(request.form)))
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):
@@ -212,14 +228,15 @@ def register(app, ctx):
         album = album_url(ctx, run["command"], run["options"],
                           journal and journal_path(ctx.state_dir, journal))
         back = (album, "back_to_album") if album else \
-            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
-            (url_for("home"), "back_to_overview")
+            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else None
+        filters = history_filters(request.args)
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,
             boxes=boxes_ticked(run["command"], run["options"])
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
-            can_stop=stoppable(ctx, run), journal=journal, back=back)
+            can_stop=stoppable(ctx, run), journal=journal, back=back,
+            filters=filters, history_url=url_for("history", **filters))
 
     @app.get("/runs/<int:run_id>/log.json")
     def run_log(run_id):

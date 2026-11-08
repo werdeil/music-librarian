@@ -17,7 +17,7 @@ from music_librarian.lyrics import misses
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, reviews, security
 from music_librarian.web.common import place, texts, when
-from music_librarian.web.history import PROBLEMS, shown, stoppable
+from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS, UNDER
 
@@ -108,7 +108,7 @@ def create_app(ctx: Context):
         latest = {c: shown(r) for c, r in runs.latest(ctx.state_dir).items()}
         week_ago = (now - timedelta(days=7)).timestamp()
         problems = sum(1 for r in runs.recent(ctx.state_dir, runs.KEEP)
-                       if r["started"] >= week_ago and runs.status(r) in PROBLEMS)
+                       if r["started"] >= week_ago and to_check(r))
         schedule = [("import", t["every_seconds"].format(n=f"{ctx.interval:g}"), None)]
         if ctx.organize_at:
             schedule.append(("organize", t["daily_at"].format(at=f"{ctx.organize_at:%H:%M}"),
