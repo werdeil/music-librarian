@@ -37,6 +37,10 @@
                 <button type="submit">{{ t.undo_button }}</button>
             </form>
             {% endif %}
+            {% if run.problem %}
+            {{ m.check_form(t, csrf, [run.id], t.uncheck_button if run.checked else t.check_button, dict(from='run'),
+                            not run.checked) }}
+            {% endif %}
             <a class="button" href="{{ back[0] }}">{{ t[back[1]] }}</a>
         </div>
     </div>

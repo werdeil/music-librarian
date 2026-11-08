@@ -304,6 +304,10 @@ th {
     color: var(--error);
 }
 
+.status-checked {
+    color: var(--ok);
+}
+
 .filters {
     display: flex;
     flex-wrap: wrap;

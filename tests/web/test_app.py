@@ -104,7 +104,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert f"/runs/{last}" in page and f"/runs/{first}" not in page        # the latest of each command
-    assert 'Runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
+    assert 'Unchecked runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
     assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
     failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
     assert 'class="tile tile-todo"' in failed and '<span class="tile-value">1' in failed
@@ -259,6 +259,42 @@ def test_killed_run_shown_interrupted(client, ctx):
 def test_run_of_another_host_taken_as_running(ctx):
     run_id = unfinished(ctx, "scan", dead_pid(), host="another-container")
     assert runs.status(runs.get(ctx.state_dir, run_id)) == runs.RUNNING
+
+
+def token_of(page):
+    return html.unescape(page.split('name="csrf" value="', 1)[1].split('"', 1)[0])
+
+
+def test_problems_marked_checked(client, ctx):
+    first = record(ctx, "enrich", code=2)
+    second = record(ctx, "scan", code=1)
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
+    assert page.count("Mark checked") == 2 and "Mark all checked" in page
+    response = client.post("/runs/checked", data={"csrf": token_of(page), "run": first, "problems": "1",
+                                                   "command": "", "page": "1"})
+    assert response.status_code == 302 and response.location.endswith("/runs?problems=1&page=1")
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
+    assert f"/runs/{first}\"" not in page and f"/runs/{second}\"" in page
+    assert "Unchecked runs with problems over the last 7 days: 1" in client.get("/", headers=EN).get_data(
+        as_text=True)
+    page = client.get("/runs", headers=EN).get_data(as_text=True)
+    assert f"/runs/{first}\"" in page and page.count('class="status status-checked"') == 1
+    page = client.get(f"/runs/{first}", headers=EN).get_data(as_text=True)
+    assert "Mark unchecked" in page
+    client.post("/runs/checked", data={"csrf": token_of(page), "run": [first, second], "checked": "0",
+                                       "from": "run"})
+    assert runs.get(ctx.state_dir, first)["checked"] is None
+    client.post("/runs/checked", data={"csrf": token_of(page), "run": [first, second]})
+    assert "No run matches" in client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
+    assert "runs with problems" not in client.get("/", headers=EN).get_data(as_text=True)
+
+
+def test_running_run_not_marked_checked(client, ctx):
+    run_id = unfinished(ctx, "scan", os.getpid())
+    assert "Mark checked" not in client.get("/runs", headers=EN).get_data(as_text=True)
+    assert runs.check(ctx.state_dir, [run_id]) == 0
+    token = token_of(client.get(f"/runs/{record(ctx, 'scan', code=2)}", headers=EN).get_data(as_text=True))
+    assert client.post("/runs/checked", data={"csrf": token}).status_code == 404
 
 
 def test_stale_runs_closed_at_start(ctx):

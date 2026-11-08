@@ -22,6 +22,11 @@ ALBUM_PASSES = {"tag", "cover", "lyrics"}
 REVIEW_PASSES = {"split", "dedupe", "genres"}
 
 
+def to_check(run):
+    """Whether the run ended with a problem nobody has marked as checked yet."""
+    return runs.status(run) in PROBLEMS and not run["checked"]
+
+
 def kinds(lines, kind=""):
     """The style of each log line, from its 8-character tag: "error", "warning", "section" or "".
     An indented line continues the previous one and takes its kind, unless that is a section."""
@@ -51,7 +56,7 @@ def shown(run):
     """The run as the templates show it: status, start and duration formatted."""
     status = runs.status(run)
     end = run["ended"] if run["ended"] is not None else datetime.now().timestamp()
-    return dict(run, status=status, when=when(run["started"]),
+    return dict(run, status=status, when=when(run["started"]), problem=status in PROBLEMS,
                 duration=None if status == runs.INTERRUPTED else duration(end - run["started"]))
 
 
@@ -190,7 +195,7 @@ def register(app, ctx):
         problems = request.args.get("problems") == "1"
         shown_runs = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP, command)]
         if problems:
-            shown_runs = [r for r in shown_runs if r["status"] in PROBLEMS]
+            shown_runs = [r for r in shown_runs if r["problem"] and not r["checked"]]
         commands = sorted(runs.latest(ctx.state_dir))
         page_runs, page, pages = paged(shown_runs, HISTORY_PAGE)
         queued = [] if problems or page > 1 or not ctx.requests else \
@@ -198,6 +203,18 @@ def register(app, ctx):
         return render_template("runs.html", runs=page_runs,
                                queued=queued, commands=commands, command=command, problems=problems,
                                page=page, pages=pages)
+
+    @app.post("/runs/checked")
+    def check_runs():
+        ids = request.form.getlist("run", type=int)
+        if not ids:
+            abort(404)
+        runs.check(ctx.state_dir, ids, request.form.get("checked") != "0")
+        if request.form.get("from") == "run":
+            return redirect(url_for("run_page", run_id=ids[0]))
+        return redirect(url_for("history", command=request.form.get("command") or None,
+                                problems="1" if request.form.get("problems") else None,
+                                page=request.form.get("page", type=int)))
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):
