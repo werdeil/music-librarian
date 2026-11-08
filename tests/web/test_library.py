@@ -756,8 +756,10 @@ def test_library_sorted_and_filtered(dashboard):
     assert 'href="/library?c=lyrics:no&amp;sort=title" aria-current="true">Without lyrics' in page
     assert 'href="/library?c=compilation:yes&amp;sort=title">Compilations <span class="muted">1' in page
     assert 'href="/library/lyrics">one by one</a>' in page
+    assert "Repeated values" not in page                                        # keeps no album
     page = dashboard.client.get("/library?c=repeated:yes", headers=EN).get_data(as_text=True)
     assert "No album matches" in page and "<details class=\"advanced\" open>" in page
+    assert 'aria-current="true">Repeated values <span class="muted">0</span>' in page
     page = dashboard.client.get("/library?sort=nope&only=nope&c=nope:is:x", headers=EN).get_data(as_text=True)
     assert "Albums: 2" in page and '<option value="artist" selected>' in page
     assert '<a href="/library" aria-current="true">All' in page

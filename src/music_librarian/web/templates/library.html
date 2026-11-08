@@ -71,7 +71,7 @@
     {% else %}
         <p class="filters only">
             <a href="{{ url_for('library_page', **keep) }}"{% if not search.conditions %} aria-current="true"{% endif %}>{{ t.only_all }}</a>
-            {% for name, held in presets.items() %}
+            {% for name, held in presets.items() if counts[name] or search.preset == name %}
             <a href="{{ url_for('library_page', c=held|list, **keep) }}"{% if search.preset == name %} aria-current="true"{% endif %}>{{ t['only_' ~ name] }} <span class="muted">{{ counts[name] }}</span></a>
             {% endfor %}
         </p>
