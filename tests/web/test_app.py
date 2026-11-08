@@ -287,7 +287,7 @@ def test_history_of_version_0_1_read(ctx):
 def test_security_headers_and_health(client):
     response = client.get("/health")
     assert response.get_json()["status"] == "ok"
-    assert response.headers["Content-Security-Policy"] == "default-src 'self'"
+    assert response.headers["Content-Security-Policy"] == "default-src 'self'; img-src 'self' blob:"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 

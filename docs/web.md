@@ -111,5 +111,5 @@ The package is `web/`: `app.py` (the overview, the header's activity and the app
 
 - Every string shown lives in `web/i18n.py`, in `fr` and `en` with the same keys; a test checks they match.
 - Under 640 px of width (a phone), the pages keep to the screen's width: the navigation takes a line of its own, the album's tracks and the scheduled passes show as cards, each track's folded to its number and title behind a button that unfolds the rest (one holding a repeated value starts unfolded), a track's lyrics staying folded until asked for as on a wider screen, and the history leaves out the origin and duration columns.
-- The Content Security Policy is `default-src 'self'`: no inline script or style, everything from `static/`.
+- The Content Security Policy is `default-src 'self'; img-src 'self' blob:`: no inline script or style, everything from `static/`, but the image picked for an album's cover, shown from the browser before it is sent.
 - The page scripts are plain JavaScript with no framework or build step, linted by `npx --yes eslint@9 src/music_librarian/web/static/*.js` (the CI lint job).
