@@ -25,10 +25,11 @@ def connect(state_dir: Path):
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, command TEXT, "
                "origin TEXT, apply INTEGER, started REAL, ended REAL, code INTEGER, summary TEXT, "
-               "host TEXT, pid INTEGER, options TEXT, trigger TEXT)")
-    # a runs.db of version 0.1 has none of the last four
+               "host TEXT, pid INTEGER, options TEXT, trigger TEXT, checked REAL)")
+    # a runs.db of version 0.1 has none of the last five
     columns = {row[1] for row in db.execute("PRAGMA table_info(runs)")}
-    for name, kind in (("host", "TEXT"), ("pid", "INTEGER"), ("options", "TEXT"), ("trigger", "TEXT")):
+    for name, kind in (("host", "TEXT"), ("pid", "INTEGER"), ("options", "TEXT"), ("trigger", "TEXT"),
+                       ("checked", "REAL")):
         if name not in columns:
             db.execute(f"ALTER TABLE runs ADD COLUMN {name} {kind}")
     return db
@@ -165,7 +166,8 @@ def _select(state_dir: Path, where="", args=(), limit=None):
 def recent(state_dir: Path, limit=20, command=None):
     """The latest runs, newest first, of one command or all: dicts of the runs table's columns,
     `summary` as a list of lines, `options` those of a dashboard request or None. `ended` and
-    `code` are None while a run is going on, `code` alone for a pass that crashed."""
+    `code` are None while a run is going on, `code` alone for a pass that crashed; `checked` is
+    when someone marked it as checked from the dashboard, else None."""
     if command:
         return _select(state_dir, "WHERE command = ?", (command,), limit)
     return _select(state_dir, limit=limit)
@@ -175,6 +177,17 @@ def get(state_dir: Path, run_id):
     """The run of that id as recent() returns it, or None."""
     rows = _select(state_dir, "WHERE id = ?", (run_id,))
     return rows[0] if rows else None
+
+
+def check(state_dir: Path, run_ids, checked=True):
+    """Mark the finished runs of those ids as checked by someone, or no longer; return how many changed."""
+    db = connect(state_dir)
+    try:
+        with db:
+            return db.executemany("UPDATE runs SET checked = ? WHERE id = ? AND ended IS NOT NULL",
+                                  [(time.time() if checked else None, i) for i in run_ids]).rowcount
+    finally:
+        db.close()
 
 
 def latest(state_dir: Path):
