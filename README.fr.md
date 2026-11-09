@@ -2,58 +2,69 @@
 
 [English](README.md) · **Français**
 
-Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque en ALAC `.m4a` avec quelques MP3, il tourne dans un seul conteneur qui surveille le dossier d'arrivée, range ce qui y arrive et enrichit les tags : ReplayGain, pochette et paroles. Il peut aussi découper les compositeurs et artistes qui regroupent plusieurs noms, sous la forme séparée par `;` que comprend Lyrion, et unifier les noms d'un même artiste écrits de plusieurs façons.
+Range une bibliothèque musicale à la façon d'Apple Music, et y importe la musique déposée dans un dossier d'arrivée. Pensé pour une bibliothèque en ALAC `.m4a` avec quelques MP3, il tourne dans un seul conteneur Docker qui surveille le dossier d'arrivée, range ce qui y arrive et complète ce qui manque aux tags, avec un dashboard pour le suivre et le piloter.
 
-Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour pouvoir annuler un passage.
+Tout est en dry-run sans `--apply`, et chaque changement est journalisé : tout passage peut être annulé.
 
-## Ce qu'il fait
+![La vue d'ensemble du dashboard : ce qui reste à traiter, l'Inbox et les passages programmés](docs/screenshots/overview.png)
 
-- **`organize`** range la bibliothèque en `Artiste de l'album/Album/NN Titre.ext` (repli sur l'artiste), `Compilations/Album/…` si le flag compilation est posé, et `D-NN Titre` pour les albums multi-disques. Les caractères qu'Apple Music remplace (`/ : ? " | ’ ´ * < > \` …) deviennent `_`. L'encodage des accents (NFC/NFD), les différences de casse seules et les noms tronqués sont tolérés, pour ne pas renommer l'existant à tort, sauf si un dossier écrit exactement comme la cible existe déjà à côté de la variante : ses fichiers le rejoignent alors. Les annexes (`folder.jpg`, livrets, `.lrc`) suivent leur album, renommés `folder (2).jpg` si le nom y est déjà pris ; `.DS_Store` et `._*` sont supprimés. Un album dont les pistes ne s'accordent pas sur le flag compilation est signalé en conflit et laissé en place. Un titre ou un album ne prend qu'une valeur, sans `;` : une piste qui en tient plusieurs, ou un `;`, n'est pas rangée, si bien qu'`import` envoie son élément dans `_failed/`, et `tag` comme le tableau de bord refusent d'en écrire. Un autre champ dont les valeurs diffèrent (`Walk Off The Earth` et `Walk Off the Earth` pour artiste) est signalé `MULTIPLE`, et le passage est alors à vérifier, mais la piste est rangée d'après sa première valeur. Les fichiers `.m4a` dont l'index (atome `moov`) est placé après l'audio sont réécrits avec l'index en tête, sans réencodage, pour que Lyrion les diffuse en `alc` au lieu de les transcoder en `alcx`. `--since` ne relit que les dossiers modifiés depuis le dernier passage complet. Les règles complètes sont dans [docs/naming-rules.md](docs/naming-rules.md) (en anglais).
-- **`import`** prend les dossiers d'album ou fichiers en vrac déposés dans l'Inbox (FLAC, ALAC, MP3), convertit le FLAC en ALAC avec ffmpeg, un fichier par processeur à la fois (tags et pochette conservés, durée contrôlée avec ffprobe), range tout ou rien, et n'enrichit que les dossiers cibles. Les originaux partent dans `_done/AAAA-MM-JJ/`, purgés après 7 jours ; ce qui ne peut pas être rangé part dans `_failed/`.
-- **`enrich`** passe sur toute la bibliothèque et ne complète que ce qui manque ou s'écarte de la règle : genres alignés sur une liste validée (voir plus bas), ReplayGain mesuré avec ffmpeg, la pochette intégrée quand `folder.jpg` en diffère, une valeur tenue deux fois dans un champ (`Copain de soupe; Copain de soupe`, ou un compositeur nommé deux fois) gardée une seule fois (`--no-repeats` pour les laisser), et les paroles de LRCLIB et NetEase, plus Musixmatch s'il est activé. Les paroles ne sont écrites que si le titre, l'artiste et la durée du fournisseur correspondent au fichier. Une piste cherchée sans succès n'est recherchée à nouveau qu'après 30 jours (`LYRICS_RETRY_DAYS`), sauf si son artiste, son titre ou son album change, ou avec `enrich --retry`. Une piste qu'un fournisseur déclare instrumentale reçoit `[Instrumental]` pour paroles, ce qui lui évite d'être recherchée à nouveau ; le tableau de bord en marque une à la main depuis la page de ses paroles, ou par la revue des morceaux sans paroles. Une simulation ne cherche ni ne mesure rien : elle montre les changements de genres, de pochettes, de valeurs répétées et de crédits, et compte les albums à chercher sur iTunes, les pistes à mesurer et celles dont chercher les paroles, avec le temps que prendrait le passage appliqué. `--no-lyrics` laisse les paroles de côté, de loin le plus long, et `--no-genres`, `--no-replaygain` et `--no-covers` les autres outils ; un tel passage ne remplace pas celui de la semaine. Avec `--apply`, une ligne `PROGRESS` après chaque lot de 20 dossiers dit où en est chaque outil et combien de temps il lui reste, et chaque outil se termine sur un seul bilan de ses comptes et du temps qu'il a pris.
-- **`scan`** lit les métadonnées de toute la bibliothèque dans un cache du dossier d'état (`metadata.db`), puis affiche le nombre de pistes par genre. Il liste d'abord la bibliothèque, puis indique tous les 1 000 fichiers lus combien il en a parcouru sur le total, et le temps restant. `organize`, `enrich`, `import`, `split` et `dedupe` lisent les tags à travers ce cache : après une lecture complète (une vingtaine de minutes pour 25 000 pistes sur disque dur), un passage n'ouvre que les fichiers dont la taille ou les dates ont changé, et un dry-run suivi de `--apply` ne lit la bibliothèque qu'une fois. Les fichiers disparus de la bibliothèque sortent du cache à chaque `scan` et à chaque passage complet d'`enrich`. `scan --force` relit tous les fichiers quel que soit le contenu du cache, comme `enrich --rescan` avant d'enrichir.
-- **`split`** réécrit les tags compositeur et artiste comme `John Lennon/Paul McCartney` en `John Lennon; Paul McCartney`, le séparateur sur lequel Lyrion découpe. Une virgule ou une barre oblique ne découpe que si la bibliothèque le confirme : un crédit qui est l'artiste d'un album quelque part (`AC/DC`, `Earth, Wind & Fire`) est gardé, un crédit dont tous les morceaux sont des noms vus seuls est découpé, et tout autre attend une décision dans `state/split-decisions.txt` (`split`, `keep`, ou les noms à écrire). `split --review` les présente un par un avec une suggestion qu'Entrée accepte, peut s'arrêter et reprendre à tout moment, et saute les crédits qu'une réponse précédente règle déjà. Les artistes d'album qui ressemblent à une collaboration de noms connus (`Iggy Pop, Muse`) restent entiers, mais la passe à blanc les liste en `GUARDED` et la revue les présente en dernier, en les gardant sauf demande de découpe. L'artiste n'est réécrit que sur les pistes qui ont un artiste d'album. `import` le lance sur ce qu'il range et `enrich` sur toute la bibliothèque ; détails dans [docs/splitting.md](docs/splitting.md) (en anglais).
-- **`dedupe`** repère les noms d'un même artiste écrits de plusieurs façons : identiques une fois la casse, les accents, la ponctuation et un `The` initial mis de côté (`Beyonce` / `Beyoncé`), même identifiant MusicBrainz, orthographe proche (`Mettalica`), ou nom partiel (`Bach` / `Johann Sebastian Bach`). `dedupe --review` présente chaque groupe un par un et garde les réponses dans `state/artist-aliases.txt` (`Beyonce => Beyoncé`, ou `John Lennon != Julian Lennon`), et `--apply` réécrit les variantes dans les tags. `import` et `enrich` appliquent ensuite les alias d'eux-mêmes ; détails dans [docs/dedupe.md](docs/dedupe.md) (en anglais).
-- **`watch`** est le processus permanent du conteneur : il importe ce qui arrive dans l'Inbox une fois la copie terminée (et lance l'import une fois par jour, au démarrage puis à chaque nouveau jour, pour purger `_done/`), et peut lancer `organize --since` chaque nuit (`--organize-at`) et `enrich --rescan` chaque semaine (`--enrich-at "sun 03:00"`, jours en anglais ou en français) : le cache des métadonnées est ainsi relu en entier une fois par semaine.
-- **`tag CHEMIN… --set CHAMP=VALEUR`** réécrit des champs de tags de pistes ou de toutes les pistes d'un dossier (titre, artiste, artiste de l'album, album, numéros et totaux de piste et de disque, nom du disque, regroupement, année, genre, compositeur, flag compilation ; une valeur vide efface le champ ; `replaygain=`, qui ne prend pas de valeur, efface les tags ReplayGain, mesurés de nouveau par le prochain `enrich`), puis les range là où leurs nouveaux tags les placent, changements de tags et déplacements dans un même journal. Le dry run montre les deux ; un genre prend l'orthographe de la liste validée. `tag CHEMIN… --disc-names` recopie le regroupement, le seul des deux qu'Apple Music affiche, dans le nom du disque que Lyrion affiche en tête de chaque disque, sur les albums de plusieurs disques qui ont chacun leur propre regroupement (`Jupiter` et `Mars` sur *Stadium Arcadium*), pour les pistes sans nom de disque ; les autres albums avec un regroupement sont listés comme `KEPT`.
-- **`cover DOSSIER IMAGE`** fait d'une image le `folder.jpg` d'un album, convertie en JPEG avec ffmpeg si elle est dans un autre format,, l'ancien étant gardé dans le dossier d'état, puis l'intègre à ses pistes. Le dry run dit ce qu'elle remplace et dans combien de pistes elle serait intégrée ; `undo` remet l'ancien `folder.jpg`.
-- **`undo JOURNAL`** rejoue le journal d'un passage à l'envers, déplacements comme changements de tags.
-- **Le dashboard**, servi par `watch --listen` (sur le port 8080 avec le fichier compose), montre les passages en cours et les derniers avec leur sortie suivie en direct, la programmation, l'Inbox et les questions de revue en attente de réponse, en français ou en anglais. Il lance aussi n'importe quelle commande, d'abord en dry run, puis l'applique ou annule un passage appliqué depuis sa page, arrête un passage en cours ou retire une demande encore en file, cherche les albums ou les pistes de la bibliothèque champ par champ (un champ vide, rempli ou contenant une valeur, une année entre deux autres, les pistes sans paroles ou sans pochette intégrée…), parcourt la bibliothèque pour éditer les tags d'un album dans un formulaire, les paroles de ses morceaux comprises, chacune cherchée en ligne à la demande, passé à `tag`, ses champs qui tiennent une valeur en double ou plusieurs valeurs marqués, et liste ces albums, supprimer le ReplayGain d'un morceau, ou remplacer la pochette de l'album par une image de n'importe quel format choisie d'un clic dessus, avec le même formulaire, et pose les questions de `split --review` et `dedupe --review`, et sur les genres que la liste validée ne connaît pas, une page à la fois ; il n'applique que si `watch` tourne lui-même avec `--apply` ; détails dans [docs/web.md](docs/web.md) (en anglais).
-- En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
+## Fonctionnalités
 
-## Lancement
+- **Range la bibliothèque** en `Artiste de l'album/Album/NN Titre.ext`, avec les règles d'Apple Music pour les compilations, les albums multi-disques et les caractères interdits, sans renommer ce qui est déjà en place.
+- **Importe l'Inbox** : FLAC converti en ALAC, rangement en tout-ou-rien, originaux gardés 7 jours.
+- **Enrichit les tags** : genres alignés sur une liste validée, ReplayGain, pochette intégrée, paroles depuis LRCLIB et NetEase.
+- **Nettoie les crédits** : `John Lennon/Paul McCartney` découpé en `John Lennon; Paul McCartney` pour Lyrion, et un même artiste écrit de plusieurs façons (`Beyonce` / `Beyoncé`) unifié.
+- **Modifie tags et pochettes** en ligne de commande ou depuis le dashboard, puis range les pistes là où leurs nouveaux tags les placent.
+- **Garde l'historique de Lyrion** : les lectures et notes suivent les fichiers qu'il déplace (en option).
+- **Un dashboard bilingue** (français, anglais) pour suivre les passages en direct, chercher dans la bibliothèque, éditer un album et répondre aux questions que les outils ne tranchent pas seuls.
 
-Docker est la voie prévue. ffmpeg est dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
+## Captures d'écran
+
+| Bibliothèque | Album |
+|---|---|
+| ![Les albums de la bibliothèque avec leur pochette](docs/screenshots/library.png) | ![La page d'un album, ses champs et ses pistes modifiables](docs/screenshots/album.png) |
+| **Revues** | **Un passage** |
+| ![Une question de revue : un compositeur qui regroupe deux noms](docs/screenshots/reviews.png) | ![Un dry run d'enrich, son résumé et sa sortie](docs/screenshots/run.png) |
+
+## Démarrage rapide
+
+Docker est la voie prévue : ffmpeg est dans l'image, et les tests tournent au build.
 
 ```bash
 cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
-mkdir state               # journaux, dernier passage, verrou, cache des métadonnées et historique des passages ; à créer avant le premier lancement
-docker compose build
-docker compose up -d      # watch --apply, rangement à 02:00, enrichissement le dimanche à 03:00, dashboard sur :8080
-journalctl -t music-librarian -f
+mkdir state               # à créer avant le premier lancement
+docker compose up -d      # watch --apply, rangement chaque nuit, enrichissement le dimanche, dashboard sur :8080
 ```
 
-Chaque passage garde aussi sa sortie dans le dossier d'état, d'où qu'il soit lancé (`watch`, `docker compose run` ou un shell) : `state/runs/<id>.log`, les 200 derniers passages étant listés dans `state/runs.db` (commande, début et fin, code de sortie, résumé).
+Le fichier compose construit l'image ; pour utiliser l'image publiée, remplacer sa section `build:` et sa ligne `image:` par `image: ghcr.io/werdeil/music-librarian:latest` (ou une version comme `0.1`, ou `dev` pour suivre `main`), pour amd64 et arm64. La bibliothèque et l'Inbox doivent se trouver sous le dossier unique de `MUSIC_LIBRARIAN_VOLUME`, monté au même chemin que sur l'hôte. Journaux : `journalctl -t music-librarian -f`.
 
-Pour utiliser l'image publiée plutôt que de la construire, remplacer la section `build:` et la ligne `image:` de `docker-compose.yml` par `image: ghcr.io/werdeil/music-librarian:0.1` (ou `latest`), puis `docker compose pull`. Le tag `dev` suit `main` entre deux versions, sans autre test que la CI. Les images sont construites pour amd64 et arm64.
+Sans Docker : Python 3.12, ffmpeg dans le `PATH`, `pip install .`, puis `music-librarian {commande} --help`.
 
-La bibliothèque et l'Inbox doivent se trouver sous le dossier unique de `MUSIC_LIBRARIAN_VOLUME`, monté au même chemin que sur l'hôte : les déplacements restent des renommages et les chemins des journaux valent des deux côtés.
+## Commandes
+
+| Commande | Ce qu'elle fait |
+|---|---|
+| `watch` | Le processus du conteneur : importe ce qui arrive dans l'Inbox, lance les passages programmés, sert le dashboard (`--listen`) |
+| `import` | Convertit et range ce qui a été déposé dans l'Inbox, puis l'enrichit |
+| `organize` | Range la bibliothèque d'après ses tags, les annexes (`folder.jpg`, livrets, `.lrc`) suivant leur album |
+| `enrich` | Complète ce qui manque ou cloche : genres, ReplayGain, pochette, paroles, valeurs en double |
+| `scan` | Lit les tags de la bibliothèque dans le cache des métadonnées où les autres commandes les lisent |
+| `split` | Découpe les compositeurs et artistes qui regroupent plusieurs noms (`--review` pour trancher les cas douteux) |
+| `dedupe` | Unifie un même artiste écrit de plusieurs façons (`--review` pour répondre groupe par groupe) |
+| `tag` | Réécrit des champs des pistes ou des albums, puis les range de nouveau |
+| `cover` | Remplace le `folder.jpg` d'un album et l'intègre à ses pistes |
+| `undo` | Rejoue le journal d'un passage à l'envers |
 
 Lancements ponctuels, en dry-run sans `--apply` :
 
 ```bash
-docker compose run --rm music-librarian organize --since
-docker compose run --rm music-librarian import
 docker compose run --rm music-librarian enrich
-docker compose run --rm music-librarian scan        # ne modifie rien dans la bibliothèque
 docker compose run --rm music-librarian tag "/srv/music/Library/Beyonce/4" --set albumartist=Beyoncé
-docker compose run --rm music-librarian split
-docker compose run --rm music-librarian split --review   # interactif, n'écrit que les décisions
-docker compose run --rm music-librarian dedupe --review  # interactif, n'écrit que les alias
+docker compose run --rm music-librarian dedupe --review
 docker compose run --rm music-librarian undo /state/journal/{date}.jsonl --apply
 ```
 
-Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip install -r requirements.txt .` pour les versions testées), puis `music-librarian {commande} --help` (`music-librarian --version` pour la version).
+Chaque commande, ses options et ses règles sont détaillées dans [docs/commands.md](docs/commands.md) (en anglais).
 
 ## Configuration
 
@@ -63,25 +74,15 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
 | `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage, verrou, cache des métadonnées, historique des passages, décisions de découpage des crédits et alias d'artistes (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
-| `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous ; vide pour ne chercher aucunes paroles) |
+| `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease` ; vide pour ne chercher aucunes paroles, voir [les fournisseurs](docs/commands.md#lyrics-providers), en anglais) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `LYRICS_RETRY_DAYS` | Jours avant de rechercher à nouveau les paroles d'une piste restée sans résultat (défaut `30`, `0` pour chercher à chaque passage) |
-| `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
+| `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir [les genres](docs/commands.md#genres), en anglais) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` pour chercher les genres que la liste ne sait pas aligner (activé dans le fichier compose), et le magasin interrogé (défaut `us`) |
 | `MUSIC_LIBRARIAN_LISTEN` | Adresse du dashboard, `[HÔTE:]PORT` (`watch --listen` ; le fichier compose fixe `8080`, et `WEB_PORT` le port de l'hôte) |
 | `MUSIC_LIBRARIAN_WEB_HOSTS` | Noms par lesquels on atteint le dashboard, séparés par des virgules, en plus d'une adresse IP, d'un nom sans point et des suffixes locaux `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` (`watch --web-hosts`) |
 
-Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente.
-
-### Fournisseurs de paroles
-
-[LRCLIB](https://lrclib.net) est une base ouverte avec une API publique. NetEase Cloud Music et Musixmatch sont interrogés par les points d'accès de leurs propres applications, qui ne sont pas des API publiques : ils peuvent changer ou bloquer les requêtes à tout moment, et leur usage peut contrevenir à leurs conditions d'utilisation. Musixmatch est donc désactivé par défaut ; l'ajouter à `LYRICS_PROVIDERS` (par exemple `lrclib,musixmatch,netease`) si vous l'acceptez. NetEase peut être retiré de la même façon.
-
-### Genres
-
-Avec une liste de genres validés, `import` et `enrich` réécrivent le genre de chaque piste dans l'orthographe de la liste. Copier [`genres.example.txt`](genres.example.txt) en `state/genres.txt` et l'adapter : un genre validé par ligne, suivi au besoin de deux-points et des noms qui le désignent (`Rock Dur: hard rock, metal`). Les noms sont comparés sans tenir compte de la casse, des accents, des espaces ni de la ponctuation, et un tag qui porte plusieurs genres (`Rock; Pop`) prend le premier que la liste connaît. Un genre inconnu de la liste est laissé tel quel et signalé `UNKNOWN` : l'ajouter à la liste, à la main ou depuis la page Revues du dashboard, et le prochain `enrich` hebdomadaire l'aligne. Sans liste, les genres ne sont pas touchés.
-
-Avec `GENRE_LOOKUP=itunes`, un album dont la liste ne sait pas aligner le genre, ou qui n'en a pas, est cherché sur l'[API de recherche iTunes](https://performance-partners.apple.com/search-api), gratuite et sans clé : quand la liste connaît le genre qu'Apple donne à cet album (l'exemple reprend les noms d'Apple), ses pistes le prennent, avec la ligne `ITUNES` dans le journal. Sinon le genre d'Apple est affiché à côté de `UNKNOWN`, pour pouvoir l'ajouter à la liste. Les réponses sont gardées dans `state/genre_lookup.json` ; un album qu'Apple n'a pas est recherché de nouveau après 30 jours. `ITUNES_COUNTRY` choisit le magasin (`fr` pour des noms de genres en français).
+Le fichier compose lit ses propres variables dans `.env` ; `.env.example` les documente. Pour aligner les genres, copier [`genres.example.txt`](genres.example.txt) en `state/genres.txt` et l'adapter.
 
 ## Sécurité
 
@@ -91,6 +92,7 @@ Le dashboard n'a pas d'authentification, par choix : quiconque atteint son port 
 
 En anglais :
 
+- [Commandes](docs/commands.md) : ce que fait chaque commande, la liste des genres et les fournisseurs de paroles
 - [Dashboard](docs/web.md) : ses pages, les états d'un passage, et ses routes
 - [Règles de nommage](docs/naming-rules.md) : construction des chemins cibles, et quand un fichier est considéré en place
 - [Découpage des crédits](docs/splitting.md) : quels compositeurs et artistes sont découpés, et le fichier de décisions
