@@ -276,6 +276,30 @@ def test_case_variant_folder_alone_stays(lib, run, make_track):
     assert files(lib) == ["Abd al Malik/Gibraltar/01 T.m4a", "Alicia Keys/The Element of Freedom/01 T.m4a"]
 
 
+def test_new_album_joins_its_case_variant_folder(lib, run, make_track, tmp_path):
+    make_track(lib / "Aurora/Old/01 T.m4a", title="T", albumartist="Aurora", album="Old", track=1)
+    inbox = tmp_path / "Inbox"
+    make_track(inbox / "a.m4a", title="N", albumartist="AURORA", album="New", track=1)
+    make_track(inbox / "b.m4a", title="L", albumartist="aurora", album="Live", track=1)
+    assert run(str(inbox), "--apply") == 0
+    assert files(lib) == ["Aurora/Live/01 L.m4a", "Aurora/New/01 N.m4a", "Aurora/Old/01 T.m4a"]
+
+
+def test_new_case_variants_share_one_folder(lib, run, make_track, tmp_path):
+    inbox = tmp_path / "Inbox"
+    make_track(inbox / "a.m4a", title="N", albumartist="AURORA", album="New", track=1)
+    make_track(inbox / "b.m4a", title="L", albumartist="Aurora", album="Live", track=1)
+    assert run(str(inbox), "--apply") == 0
+    assert files(lib) == ["AURORA/Live/01 L.m4a", "AURORA/New/01 N.m4a"]
+
+
+def test_strict_case_files_a_case_variant_apart(lib, run, make_track, tmp_path):
+    make_track(lib / "Aurora/Old/01 T.m4a", title="T", albumartist="Aurora", album="Old", track=1)
+    make_track(tmp_path / "Inbox/a.m4a", title="N", albumartist="AURORA", album="New", track=1)
+    assert run(str(tmp_path / "Inbox"), "--strict-case", "--apply") == 0
+    assert files(lib) == ["AURORA/New/01 N.m4a", "Aurora/Old/01 T.m4a"]
+
+
 def test_side_file_already_there_is_renamed(lib, run, make_track, capsys):
     make_track(lib / "A/B/01 Un.m4a", title="Un", artist="A", album="B", track=1)
     (lib / "A/B/folder.jpg").write_bytes(b"old")
