@@ -376,7 +376,6 @@ TRANSLATIONS = {
         "back_to_lyrion": "Retour à Lyrion",
         "playcounts_intro": ("Écrit dans persist.db les orphelins réglés, après une copie de sauvegarde. "
                              "L'aperçu ne change rien."),
-        "opt_rekey": "recaler les entrées dont la clé ne correspond plus à leur URL",
         "opt_backfill": "recopier les lectures du plugin là où Lyrion n'en compte aucune",
         "opt_dpsv": "recalculer la DPSV de toutes les pistes, approximative dès qu'il y a des sauts (--dpsv)",
         "reviews": "Revues",
@@ -444,7 +443,6 @@ TRANSLATIONS = {
             "time": "durée", "estimated time": "durée estimée",
             "orphans": "orphelins", "matched": "rapprochés", "from journals": "d'après les journaux",
             "awaiting review": "en attente de réponse", "ignored": "ignorés", "backfilled": "rattrapés",
-            "rekeyed": "recalés",
             "DPSV computed": "DPSV recalculées", "backup": "sauvegarde",
         },
     },
@@ -815,7 +813,6 @@ TRANSLATIONS = {
         "back_to_lyrion": "Back to Lyrion",
         "playcounts_intro": ("Writes the settled orphans to persist.db, after a backup copy. The preview "
                              "changes nothing."),
-        "opt_rekey": "rekey the entries whose key no longer matches their URL",
         "opt_backfill": "copy the plugin's plays where Lyrion counts none",
         "opt_dpsv": "compute the DPSV of every track again, an estimate once a track was skipped (--dpsv)",
         "reviews": "Reviews",

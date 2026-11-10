@@ -154,7 +154,7 @@ A dry run reads only the metadata cache and the library's folders, never the net
 
 1. **Read the orphans** in `persist.db`, opened read-only: the entries of `tracks_persistent` with plays or a rating, none in the plugin's table, and no file in the library.
 2. **Settle each one**: the track a journal's moves lead its file to, else the track the matches file names, else it waits for `--review` or stays ignored. A dry run shows the waiting ones with their best match.
-3. **Write** with `--apply`, in one transaction after a backup copy, only when there is something to write: each settled orphan merged into its track (see [lyrion.md](lyrion.md)), the entries whose `urlmd5` is off rekeyed, the plugin's plays copied to the tracks Lyrion counts none for, and with `--dpsv` the DPSV of every track. These writes are not journaled.
+3. **Write** with `--apply`, in one transaction after a backup copy, only when there is something to write: each settled orphan merged into its track (see [lyrion.md](lyrion.md)), the plugin's plays copied to the tracks Lyrion counts none for, and with `--dpsv` the DPSV of every track. These writes are not journaled.
 
 ### undo
 

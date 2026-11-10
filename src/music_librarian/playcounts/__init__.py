@@ -10,10 +10,8 @@ Alternative Play Count plugin's table. Each orphan is given to a track:
   - none while it awaits an answer, or once ignored.
 Its plays are added to the track's, the latest play and the rating kept as in a carry-over.
 
-The pass also gives the entries whose urlmd5 is not the MD5 of their URL the right one, so Lyrion
-and the plugin find them again (--no-rekey to skip it), copies the plugin's plays to the tracks
-Lyrion counts none for (--no-backfill to skip it) and, with --dpsv, computes the plugin's DPSV
-again from the counts of every track.
+The pass also copies the plugin's plays to the tracks Lyrion counts none for (--no-backfill to
+skip it) and, with --dpsv, computes the plugin's DPSV again from the counts of every track.
 
   music-librarian playcounts             # dry run: what would be written, the orphans awaiting
   music-librarian playcounts --review    # answer the orphans (writes the matches file only)
@@ -45,7 +43,7 @@ from music_librarian.playcounts.matching import Matcher
 from music_librarian.playcounts.review import review
 from music_librarian.split.library import run_locked, run_review
 
-SUMMARY = ("orphans", "matched", "from journals", "awaiting review", "ignored", "rekeyed", "backfilled",
+SUMMARY = ("orphans", "matched", "from journals", "awaiting review", "ignored", "backfilled",
            "DPSV computed", "skipped")
 
 
@@ -58,7 +56,6 @@ class Options:
     state_dir: Path = dataclasses.field(default_factory=state_path)
     backfill: bool = True
     dpsv: bool = False
-    rekey: bool = True
     matches: Path | None = None
 
     def __post_init__(self):
@@ -74,8 +71,6 @@ def main(argv=None):
     mode.add_argument("--apply", action="store_true", help="write to persist.db (otherwise dry run)")
     mode.add_argument("--review", action="store_true",
                       help="answer the orphans, one at a time (writes the matches file only)")
-    ap.add_argument("--no-rekey", action="store_true",
-                    help="leave the entries whose urlmd5 is not the MD5 of their URL")
     ap.add_argument("--no-backfill", action="store_true",
                     help="leave the tracks Lyrion counts no play for, when the plugin counts some")
     ap.add_argument("--dpsv", action="store_true",
@@ -91,8 +86,7 @@ def main(argv=None):
     if database is None:
         raise SystemExit("playcounts needs --lyrion-db (or $LYRION_PERSIST_DB)")
     opts = Options(root=root, lyrion=database, apply=args.apply, state_dir=state_dir,
-                   backfill=not args.no_backfill, dpsv=args.dpsv, rekey=not args.no_rekey,
-                   matches=args.matches)
+                   backfill=not args.no_backfill, dpsv=args.dpsv, matches=args.matches)
     log = Log(args.syslog)
     if args.review:
         return run_review(review_pass, opts, log)
@@ -175,22 +169,16 @@ def playcounts_pass(opts: Options, log):
     try:
         with contextlib.closing(opts.lyrion.connect()) as con:
             given = plan(opts, con, log, stats)
-            miskeyed = history.miskeyed(con) if opts.rekey else []
             zeroed = history.zeroed(con) if opts.backfill else []
             changes = history.dpsv_changes(con) if opts.dpsv else []
-        for table, row in miskeyed:
-            log(f"REKEY    {opts.lyrion.relative(row['url'])}  ({table})")
         for url, plays in zeroed:
             log(f"BACKFILL {opts.lyrion.relative(url)}  ({count(plays, 'play')})")
         for _, url, kept, value in changes:
             log(f"DPSV     {opts.lyrion.relative(url)}  ({kept} → {value})")
         stats["backfilled"], stats["DPSV computed"] = len(zeroed), len(changes)
-        stats["rekeyed"] = len(miskeyed)
-        if opts.apply and (given or miskeyed or zeroed or changes):
+        if opts.apply and (given or zeroed or changes):
             backup = opts.lyrion.backup()
             with opts.lyrion.writing() as con:
-                if opts.rekey:
-                    history.rekey(con)
                 for orphan, rel in given:
                     history.adopt(con, orphan, opts.lyrion.url(opts.root / rel))
                 if opts.backfill:

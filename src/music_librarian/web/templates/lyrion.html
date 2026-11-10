@@ -63,7 +63,6 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="command" value="playcounts">
         <fieldset class="names-choice">
-            <label><input type="checkbox" name="rekey" value="1" checked> {{ t.opt_rekey }} <span class="muted">({{ miskeyed }})</span></label>
             <label><input type="checkbox" name="backfill" value="1" checked> {{ t.opt_backfill }} <span class="muted">({{ zeroed }})</span></label>
             <label><input type="checkbox" name="dpsv" value="1"> {{ t.opt_dpsv }} <span class="muted">({{ dpsv }})</span></label>
         </fieldset>

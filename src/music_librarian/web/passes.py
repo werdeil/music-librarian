@@ -36,7 +36,7 @@ OPTIONS = {
     "undo": ("journal",),
     "tag": ("edits", "cover"),
     "genres": (),
-    "playcounts": ("no_rekey", "no_backfill", "dpsv"),
+    "playcounts": ("no_backfill", "dpsv"),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
@@ -220,7 +220,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                 return 2
             opts = playcounts.Options(root=root, lyrion=import_opts.lyrion, apply=r.apply,
                                       state_dir=state_dir, backfill=not r.options.get("no_backfill"),
-                                      dpsv=bool(r.options.get("dpsv")), rekey=not r.options.get("no_rekey"))
+                                      dpsv=bool(r.options.get("dpsv")))
             return playcounts.run(opts, log)
         return kept("playcounts", give, log, r)
 

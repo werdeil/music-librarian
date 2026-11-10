@@ -84,7 +84,6 @@ def test_tab_tile_and_list(d):
     assert text.index(OLD) < text.index(OTHER)                       # the most played first
     assert f'/lyrion/orphans/{d.key(OLD)}"' in text and "★★★★" in text
     assert "copy the plugin&#39;s plays where Lyrion counts none <span class=\"muted\">(1)</span>" in text
-    assert "rekey the entries whose key no longer matches their URL <span class=\"muted\">(0)</span>" in text
     assert 'value="playcounts"' in text
 
 
@@ -134,7 +133,7 @@ def test_answers_need_the_token_and_a_known_orphan(d):
 
 def test_pass_asked_from_the_page_gives_the_history(d, database):
     post(d, f"/lyrion/orphans/{d.key(OLD)}", choice="match", target=TRACK)
-    asked = post(d, "/passes", command="playcounts", backfill="1", rekey="1")
+    asked = post(d, "/passes", command="playcounts", backfill="1")
     d.requests.tick(Log())
     run = page(d, asked.headers["Location"])
     assert "MATCH" in run and "BACKFILL" in run and "Back to Lyrion" in run
