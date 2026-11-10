@@ -22,4 +22,4 @@ Thanks for contributing! Keep this short: describe the change and confirm the ch
 - [ ] Without `--apply`, the commands still change nothing, and every move still goes through the journal
 - [ ] New messages, help and comments are in English, and log lines keep their 8-character tag
 - [ ] Documentation updated if user-facing behaviour changed: `README.md` and `README.fr.md` together, and `docs/*.md`
-- [ ] Docker touched → `docker compose build` passes (it runs the tests in the image)
+- [ ] Docker touched → `docker build --target test .` and `docker compose build` pass (the tests in the container, then the image and its tools)

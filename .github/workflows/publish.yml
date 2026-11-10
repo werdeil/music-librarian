@@ -1,5 +1,6 @@
 # Publishes the Docker image to the GitHub Container Registry, built for amd64
-# and arm64 with the tests run on both (arm64 through QEMU, slower):
+# and arm64 (through QEMU) with the tools checked on both; the tests are left
+# to ci.yml:
 #   - publishing a GitHub release (see release.yml) tags it 0.1.0, 0.1 and
 #     latest, only 0.1.0 for a pre-release;
 #   - every push to main (or a manual run on main) tags it dev.
@@ -55,7 +56,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
             type=raw,value=dev,enable=${{ github.event_name != 'release' }}
-      - name: Build and push the image (tests included)
+      - name: Build and push the image
         uses: docker/build-push-action@v7
         with:
           context: .

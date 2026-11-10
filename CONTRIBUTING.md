@@ -22,7 +22,7 @@ pylint src tests
 
 Both must pass, and pylint must stay at 10/10. The rules and the few disabled checks are explained in `pyproject.toml`.
 
-The CI also builds the Docker image, which runs the tests again inside the container and checks that ffmpeg measures loudness there. You can do the same with `docker compose build`.
+The CI also runs the tests again inside the container, then builds the Docker image, which checks that ffmpeg measures loudness there. You can do the same with `docker build --target test .` and `docker compose build`.
 
 ## Code
 

@@ -1,7 +1,8 @@
 # Configuration: copy .env.example to .env and adapt it.
 #
-# Build (the tests run at build time):
+# Build (the tools are checked at build time):
 #   docker compose build
+#   docker build --target test .         # the tests, in the container
 #   (with BUILD_NETWORK=host: docker buildx bake -f docker-compose.yml --allow network.host)
 #
 # Continuously, the container watches the Inbox and imports, and files the
