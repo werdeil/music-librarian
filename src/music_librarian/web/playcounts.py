@@ -53,12 +53,13 @@ class Orphans:
                 changed_at(self.opts.state_dir / "journal"))
 
     def _library(self):
-        """{urlmd5 Lyrion gives a track of the metadata cache: its path relative to the root}."""
+        """{urlmd5 Lyrion gives a track of the metadata cache still there: its path relative to the
+        root}."""
         if not (self.opts.state_dir / metadata_cache.FILE).exists():
             return {}
         with MetadataCache(self.opts.state_dir) as cache:
             return {lyrion.md5(url): relative(path, self.root) for path in cache.paths(self.root)
-                    if (url := self.opts.lyrion.url(Path(path)))}
+                    if os.path.exists(path) and (url := self.opts.lyrion.url(Path(path)))}
 
     def _build(self):
         library = self._library()
