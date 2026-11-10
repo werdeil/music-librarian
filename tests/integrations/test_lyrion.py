@@ -13,17 +13,6 @@ from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import EXIT_LYRION
 
 LYRION_ROOT = "/music/Musique"
-SCHEMA = """
-CREATE TABLE tracks_persistent (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, url text NOT NULL, musicbrainz_id varchar(40),
-  added int(10), rating tinyint(1), playCount int(10), lastPlayed int(10),
-  urlmd5 char(32) NOT NULL default '0', lastRated int(10), prevRating tinyint(1));
-CREATE TABLE alternativeplaycount (
-  url text NOT NULL COLLATE NOCASE, playCount int(10), lastPlayed int(10), skipCount int(10),
-  lastSkipped int(10), dynPSval int(10), remote bool default '0',
-  urlmd5 char(32) not null default '0', musicbrainz_id varchar(40) COLLATE NOCASE);
-CREATE UNIQUE INDEX cpurlmd5UniqueIndex ON alternativeplaycount (urlmd5);
-"""
 
 
 def md5(u):
@@ -35,13 +24,9 @@ def url(rel):
 
 
 @pytest.fixture
-def env(tmp_path):
-    lib, state, db = tmp_path / "Musique", tmp_path / "state", tmp_path / "persist.db"
+def env(tmp_path, lyrion_db):
+    lib, state, db = tmp_path / "Musique", tmp_path / "state", lyrion_db
     lib.mkdir()
-    con = sqlite3.connect(db)
-    con.executescript(SCHEMA)
-    con.execute("PRAGMA journal_mode=WAL")  # like Lyrion
-    con.close()
 
     class Env:
         def run(self, *a):

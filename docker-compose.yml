@@ -19,6 +19,7 @@
 #   docker compose run --rm music-librarian split
 #   docker compose run --rm music-librarian dedupe --review
 #   docker compose run --rm music-librarian tag <album folder> --set albumartist=<name>
+#   docker compose run --rm music-librarian playcounts --review
 #   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
 # Create ./state BEFORE the first start (mkdir state): otherwise Docker creates
