@@ -108,8 +108,9 @@ def test_answers_are_written_to_the_matches_file_and_undone(d):
     answer = post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="ignore")
     assert answer.headers["Location"] == f"/lyrion?done={d.key(OTHER)}"
     assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, {d.key(OTHER)})
-    assert "No orphan awaiting an answer." in page(d, "/lyrion")
-    settled = page(d, "/lyrion?state=settled")
+    assert "No orphan awaiting an answer." in page(d, "/lyrion?state=waiting")
+    settled = page(d, "/lyrion")
+    assert "Settled orphans to write: 1" in settled
     assert "Settled (1)" in settled and TRACK in settled and "from a journal" not in settled
     assert "Ignored: its play counts stay" in page(d, f"/lyrion/orphans/{d.key(OTHER)}")
     assert 'class="count" title="Orphans' not in page(d, "/")

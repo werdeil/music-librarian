@@ -60,7 +60,7 @@ Each review links to the file its answers are kept in, shown read only: the spli
 
 ## Lyrion
 
-The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer or a journal, with the track that takes them, and those **ignored**.
+The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer or a journal, with the track that takes them, and those **ignored**. The page opens on the settled ones when none is waiting.
 
 An orphan's page shows its play count, rating and last play, and the eight tracks of the library whose path looks most like its own, each with its note; the first is picked unless its note is under 60. A search box keeps the tracks whose path holds every word typed, when the right one is not among them. **Give to this track** and **Ignore** write the answer to `playcount-matches.json` at once and open the next orphan waiting, where the answer can be undone; **Later** opens the next one without an answer. Answering never writes to `persist.db`.
 

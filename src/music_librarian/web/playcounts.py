@@ -125,7 +125,8 @@ def register(app, ctx):
         if sorted_out is None:
             return render_template("lyrion.html", building=built is None, error=built and built.error)
         state = request.args.get("state")
-        state = state if state in STATES else "waiting"
+        if state not in STATES:
+            state = "settled" if sorted_out["settled"] and not sorted_out["waiting"] else "waiting"
         rows, page, pages = paged(sorted_out[state], PAGE)
         matched = decisions.load(orphans.opts.matches)[0]
         return render_template(

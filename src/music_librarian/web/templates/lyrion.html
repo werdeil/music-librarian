@@ -57,6 +57,7 @@
 <section>
     <h2>{{ t.passes.playcounts }} <code class="aside">playcounts</code></h2>
     <p class="muted">{{ t.playcounts_intro }}</p>
+    <p>{{ t.orphans_to_write.format(n=counts.settled) }}</p>
     {% if ctx.requests %}
     <form method="post" action="{{ url_for('new_pass') }}" class="answer">
         <input type="hidden" name="csrf" value="{{ csrf }}">
