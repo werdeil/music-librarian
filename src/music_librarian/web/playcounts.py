@@ -67,7 +67,8 @@ class Orphans:
             with contextlib.closing(self.opts.lyrion.connect()) as con:
                 orphans = playcounts.orphans_of(self.opts, con, library)
                 return SimpleNamespace(
-                    error=None, orphans=orphans, by_key={orphan.key: orphan for orphan, _ in orphans},
+                    error=None, orphans=orphans, by_key={orphan.key: orphan for orphan, _, _ in orphans},
+                    why={orphan.key: why for orphan, _, why in orphans},
                     filed=set(library.values()), matcher=playcounts.matcher(con, library),
                     zeroed=len(history.zeroed(con)), dpsv=len(history.dpsv_changes(con)))
         except sqlite3.Error as e:
@@ -82,7 +83,7 @@ class Orphans:
             return built, None
         found = playcounts.sorted_out(built.orphans, self.opts.matches, built.filed)
         return built, dict(waiting=[(orphan, None) for orphan in found["waiting"]],
-                           settled=found["journal"] + found["matched"] + found["gone"],
+                           settled=found["journal"] + found["case"] + found["matched"] + found["gone"],
                            ignored=[(orphan, None) for orphan in found["ignored"]])
 
     def answer(self, **changes):
@@ -134,7 +135,8 @@ def register(app, ctx):
             "lyrion.html", state=state, counts={name: len(sorted_out[name]) for name in STATES},
             rows=[dict(orphans.shown(orphan), target=target,
                        gone=target is not None and target not in built.filed,
-                       journal=target is not None and orphan.key not in matched) for orphan, target in rows],
+                       why=None if orphan.key in matched else built.why[orphan.key])
+                  for orphan, target in rows],
             page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, done=recorded(built))
 
     @app.get("/lyrion/orphans/<key>")
@@ -158,6 +160,7 @@ def register(app, ctx):
             "lyrion_orphan.html", item=item, state=state, target=target, words=words,
             answered=key in decisions.load(orphans.opts.matches)[0] or state == "ignored",
             gone=target is not None and target not in built.filed, suggestions=suggestions,
+            why=built.why[key],
             following=following(sorted_out, key), left=len(sorted_out["waiting"]),
             done=recorded(built))
 

@@ -36,7 +36,7 @@
                 {% if state == 'settled' %}
                 <td><code class="path">{{ row.target }}</code>
                     {% if row.gone %}<span class="status status-failed">{{ t.orphan_target_gone }}</span>
-                    {% elif row.journal %}<span class="status status-queued">{{ t.orphan_by_journal }}</span>{% endif %}</td>
+                    {% elif row.why %}<span class="status status-queued">{{ t['orphan_by_' ~ row.why] }}</span>{% endif %}</td>
                 {% endif %}
             </tr>
         {% endfor %}

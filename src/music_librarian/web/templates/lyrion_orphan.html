@@ -17,7 +17,7 @@
         {% if target %}
         <p>{{ t.orphan_given_to }} <code class="path">{{ target }}</code>
             {% if gone %}<span class="status status-failed">{{ t.orphan_target_gone }}</span>
-            {% elif not answered %}<span class="status status-queued">{{ t.orphan_by_journal }}</span>{% endif %}</p>
+            {% elif not answered and why %}<span class="status status-queued">{{ t['orphan_by_' ~ why] }}</span>{% endif %}</p>
         {% elif state == 'ignored' %}
         <p>{{ t.orphan_is_ignored }}</p>
         {% endif %}
