@@ -65,6 +65,7 @@ src/music_librarian/
     ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
+    ├── playcounts.py Lyrion's orphan play counts, one orphan per page
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
@@ -80,7 +81,7 @@ src/music_librarian/
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
 | by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics and removes the ReplayGain through it too |
 | by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
-| by hand | `playcounts`, `playcounts --review` | gives Lyrion's orphan play counts back to the library's tracks, asking about those no journal settles |
+| by hand, or the dashboard's Lyrion page | `playcounts`, `playcounts --review` | gives Lyrion's orphan play counts back to the library's tracks, asking about those no journal settles |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 

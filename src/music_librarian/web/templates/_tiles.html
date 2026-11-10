@@ -7,6 +7,7 @@
     dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
     dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics'), info=True),
 ] %}
+{% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}
 {% set ns = namespace(todo=[], ok=[], aside=[]) %}
 {% for e in entries %}
     {% if e.value is none or e.info %}{% set ns.aside = ns.aside + [e] %}

@@ -12,13 +12,14 @@ from music_librarian.web.passes import Requests, passes
 
 @pytest.fixture
 def serve():
-    def dashboard(lib, state, inbox):
+    def dashboard(lib, state, inbox, lyrion=None):
         inbox.mkdir(exist_ok=True)
-        import_opts = importer.Options(inbox=inbox, root=lib, state_dir=state)
+        import_opts = importer.Options(inbox=inbox, root=lib, state_dir=state, lyrion=lyrion)
         organize_opts = organize.Options(root=lib, since=True, state_dir=state)
         enrich_opts = enrich.Options(root=lib, state_dir=state, rescan=True)
         requests = Requests(passes(import_opts, organize_opts, enrich_opts, Log()), watch.safe)
-        ctx = web.Context(root=lib, inbox=inbox, state_dir=state, apply=True, requests=requests)
+        ctx = web.Context(root=lib, inbox=inbox, state_dir=state, apply=True, requests=requests,
+                          lyrion=lyrion)
         client = web.create_app(ctx).test_client()
         page = client.get("/", headers={"Accept-Language": "en"}).get_data(as_text=True)
         token = re.search(r'name="csrf" value="([^"]+)"', page)[1]

@@ -35,6 +35,7 @@ def test_close_play_counts_add_to_the_note():
     assert LIKELY < without < close == pytest.approx(without + 5)
 
 
-def test_top_and_least():
+def test_top_and_words():
     assert len(Matcher(LIBRARY).best("/x/Beyoncé/Lemonade/01 Formation.m4a", top=2)) == 2
-    assert not Matcher(LIBRARY).best("/x/Nobody/Nothing/01 Zzz.m4a", least=60)
+    found = Matcher(LIBRARY).best("/x/Beyoncé/Lemonade/01 Formation.m4a", words="DAFT discovery")
+    assert [key for _, key, _, _ in found] == ["c"]

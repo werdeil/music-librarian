@@ -66,7 +66,7 @@ An **orphan** is an entry of `tracks_persistent` with plays or a rating that has
 - **a match**: the track picked for it with `--review`, kept in `playcount-matches.json` in the state folder until it is applied (`MATCH`). A match whose track left the library since is `SKIPPED`, and the pass exits with code 2;
 - **nothing yet**: it waits (`WAITING`, shown in a dry run with its best match), or was ignored in the review and is never asked about again.
 
-`--review` shows the orphans one at a time, the most played first, each with the five tracks whose path looks most like its own: the note out of 100 weighs the title for 70, the artist folder for 20 and the album for 10, plus 5 when both have play counts within 20 % of each other. A number picks a track, `i` ignores the orphan, Enter leaves it for later, `u` takes the previous answer back.
+`--review` shows the orphans one at a time, the most played first, each with the five tracks whose path looks most like its own: the note out of 100 weighs the title for 70, the artist folder for 20 and the album for 10, plus 5 when both have play counts within 20 % of each other. A number picks a track, `i` ignores the orphan, Enter leaves it for later, `u` takes the previous answer back. The dashboard's **Lyrion** page asks the same questions and queues the pass (see [web.md](web.md#lyrion)).
 
 A settled orphan is merged into its track as a carry-over does: in `tracks_persistent` its entry takes the track's URL, or is merged into the track's entry and deleted; in `alternativeplaycount` its plays are added to the track's and the latest play kept, and the track's `dynPSval` is computed again from its counts.
 

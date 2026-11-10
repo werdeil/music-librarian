@@ -48,15 +48,17 @@ class Matcher:
     """Notes one orphan against `candidates`, [(key, path relative to the library, plays)]."""
 
     def __init__(self, candidates):
-        self.candidates = [(key, rel, plays, named(rel)) for key, rel, plays in candidates]
+        self.candidates = [(key, rel, plays, named(rel), fold(rel)) for key, rel, plays in candidates]
 
-    def best(self, path, plays=0, top=5, least=0):
-        """The `top` candidates noted `least` or more for the orphan at `path`, best first, as
-        (note, key, relative path, plays)."""
-        orphan = named(path)
+    def best(self, path, plays=0, top=5, words=""):
+        """The `top` candidates for the orphan at `path`, best first, as (note, key, relative
+        path, plays); with `words`, among those whose path holds each of them."""
+        orphan, words = named(path), fold(words).split()
         memo = {field: {} for field, _ in WEIGHTS}
         found = []
-        for key, rel, count, candidate in self.candidates:
+        for key, rel, count, candidate, text in self.candidates:
+            if not all(word in text for word in words):
+                continue
             note = 0.0
             for field, weight in WEIGHTS:
                 ours, theirs = getattr(orphan, field), getattr(candidate, field)
@@ -67,7 +69,6 @@ class Matcher:
                     note += ratio * weight
             if close_counts(plays, count):
                 note = min(note + PLAYS_BONUS, 100.0)
-            if note >= least:
-                found.append((note, key, rel, count))
+            found.append((note, key, rel, count))
         found.sort(key=lambda match: (-match[0], match[2]))
         return found[:top]

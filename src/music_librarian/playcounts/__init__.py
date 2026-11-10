@@ -5,8 +5,8 @@ Lyrion keys its history on each file's URL (see integrations/lyrion.py). A file 
 pass leaves an orphan: an entry of tracks_persistent with plays or a rating, and none in the
 Alternative Play Count plugin's table. Each orphan is given to a track:
   - the one a journal says its file became, at once;
-  - the one picked for it with --review, among the tracks whose path looks most like its own
-    (see playcounts/matching.py), kept in state/playcount-matches.json;
+  - the one picked for it with --review or on the dashboard, among the tracks whose path looks
+    most like its own (see playcounts/matching.py), kept in state/playcount-matches.json;
   - none while it awaits an answer, or once ignored.
 Its plays are added to the track's, the latest play and the rating kept as in a carry-over.
 
@@ -107,26 +107,33 @@ def tracks(opts: Options):
     return found
 
 
-def sorted_out(opts: Options, con, library):
-    """The orphans whose file is gone, sorted by what settles them:
-    {"journal" | "matched" | "gone": [(orphan, target's relative path)], "ignored" | "waiting":
-    [orphan]}; "gone" holds the matches whose track left the library."""
-    matches, ignored = decisions.load(opts.matches)
+def orphans_of(opts: Options, con, library):
+    """[(orphan whose file is gone, the track a journal's moves lead its file to or None)], for a
+    `library` as tracks() gives it."""
     moved = {lyrion.md5(url): dst for src, dst in journals.destinations(opts.state_dir).items()
              if (url := opts.lyrion.url(src))}
-    out, filed = defaultdict(list), set(library.values())
+    found = []
     for orphan in history.orphans(con):
-        if orphan.key in library:
-            continue
-        target = moved.get(orphan.key)
-        url = opts.lyrion.url(target) if target else None
-        if orphan.key in matches:
-            rel = matches[orphan.key]
+        if orphan.key not in library:
+            url = opts.lyrion.url(moved.get(orphan.key, ""))
+            found.append((orphan, library.get(lyrion.md5(url)) if url else None))
+    return found
+
+
+def sorted_out(orphans, matches: Path, filed):
+    """The orphans of orphans_of() sorted by what settles them, `filed` being the library's
+    relative paths: {"journal" | "matched" | "gone": [(orphan, its track)], "ignored" | "waiting":
+    [orphan]}; "gone" holds the matches whose track left the library."""
+    matched, ignored = decisions.load(matches)
+    out = defaultdict(list)
+    for orphan, moved in orphans:
+        if orphan.key in matched:
+            rel = matched[orphan.key]
             out["matched" if rel in filed else "gone"].append((orphan, rel))
         elif orphan.key in ignored:
             out["ignored"].append(orphan)
-        elif url and lyrion.md5(url) in library:
-            out["journal"].append((orphan, library[lyrion.md5(url)]))
+        elif moved:
+            out["journal"].append((orphan, moved))
         else:
             out["waiting"].append(orphan)
     return out
@@ -141,7 +148,7 @@ def review_pass(opts: Options, log):
     log(f"reading the orphans of {opts.lyrion.db}…")
     library = tracks(opts)
     with contextlib.closing(opts.lyrion.connect()) as con:
-        waiting = sorted_out(opts, con, library)["waiting"]
+        waiting = sorted_out(orphans_of(opts, con, library), opts.matches, set(library.values()))["waiting"]
         suggest = matcher(con, library)
     queue = [(orphan, opts.lyrion.relative(orphan.url)) for orphan in waiting]
     answered = review(queue, suggest.best, opts.matches, input, log)
@@ -198,7 +205,7 @@ def plan(opts: Options, con, log, stats):
     """Log what becomes of each orphan; return [(orphan, its track's relative path)] of those
     a journal or a match settles."""
     library = tracks(opts)
-    found = sorted_out(opts, con, library)
+    found = sorted_out(orphans_of(opts, con, library), opts.matches, set(library.values()))
     for kind, tag in (("journal", "JOURNAL "), ("matched", "MATCH   ")):
         for orphan, rel in found[kind]:
             log(f"{tag} {opts.lyrion.relative(orphan.url)}  ({count(orphan.plays, 'play')})\n"

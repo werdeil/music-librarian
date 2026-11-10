@@ -1381,3 +1381,15 @@ table.tracks .lyrics-row input[type="checkbox"] {
     min-width: 0;
     margin: 0;
 }
+
+.note-likely {
+    color: var(--ok);
+}
+
+.note-possible {
+    color: var(--warning);
+}
+
+.note-unlikely {
+    color: var(--text-muted);
+}

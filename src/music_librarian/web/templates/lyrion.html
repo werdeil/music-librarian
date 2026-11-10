@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Lyrion · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h1 class="visually-hidden">Lyrion</h1>
+    <p class="muted">{{ t.lyrion_intro }}</p>
+    {% if off %}
+    <p class="warning">{{ t.lyrion_off }}</p>
+    {% elif building %}
+    {% include "_building.html" %}
+    {% elif error %}
+    <p class="warning">{{ t.lyrion_unreadable.format(error=error) }}</p>
+    {% endif %}
+</section>
+{% if counts is defined %}
+<section>
+    <h2>{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>
+    {% include "_orphan_recorded.html" %}
+    <p class="filters">
+        {% for name in ('waiting', 'settled', 'ignored') %}
+        <a href="{{ url_for('lyrion_page', state=name) }}"{% if name == state %} aria-current="true"{% endif %}>{{ t['orphans_' ~ name] }} ({{ counts[name] }})</a>
+        {% endfor %}
+    </p>
+    {% if rows %}
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>{{ t.orphan_file }}</th><th>{{ t.orphan_plays }}</th><th>{{ t.orphan_rating }}</th><th>{{ t.orphan_last }}</th>{% if state == 'settled' %}<th>{{ t.orphan_target }}</th>{% endif %}</tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr>
+                <td><a href="{{ url_for('lyrion_orphan', key=row.key) }}">{{ row.path }}</a></td>
+                <td>{{ row.plays }}</td>
+                <td>{{ '★' * row.stars }}</td>
+                <td>{{ row.last }}</td>
+                {% if state == 'settled' %}
+                <td><code class="path">{{ row.target }}</code>
+                    {% if row.gone %}<span class="status status-failed">{{ t.orphan_target_gone }}</span>
+                    {% elif row.journal %}<span class="status status-queued">{{ t.orphan_by_journal }}</span>{% endif %}</td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if pages > 1 %}
+    <p class="filters">
+        {% if page > 1 %}<a href="{{ url_for('lyrion_page', state=state, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+        <span class="muted">{{ page }} / {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('lyrion_page', state=state, page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t['orphans_no_' ~ state] }}</p>
+    {% endif %}
+</section>
+<section>
+    <h2>{{ t.passes.playcounts }} <code class="aside">playcounts</code></h2>
+    <p class="muted">{{ t.playcounts_intro }}</p>
+    {% if ctx.requests %}
+    <form method="post" action="{{ url_for('new_pass') }}" class="answer">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="command" value="playcounts">
+        <fieldset class="names-choice">
+            <label><input type="checkbox" name="backfill" value="1" checked> {{ t.opt_backfill }} <span class="muted">({{ zeroed }})</span></label>
+            <label><input type="checkbox" name="dpsv" value="1"> {{ t.opt_dpsv }} <span class="muted">({{ dpsv }})</span></label>
+        </fieldset>
+        <div class="actions">
+            <button type="submit" class="primary">{{ m.icon('preview') }}{{ t.start_dry_run }}</button>
+        </div>
+    </form>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

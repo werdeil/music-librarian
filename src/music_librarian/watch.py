@@ -194,7 +194,8 @@ def start_dashboard(args, import_opts, requests, log):
     from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
     ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
                          apply=args.apply, interval=args.interval, organize_at=args.organize_at,
-                         enrich_at=args.enrich_at, requests=requests, hosts=frozenset(args.web_hosts))
+                         enrich_at=args.enrich_at, requests=requests, hosts=frozenset(args.web_hosts),
+                         lyrion=import_opts.lyrion)
     return server.serve(ctx, args.listen, log)
 
 
