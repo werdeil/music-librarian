@@ -13,13 +13,14 @@ backup copy of the database (WAL included).
 Settings: --lyrion-db / $LYRION_PERSIST_DB (off without it), --lyrion-root /
 $LYRION_MUSIC_ROOT = the library root as Lyrion sees it.
 """
+import contextlib
 import hashlib
 import json
 import os
 import sqlite3
 import time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote_to_bytes
 
 from music_librarian.core.files import AUDIO_EXT
 
@@ -67,6 +68,11 @@ class Lyrion:
             return None
         return "file://" + quote(self.lyrion_root + b"/" + os.fsencode(rel), safe=URL_SAFE)
 
+    def relative(self, url):
+        """The path a Lyrion URL names, relative to the library when under Lyrion's root."""
+        path = unquote_to_bytes(url.removeprefix("file://"))
+        return os.fsdecode(path.removeprefix(self.lyrion_root + b"/"))
+
     def pairs(self, moves, audio_ext):
         out = []
         for src, dst in moves:
@@ -77,7 +83,7 @@ class Lyrion:
                 out.append((old, new))
         return out
 
-    def _connect(self, readonly):
+    def connect(self, readonly=True):
         if readonly:
             con = sqlite3.connect(f"file:{self.db}?mode=ro", uri=True, timeout=BUSY_TIMEOUT)
         else:
@@ -88,7 +94,7 @@ class Lyrion:
     def backup(self):
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         dest = self.backup_dir / f"persist-{time.strftime('%Y%m%d-%H%M%S')}.db"
-        src, out = self._connect(readonly=True), sqlite3.connect(dest)
+        src, out = self.connect(), sqlite3.connect(dest)
         try:
             src.backup(out)
         finally:
@@ -98,6 +104,22 @@ class Lyrion:
             old.unlink()
         return dest
 
+    @contextlib.contextmanager
+    def writing(self):
+        """A connection inside one BEGIN IMMEDIATE transaction, so Lyrion cannot insert in between:
+        committed on exit, rolled back on an error."""
+        con = self.connect(readonly=False)
+        try:
+            con.execute("BEGIN IMMEDIATE")
+            yield con
+            con.execute("COMMIT")
+        except BaseException:
+            if con.in_transaction:
+                con.execute("ROLLBACK")
+            raise
+        finally:
+            con.close()
+
     def sync(self, pairs, apply):
         """Carry the history over; returns {"renamed": n, "merged": n, ...}.
         In a dry run nothing is written (the database is opened read-only)."""
@@ -106,55 +128,48 @@ class Lyrion:
             return stats
         if apply:
             stats["backup"] = self.backup()
-        con = self._connect(readonly=not apply)
-        try:
-            if apply:
-                con.execute("BEGIN IMMEDIATE")  # Lyrion cannot insert in between
+        with self.writing() if apply else contextlib.closing(self.connect()) as con:
             for old, new in pairs:
                 kinds = {self._move(con, t, old, new, apply) for t in TABLES}
                 kinds.discard(None)
                 key = ("merged" if "merge" in kinds else
                        "renamed" if kinds else "no history")
                 stats[key] += 1
-            if apply:
-                con.execute("COMMIT")
-        except BaseException:
-            if apply and con.in_transaction:
-                con.execute("ROLLBACK")
-            raise
-        finally:
-            con.close()
         return stats
 
     @staticmethod
     def _move(con, table, old, new, apply):
-        md5_old, md5_new = md5(old), md5(new)
-        row = con.execute(f"SELECT * FROM {table} WHERE urlmd5 = ?", (md5_old,)).fetchone()
-        if row is None:
-            return None
-        cur = con.execute(f"SELECT * FROM {table} WHERE urlmd5 = ?", (md5_new,)).fetchone()
-        if cur is None:
-            if apply:
-                con.execute(f"UPDATE {table} SET url = ?, urlmd5 = ? WHERE urlmd5 = ?",
-                            (new, md5_new, md5_old))
-            return "rename"
+        row = con.execute(f"SELECT * FROM {table} WHERE urlmd5 = ?", (md5(old),)).fetchone()
+        return None if row is None else carry(con, table, row, new, apply)
+
+
+def carry(con, table, row, new, apply=True):
+    """Give the entry `row` of `table` the URL `new`: "rename", or "merge" into the entry that
+    URL already has, `row` then being deleted."""
+    md5_old, md5_new = row["urlmd5"], md5(new)
+    cur = con.execute(f"SELECT * FROM {table} WHERE urlmd5 = ?", (md5_new,)).fetchone()
+    if cur is None:
         if apply:
-            summed, latest, kept = TABLES[table]
-            cols = row.keys()
-            vals = {c: (row[c] or 0) + (cur[c] or 0) for c in summed if c in cols}
-            vals |= {c: max(row[c] or 0, cur[c] or 0) or None for c in latest if c in cols}
-            vals |= {c: cur[c] if cur[c] is not None else row[c] for c in kept if c in cols}
-            if "added" in cols:
-                vals["added"] = min((x for x in (row["added"], cur["added"]) if x is not None),
-                                    default=None)
-            if "dynPSval" in cols:
-                # the plugin's dynamic rating: the one of the entry with the most events
-                ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)
-                vals["dynPSval"] = (cur if ev(cur) >= ev(row) else row)["dynPSval"]
-            sets = ", ".join(f"{c} = ?" for c in vals)
-            con.execute(f"UPDATE {table} SET {sets} WHERE urlmd5 = ?", (*vals.values(), md5_new))
-            con.execute(f"DELETE FROM {table} WHERE urlmd5 = ?", (md5_old,))
-        return "merge"
+            con.execute(f"UPDATE {table} SET url = ?, urlmd5 = ? WHERE urlmd5 = ?",
+                        (new, md5_new, md5_old))
+        return "rename"
+    if apply:
+        summed, latest, kept = TABLES[table]
+        cols = row.keys()
+        vals = {c: (row[c] or 0) + (cur[c] or 0) for c in summed if c in cols}
+        vals |= {c: max(row[c] or 0, cur[c] or 0) or None for c in latest if c in cols}
+        vals |= {c: cur[c] if cur[c] is not None else row[c] for c in kept if c in cols}
+        if "added" in cols:
+            vals["added"] = min((x for x in (row["added"], cur["added"]) if x is not None),
+                                default=None)
+        if "dynPSval" in cols:
+            # the plugin's dynamic rating: the one of the entry with the most events
+            ev = lambda r: (r["playCount"] or 0) + (r["skipCount"] or 0)
+            vals["dynPSval"] = (cur if ev(cur) >= ev(row) else row)["dynPSval"]
+        sets = ", ".join(f"{c} = ?" for c in vals)
+        con.execute(f"UPDATE {table} SET {sets} WHERE urlmd5 = ?", (*vals.values(), md5_new))
+        con.execute(f"DELETE FROM {table} WHERE urlmd5 = ?", (md5_old,))
+    return "merge"
 
 
 def md5(url):

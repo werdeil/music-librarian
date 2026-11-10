@@ -1,0 +1,7 @@
+{% if done %}
+<form method="post" action="{{ url_for('answer_orphan', key=done.key) }}" class="recorded">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <span class="muted">{{ t.recorded }}</span> <code>{{ done.path }}</code>
+    <button type="submit" name="choice" value="forget">{{ t.undo_answer }}</button>
+</form>
+{% endif %}

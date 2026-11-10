@@ -15,7 +15,7 @@ from music_librarian.core import runs
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.lyrics import misses
 from music_librarian.tag import genre_list
-from music_librarian.web import albums, history, library, reviews, security
+from music_librarian.web import albums, history, library, playcounts, reviews, security
 from music_librarian.web.common import place, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -37,6 +37,7 @@ class Context:
     enrich_at: tuple | None = None   # (weekday, time), as watch.weekly parses it
     requests: object = None          # web.passes.Requests; None shows no form
     hosts: frozenset = frozenset()   # the names it answers to besides security.local_host's
+    lyrion: object = None            # integrations.lyrion.Lyrion; None shows no Lyrion page
 
 
 def next_daily(now, at):
@@ -66,17 +67,20 @@ def create_app(ctx: Context):
     index = library.Index(ctx.root, ctx.state_dir)
     history.register(app, ctx)
     albums.register(app, ctx, index)
-    built_in_background = (index.albums, *queues)
+    orphans_waiting, orphans = playcounts.register(app, ctx)
+    built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues
     shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
              "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
-             "review_genres": (genre_queue,), "genre_list_page": (genre_queue,)}
+             "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
+             "lyrion_page": orphans, "lyrion_orphan": orphans}
 
     @app.context_processor
     def language():
         lang = pick_lang(request.accept_languages)
         return dict(lang=lang, t=TRANSLATIONS[lang], ctx=ctx, version=__version__, csrf=token,
                     waiting_total=lambda: sum(n or 0 for n in waiting().values()), activity=activity(),
+                    orphans_waiting=orphans_waiting,
                     rebuilding=request.endpoint in shows and not settled(request.endpoint),
                     cover_url=cover_url, build_percent=lambda: build_percent(request.endpoint), place=place())
 
@@ -131,7 +135,7 @@ def create_app(ctx: Context):
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         everything = index.get()
-        todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0,
+        todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
                     lyrics=None if everything is None else sum(a.without_lyrics for a in everything),
                     repeats=None if everything is None else sum(a.repeated for a in everything))
         return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)

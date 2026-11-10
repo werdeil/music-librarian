@@ -228,7 +228,8 @@ def register(app, ctx):
         album = album_url(ctx, run["command"], run["options"],
                           journal and journal_path(ctx.state_dir, journal))
         back = (album, "back_to_album") if album else \
-            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else None
+            (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
+            (url_for("lyrion_page"), "back_to_lyrion") if run["command"] == "playcounts" else None
         filters = history_filters(request.args)
         return render_template(
             "run.html", run=shown(run), lines=list(zip(lines, kinds(lines))), offset=offset,

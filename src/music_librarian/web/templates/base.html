@@ -19,6 +19,7 @@
             <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
             <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
             <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% set questions = waiting_total() %}{% if questions %} <span class="count" title="{{ t.questions_waiting }}">{{ questions }}</span>{% endif %}</a>
+            {% if ctx.lyrion %}<a href="{{ url_for('lyrion_page') }}"{% if request.endpoint in ('lyrion_page', 'lyrion_orphan') %} aria-current="page"{% endif %}>Lyrion{% set orphans = orphans_waiting() %}{% if orphans %} <span class="count" title="{{ t.orphans_awaiting }}">{{ orphans }}</span>{% endif %}</a>{% endif %}
         </nav>
         <div class="top-right">
             <div id="activity" data-refresh="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>

@@ -50,6 +50,13 @@ src/music_librarian/
 │                    sizes), convert.py (FLAC → ALAC and its checks), atoms.py (where moov sits in
 │                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files),
 │                    tool.py (ffmpeg and ffprobe killed past a time limit)
+├── playcounts/      playcounts: Lyrion's orphan play counts given back to tracks, see lyrion.md
+│   ├── history.py   the orphans, the backfill and the DPSV, read and written in persist.db
+│   ├── matching.py  how much an orphan's path looks like a track's
+│   ├── journals.py  where the journals say a file went
+│   ├── decisions.py the matches file
+│   ├── review.py    --review: one orphan at a time
+│   └── dpsv.py      the plugin's DPSV from the counts
 ├── integrations/    lyrion.py (see lyrion.md), itunes.py (album genres)
 └── web/             the dashboard served by watch --listen, see web.md
     ├── app.py       the pages, read from the state folder and the Inbox on each request
@@ -58,6 +65,7 @@ src/music_librarian/
     ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
+    ├── playcounts.py Lyrion's orphan play counts, one orphan per page
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
@@ -73,6 +81,7 @@ src/music_librarian/
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
 | by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics and removes the ReplayGain through it too |
 | by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
+| by hand, or the dashboard's Lyrion page | `playcounts`, `playcounts --review` | gives Lyrion's orphan play counts back to the library's tracks, asking about those no journal settles |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
@@ -141,6 +150,12 @@ A dry run reads only the metadata cache and the library's folders, never the net
 2. **Move the album's `folder.jpg` out** with `--apply`, whatever the case of its name, to `covers/` in the state folder, then move the image in from there as `folder.jpg`, both moves journaled, so `undo` brings the previous one back.
 3. **Embed it into the tracks** whose embedded cover differs, as `enrich.covers` does. These writes are not journaled: after an undo, the next `enrich` embeds the previous `folder.jpg` again.
 
+### playcounts: Lyrion's orphan play counts
+
+1. **Read the orphans** in `persist.db`, opened read-only: the entries of `tracks_persistent` with plays or a rating, none in the plugin's table, and no file in the library.
+2. **Settle each one**: the track a journal's moves lead its file to, else the track the matches file names, else it waits for `--review` or stays ignored. A dry run shows the waiting ones with their best match.
+3. **Write** with `--apply`, in one transaction after a backup copy, only when there is something to write: each settled orphan merged into its track (see [lyrion.md](lyrion.md)), the plugin's plays copied to the tracks Lyrion counts none for, and with `--dpsv` the DPSV of every track. These writes are not journaled.
+
 ### undo
 
 `undo JOURNAL` replays a journal backwards: moves, then tag changes. A tag change followed by a move of the same file, as `tag` journals them, is checked where the file went, and restored where the undone moves bring it back. A file that is missing, whose original place is taken, or whose tag changed since, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
@@ -156,7 +171,7 @@ Each pass is kept in the state folder, whichever way it was started: one row in 
 ## Conventions
 
 - Everything is a dry run without `--apply`.
-- `organize`, `import`, `enrich`, `split` and `dedupe` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
+- `organize`, `import`, `enrich`, `split`, `dedupe` and `playcounts` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
 - Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself, and `import` and `enrich` call `split_pass` and `dedupe_pass` the same way.
 - A stop request (SIGTERM from `docker stop`, or Ctrl-C) lets the current file operation finish, then stops. A second Ctrl-C stops at once.
 - Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed.

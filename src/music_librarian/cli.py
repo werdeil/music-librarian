@@ -11,13 +11,15 @@ music-librarian — single entry point.
   music-librarian scan [options]              read the library's metadata into the cache (scan.py)
   music-librarian tag PATH... --set F=V       rewrite tags, then file the tracks again (tag.py)
   music-librarian cover FOLDER IMAGE          put an album's cover and embed it (cover.py)
+  music-librarian playcounts [options]        give Lyrion's orphan play counts back to tracks (playcounts/)
 
 Everything is a dry run without --apply. `music-librarian <command> --help` for the options,
 `music-librarian --version` for the version.
 """
 import sys
 
-from music_librarian import __version__, cover, dedupe, enrich, importer, organize, scan, split, tag, watch
+from music_librarian import (__version__, cover, dedupe, enrich, importer, organize, playcounts, scan, split,
+                             tag, watch)
 from music_librarian.core.lock import handle_stop_signals
 
 
@@ -32,7 +34,8 @@ def main(argv=None):
     cmd, rest = argv[0], argv[1:]
     commands = {"organize": organize.main, "import": importer.main, "watch": watch.main,
                 "enrich": enrich.main, "scan": scan.main, "split": split.main, "dedupe": dedupe.main,
-                "tag": tag.main, "cover": cover.main, "undo": organize.undo_main}
+                "tag": tag.main, "cover": cover.main, "playcounts": playcounts.main,
+                "undo": organize.undo_main}
     if cmd in commands:
         return commands[cmd](rest)
     print(f"unknown command: {cmd}\n\n{__doc__.strip()}", file=sys.stderr)

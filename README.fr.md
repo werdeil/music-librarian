@@ -20,6 +20,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 - **`undo JOURNAL`** rejoue le journal d'un passage à l'envers, déplacements comme changements de tags.
 - **Le dashboard**, servi par `watch --listen` (sur le port 8080 avec le fichier compose), montre les passages en cours et les derniers avec leur sortie suivie en direct, la programmation, l'Inbox et les questions de revue en attente de réponse, en français ou en anglais. Il lance aussi n'importe quelle commande, d'abord en dry run, puis l'applique ou annule un passage appliqué depuis sa page, arrête un passage en cours ou retire une demande encore en file, cherche les albums ou les pistes de la bibliothèque champ par champ (un champ vide, rempli ou contenant une valeur, une année entre deux autres, les pistes sans paroles ou sans pochette intégrée…), parcourt la bibliothèque pour éditer les tags d'un album dans un formulaire, les paroles de ses morceaux comprises, chacune cherchée en ligne à la demande, passé à `tag`, ses champs qui tiennent une valeur en double ou plusieurs valeurs marqués, et liste ces albums, supprimer le ReplayGain d'un morceau, ou remplacer la pochette de l'album par une image de n'importe quel format choisie d'un clic dessus, avec le même formulaire, et pose les questions de `split --review` et `dedupe --review`, et sur les genres que la liste validée ne connaît pas, une page à la fois ; il n'applique que si `watch` tourne lui-même avec `--apply` ; détails dans [docs/web.md](docs/web.md) (en anglais).
 - En option, pour une bibliothèque servie par [Lyrion Music Server](https://lyrion.org) (ex-Logitech Media Server), les lectures et notes suivent les fichiers déplacés au lieu de rester orphelines : les déplacements sont reportés dans son `persist.db`. Le plugin Alternative Play Count doit être installé, sa table étant mise à jour aussi (voir [docs/lyrion.md](docs/lyrion.md), en anglais).
+- **`playcounts`**, avec Lyrion aussi, rend aux pistes de la bibliothèque les lectures et notes restées sur des fichiers renommés hors d'une passe : celles qu'un journal désigne aussitôt, les autres une fois choisies avec `--review` parmi les pistes dont le chemin ressemble le plus au leur. Elle recopie aussi les lectures du plugin vers les pistes pour lesquelles Lyrion n'en compte aucune. La page **Lyrion** du dashboard liste ces orphelins, prend les réponses et met le passage en file.
 
 ## Lancement
 
@@ -95,7 +96,7 @@ En anglais :
 - [Règles de nommage](docs/naming-rules.md) : construction des chemins cibles, et quand un fichier est considéré en place
 - [Découpage des crédits](docs/splitting.md) : quels compositeurs et artistes sont découpés, et le fichier de décisions
 - [Unification des noms d'artistes](docs/dedupe.md) : quels noms sont regroupés, et le fichier d'alias
-- [Report de l'historique Lyrion](docs/lyrion.md)
+- [Historique Lyrion : report et lectures orphelines](docs/lyrion.md)
 - [Architecture](docs/architecture.md) : organisation du paquet et déroulé de chaque commande, étape par étape
 
 ## Développement

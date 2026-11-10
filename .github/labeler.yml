@@ -36,7 +36,7 @@ lyrics:
 
 lyrion:
   - changed-files:
-      - any-glob-to-any-file: ["src/music_librarian/integrations/lyrion.py"]
+      - any-glob-to-any-file: ["src/music_librarian/integrations/lyrion.py", "src/music_librarian/playcounts/**"]
 
 docker:
   - changed-files:

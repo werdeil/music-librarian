@@ -67,10 +67,16 @@ class MetadataCache:
             if key.startswith(prefix):
                 yield os.fsdecode(key), json.loads(snap)
 
+    def paths(self, root):
+        """The path of every file under `root` in the cache."""
+        prefix = os.fsencode(os.path.join(os.path.abspath(root), ""))
+        for (key,) in self.db.execute("SELECT path FROM files"):
+            if key.startswith(prefix):
+                yield os.fsdecode(key)
+
     def count(self, root):
         """How many files under `root` the cache holds."""
-        prefix = os.fsencode(os.path.join(os.path.abspath(root), ""))
-        return sum(1 for (key,) in self.db.execute("SELECT path FROM files") if key.startswith(prefix))
+        return sum(1 for _ in self.paths(root))
 
     def prune(self, root, files):
         """Drop the files under `root` that are not in `files` (moved or deleted); return how many."""

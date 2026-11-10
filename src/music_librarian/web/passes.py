@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 
-from music_librarian import dedupe, enrich, importer, organize, scan, split, tag
+from music_librarian import dedupe, enrich, importer, organize, playcounts, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
@@ -36,6 +36,7 @@ OPTIONS = {
     "undo": ("journal",),
     "tag": ("edits", "cover"),
     "genres": (),
+    "playcounts": ("no_backfill", "dpsv"),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True, "retry": True}
@@ -212,6 +213,18 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
         opts = replace(enrich_opts, apply=r.apply)
         return kept("genres", lambda: enrich.tool_pass("genres", [root], opts, log), log, r)
 
+    def run_playcounts(r, log):
+        def give():
+            if import_opts.lyrion is None:
+                log("ERROR    playcounts needs --lyrion-db (or $LYRION_PERSIST_DB)")
+                return 2
+            opts = playcounts.Options(root=root, lyrion=import_opts.lyrion, apply=r.apply,
+                                      state_dir=state_dir, backfill=not r.options.get("no_backfill"),
+                                      dpsv=bool(r.options.get("dpsv")))
+            return playcounts.run(opts, log)
+        return kept("playcounts", give, log, r)
+
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
-            "undo": run_undo, "tag": run_tag, "genres": run_genres}
+            "undo": run_undo, "tag": run_tag, "genres": run_genres,
+            "playcounts": run_playcounts}
