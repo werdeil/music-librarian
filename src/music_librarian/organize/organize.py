@@ -61,7 +61,7 @@ from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.media import fields
 from music_librarian.media.atoms import MP4_EXT, leading_mdat
 from music_librarian.media.faststart import RewriteError, faststart
-from music_librarian.organize.naming import is_in_place, nfc, target_rel
+from music_librarian.organize.naming import is_in_place, nfc, same_component, target_rel
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect, read_tags, tags_from_snapshot
 from music_librarian.organize.undo import undo
@@ -228,6 +228,34 @@ def exact_folder_elsewhere(root, cur_rel, tgt_rel):
     return False
 
 
+class Folders:
+    """The folders a pass files into. A target folder missing as written joins an existing or
+    planned one it only differs from by case, normalization or truncation."""
+
+    def __init__(self, root: Path, strict_case):
+        self.root, self.strict_case = root, strict_case
+        self.children = {}
+
+    def names_in(self, folder: Path):
+        if folder not in self.children:
+            try:
+                self.children[folder] = {p.name for p in folder.iterdir() if p.is_dir()}
+            except OSError:
+                self.children[folder] = set()
+        return self.children[folder]
+
+    def resolve(self, tgt_rel: Path):
+        folder = self.root
+        for part in tgt_rel.parts[:-1]:
+            names = self.names_in(folder)
+            if part not in names:
+                variants = sorted(n for n in names if same_component(n, part, self.strict_case))
+                part = variants[0] if variants else part
+                names.add(part)
+            folder = folder / part
+        return folder.relative_to(self.root) / tgt_rel.name
+
+
 @dataclass
 class Plan:
     """What a pass found to do, and its counts. `blocked` holds the folders whose side files
@@ -348,6 +376,7 @@ def plan_moves(opts: Options, mixed, plan: Plan, log):
     root = opts.root
     seen_targets = {}               # dst -> src
     dir_targets = defaultdict(set)
+    folders = Folders(root, opts.strict_case)
     for p, _, tgt in plan.entries:
         if p in mixed:
             continue
@@ -357,7 +386,7 @@ def plan_moves(opts: Options, mixed, plan: Plan, log):
             plan.stats["in place"] += 1
             dir_targets[p.parent].add(p.parent)
             continue
-        dst = root / tgt
+        dst = root / folders.resolve(tgt)
         key = nfc(str(dst)).casefold()
         if key in seen_targets or (dst.exists() and not dst.samefile(p)):
             other = seen_targets.get(key, dst)

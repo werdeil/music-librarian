@@ -48,6 +48,8 @@ The extension must match, case aside.
 
 These tolerances only keep a file where it is. When a folder of its target path also exists exactly as written, next to the variant the file sits in (`Walk of the Earth/` beside `Walk Of The Earth/`), the file joins it, so two folders that only differ in case, normalization or truncation become one. A folder with no such twin stays as it is.
 
+A file that is not in place (one from the Inbox, or one whose tags changed) is filed into the folder its target names, as written when that folder exists, otherwise into an existing folder that only differs from it in one of these ways: an album tagged `AURORA` joins `Aurora/`. Folders planned earlier in the same pass count too, so two new albums tagged `Aurora` and `AURORA` share one folder. With `--strict-case`, case differences are not tolerated here either.
+
 ## Around the audio files
 
 - **Side files** (`folder.jpg`, booklets, `.lrc`, anything that is not audio) follow their album, but only when every track of the folder goes to the same target folder and none stayed behind because of a conflict or missing tags. A side file whose name is already taken in the target folder is not a conflict: it moves under the first free name, `folder (2).jpg`, then `folder (3).jpg`…
