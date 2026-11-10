@@ -24,7 +24,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 
 ## Running it
 
-Docker is the intended way. ffmpeg comes with the image, and the test suite runs during the build, so a broken image is never produced.
+Docker is the intended way. ffmpeg comes with the image, and the build checks that it measures loudness there, so an image whose tools fail is never produced.
 
 ```bash
 cp .env.example .env      # set the library, Inbox and (optionally) Lyrion paths

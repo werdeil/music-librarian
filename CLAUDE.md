@@ -16,7 +16,8 @@ pip install -r requirements-dev.txt -e .
 python -m pytest -q          # tests (CI: tests job)
 pylint src tests             # lint, must stay at 10/10 (CI: lint job)
 npx --yes eslint@9 src/music_librarian/web/static/*.js   # the dashboard's scripts (CI: lint job)
-docker compose build         # the image, which runs the tests again inside it (CI: image job)
+docker build --target test . # the tests again, inside the container (CI: image job)
+docker compose build         # the image, which checks its tools as it builds (CI: image job)
 
 music-librarian organize --root /path/to/library     # dry run
 music-librarian import --inbox /path/to/inbox --root /path/to/library
