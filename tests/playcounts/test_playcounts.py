@@ -237,3 +237,36 @@ def test_apply_gives_up_when_another_pass_holds_the_lock(renamed, capsys):
     with locked(renamed.state):
         assert renamed.run("--apply") == 3
     assert "LOCKED" in capsys.readouterr().out
+
+
+def test_entry_whose_urlmd5_is_off_is_rekeyed(env, capsys):
+    env.track("A/B/01 Lost.m4a", play=4, alt_play=3, skip=1)
+    env.track("A/B/02 Twice.m4a", play=2, alt_play=2)
+    env.track("A/B/03 Fine.m4a", play=1)
+    with sqlite3.connect(env.db) as c:
+        c.execute("UPDATE alternativeplaycount SET urlmd5 = 'stale1' WHERE urlmd5 = ?",
+                  (env.key("A/B/01 Lost.m4a"),))
+        c.execute("INSERT INTO alternativeplaycount (url, urlmd5, playCount, skipCount) "
+                  "SELECT url, 'stale2', 5, 0 FROM alternativeplaycount WHERE urlmd5 = ?",
+                  (env.key("A/B/02 Twice.m4a"),))
+        c.execute("INSERT INTO tracks_persistent (url, urlmd5, playCount) VALUES ('http://radio/x', 'r', 9)")
+    c.close()
+    assert env.run() == 0
+    out = summary(capsys)
+    assert "REKEY A/B/01 Lost.m4a (alternativeplaycount)" in out and "rekeyed: 2" in out
+    assert "orphans" not in out and "radio" not in out
+    assert env.row("alternativeplaycount", "A/B/01 Lost.m4a") is None
+
+    assert env.run("--apply", "--no-rekey") == 0
+    assert "rekeyed" not in summary(capsys) and not env.backups()
+
+    assert env.run("--apply") == 0
+    lost = env.row("alternativeplaycount", "A/B/01 Lost.m4a")
+    assert (lost["playCount"], lost["skipCount"]) == (3, 1)
+    assert env.row("alternativeplaycount", "A/B/02 Twice.m4a")["playCount"] == 7
+    with sqlite3.connect(env.db) as c:
+        assert c.execute("SELECT COUNT(*) FROM alternativeplaycount").fetchone() == (3,)
+    c.close()
+    capsys.readouterr()
+    assert env.run() == 0
+    assert "rekeyed" not in summary(capsys)

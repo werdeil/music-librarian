@@ -20,10 +20,11 @@ class Orphan:
 
 
 def orphans(con):
-    """The orphans with a history to give, the most played first."""
+    """The orphans of a file with a history to give, the most played first."""
     rows = con.execute(
         "SELECT tp.urlmd5, tp.url, tp.playCount, tp.lastPlayed, tp.rating FROM tracks_persistent tp "
         "LEFT JOIN alternativeplaycount ap ON ap.urlmd5 = tp.urlmd5 WHERE ap.urlmd5 IS NULL "
+        "AND tp.url LIKE 'file://%' "
         "AND (IFNULL(tp.playCount, 0) > 0 OR IFNULL(tp.rating, 0) > 0) "
         "ORDER BY tp.playCount DESC, tp.url")
     found = {}
@@ -53,6 +54,19 @@ def adopt(con, orphan: Orphan, target_url):
     value = dpsv.compute(plays, alt["skipCount"], last, alt["lastSkipped"])
     con.execute("UPDATE alternativeplaycount SET playCount = ?, lastPlayed = ?, dynPSval = ? "
                 "WHERE urlmd5 = ?", (plays, last, value, key))
+
+
+def miskeyed(con):
+    """[(table, entry)] of the entries of a file whose urlmd5 is not the MD5 of their URL."""
+    return [(table, row) for table in lyrion.TABLES
+            for row in con.execute(f"SELECT * FROM {table} WHERE url LIKE 'file://%' ORDER BY url")
+            if row["urlmd5"] != lyrion.md5(row["url"])]
+
+
+def rekey(con):
+    """Give the entries of miskeyed() the urlmd5 of their URL, merged into the entry that has it."""
+    for table, row in miskeyed(con):
+        lyrion.carry(con, table, row, row["url"])
 
 
 ZEROED = ("FROM tracks_persistent tp JOIN alternativeplaycount ap ON ap.urlmd5 = tp.urlmd5 "

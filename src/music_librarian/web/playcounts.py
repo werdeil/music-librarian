@@ -69,7 +69,8 @@ class Orphans:
                 return SimpleNamespace(
                     error=None, orphans=orphans, by_key={orphan.key: orphan for orphan, _ in orphans},
                     filed=set(library.values()), matcher=playcounts.matcher(con, library),
-                    zeroed=len(history.zeroed(con)), dpsv=len(history.dpsv_changes(con)))
+                    zeroed=len(history.zeroed(con)), dpsv=len(history.dpsv_changes(con)),
+                    miskeyed=len(history.miskeyed(con)))
         except sqlite3.Error as e:
             return SimpleNamespace(error=str(e))
 
@@ -135,7 +136,8 @@ def register(app, ctx):
             rows=[dict(orphans.shown(orphan), target=target,
                        gone=target is not None and target not in built.filed,
                        journal=target is not None and orphan.key not in matched) for orphan, target in rows],
-            page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, done=recorded(built))
+            page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, miskeyed=built.miskeyed,
+            done=recorded(built))
 
     @app.get("/lyrion/orphans/<key>")
     def lyrion_orphan(key):

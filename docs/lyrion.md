@@ -60,7 +60,7 @@ music-librarian playcounts --review    # answer the orphans, in a terminal
 music-librarian playcounts --apply     # write to persist.db
 ```
 
-An **orphan** is an entry of `tracks_persistent` with plays or a rating that has no entry in the plugin's `alternativeplaycount`, which drops those of the files gone, and no file in the library. Each one is settled in turn by:
+An **orphan** is an entry of `tracks_persistent` for a file, with plays or a rating, that has no entry in the plugin's `alternativeplaycount`, which drops those of the files gone, and no file in the library. Each one is settled in turn by:
 
 - **a journal**: when the moves of the journals in the state folder lead the orphan's file to a track of the library, it is given to that track without a question (`JOURNAL`);
 - **a match**: the track picked for it with `--review`, kept in `playcount-matches.json` in the state folder until it is applied (`MATCH`). A match whose track left the library since is `SKIPPED`, and the pass exits with code 2;
@@ -70,8 +70,9 @@ An **orphan** is an entry of `tracks_persistent` with plays or a rating that has
 
 A settled orphan is merged into its track as a carry-over does: in `tracks_persistent` its entry takes the track's URL, or is merged into the track's entry and deleted; in `alternativeplaycount` its plays are added to the track's and the latest play kept, and the track's `dynPSval` is computed again from its counts.
 
-The pass also does two repairs:
+The pass also does three repairs:
 
+- **Rekey** (`REKEY`, `--no-rekey` to skip it): an entry of either table whose `urlmd5` is not the MD5 of its URL is given the right one, or merged into the entry that already has it. Lyrion and the plugin look entries up by `urlmd5`, so such an entry is lost to them although its URL is right.
 - **Backfill** (`BACKFILL`, `--no-backfill` to skip it): a track Lyrion counts no play for while the plugin counts some gets the plugin's play count and last play.
 - **DPSV** (`DPSV`, only with `--dpsv`): the plugin's `dynPSval` of every track is computed again from its plays and skips. The table does not keep the order of the events, so the value is exact for a track never skipped only: for the others it replaces the plugin's own value by an estimate.
 

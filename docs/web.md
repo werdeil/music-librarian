@@ -64,7 +64,7 @@ The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [l
 
 An orphan's page shows its play count, rating and last play, and the eight tracks of the library whose path looks most like its own, each with its note; the first is picked unless its note is under 60. A search box keeps the tracks whose path holds every word typed, when the right one is not among them. **Give to this track** and **Ignore** write the answer to `playcount-matches.json` at once and open the next orphan waiting, where the answer can be undone; **Later** opens the next one without an answer. Answering never writes to `persist.db`.
 
-At the bottom of the page, a form queues `playcounts` as a dry run, with a box to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
+At the bottom of the page, a form queues `playcounts` as a dry run, with a box to rekey the entries whose `urlmd5` is off (ticked), one to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
 
 The orphans are read from `persist.db`, opened read-only, and the library from the metadata cache, in the background, again whenever either changes or a journal is written.
 
