@@ -161,3 +161,16 @@ def test_unreadable_database_is_said(d, database):
     c.close()
     rebuilt(d)
     assert "Lyrion&#39;s database is unreadable" in page(d, "/lyrion")
+
+
+def test_file_gone_since_it_was_cached_leaves_an_orphan(d, lib, database):
+    (lib / "Queen/Jazz/01 Mustapha.m4a").rename(lib / "Queen/Jazz/01 Mustapha (Remaster).m4a")
+    with sqlite3.connect(database.db) as c:
+        url = database.url(lib / "Queen/Jazz/01 Mustapha.m4a")
+        c.execute("INSERT INTO tracks_persistent (url, urlmd5, playCount) VALUES (?, ?, 5)",
+                  (url, lyrion.md5(url)))
+    c.close()
+    rebuilt(d)
+    text = page(d, "/lyrion")
+    assert "Waiting (3)" in text and "Queen/Jazz/01 Mustapha.m4a" in text
+    assert "Mustapha.m4a\"" not in page(d, f"/lyrion/orphans/{d.key(OLD)}?q=queen")

@@ -2,9 +2,10 @@
 playcounts — gives the play counts Lyrion left on files gone back to the tracks of the library.
 
 Lyrion keys its history on each file's URL (see integrations/lyrion.py). A file renamed outside a
-pass leaves an orphan: an entry of tracks_persistent with plays or a rating, and none in the
-Alternative Play Count plugin's table. Each orphan is given to a track:
+pass leaves an orphan: an entry with plays, skips or a rating, of Lyrion's table, of the
+Alternative Play Count plugin's or of both, whose file is gone. Each orphan is given to a track:
   - the one a journal says its file became, at once;
+  - the one whose path is its own but for case, at once;
   - the one picked for it with --review or on the dashboard, among the tracks whose path looks
     most like its own (see playcounts/matching.py), kept in state/playcount-matches.json;
   - none while it awaits an answer, or once ignored.
@@ -26,6 +27,7 @@ import contextlib
 import dataclasses
 import sqlite3
 import sys
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
@@ -43,7 +45,8 @@ from music_librarian.playcounts.matching import Matcher
 from music_librarian.playcounts.review import review
 from music_librarian.split.library import run_locked, run_review
 
-SUMMARY = ("orphans", "matched", "from journals", "awaiting review", "ignored", "backfilled",
+SUMMARY = ("orphans", "matched", "from journals", "same path but case", "awaiting review", "ignored",
+           "backfilled",
            "DPSV computed", "skipped")
 
 
@@ -107,33 +110,49 @@ def tracks(opts: Options):
     return found
 
 
+def folded(rel):
+    return unicodedata.normalize("NFC", rel).casefold()
+
+
 def orphans_of(opts: Options, con, library):
-    """[(orphan whose file is gone, the track a journal's moves lead its file to or None)], for a
-    `library` as tracks() gives it."""
+    """[(orphan, the track that takes it without a question or None, "journal" or "case")]: the
+    entries of the library's files that are gone, each with the track a journal's moves lead its
+    file to, else the one whose path is its own but for case. `library` is as tracks() gives it."""
     moved = {lyrion.md5(url): dst for src, dst in journals.destinations(opts.state_dir).items()
              if (url := opts.lyrion.url(src))}
+    spelled = defaultdict(list)
+    for rel in library.values():
+        spelled[folded(rel)].append(rel)
     found = []
-    for orphan in history.orphans(con):
-        if orphan.key not in library:
-            url = opts.lyrion.url(moved.get(orphan.key, ""))
-            found.append((orphan, library.get(lyrion.md5(url)) if url else None))
+    for entry in history.entries(con):
+        path = opts.lyrion.path(entry.url)
+        if entry.key in library or path is None or path.exists():
+            continue
+        url = opts.lyrion.url(moved.get(entry.key, ""))
+        variants = spelled.get(folded(opts.lyrion.relative(entry.url)), ())
+        if url and lyrion.md5(url) in library:
+            found.append((entry, library[lyrion.md5(url)], "journal"))
+        elif len(variants) == 1:
+            found.append((entry, variants[0], "case"))
+        else:
+            found.append((entry, None, None))
     return found
 
 
 def sorted_out(orphans, matches: Path, filed):
     """The orphans of orphans_of() sorted by what settles them, `filed` being the library's
-    relative paths: {"journal" | "matched" | "gone": [(orphan, its track)], "ignored" | "waiting":
-    [orphan]}; "gone" holds the matches whose track left the library."""
+    relative paths: {"journal" | "case" | "matched" | "gone": [(orphan, its track)], "ignored" |
+    "waiting": [orphan]}; "gone" holds the matches whose track left the library."""
     matched, ignored = decisions.load(matches)
     out = defaultdict(list)
-    for orphan, moved in orphans:
+    for orphan, track, why in orphans:
         if orphan.key in matched:
             rel = matched[orphan.key]
             out["matched" if rel in filed else "gone"].append((orphan, rel))
         elif orphan.key in ignored:
             out["ignored"].append(orphan)
-        elif moved:
-            out["journal"].append((orphan, moved))
+        elif track:
+            out[why].append((orphan, track))
         else:
             out["waiting"].append(orphan)
     return out
@@ -206,7 +225,7 @@ def plan(opts: Options, con, log, stats):
     a journal or a match settles."""
     library = tracks(opts)
     found = sorted_out(orphans_of(opts, con, library), opts.matches, set(library.values()))
-    for kind, tag in (("journal", "JOURNAL "), ("matched", "MATCH   ")):
+    for kind, tag in (("journal", "JOURNAL "), ("case", "CASE    "), ("matched", "MATCH   ")):
         for orphan, rel in found[kind]:
             log(f"{tag} {opts.lyrion.relative(orphan.url)}  ({count(orphan.plays, 'play')})\n"
                 f"         → {rel}")
@@ -221,9 +240,10 @@ def plan(opts: Options, con, log, stats):
                 log(f"         → {rel}  ({note:.0f} %)")
     stats["orphans"] = sum(len(orphans) for orphans in found.values())
     stats["from journals"], stats["matched"] = len(found["journal"]), len(found["matched"])
+    stats["same path but case"] = len(found["case"])
     stats["awaiting review"], stats["ignored"] = len(found["waiting"]), len(found["ignored"])
     stats["skipped"] = len(found["gone"])
-    return found["journal"] + found["matched"]
+    return found["journal"] + found["case"] + found["matched"]
 
 
 if __name__ == "__main__":

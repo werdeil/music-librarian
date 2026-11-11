@@ -60,15 +60,16 @@ music-librarian playcounts --review    # answer the orphans, in a terminal
 music-librarian playcounts --apply     # write to persist.db
 ```
 
-An **orphan** is an entry of `tracks_persistent` with plays or a rating that has no entry in the plugin's `alternativeplaycount`, which drops those of the files gone, and no file in the library. Each one is settled in turn by:
+An **orphan** is an entry for a file of the library that is gone, with plays, skips or a rating, in `tracks_persistent`, in the plugin's `alternativeplaycount` or in both: neither table follows a rename, and one can have followed where the other did not. Entries of streams and of files outside the library are left alone. Each one is settled in turn by:
 
 - **a journal**: when the moves of the journals in the state folder lead the orphan's file to a track of the library, it is given to that track without a question (`JOURNAL`);
+- **its case**: when a track's path is the orphan's own but for case or the way accents are encoded, and only one is, it is given to that track without a question (`CASE`);
 - **a match**: the track picked for it with `--review`, kept in `playcount-matches.json` in the state folder until it is applied (`MATCH`). A match whose track left the library since is `SKIPPED`, and the pass exits with code 2;
 - **nothing yet**: it waits (`WAITING`, shown in a dry run with its best match), or was ignored in the review and is never asked about again.
 
 `--review` shows the orphans one at a time, the most played first, each with the five tracks whose path looks most like its own: the note out of 100 weighs the title for 70, the artist folder for 20 and the album for 10, plus 5 when both have play counts within 20 % of each other. A number picks a track, `i` ignores the orphan, Enter leaves it for later, `u` takes the previous answer back. The dashboard's **Lyrion** page asks the same questions and queues the pass (see [web.md](web.md#lyrion)).
 
-A settled orphan is merged into its track as a carry-over does: in `tracks_persistent` its entry takes the track's URL, or is merged into the track's entry and deleted; in `alternativeplaycount` its plays are added to the track's and the latest play kept, and the track's `dynPSval` is computed again from its counts.
+A settled orphan is merged into its track as a carry-over does, in each table where it has an entry: the entry takes the track's URL, or is merged into the track's entry and deleted. An orphan with no entry of the plugin's has Lyrion's plays added to the plugin's entry for the track, the latest play kept, and that entry's `dynPSval` computed again from its counts.
 
 The pass also does two repairs:
 

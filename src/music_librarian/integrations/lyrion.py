@@ -73,6 +73,13 @@ class Lyrion:
         path = unquote_to_bytes(url.removeprefix("file://"))
         return os.fsdecode(path.removeprefix(self.lyrion_root + b"/"))
 
+    def path(self, url):
+        """The library file a Lyrion URL names, None for one outside Lyrion's root."""
+        path = unquote_to_bytes(url.removeprefix("file://"))
+        if not path.startswith(self.lyrion_root + b"/"):
+            return None
+        return self.root / os.fsdecode(path.removeprefix(self.lyrion_root + b"/"))
+
     def pairs(self, moves, audio_ext):
         out = []
         for src, dst in moves:

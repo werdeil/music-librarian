@@ -237,3 +237,51 @@ def test_apply_gives_up_when_another_pass_holds_the_lock(renamed, capsys):
     with locked(renamed.state):
         assert renamed.run("--apply") == 3
     assert "LOCKED" in capsys.readouterr().out
+
+
+def test_plugin_entry_left_under_another_case_follows_without_an_answer(env, capsys):
+    """Lyrion knows the folder under its new case; the plugin kept its entries under the old one."""
+    (env.lib / "AURORA/Demons").mkdir(parents=True)
+    (env.lib / "AURORA/Demons/01 Runaway.m4a").touch()
+    env.entry("AURORA/Demons/01 Runaway.m4a", play=14, rating=80, alt=False)
+    url = "file:///music/Aurora/Demons/01%20Runaway.m4a"
+    with sqlite3.connect(env.db) as c:
+        c.execute("INSERT INTO alternativeplaycount (url, urlmd5, playCount, skipCount, dynPSval) "
+                  "VALUES (?, ?, 13, 2, 40)", (url, lyrion.md5(url)))
+    c.close()
+    assert env.run() == 0
+    out = summary(capsys)
+    assert "CASE Aurora/Demons/01 Runaway.m4a (13 plays) → AURORA/Demons/01 Runaway.m4a" in out
+    assert "same path but case: 1" in out and "awaiting review" not in out
+
+    assert env.run("--apply") == 0
+    ap = env.row("alternativeplaycount", "AURORA/Demons/01 Runaway.m4a")
+    assert (ap["playCount"], ap["skipCount"], ap["dynPSval"]) == (13, 2, 40)
+    assert env.row("tracks_persistent", "AURORA/Demons/01 Runaway.m4a")["playCount"] == 14
+    with sqlite3.connect(env.db) as c:
+        assert c.execute("SELECT COUNT(*) FROM alternativeplaycount").fetchone() == (1,)
+    c.close()
+    capsys.readouterr()
+    assert env.run() == 0
+    assert "orphans" not in summary(capsys)
+
+
+def test_orphan_of_both_tables_is_merged_in_both(env):
+    env.track("A/B/01 New.m4a", play=1, skip=1)
+    env.entry("A/B/01 Old.m4a", play=5, skip=2, last=900)
+    decisions.update(env.matches, match={env.key("A/B/01 Old.m4a"): "A/B/01 New.m4a"})
+    assert env.run("--apply") == 0
+    assert env.row("tracks_persistent", "A/B/01 New.m4a")["playCount"] == 6
+    ap = env.row("alternativeplaycount", "A/B/01 New.m4a")
+    assert (ap["playCount"], ap["skipCount"]) == (6, 3)
+    assert env.row("alternativeplaycount", "A/B/01 Old.m4a") is None
+
+
+def test_streams_and_files_outside_the_library_are_not_orphans(env, capsys):
+    with sqlite3.connect(env.db) as c:
+        for url in ("http://radio/x", "file:///elsewhere/A/B/01%20T.m4a"):
+            c.execute("INSERT INTO tracks_persistent (url, urlmd5, playCount) VALUES (?, ?, 9)",
+                      (url, lyrion.md5(url)))
+    c.close()
+    assert env.run() == 0
+    assert "orphans" not in capsys.readouterr().out
