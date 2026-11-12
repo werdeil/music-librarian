@@ -26,6 +26,27 @@ The whole prefs folder is mounted, not just the file: SQLite also writes `persis
 
 The Alternative Play Count plugin must be installed. Its `alternativeplaycount` table is updated along with Lyrion's own `tracks_persistent`, and the carry-over fails if that table is missing.
 
+## Waiting for Lyrion's scans
+
+A scan keeps `persist.db` locked for long stretches, and the changes of a pass can start one (the AutoRescan plugin). With Lyrion's address, an applied pass asks it whether it is scanning and waits for the end:
+
+| Variable | Option | Meaning |
+|---|---|---|
+| `LYRION_URL` | `--lyrion-url` | Lyrion's address, e.g. `http://lyrion:9000`; no waiting without it |
+| `LYRION_USER`, `LYRION_PASSWORD` | `--lyrion-user` | Login, when Lyrion asks for one; the password is read from the environment only |
+| `LYRION_SCAN_POLL` | `--scan-poll` | Seconds between two looks at a scan (default 5) |
+| `LYRION_SCAN_TIMEOUT` | `--scan-timeout` | Seconds a scan is waited for (default 900) |
+| | `--no-wait-scan` | No waiting, whatever the address |
+
+The question is the JSON-RPC query `rescan ?` (`POST /jsonrpc.js`), whose `_rescan` is 1 during a scan, or else the `rescan` field of `serverstatus`.
+
+- **Before changing files** (`organize`, `import`, `tag`, when there is something to do): the pass waits, then goes on even if the scan outlasted the wait.
+- **Before the carry-over**, and before `playcounts` writes: a scan that outlasts the wait leaves the database alone. The carry-over then [fails](#when-it-fails) and is retried from the journal.
+- **Lyrion out of reach**, or an answer that cannot be read: a `WARNING`, and the pass goes on without waiting.
+- **A dry run** never asks Lyrion.
+
+A stop request (SIGTERM, Ctrl-C) ends the wait.
+
 ## What happens to an entry
 
 Entries are looked up by `urlmd5`, the MD5 of the file URL. For each moved audio file, in both tables:
@@ -38,8 +59,8 @@ URLs are built the way Lyrion writes them: `file://` + the Lyrion root + the pat
 
 ## Safety
 
-- Lyrion can keep running. All updates of a pass happen in one short `BEGIN IMMEDIATE` transaction. A busy database is waited for up to 60 seconds.
-- Before writing, the database is copied to `$MUSIC_LIBRARIAN_STATE/lyrion-backups/persist-YYYYMMDD-HHMMSS.db`, WAL included. The 14 most recent copies are kept.
+- Lyrion can keep running. All updates of a pass happen in one short `BEGIN IMMEDIATE` transaction. A busy database is waited for up to 60 seconds, and a carry-over that still finds it locked is tried again four times, after 5, 10, 20 and 40 seconds, asking about a scan before each try.
+- Before writing, the database is copied to `$MUSIC_LIBRARIAN_STATE/lyrion-backups/persist-YYYYMMDD-HHMMSS.db`, WAL included. The 14 most recent copies are kept; the copy of a write that failed is removed.
 - In a dry run, the database is opened read-only and the summary shows what would happen.
 
 ## When it fails

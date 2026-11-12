@@ -54,6 +54,12 @@ services:
       # Lyrion history carried over to moved files, off without LYRION_PREFS_DIR
       - LYRION_PERSIST_DB=${LYRION_PREFS_DIR:+/lyrion-prefs/persist.db}
       - LYRION_MUSIC_ROOT=${LYRION_MUSIC_ROOT:-}
+      # the end of Lyrion's scans waited for before a pass and a carry-over, off without LYRION_URL
+      - LYRION_URL=${LYRION_URL:-}
+      - LYRION_USER=${LYRION_USER:-}
+      - LYRION_PASSWORD=${LYRION_PASSWORD:-}
+      - LYRION_SCAN_POLL=${LYRION_SCAN_POLL:-5}
+      - LYRION_SCAN_TIMEOUT=${LYRION_SCAN_TIMEOUT:-900}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
       - LYRICS_RETRY_DAYS=${LYRICS_RETRY_DAYS:-30}
