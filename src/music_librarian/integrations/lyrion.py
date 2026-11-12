@@ -12,6 +12,10 @@ backup copy of the database (WAL included).
 
 Settings: --lyrion-db / $LYRION_PERSIST_DB (off without it), --lyrion-root /
 $LYRION_MUSIC_ROOT = the library root as Lyrion sees it.
+
+With --lyrion-url / $LYRION_URL, an applied pass asks Lyrion whether it scans (JSON-RPC) and
+waits for the end of the scan, before changing files and before the carry-over. A database
+found locked is tried again a few times.
 """
 import contextlib
 import hashlib
@@ -22,13 +26,19 @@ import time
 from pathlib import Path
 from urllib.parse import quote, unquote_to_bytes
 
+import requests
+
 from music_librarian.core.files import AUDIO_EXT
+from music_librarian.core.lock import STOP
 
 BACKUPS, KEEP_BACKUPS = "lyrion-backups", 14
 # characters Lyrion leaves as is in its URLs (checked over the whole database)
 URL_SAFE = "-_.!~*()/:@&=+$,[]"
 BUSY_TIMEOUT = 60  # seconds to wait if Lyrion is writing at the same time
 EXIT_LYRION = 5  # a pass whose carry-over failed
+SCAN_POLL, SCAN_TIMEOUT = 5, 900  # seconds between two looks at a scan, and waited for its end
+RPC_TIMEOUT = 10
+LOCK_RETRIES = (5, 10, 20, 40)  # seconds waited before each new try of a locked database
 
 TABLES = {
     # table: (summed columns, latest-value columns, columns filled in if empty)
@@ -45,6 +55,23 @@ def add_arguments(ap):
                          "(default: $LYRION_PERSIST_DB, otherwise off)")
     ap.add_argument("--lyrion-root", default=os.environ.get("LYRION_MUSIC_ROOT"),
                     help="library root as Lyrion sees it (default: $LYRION_MUSIC_ROOT)")
+    ap.add_argument("--lyrion-url", default=os.environ.get("LYRION_URL"), metavar="URL",
+                    help="Lyrion's address (http://host:9000), to wait for the end of its scans "
+                         "before changing files and before the carry-over "
+                         "(default: $LYRION_URL, otherwise no waiting)")
+    ap.add_argument("--lyrion-user", default=os.environ.get("LYRION_USER"), metavar="NAME",
+                    help="user name when Lyrion asks for one, its password read from "
+                         "$LYRION_PASSWORD (default: $LYRION_USER)")
+    ap.add_argument("--scan-poll", type=float, metavar="SECONDS",
+                    default=float(os.environ.get("LYRION_SCAN_POLL") or SCAN_POLL),
+                    help=f"seconds between two looks at a scan of Lyrion's "
+                         f"(default: $LYRION_SCAN_POLL, else {SCAN_POLL})")
+    ap.add_argument("--scan-timeout", type=float, metavar="SECONDS",
+                    default=float(os.environ.get("LYRION_SCAN_TIMEOUT") or SCAN_TIMEOUT),
+                    help=f"seconds a scan of Lyrion's is waited for "
+                         f"(default: $LYRION_SCAN_TIMEOUT, else {SCAN_TIMEOUT})")
+    ap.add_argument("--no-wait-scan", action="store_true",
+                    help="do not wait for the end of Lyrion's scans, --lyrion-url set or not")
 
 
 def from_args(args, root: Path, state_dir: Path):
@@ -52,13 +79,96 @@ def from_args(args, root: Path, state_dir: Path):
         return None
     if not args.lyrion_root:
         raise SystemExit("--lyrion-db needs --lyrion-root (or $LYRION_MUSIC_ROOT)")
-    return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS)
+    scan = None
+    if args.lyrion_url and not args.no_wait_scan:
+        auth = (args.lyrion_user, os.environ.get("LYRION_PASSWORD", "")) if args.lyrion_user else None
+        scan = Scan(args.lyrion_url, auth, args.scan_poll, args.scan_timeout)
+    return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS, scan)
+
+
+def pause(seconds):
+    """Wait `seconds`, less once a stop is requested: True then."""
+    return STOP.wait(seconds)
+
+
+def duration(seconds):
+    seconds = round(seconds)
+    return f"{seconds // 60} min" if seconds >= 120 else f"{seconds} s"
+
+
+def reason(error):
+    if isinstance(error, requests.HTTPError):
+        return f"HTTP {error.response.status_code}"
+    if isinstance(error, requests.Timeout):
+        return f"no answer in {RPC_TIMEOUT} s"
+    if isinstance(error, requests.ConnectionError):
+        return "connection failed"
+    return "unexpected answer"
+
+
+class Scan:
+    """Lyrion's library scan, asked about over the JSON-RPC interface of the server at `url`;
+    `auth` is (user, password) when Lyrion asks for a login."""
+
+    def __init__(self, url, auth=None, poll=SCAN_POLL, timeout=SCAN_TIMEOUT):
+        self.url, self.auth, self.poll, self.timeout = url.rstrip("/"), auth, poll, timeout
+
+    def ask(self, *command):
+        r = requests.post(f"{self.url}/jsonrpc.js", auth=self.auth, timeout=RPC_TIMEOUT,
+                          json={"id": 1, "method": "slim.request", "params": ["", list(command)]})
+        r.raise_for_status()
+        answer = r.json()
+        result = answer.get("result") if isinstance(answer, dict) else None
+        if not isinstance(result, dict):
+            raise ValueError(answer)
+        return result
+
+    def running(self):
+        """Whether Lyrion is scanning; raises requests.RequestException or ValueError when it
+        cannot be asked."""
+        result = self.ask("rescan", "?")
+        if "_rescan" in result:
+            state = result["_rescan"]
+        else:
+            # serverstatus holds "rescan" during a scan only
+            state = self.ask("serverstatus", 0, 0).get("rescan")
+        return str(state or 0).strip() != "0"
+
+    def wait(self, log):
+        """Wait for the end of a scan; False when it still runs after `timeout` or once a stop
+        is requested. Lyrion out of reach counts as not scanning, after a warning."""
+        start, waiting = time.monotonic(), False
+        while True:
+            try:
+                scanning = self.running()
+            except (requests.RequestException, ValueError) as e:
+                log(f"WARNING  Lyrion cannot be asked whether it scans ({reason(e)}): not waiting")
+                return True
+            waited = time.monotonic() - start
+            if not scanning:
+                if waiting:
+                    log(f"LYRION   scan ended after {duration(waited)}")
+                return True
+            if not waiting:
+                log(f"LYRION   scanning: waiting for the end, up to {duration(self.timeout)}")
+                waiting = True
+            if waited >= self.timeout:
+                log(f"WARNING  Lyrion still scanning after {duration(waited)}: no longer waiting")
+                return False
+            if pause(min(self.poll, self.timeout - waited)):
+                log("STOP     requested: no longer waiting for Lyrion's scan")
+                return False
 
 
 class Lyrion:
-    def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path):
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
+    def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path, scan: Scan | None = None):
         self.db, self.lyrion_root, self.root = db, os.fsencode(lyrion_root).rstrip(b"/"), root
-        self.backup_dir = backup_dir
+        self.backup_dir, self.scan = backup_dir, scan
+
+    def scan_ended(self, log):
+        """Wait for Lyrion's scan to end; False when it still runs. True without --lyrion-url."""
+        return self.scan is None or self.scan.wait(log)
 
     def url(self, path: Path):
         """Lyrion URL for a library file; None if it is outside --root."""
@@ -135,13 +245,18 @@ class Lyrion:
             return stats
         if apply:
             stats["backup"] = self.backup()
-        with self.writing() if apply else contextlib.closing(self.connect()) as con:
-            for old, new in pairs:
-                kinds = {self._move(con, t, old, new, apply) for t in TABLES}
-                kinds.discard(None)
-                key = ("merged" if "merge" in kinds else
-                       "renamed" if kinds else "no history")
-                stats[key] += 1
+        try:
+            with self.writing() if apply else contextlib.closing(self.connect()) as con:
+                for old, new in pairs:
+                    kinds = {self._move(con, t, old, new, apply) for t in TABLES}
+                    kinds.discard(None)
+                    key = ("merged" if "merge" in kinds else
+                           "renamed" if kinds else "no history")
+                    stats[key] += 1
+        except BaseException:
+            if apply:
+                stats["backup"].unlink(missing_ok=True)
+            raise
         return stats
 
     @staticmethod
@@ -183,6 +298,29 @@ def md5(url):
     return hashlib.md5(url.encode()).hexdigest()
 
 
+def await_scan(db, apply, log):
+    """Before an applied pass changes files: wait for the end of Lyrion's scan, and go on
+    whether it ended or not."""
+    if db is not None and apply:
+        db.scan_ended(log)
+
+
+def write_history(db, pairs, log):
+    """db.sync() applied once Lyrion's scan has ended, tried again while the database is locked."""
+    delays = list(LOCK_RETRIES)
+    while True:
+        if not db.scan_ended(log):
+            raise RuntimeError("not done while Lyrion scans")
+        try:
+            return db.sync(pairs, True)
+        except sqlite3.OperationalError as e:
+            if not delays or "locked" not in str(e):
+                raise
+            log(f"LYRION   {e}, trying again in {duration(delays[0])}")
+            if pause(delays.pop(0)):
+                raise
+
+
 def carry_over(db, moves, apply, log):
     """Carry the Lyrion history over to moved files; False on failure."""
     if db is None:
@@ -191,7 +329,7 @@ def carry_over(db, moves, apply, log):
     if not pairs:
         return True
     try:
-        stats = db.sync(pairs, apply)
+        stats = write_history(db, pairs, log) if apply else db.sync(pairs, apply)
     except Exception as e:
         log(f"ERROR    Lyrion carry-over: {e}")
         return False

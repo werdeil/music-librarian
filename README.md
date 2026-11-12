@@ -64,6 +64,9 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `MUSIC_LIBRARIAN_INBOX` | Drop folder, outside the library so a music server does not index it (`--inbox`) |
 | `MUSIC_LIBRARIAN_STATE` | Journals, last run date, lock, metadata cache, run history, the credit split decisions and the artist aliases (`--state-dir`; `/state` in the image, `~/.local/state/music-librarian` otherwise) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | Lyrion's `persist.db` and the library root as Lyrion sees it; history carry-over is off without them |
+| `LYRION_URL` | Lyrion's address, e.g. `http://lyrion:9000` (`--lyrion-url`): an applied pass then waits for the end of Lyrion's scan before changing files and before the carry-over; no waiting without it, nor with `--no-wait-scan` |
+| `LYRION_USER`, `LYRION_PASSWORD` | Login, when Lyrion asks for one (`--lyrion-user`; the password is read from the environment only) |
+| `LYRION_SCAN_POLL`, `LYRION_SCAN_TIMEOUT` | Seconds between two looks at a scan (default `5`, `--scan-poll`) and seconds a scan is waited for (default `900`, `--scan-timeout`) |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below; empty to look up no lyrics) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
 | `LYRICS_RETRY_DAYS` | Days before a track whose lyrics were not found is looked up again (default `30`, `0` to look it up on every pass) |
