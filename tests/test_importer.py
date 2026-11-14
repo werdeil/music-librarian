@@ -11,7 +11,7 @@ from mutagen.mp4 import MP4
 
 from music_librarian import enrich, importer, scan
 from music_librarian.core import runs
-from music_librarian.media import convert
+from music_librarian.media import convert, fields
 
 TODAY = date.today().isoformat()
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
@@ -306,6 +306,38 @@ def test_several_titles_refused(env, make_track, capsys, title):
     assert env.run("--apply") == 2
     assert files(env.inbox) == ["_failed/Album/1.flac"] and files(env.lib) == []
     assert 'SKIPPED  (title takes one value, without ";": ' in capsys.readouterr().out
+
+
+def test_the_title_the_file_is_named_after_kept(env, make_track, capsys):
+    make_track(env.inbox / "Album/14 - Voir voler un éléphant.flac", artist="A", albumartist="A",
+               album="B", track=14, title=["Les Corbeaux", "Voir voler un éléphant"])
+    make_track(env.inbox / "Album/15 - Toujours.flac", title=["Toujours", "Toujours"], artist="A",
+               albumartist="A", album="B", track=15)
+    assert env.run() == 0
+    out = capsys.readouterr().out
+    assert ("TITLE    14 - Voir voler un éléphant.flac: 'Les Corbeaux; Voir voler un éléphant'"
+            " → 'Voir voler un éléphant', as the file is named") in out
+    assert "A/B/14 Voir voler un éléphant.m4a" in out and "TITLE    15" not in out
+
+    assert env.run("--apply") == 0
+    assert files(env.lib) == ["A/B/14 Voir voler un éléphant.m4a", "A/B/15 Toujours.m4a"]
+    assert MP4(env.lib / "A/B/14 Voir voler un éléphant.m4a").tags["\xa9nam"] == ["Voir voler un éléphant"]
+
+
+def test_a_linked_track_retitled_leaves_the_original(env, make_track):
+    make_track(env.inbox / "Album/01 Un.mp3", title=["Un (Live)", "Un"], artist="A", album="B", track=1)
+    assert env.run("--apply") == 0
+    assert files(env.lib) == ["A/B/01 Un.mp3"]
+    assert fields.read(env.lib / "A/B/01 Un.mp3")["title"] == ["Un"]
+    assert fields.read(env.inbox / f"_done/{TODAY}/Album/01 Un.mp3")["title"] == ["Un (Live)", "Un"]
+
+
+@pytest.mark.parametrize("name, title", [("01 - Trois", ["Un", "Deux"]), ("01 - A_B", ["A/B", "A_B"])])
+def test_several_titles_none_or_two_named_refused(env, make_track, name, title):
+    make_track(env.inbox / f"Album/{name}.flac", title=title, artist="A", albumartist="A", album="B",
+               track=1)
+    assert env.run("--apply") == 2
+    assert files(env.inbox) == [f"_failed/Album/{name}.flac"]
 
 
 def test_flac_converted_side_by_side_and_logged_in_order(env, make_track, monkeypatch, capsys):
