@@ -412,7 +412,6 @@ footer {
 }
 
 .pass-card > button {
-    font-size: inherit;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -569,12 +568,11 @@ footer {
 button,
 a.button {
     font: inherit;
-    font-size: var(--fs-sm);
     color: var(--text-bright);
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 0.1rem 0.6rem;
+    padding: 0.3rem 0.9rem;
     cursor: pointer;
 }
 
