@@ -24,7 +24,7 @@ Tout est en dry-run sans `--apply`, et chaque déplacement est journalisé pour 
 
 ## Lancement
 
-Docker est la voie prévue. ffmpeg est dans l'image, et les tests tournent au build : une image cassée n'est jamais produite.
+Docker est la voie prévue. ffmpeg est dans l'image, et le build vérifie qu'il y mesure le volume : une image dont les outils échouent n'est jamais produite.
 
 ```bash
 cp .env.example .env      # chemins de la bibliothèque, de l'Inbox et (facultatif) de Lyrion
