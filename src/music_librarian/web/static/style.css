@@ -561,6 +561,10 @@ footer {
     margin-top: 1rem;
 }
 
+.run-actions {
+    margin-bottom: 1rem;
+}
+
 button {
     font: inherit;
     color: var(--text-bright);
