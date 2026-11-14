@@ -4,7 +4,8 @@ importer — imports what is dropped in the Inbox into the library.
 For each Inbox item (an album folder, or a loose file):
   1. FLAC → ALAC conversion and its checks (media/convert.py);
   2. filing with organize, all or nothing: on any problem the whole item
-     goes to _failed/;
+     goes to _failed/; of several titles, a track keeps the one its file is
+     named after;
   3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only,
      then the values held twice kept once (repeats.py), the split of their
      credits holding several names (split/) and the spellings decided in the
@@ -46,7 +47,9 @@ from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
+from music_librarian.media import fields
 from music_librarian.media.convert import ConversionError, convert, probe
+from music_librarian.organize.scan import read_tags
 from music_librarian.split.library import CreditOptions
 
 ERRORS, DONE, WORK = "_failed", "_done", "_processing"
@@ -181,11 +184,35 @@ def fix_credits(opts, dirs, log):
     return ok
 
 
-def organize_paths(opts, paths, apply, log):
+def organize_paths(opts, paths, apply, log, overrides=None):
     """Files `paths` with organize, under the lock import already holds."""
     return organize.organize_pass(organize.Options(
         root=opts.root, paths=paths, apply=apply, state_dir=opts.state_dir,
-        lyrion=opts.lyrion, interruptible=False), log)
+        lyrion=opts.lyrion, interruptible=False, overrides=overrides or {}), log)
+
+
+def named_titles(tracks, log):
+    """{path: the title to keep} of `tracks` ({path: name shown}) holding several titles, one of
+    which their file is named after."""
+    kept = {}
+    for p, shown in tracks.items():
+        try:
+            values = fields.read(p)["title"]
+        except Exception:
+            continue
+        title = len(repeats.once(values)) > 1 and repeats.named_title(values, p)
+        if title:
+            kept[p] = title
+            log(f"TITLE    {shown}: {repeats.shown(values)!r} → {title!r}, as the file is named")
+    return kept
+
+
+def own_copy(p: Path):
+    """Replace the hard link `p` by a copy of it, so that a write leaves the original intact."""
+    if p.stat().st_nlink > 1:
+        tmp = p.with_name(f".{p.name}.copy")
+        shutil.copy2(p, tmp)
+        os.replace(tmp, p)
 
 
 @dataclass
@@ -279,7 +306,8 @@ def process(opts, item, log):
         return FAILED, set()
     try:
         build_work(opts, item, contents, names, work, log)
-    except (Reject, ConversionError, Stopped, OSError, subprocess.CalledProcessError, ValueError) as e:
+    except (Reject, ConversionError, Stopped, OSError, subprocess.CalledProcessError, ValueError,
+            fields.FieldError) as e:
         remove_work(work)
         if isinstance(e, Stopped):
             log(f"STOP     {item.name}: left in the Inbox for the next pass")
@@ -300,8 +328,10 @@ def preview(opts, item, contents: Contents, names, log):
     """The dry run of an item: what it would convert, and where organize would file it."""
     for p in contents.flacs:
         log(f"CONVERT  {item.rel(p)}  → .m4a")
+    titles = named_titles({p: item.rel(p) for p in contents.flacs + contents.audio}, log)
+    overrides = {p: {**read_tags(p), "title": title} for p, title in titles.items()}
     out = Buffer()
-    report = organize_paths(opts, [item.path], False, out)
+    report = organize_paths(opts, [item.path], False, out, overrides)
     if report.code:
         log(out.text().rstrip())
         log(f"ERROR    {item.name}: would go to {ERRORS}/ (see above)")
@@ -325,6 +355,11 @@ def build_work(opts, item, contents: Contents, names, work: Path, log):
         link_or_copy(p, work / item.rel(p))
     for p, rel in names.items():
         link_or_copy(p, work / rel)
+    tracks = [work / item.rel(p).with_suffix(".m4a") for p in contents.flacs]
+    tracks += [work / item.rel(p) for p in contents.audio]
+    for p, title in named_titles({p: p.relative_to(work) for p in tracks}, log).items():
+        own_copy(p)
+        fields.write(p, "title", [title])
     out = Buffer()
     if organize_paths(opts, [work], False, out).code:
         log(out.text().rstrip())

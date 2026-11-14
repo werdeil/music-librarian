@@ -10,7 +10,8 @@ or `tag`: which one is right is not for the tool to guess.
 
 The title and the album take one value, without ";" (SINGLE): organize refuses a track whose
 title or album holds values that differ or a ";", and so import an item holding one, and tag and
-the dashboard refuse to write one (refusal).
+the dashboard refuse to write one (refusal). Before filing, import keeps of several titles the
+one the file is named after (named_title).
 
 enrich runs it before split, which leaves a field with several values alone, and import on the
 folders it files (--no-repeats on enrich to leave them). organize and the dashboard report the
@@ -18,6 +19,7 @@ fields it leaves.
 
 Every tag change goes through the journal: `music-librarian undo` restores it.
 """
+import re
 import sys
 import time
 import unicodedata
@@ -27,6 +29,7 @@ from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.core.journal import Journal, finish
 from music_librarian.media import credit_tags
 from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.organize.naming import clean
 from music_librarian.organize.scan import collect
 from music_librarian.split.rules import LYRION_SEPARATOR, key, names_of
 
@@ -34,6 +37,7 @@ FIELDS = ("title", "artist", "albumartist", "album", "year", "genre", "composer"
 CREDITS = ("artist", "albumartist", "composer")
 SINGLE = ("title", "album")
 SEPARATOR = ";"
+NUMBERED = re.compile(r"^\d+(?:-\d+)?(?:\s*[-.]\s*|\s+)")
 SNAPSHOT_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("albumartist", "album artist"),
                  "album": ("album",), "year": ("date", "year"), "genre": ("genre",),
                  "composer": ("composer",)}
@@ -58,6 +62,15 @@ def refusal(field, values):
     if field in SINGLE and (len(values) > 1 or any(SEPARATOR in v for v in values)):
         return f'{field} takes one value, without "{SEPARATOR}"'
     return None
+
+
+def named_title(values, path):
+    """The one title of `values` that the file at `path` is named after ("01 - Title.flac", the
+    track number left out), or None when none or several are."""
+    names = {same(path.stem), same(NUMBERED.sub("", path.stem, count=1))}
+    titles = once(v.strip() for v in values if v.strip())
+    named = [v for v in titles if {same(v), same(clean(v, lead=False))} & names]
+    return named[0] if len(named) == 1 else None
 
 
 def check(field, values):

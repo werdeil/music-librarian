@@ -1,5 +1,7 @@
 """The fields holding a value twice or several values: rewritten once, or reported."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+from pathlib import Path
+
 import pytest
 from mutagen.mp4 import MP4
 
@@ -118,3 +120,16 @@ def test_organize_refuses_several_titles(tmp_path, make_track, capsys):
     assert """SKIPPED  (title takes one value, without ";": 'Un; Un (Remix)')  In/1.m4a""" in out
     assert """SKIPPED  (title takes one value, without ";": 'Movement 1; Largo')  In/2.m4a""" in out
     assert p.exists() and not (root / "A").exists()
+
+
+@pytest.mark.parametrize("values, name, expected", [
+    (["Etre Un Homme", "Etre un Homme"], "01 - Etre un Homme.flac", "Etre un Homme"),
+    (["Les Corbeaux", "Voir voler"], "1-14 Voir voler.m4a", "Voir voler"),
+    (["A/B", "C"], "03 A_B.m4a", "A/B"),
+    (["1+1", "Un"], "01 - 1+1.m4a", "1+1"),
+    (["Un", "Deux"], "01 - Trois.flac", None),
+    (["Un", "Un "], "Un.flac", "Un"),
+    (["A/B", "A_B"], "01 - A_B.flac", None),
+])
+def test_named_title(values, name, expected):
+    assert repeats.named_title(values, Path(name)) == expected
