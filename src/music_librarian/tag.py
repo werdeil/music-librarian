@@ -222,6 +222,7 @@ def tag_pass(opts: Options, log):
     placing = cover_planned(opts, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped, written = False, []
+    lyrion.await_scan(opts.lyrion, opts.apply and bool(writes or placing is not None), log)
     if opts.apply:
         for i, (path, name, old, new) in enumerate(writes):
             if STOP.is_set():

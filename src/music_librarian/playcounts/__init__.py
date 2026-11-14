@@ -196,6 +196,9 @@ def playcounts_pass(opts: Options, log):
             log(f"DPSV     {opts.lyrion.relative(url)}  ({kept} → {value})")
         stats["backfilled"], stats["DPSV computed"] = len(zeroed), len(changes)
         if opts.apply and (given or zeroed or changes):
+            if not opts.lyrion.scan_ended(log):
+                log(f"ERROR    {opts.lyrion.db}: not written while Lyrion scans")
+                return 2
             backup = opts.lyrion.backup()
             with opts.lyrion.writing() as con:
                 for orphan, rel in given:

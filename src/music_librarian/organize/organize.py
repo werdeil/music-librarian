@@ -21,6 +21,8 @@ Examples:
 
 With --lyrion-db, the Lyrion history (play counts, ratings) follows moved files
 (see integrations/lyrion.py). --lyrion-replay JOURNAL carries it over afterwards for one pass.
+With --lyrion-url too, an applied pass waits for the end of Lyrion's scan before its moves and
+before the carry-over (--scan-poll, --scan-timeout, --no-wait-scan).
 
 State (move journals, last pass date): --state-dir, else
 $MUSIC_LIBRARIAN_STATE, else $XDG_STATE_HOME/music-librarian
@@ -292,6 +294,7 @@ def organize_pass(opts: Options, log, journal=None):
     own_journal = journal is None
     if own_journal:
         journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
+    lyrion.await_scan(opts.lyrion, opts.apply and bool(plan.rewrites or plan.moves or plan.extra), log)
     done, stopped = apply_plan(opts, scan, started, plan, journal, log) if opts.apply else ([], False)
     if own_journal:
         journal.close()

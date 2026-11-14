@@ -64,6 +64,9 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `MUSIC_LIBRARIAN_INBOX` | Dossier de dépôt, hors de la bibliothèque pour qu'un serveur de musique ne l'indexe pas (`--inbox`) |
 | `MUSIC_LIBRARIAN_STATE` | Journaux, date du dernier passage, verrou, cache des métadonnées, historique des passages, décisions de découpage des crédits et alias d'artistes (`--state-dir` ; `/state` dans l'image, `~/.local/state/music-librarian` sinon) |
 | `LYRION_PERSIST_DB`, `LYRION_MUSIC_ROOT` | `persist.db` de Lyrion et racine de la bibliothèque vue par Lyrion ; sans eux, l'historique n'est pas reporté |
+| `LYRION_URL` | Adresse de Lyrion, par exemple `http://lyrion:9000` (`--lyrion-url`) : une passe appliquée attend alors la fin du scan de Lyrion avant de modifier des fichiers et avant le report ; aucune attente sans elle, ni avec `--no-wait-scan` |
+| `LYRION_USER`, `LYRION_PASSWORD` | Identifiants, si Lyrion en demande (`--lyrion-user` ; le mot de passe n'est lu que dans l'environnement) |
+| `LYRION_SCAN_POLL`, `LYRION_SCAN_TIMEOUT` | Secondes entre deux interrogations pendant un scan (`5` par défaut, `--scan-poll`) et secondes d'attente d'un scan au plus (`900` par défaut, `--scan-timeout`) |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous ; vide pour ne chercher aucunes paroles) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
 | `LYRICS_RETRY_DAYS` | Jours avant de rechercher à nouveau les paroles d'une piste restée sans résultat (défaut `30`, `0` pour chercher à chaque passage) |
