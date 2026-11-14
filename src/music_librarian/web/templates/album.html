@@ -119,7 +119,7 @@
     <section>
         <h2>{{ t.tracks }}</h2>
         {% if not (discs and groupings) %}
-        <button type="button" class="small" data-shows-discs="tracks" hidden>
+        <button type="button" data-shows-discs="tracks" hidden>
             {{- t.show_grouping if discs else t.show_discs if groupings else t.show_discs_grouping }}</button>
         {% endif %}
         {% set width = 7 + (1 if discs else 0) + (1 if groupings else 0) %}
@@ -179,7 +179,7 @@
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
-                    {% if values %}<td class="t-more"><button type="button" class="small" data-track-more aria-expanded="true"
+                    {% if values %}<td class="t-more"><button type="button" data-track-more aria-expanded="true"
                             aria-label="{{ t.track_details }}" title="{{ t.track_details }}" hidden></button></td>{% endif %}
                 </tr>
                 {% if values %}

@@ -412,6 +412,7 @@ footer {
 }
 
 .pass-card > button {
+    font-size: inherit;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -565,19 +566,21 @@ footer {
     margin-bottom: 1rem;
 }
 
-button {
+button,
+a.button {
     font: inherit;
+    font-size: var(--fs-sm);
     color: var(--text-bright);
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 0.3rem 0.9rem;
+    padding: 0.1rem 0.6rem;
     cursor: pointer;
 }
 
-button.small {
-    font-size: var(--fs-sm);
-    padding: 0.1rem 0.6rem;
+a.button {
+    display: inline-block;
+    text-decoration: none;
 }
 
 button:hover,
@@ -867,16 +870,6 @@ table.tracks .disc-row label {
 table.tracks .disc-row input {
     max-width: 24rem;
     font-weight: normal;
-}
-
-a.button {
-    display: inline-block;
-    text-decoration: none;
-    border-radius: 6px;
-    padding: 0.3rem 0.9rem;
-    border: 1px solid var(--border-color);
-    color: var(--text-bright);
-    background: var(--surface);
 }
 
 a.button.primary {
