@@ -47,7 +47,7 @@
                         </select>
                         <input name="v" value="{{ row.value }}" placeholder="{{ t.condition_value }}" aria-label="{{ t.condition_value }}" data-value{% if row.op in bare %} hidden{% endif %}>
                         <span class="upto" data-upto{% if row.op != 'between' %} hidden{% endif %}>{{ t.condition_upto }} <input name="w" value="{{ row.upto }}" aria-label="{{ t.condition_upto_value }}"></span>
-                        <button type="submit" class="small" name="drop" value="{{ loop.index0 }}" title="{{ t.condition_remove }}" aria-label="{{ t.condition_remove }}" data-drop{% if row.blank %} hidden{% endif %}>✕</button>
+                        <button type="submit" name="drop" value="{{ loop.index0 }}" title="{{ t.condition_remove }}" aria-label="{{ t.condition_remove }}" data-drop{% if row.blank %} hidden{% endif %}>✕</button>
                     </div>
                 {% endfor %}
                 </div>
