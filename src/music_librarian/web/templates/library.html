@@ -53,7 +53,7 @@
                 </div>
                 <p class="actions">
                     <button type="button" data-add-condition hidden>{{ t.condition_add }}</button>
-                    {% if search.conditions %}<a href="{{ url_for('library_page', **keep) }}">{{ t.conditions_clear }}</a>{% endif %}
+                    {% if search.conditions %}<a class="button" href="{{ url_for('library_page', **keep) }}">{{ t.conditions_clear }}</a>{% endif %}
                 </p>
             </div>
         </details>
