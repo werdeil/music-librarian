@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from music_librarian import organize
-from music_librarian.integrations import lyrion
+from music_librarian.integrations import lyrion, plugin_counts
 from music_librarian.integrations.lyrion import EXIT_LYRION
 
 LYRION_ROOT = "/music/Musique"
@@ -145,6 +145,73 @@ def test_annexes_and_files_in_place_ignored(misplaced, make_track):
     assert misplaced.run("--apply") == 0
     assert misplaced.row("tracks_persistent", "C/D/01 Rien.m4a")["playCount"] == 1
     assert misplaced.count("tracks_persistent") == 2
+
+
+def refreshed(env, rel, play=None, last=None):
+    """The plugin's refresh after a scan that missed `rel`, then one that found it: its entry is
+    deleted, then added empty, `play` plays made since."""
+    u = url(rel)
+    with sqlite3.connect(env.db) as c:
+        c.execute("DELETE FROM alternativeplaycount WHERE urlmd5 = ?", (md5(u),))
+        c.execute("INSERT INTO alternativeplaycount (url, urlmd5, playCount, lastPlayed) VALUES (?, ?, ?, ?)",
+                  (u, md5(u), play, last))
+    c.close()
+
+
+def test_plugin_counts_lost_to_its_refresh_are_given_back(misplaced, capsys):
+    assert misplaced.run("--apply") == 0
+    kept = json.loads((misplaced.state / plugin_counts.FILE).read_text())
+    assert [(c["url"], c["playCount"], c["skipCount"]) for c in kept.values()] == [
+        (url("A/B/01 Un.m4a"), 7, 2)]
+    refreshed(misplaced, "A/B/01 Un.m4a", play=1, last=3000)
+    capsys.readouterr()
+
+    assert misplaced.run() == 0     # a dry run leaves it
+    assert misplaced.row("alternativeplaycount", "A/B/01 Un.m4a")["playCount"] == 1
+
+    assert misplaced.run("--apply") == 0
+    assert "Lyrion plugin restored: 1" in " ".join(capsys.readouterr().out.split())
+    ap = misplaced.row("alternativeplaycount", "A/B/01 Un.m4a")
+    assert (ap["playCount"], ap["skipCount"], ap["dynPSval"], ap["lastPlayed"]) == (8, 2, 40, 3000)
+    assert not (misplaced.state / plugin_counts.FILE).exists()
+
+
+def test_plugin_counts_not_given_back_do_not_fail_a_pass_without_moves(misplaced, monkeypatch, capsys):
+    assert misplaced.run("--apply") == 0
+    refreshed(misplaced, "A/B/01 Un.m4a")
+    monkeypatch.setattr(lyrion.Lyrion, "backup", lambda self: 1 / 0)
+    assert misplaced.run("--apply") == 0
+    assert "WARNING  Lyrion plugin counts not given back" in capsys.readouterr().out
+    assert (misplaced.state / plugin_counts.FILE).exists()
+
+
+def test_plugin_counts_kept_follow_a_track_moved_again(misplaced):
+    assert misplaced.run("--apply") == 0
+    with sqlite3.connect(misplaced.db) as c:    # deleted by the plugin, the file not scanned since
+        c.execute("DELETE FROM alternativeplaycount")
+    c.close()
+    [j] = (misplaced.state / "journal").glob("*.jsonl")
+    assert misplaced.run("--undo", str(j), "--apply") == 0
+    [counts] = json.loads((misplaced.state / plugin_counts.FILE).read_text()).values()
+    assert (counts["url"], counts["playCount"]) == (url("vrac/1.m4a"), 7)
+
+    refreshed(misplaced, "vrac/1.m4a")
+    assert misplaced.run("--apply") == 0
+    ap = misplaced.row("alternativeplaycount", "A/B/01 Un.m4a")
+    assert (ap["playCount"], ap["skipCount"], ap["dynPSval"]) == (7, 2, 40)
+
+
+def test_plugin_counts_are_forgotten_after_a_while(misplaced, make_track):
+    assert misplaced.run("--apply") == 0
+    path = misplaced.state / plugin_counts.FILE
+    kept = json.loads(path.read_text())
+    for counts in kept.values():
+        counts["kept"] -= plugin_counts.KEEP + 1
+    path.write_text(json.dumps(kept))
+    make_track(misplaced.lib / "vrac/2.m4a", title="Deux", artist="A", album="B", track=2)
+    misplaced.add("vrac/2.m4a", play=3)
+    assert misplaced.run("--apply") == 0
+    assert [c["url"] for c in json.loads(path.read_text()).values()] == [url("A/B/02 Deux.m4a")]
 
 
 def test_undo_brings_history_back(misplaced):

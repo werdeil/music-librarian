@@ -3,13 +3,14 @@
 # pylint: disable=attribute-defined-outside-init  # fixture environment objects
 import json
 import sqlite3
+import time
 
 import pytest
 
 from music_librarian import cli, playcounts
 from music_librarian.core.lock import locked
-from music_librarian.integrations import lyrion
-from music_librarian.playcounts import decisions
+from music_librarian.integrations import lyrion, plugin_counts
+from music_librarian.playcounts import decisions, dpsv
 
 LYRION_ROOT = "/music"
 
@@ -285,3 +286,39 @@ def test_streams_and_files_outside_the_library_are_not_orphans(env, capsys):
     c.close()
     assert env.run() == 0
     assert "orphans" not in capsys.readouterr().out
+
+
+def test_backfill_gives_the_plugin_the_plays_it_lost(env, capsys):
+    env.track("A/B/01 Emptied.m4a", play=3, alt_play=0, last=700, skip=1)
+    env.track("A/B/02 Both.m4a", play=2, alt_play=1)
+    assert env.run() == 0
+    assert "BACKFILL A/B/01 Emptied.m4a (3 plays, to the plugin)" in summary(capsys)
+    assert env.row("alternativeplaycount", "A/B/01 Emptied.m4a")["playCount"] == 0
+
+    assert env.run("--apply", "--no-backfill") == 0
+    assert "backfilled" not in summary(capsys) and not env.backups()
+
+    assert env.run("--apply") == 0
+    assert "plugin backfilled: 1" in summary(capsys)
+    ap = env.row("alternativeplaycount", "A/B/01 Emptied.m4a")
+    assert (ap["playCount"], ap["lastPlayed"], ap["skipCount"]) == (3, 700, 1)
+    assert ap["dynPSval"] == dpsv.compute(3, 1, 700, 0)
+    assert env.row("alternativeplaycount", "A/B/02 Both.m4a")["playCount"] == 1
+
+
+def test_plugin_counts_kept_at_a_carry_over_are_given_back(env, capsys):
+    rel = "A/B/01 Lost.m4a"
+    env.track(rel, play=5, alt_play=0, last=900)
+    plugin_counts.save(env.state / plugin_counts.FILE, {env.key(rel): dict(
+        url=env.row("alternativeplaycount", rel)["url"], kept=time.time(), playCount=4, skipCount=2,
+        lastPlayed=800, lastSkipped=850, dynPSval=-12)})
+    assert env.run() == 0
+    out = summary(capsys)
+    assert "RESTORE A/B/01 Lost.m4a (4 plays, 2 skips, to the plugin)" in out and "BACKFILL" not in out
+    assert env.row("alternativeplaycount", rel)["playCount"] == 0
+
+    assert env.run("--apply") == 0
+    assert "plugin restored: 1" in summary(capsys)
+    ap = env.row("alternativeplaycount", rel)
+    assert (ap["playCount"], ap["skipCount"], ap["lastSkipped"], ap["dynPSval"]) == (4, 2, 850, -12)
+    assert not (env.state / plugin_counts.FILE).exists()

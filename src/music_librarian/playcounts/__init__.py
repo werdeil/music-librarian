@@ -11,8 +11,10 @@ Alternative Play Count plugin's or of both, whose file is gone. Each orphan is g
   - none while it awaits an answer, or once ignored.
 Its plays are added to the track's, the latest play and the rating kept as in a carry-over.
 
-The pass also copies the plugin's plays to the tracks Lyrion counts none for (--no-backfill to
-skip it) and, with --dpsv, computes the plugin's DPSV again from the counts of every track.
+The pass also copies the plugin's plays to the tracks Lyrion counts none for, and Lyrion's to the
+tracks the plugin counts none for (--no-backfill to skip both). It gives back the plugin's counts
+kept at a carry-over and lost since (see integrations/plugin_counts.py). And, with --dpsv, it
+computes the plugin's DPSV again from the counts of every track.
 
   music-librarian playcounts             # dry run: what would be written, the orphans awaiting
   music-librarian playcounts --review    # answer the orphans (writes the matches file only)
@@ -27,6 +29,7 @@ import contextlib
 import dataclasses
 import sqlite3
 import sys
+import time
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -37,7 +40,7 @@ from music_librarian.core.lock import handle_stop_signals
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.integrations import lyrion
+from music_librarian.integrations import lyrion, plugin_counts
 from music_librarian.integrations.lyrion import Lyrion
 from music_librarian.organize.scan import collect
 from music_librarian.playcounts import decisions, history, journals
@@ -46,8 +49,7 @@ from music_librarian.playcounts.review import review
 from music_librarian.split.library import run_locked, run_review
 
 SUMMARY = ("orphans", "matched", "from journals", "same path but case", "awaiting review", "ignored",
-           "backfilled",
-           "DPSV computed", "skipped")
+           "plugin restored", "backfilled", "plugin backfilled", "DPSV computed", "skipped")
 
 
 @dataclasses.dataclass
@@ -75,7 +77,8 @@ def main(argv=None):
     mode.add_argument("--review", action="store_true",
                       help="answer the orphans, one at a time (writes the matches file only)")
     ap.add_argument("--no-backfill", action="store_true",
-                    help="leave the tracks Lyrion counts no play for, when the plugin counts some")
+                    help="leave the tracks Lyrion or the plugin counts no play for, when the other "
+                         "counts some")
     ap.add_argument("--dpsv", action="store_true",
                     help="compute the plugin's DPSV again from the counts of every track")
     ap.add_argument("--matches", type=Path, help=f"matches file (default: state/{decisions.FILE})")
@@ -188,25 +191,40 @@ def playcounts_pass(opts: Options, log):
     try:
         with contextlib.closing(opts.lyrion.connect()) as con:
             given = plan(opts, con, log, stats)
+            held = plugin_counts.load(opts.lyrion.plugin_counts)
+            lost = plugin_counts.lost(con, held)
             zeroed = history.zeroed(con) if opts.backfill else []
+            restored = {counts["url"] for _, counts in lost}
+            emptied = [(url, plays) for url, plays in history.emptied(con)
+                       if url not in restored] if opts.backfill else []
             changes = history.dpsv_changes(con) if opts.dpsv else []
+        for _, counts in lost:
+            log(f"RESTORE  {opts.lyrion.relative(counts['url'])}  "
+                f"({count(counts['playCount'] or 0, 'play')}, "
+                f"{count(counts['skipCount'] or 0, 'skip')}, to the plugin)")
         for url, plays in zeroed:
             log(f"BACKFILL {opts.lyrion.relative(url)}  ({count(plays, 'play')})")
+        for url, plays in emptied:
+            log(f"BACKFILL {opts.lyrion.relative(url)}  ({count(plays, 'play')}, to the plugin)")
         for _, url, kept, value in changes:
             log(f"DPSV     {opts.lyrion.relative(url)}  ({kept} → {value})")
         stats["backfilled"], stats["DPSV computed"] = len(zeroed), len(changes)
-        if opts.apply and (given or zeroed or changes):
+        stats["plugin backfilled"], stats["plugin restored"] = len(emptied), len(lost)
+        if opts.apply and any((given, lost, zeroed, emptied, changes)):
             if not opts.lyrion.scan_ended(log):
                 log(f"ERROR    {opts.lyrion.db}: not written while Lyrion scans")
                 return 2
             backup = opts.lyrion.backup()
             with opts.lyrion.writing() as con:
+                plugin_counts.settle(con, held, time.time())
                 for orphan, rel in given:
                     history.adopt(con, orphan, opts.lyrion.url(opts.root / rel))
                 if opts.backfill:
                     history.backfill(con)
+                    history.refill(con)
                 if opts.dpsv:
                     history.write_dpsv(con, history.dpsv_changes(con))
+            plugin_counts.save(opts.lyrion.plugin_counts, held)
             decisions.update(opts.matches, drop=[orphan.key for orphan, _ in given])
     except sqlite3.Error as e:
         log(f"ERROR    {opts.lyrion.db}: {e}")

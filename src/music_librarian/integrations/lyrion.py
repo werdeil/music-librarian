@@ -30,6 +30,7 @@ import requests
 
 from music_librarian.core.files import AUDIO_EXT
 from music_librarian.core.lock import STOP
+from music_librarian.integrations import plugin_counts
 
 BACKUPS, KEEP_BACKUPS = "lyrion-backups", 14
 # characters Lyrion leaves as is in its URLs (checked over the whole database)
@@ -165,6 +166,7 @@ class Lyrion:
     def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path, scan: Scan | None = None):
         self.db, self.lyrion_root, self.root = db, os.fsencode(lyrion_root).rstrip(b"/"), root
         self.backup_dir, self.scan = backup_dir, scan
+        self.plugin_counts = backup_dir.with_name(plugin_counts.FILE)
 
     def scan_ended(self, log):
         """Wait for Lyrion's scan to end; False when it still runs. True without --lyrion-url."""
@@ -238,26 +240,42 @@ class Lyrion:
             con.close()
 
     def sync(self, pairs, apply):
-        """Carry the history over; returns {"renamed": n, "merged": n, ...}.
-        In a dry run nothing is written (the database is opened read-only)."""
-        stats = dict.fromkeys(("renamed", "merged", "no history"), 0)
-        if not pairs:
+        """Carry the history over; returns {"renamed": n, "merged": n, ...}. When applied, the
+        plugin's counts lost since earlier carry-overs are given back first ("plugin restored"),
+        even without `pairs`. In a dry run nothing is written (the database is opened read-only)."""
+        stats = dict.fromkeys(("renamed", "merged", "no history", "plugin restored"), 0)
+        kept = plugin_counts.load(self.plugin_counts) if apply else {}
+        if not pairs and not self.plugin_lost(kept):
             return stats
         if apply:
             stats["backup"] = self.backup()
         try:
             with self.writing() if apply else contextlib.closing(self.connect()) as con:
+                now = time.time()
+                stats["plugin restored"] = plugin_counts.settle(con, kept, now) if apply else 0
                 for old, new in pairs:
                     kinds = {self._move(con, t, old, new, apply) for t in TABLES}
                     kinds.discard(None)
                     key = ("merged" if "merge" in kinds else
                            "renamed" if kinds else "no history")
                     stats[key] += 1
+                    if apply:
+                        plugin_counts.follow(con, kept, md5(old), md5(new), new, now)
+            if apply:
+                plugin_counts.save(self.plugin_counts, kept)
         except BaseException:
             if apply:
                 stats["backup"].unlink(missing_ok=True)
             raise
         return stats
+
+    def plugin_lost(self, kept=None):
+        """[(urlmd5, the counts kept)] the plugin lost since a carry-over and can be given back."""
+        kept = plugin_counts.load(self.plugin_counts) if kept is None else kept
+        if not kept:
+            return []
+        with contextlib.closing(self.connect()) as con:
+            return plugin_counts.lost(con, kept)
 
     @staticmethod
     def _move(con, table, old, new, apply):
@@ -326,11 +344,14 @@ def carry_over(db, moves, apply, log):
     if db is None:
         return True
     pairs = db.pairs(moves, AUDIO_EXT)
-    if not pairs:
-        return True
     try:
+        if not pairs and not (apply and db.plugin_lost()):
+            return True
         stats = write_history(db, pairs, log) if apply else db.sync(pairs, apply)
     except Exception as e:
+        if not pairs:
+            log(f"WARNING  Lyrion plugin counts not given back, left for the next pass: {e}")
+            return True
         log(f"ERROR    Lyrion carry-over: {e}")
         return False
     for k, v in stats.items():
