@@ -59,7 +59,9 @@ URLs are built the way Lyrion writes them: `file://` + the Lyrion root + the pat
 
 ## The plugin's refresh after a scan
 
-Some 20 seconds after each scan, Alternative Play Count deletes its entries whose file Lyrion does not know and adds an empty one for each new file. A carry-over made before Lyrion scanned the new path is therefore lost in the plugin's table when a scan that missed the file ends in between: the track keeps Lyrion's plays and has none of the plugin's, nor an orphan. The backfill of [`playcounts`](#orphan-play-counts) gives it Lyrion's plays back; its skips are lost.
+Some 20 seconds after each scan, Alternative Play Count deletes its entries whose file Lyrion does not know and adds an empty one for each new file. A carry-over made before Lyrion scanned the new path is therefore lost in the plugin's table when a scan that missed the file ends in between: the track keeps Lyrion's plays and has none of the plugin's, nor an orphan.
+
+So each applied carry-over keeps the plugin's counts of the tracks it moved in `lyrion-plugin-counts.json`, in the state folder, for 30 days. The next applied carry-over, even of a pass that moved nothing, and the next applied `playcounts` give them back to an entry found with fewer plays and skips than kept (`Lyrion plugin restored` in the summary, `RESTORE` in `playcounts`): its plays and skips made since are added, its `dynPSval` is the one kept. An entry the plugin has not added again waits. When a pass that moved nothing cannot write them, a `WARNING` says so and the next pass tries again. Without counts kept, the backfill of [`playcounts`](#orphan-play-counts) gives the track Lyrion's plays; its skips are lost.
 
 ## Safety
 
@@ -98,7 +100,7 @@ A settled orphan is merged into its track as a carry-over does, in each table wh
 
 The pass also does two repairs:
 
-- **Backfill** (`BACKFILL`, `--no-backfill` to skip it): a track Lyrion counts no play for while the plugin counts some gets the plugin's play count and last play. And the reverse (`to the plugin`): a track the plugin counts no play for while Lyrion counts some gets Lyrion's, and its `dynPSval` is computed again. That is what [the plugin's refresh](#the-plugins-refresh-after-a-scan) leaves behind.
+- **Backfill** (`BACKFILL`, `--no-backfill` to skip it): a track Lyrion counts no play for while the plugin counts some gets the plugin's play count and last play. And the reverse (`to the plugin`): a track the plugin counts no play for while Lyrion counts some gets Lyrion's, and its `dynPSval` is computed again. That is what [the plugin's refresh](#the-plugins-refresh-after-a-scan) leaves behind when no counts were kept.
 - **DPSV** (`DPSV`, only with `--dpsv`): the plugin's `dynPSval` of every track is computed again from its plays and skips. The table does not keep the order of the events, so the value is exact for a track never skipped only: for the others it replaces the plugin's own value by an estimate.
 
 The safety is the carry-over's: one short transaction after a backup copy, taken only when there is something to write. These writes are not journaled, so `undo` does not take them back: the backup copy does.
