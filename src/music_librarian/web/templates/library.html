@@ -53,7 +53,7 @@
                 </div>
                 <p class="actions">
                     <button type="button" data-add-condition hidden>{{ t.condition_add }}</button>
-                    {% if search.conditions %}<a href="{{ url_for('library_page', **keep) }}">{{ t.conditions_clear }}</a>{% endif %}
+                    {% if search.conditions %}<a class="button" href="{{ url_for('library_page', **keep) }}">{{ t.conditions_clear }}</a>{% endif %}
                 </p>
             </div>
         </details>
@@ -77,11 +77,8 @@
         {% if not listed %}
         <p class="muted">{{ t.no_track if view == 'tracks' else t.no_album }}</p>
         {% else %}
-        {% if custom or (filtered and first_album) %}
-        <p class="muted">{% if custom %}{{ (t.tracks_count if view == 'tracks' else t.albums_found).format(n=total) }}{% endif %}
-            {% if search.preset in ('lyrics', 'repeats') %}{% if custom %}· {% endif %}<a href="{{ url_for('missed_lyrics' if search.preset == 'lyrics' else 'repeated_values') }}">{{ t.only_one_by_one }}</a>
-            {% elif filtered and first_album %}{% if custom %}· {% endif %}<a href="{{ url_for('album_page', folder=first_album, list='search', at=0, search=address) }}">{{ t.only_one_by_one }}</a>{% endif %}
-        </p>
+        {% if custom %}
+        <p class="muted">{{ (t.tracks_count if view == 'tracks' else t.albums_found).format(n=total) }}</p>
         {% endif %}
         {% if view == 'tracks' %}
         <div class="table-wrap">
@@ -130,10 +127,10 @@
         </ul>
         {% endif %}
         {% if pages > 1 %}
-        <p class="filters">
-            {% if page > 1 %}<a href="{{ url_for('library_page', page=page - 1, **paging) }}">{{ t.page_previous }}</a>{% endif %}
+        <p class="actions">
+            {% if page > 1 %}<a class="button" href="{{ url_for('library_page', page=page - 1, **paging) }}">{{ t.page_previous }}</a>{% endif %}
             <span class="muted">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ url_for('library_page', page=page + 1, **paging) }}">{{ t.page_next }}</a>{% endif %}
+            {% if page < pages %}<a class="button" href="{{ url_for('library_page', page=page + 1, **paging) }}">{{ t.page_next }}</a>{% endif %}
         </p>
         {% endif %}
         {% endif %}
