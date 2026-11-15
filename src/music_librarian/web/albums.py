@@ -66,8 +66,7 @@ def register(app, ctx, index):
             total = len(found.albums)
         return render_template("library.html", total=total, page=page, pages=pages, listed=listed,
                                counts=found.counts, matched=found.matched, at=at,
-                               columns=shown["search"].columns(), cell=query.cell,
-                               first_album=found.albums[0].folder if found.albums else None, **shown)
+                               columns=shown["search"].columns(), cell=query.cell, **shown)
 
     def condition_row(c):
         """A row of the search form: a condition, or a blank one for None."""
