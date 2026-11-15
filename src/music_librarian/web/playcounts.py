@@ -1,5 +1,5 @@
 """playcounts --review on the dashboard: Lyrion's orphan entries, each given a track of the library
-or ignored on a page of its own, the answer written at once to the matches file.
+ignored or marked to delete on a page of its own, the answer written at once to the matches file.
 
 The orphans are read from persist.db, opened read-only, and the library from the metadata cache,
 in the background, again whenever either changes; what settles each orphan is read from the
@@ -84,7 +84,8 @@ class Orphans:
             return built, None
         found = playcounts.sorted_out(built.orphans, self.opts.matches, built.filed)
         return built, dict(waiting=[(orphan, None) for orphan in found["waiting"]],
-                           settled=found["journal"] + found["case"] + found["matched"] + found["gone"],
+                           settled=found["journal"] + found["case"] + found["matched"] + found["gone"]
+                           + [(orphan, None) for orphan in found["deleted"]],
                            ignored=[(orphan, None) for orphan in found["ignored"]])
 
     def answer(self, **changes):
@@ -131,12 +132,14 @@ def register(app, ctx):
         if state not in STATES:
             state = "settled" if sorted_out["settled"] and not sorted_out["waiting"] else "waiting"
         rows, page, pages = paged(sorted_out[state], PAGE)
-        matched = decisions.load(orphans.opts.matches)[0]
+        matched, _, deleted = decisions.load(orphans.opts.matches)
         return render_template(
             "lyrion.html", state=state, counts={name: len(sorted_out[name]) for name in STATES},
             rows=[dict(orphans.shown(orphan), target=target,
                        gone=target is not None and target not in built.filed,
-                       why=None if orphan.key in matched else built.why[orphan.key])
+                       deleted=orphan.key in deleted,
+                       why=None if orphan.key in matched or orphan.key in deleted
+                       else built.why[orphan.key])
                   for orphan, target in rows],
             page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, done=recorded(built))
 
@@ -157,9 +160,10 @@ def register(app, ctx):
         found = built.matcher.best(item["path"], orphan.plays, SUGGESTIONS, words)
         suggestions = [dict(note=round(note), quality=quality(note), path=rel, plays=plays,
                             album=os.path.dirname(rel)) for note, _, rel, plays in found]
+        matched, _, deleted = decisions.load(orphans.opts.matches)
         return render_template(
             "lyrion_orphan.html", item=item, state=state, target=target, words=words,
-            answered=key in decisions.load(orphans.opts.matches)[0] or state == "ignored",
+            answered=key in matched or key in deleted or state == "ignored", deleted=key in deleted,
             gone=target is not None and target not in built.filed, suggestions=suggestions,
             why=built.why[key],
             following=following(sorted_out, key), left=len(sorted_out["waiting"]),
@@ -178,6 +182,8 @@ def register(app, ctx):
             return redirect(url_for("lyrion_orphan", key=key))
         if choice == "ignore":
             orphans.answer(ignore=[key])
+        elif choice == "delete":
+            orphans.answer(delete=[key])
         elif choice == "match":
             target = request.form.get("target", "")
             if target not in built.filed or not (ctx.root / target).is_file():

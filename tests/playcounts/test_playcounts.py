@@ -106,7 +106,7 @@ def test_review_then_apply_merges_into_the_track(renamed, answers, capsys):
     assert "         1  100 %  Beyoncé/Lemonade/01 Formation.m4a  (3 plays)" in out
     assert "answered: 1" in out and "orphans left: 0" in out
     assert decisions.load(renamed.matches) == (
-        {renamed.key("Beyonce/Lemonade/01 Formation.m4a"): "Beyoncé/Lemonade/01 Formation.m4a"}, set())
+        {renamed.key("Beyonce/Lemonade/01 Formation.m4a"): "Beyoncé/Lemonade/01 Formation.m4a"}, set(), set())
     assert renamed.row("tracks_persistent", "Beyonce/Lemonade/01 Formation.m4a")
 
     assert renamed.run() == 0
@@ -121,7 +121,7 @@ def test_review_then_apply_merges_into_the_track(renamed, answers, capsys):
     ap = renamed.row("alternativeplaycount", "Beyoncé/Lemonade/01 Formation.m4a")
     assert (ap["playCount"], ap["lastPlayed"], ap["dynPSval"]) == (10, 2000, 74)
     assert len(renamed.backups()) == 1
-    assert decisions.load(renamed.matches) == ({}, set())
+    assert decisions.load(renamed.matches) == ({}, set(), set())
 
     assert renamed.run("--apply") == 0
     assert len(renamed.backups()) == 1
@@ -133,12 +133,34 @@ def test_review_ignore_later_and_undo(renamed, answers, capsys):
     assert renamed.run("--review") == 0
     out = capsys.readouterr().out
     assert "UNDONE   previous answer" in out and "orphans left: 1" in out
-    assert decisions.load(renamed.matches) == ({}, {renamed.key("Beyonce/Lemonade/02 Sorry.m4a")})
+    assert decisions.load(renamed.matches) == ({}, {renamed.key("Beyonce/Lemonade/02 Sorry.m4a")}, set())
 
     assert renamed.run("--apply") == 0
     out = summary(capsys)
     assert "ignored: 1" in out and "awaiting review: 1" in out and "WAITING" not in out
     assert renamed.row("tracks_persistent", "Beyonce/Lemonade/02 Sorry.m4a")["playCount"] == 2
+
+
+def test_orphan_answered_delete_loses_its_entries_on_apply(renamed, answers, capsys):
+    gone, kept = "Beyonce/Lemonade/01 Formation.m4a", "Beyoncé/Lemonade/01 Formation.m4a"
+    renamed.entry("Old/Album/01 Deleted.m4a", play=4, skip=1)
+    answers("", "d")
+    assert renamed.run("--review") == 0
+    capsys.readouterr()
+    assert decisions.load(renamed.matches) == ({}, set(), {renamed.key("Old/Album/01 Deleted.m4a")})
+
+    assert renamed.run() == 0
+    out = summary(capsys)
+    assert "DELETE Old/Album/01 Deleted.m4a (4 plays)" in out and "deleted: 1" in out
+    assert renamed.row("tracks_persistent", "Old/Album/01 Deleted.m4a") and not renamed.backups()
+
+    assert renamed.run("--apply") == 0
+    assert "deleted: 1" in summary(capsys) and len(renamed.backups()) == 1
+    for table in ("tracks_persistent", "alternativeplaycount"):
+        assert renamed.row(table, "Old/Album/01 Deleted.m4a") is None
+    assert renamed.row("tracks_persistent", gone)["playCount"] == 7
+    assert renamed.row("tracks_persistent", kept)["playCount"] == 3
+    assert decisions.load(renamed.matches) == ({}, set(), set())
 
 
 def test_orphan_takes_the_url_of_a_track_lyrion_has_not_seen(env):

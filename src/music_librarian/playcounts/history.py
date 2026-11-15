@@ -62,6 +62,11 @@ def adopt(con, orphan: Entry, target_url):
         lyrion.carry(con, "tracks_persistent", own, target_url)
 
 
+def delete(con, orphan: Entry):
+    for table in ("tracks_persistent", "alternativeplaycount"):
+        con.execute(f"DELETE FROM {table} WHERE urlmd5 = ?", (orphan.key,))
+
+
 ZEROED = ("FROM tracks_persistent tp JOIN alternativeplaycount ap ON ap.urlmd5 = tp.urlmd5 "
           "WHERE IFNULL(tp.playCount, 0) = 0 AND IFNULL(ap.playCount, 0) > 0")
 

@@ -102,13 +102,13 @@ def test_orphan_page_suggests_the_closest_tracks(d):
 def test_answers_are_written_to_the_matches_file_and_undone(d):
     answer = post(d, f"/lyrion/orphans/{d.key(OLD)}", choice="match", target=TRACK)
     assert answer.headers["Location"] == f"/lyrion/orphans/{d.key(OTHER)}?done={d.key(OLD)}"
-    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, set())
+    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, set(), set())
     text = page(d, answer.headers["Location"])
     assert "Recorded:" in text and "Orphans awaiting an answer: 1" in text
 
     answer = post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="ignore")
     assert answer.headers["Location"] == f"/lyrion?done={d.key(OTHER)}"
-    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, {d.key(OTHER)})
+    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, {d.key(OTHER)}, set())
     assert "No orphan awaiting an answer." in page(d, "/lyrion?state=waiting")
     settled = page(d, "/lyrion")
     assert "Settled orphans to write: 1" in settled
@@ -117,7 +117,21 @@ def test_answers_are_written_to_the_matches_file_and_undone(d):
     assert 'class="count" title="Orphans' not in page(d, "/")
 
     post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="forget")
-    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, set())
+    assert decisions.load(d.matches) == ({d.key(OLD): TRACK}, set(), set())
+
+
+def test_orphan_marked_to_delete_is_settled_until_the_answer_is_taken_back(d):
+    answer = post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="delete")
+    assert answer.status_code == 302
+    assert decisions.load(d.matches) == ({}, set(), {d.key(OTHER)})
+    settled = page(d, "/lyrion?state=settled")
+    assert "Settled (1)" in settled and "to delete" in settled
+    text = page(d, f"/lyrion/orphans/{d.key(OTHER)}")
+    assert "To delete: the playcounts pass" in text and 'value="delete"' not in text
+
+    post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="forget")
+    assert decisions.load(d.matches) == ({}, set(), set())
+    assert 'value="delete"' in page(d, f"/lyrion/orphans/{d.key(OTHER)}")
 
 
 @pytest.mark.parametrize("form", [dict(choice="match", target="Nobody/Nothing/01 X.m4a"),
@@ -151,7 +165,7 @@ def test_pass_asked_from_the_page_gives_the_history(d, database):
         assert counts.fetchone() == (7, 80, 10)
         assert c.execute("SELECT COUNT(*) FROM tracks_persistent").fetchone() == (2,)
     c.close()
-    assert decisions.load(d.matches) == ({}, set())
+    assert decisions.load(d.matches) == ({}, set(), set())
     rebuilt(d)
     assert "Waiting (1)" in page(d, "/lyrion")
 

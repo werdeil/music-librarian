@@ -18,6 +18,8 @@
         <p>{{ t.orphan_given_to }} <code class="path">{{ target }}</code>
             {% if gone %}<span class="status status-failed">{{ t.orphan_target_gone }}</span>
             {% elif not answered and why %}<span class="status status-queued">{{ t['orphan_by_' ~ why] }}</span>{% endif %}</p>
+        {% elif deleted %}
+        <p>{{ t.orphan_is_deleted }}</p>
         {% elif state == 'ignored' %}
         <p>{{ t.orphan_is_ignored }}</p>
         {% endif %}
@@ -43,6 +45,7 @@
         <div class="actions">
             {% if suggestions %}<button type="submit" name="choice" value="match" class="primary">{{ t.orphan_give_button }}</button>{% endif %}
             {% if state != 'ignored' %}<button type="submit" name="choice" value="ignore" formnovalidate>{{ t.orphan_ignore_button }}</button>{% endif %}
+            {% if not deleted %}<button type="submit" name="choice" value="delete" formnovalidate>{{ t.orphan_delete_button }}</button>{% endif %}
             {% if answered %}<button type="submit" name="choice" value="forget" formnovalidate>{{ t.undo_answer }}</button>{% endif %}
             {% if following %}<a class="button" href="{{ url_for('lyrion_orphan', key=following) }}">{{ t.later }}</a>{% endif %}
             <a class="aside" href="{{ url_for('lyrion_page') }}">{{ m.icon('back') }}{{ t.back_to_lyrion }}</a>

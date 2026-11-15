@@ -9,6 +9,7 @@ Alternative Play Count plugin's or of both, whose file is gone. Each orphan is g
   - the one picked for it with --review or on the dashboard, among the tracks whose path looks
     most like its own (see playcounts/matching.py), kept in state/playcount-matches.json;
   - none while it awaits an answer, or once ignored.
+An orphan answered "delete", its file being gone for good, has its entries deleted instead.
 Its plays are added to the track's, the latest play and the rating kept as in a carry-over.
 
 The pass also copies the plugin's plays to the tracks Lyrion counts none for, and Lyrion's to the
@@ -49,6 +50,7 @@ from music_librarian.playcounts.review import review
 from music_librarian.split.library import run_locked, run_review
 
 SUMMARY = ("orphans", "matched", "from journals", "same path but case", "awaiting review", "ignored",
+           "deleted",
            "plugin restored", "backfilled", "plugin backfilled", "DPSV computed", "skipped")
 
 
@@ -145,8 +147,8 @@ def orphans_of(opts: Options, con, library):
 def sorted_out(orphans, matches: Path, filed):
     """The orphans of orphans_of() sorted by what settles them, `filed` being the library's
     relative paths: {"journal" | "case" | "matched" | "gone": [(orphan, its track)], "ignored" |
-    "waiting": [orphan]}; "gone" holds the matches whose track left the library."""
-    matched, ignored = decisions.load(matches)
+    "deleted" | "waiting": [orphan]}; "gone" holds the matches whose track left the library."""
+    matched, ignored, deleted = decisions.load(matches)
     out = defaultdict(list)
     for orphan, track, why in orphans:
         if orphan.key in matched:
@@ -154,6 +156,8 @@ def sorted_out(orphans, matches: Path, filed):
             out["matched" if rel in filed else "gone"].append((orphan, rel))
         elif orphan.key in ignored:
             out["ignored"].append(orphan)
+        elif orphan.key in deleted:
+            out["deleted"].append(orphan)
         elif track:
             out[why].append((orphan, track))
         else:
@@ -190,7 +194,7 @@ def playcounts_pass(opts: Options, log):
     backup = None
     try:
         with contextlib.closing(opts.lyrion.connect()) as con:
-            given = plan(opts, con, log, stats)
+            given, deleted = plan(opts, con, log, stats)
             held = plugin_counts.load(opts.lyrion.plugin_counts)
             lost = plugin_counts.lost(con, held)
             zeroed = history.zeroed(con) if opts.backfill else []
@@ -210,7 +214,7 @@ def playcounts_pass(opts: Options, log):
             log(f"DPSV     {opts.lyrion.relative(url)}  ({kept} → {value})")
         stats["backfilled"], stats["DPSV computed"] = len(zeroed), len(changes)
         stats["plugin backfilled"], stats["plugin restored"] = len(emptied), len(lost)
-        if opts.apply and any((given, lost, zeroed, emptied, changes)):
+        if opts.apply and any((given, deleted, lost, zeroed, emptied, changes)):
             if not opts.lyrion.scan_ended(log):
                 log(f"ERROR    {opts.lyrion.db}: not written while Lyrion scans")
                 return 2
@@ -219,13 +223,16 @@ def playcounts_pass(opts: Options, log):
                 plugin_counts.settle(con, held, time.time())
                 for orphan, rel in given:
                     history.adopt(con, orphan, opts.lyrion.url(opts.root / rel))
+                for orphan in deleted:
+                    history.delete(con, orphan)
                 if opts.backfill:
                     history.backfill(con)
                     history.refill(con)
                 if opts.dpsv:
                     history.write_dpsv(con, history.dpsv_changes(con))
             plugin_counts.save(opts.lyrion.plugin_counts, held)
-            decisions.update(opts.matches, drop=[orphan.key for orphan, _ in given])
+            decisions.update(opts.matches, drop=[orphan.key for orphan in
+                                                 (*(o for o, _ in given), *deleted)])
     except sqlite3.Error as e:
         log(f"ERROR    {opts.lyrion.db}: {e}")
         return 2
@@ -243,13 +250,15 @@ def playcounts_pass(opts: Options, log):
 
 def plan(opts: Options, con, log, stats):
     """Log what becomes of each orphan; return [(orphan, its track's relative path)] of those
-    a journal or a match settles."""
+    a journal, their case or a match settles, and the orphans to delete."""
     library = tracks(opts)
     found = sorted_out(orphans_of(opts, con, library), opts.matches, set(library.values()))
     for kind, tag in (("journal", "JOURNAL "), ("case", "CASE    "), ("matched", "MATCH   ")):
         for orphan, rel in found[kind]:
             log(f"{tag} {opts.lyrion.relative(orphan.url)}  ({count(orphan.plays, 'play')})\n"
                 f"         → {rel}")
+    for orphan in found["deleted"]:
+        log(f"DELETE   {opts.lyrion.relative(orphan.url)}  ({count(orphan.plays, 'play')})")
     for orphan, rel in found["gone"]:
         log(f"SKIPPED  (its track is gone)  {opts.lyrion.relative(orphan.url)}\n         → {rel}")
     if not opts.apply and found["waiting"]:
@@ -263,8 +272,8 @@ def plan(opts: Options, con, log, stats):
     stats["from journals"], stats["matched"] = len(found["journal"]), len(found["matched"])
     stats["same path but case"] = len(found["case"])
     stats["awaiting review"], stats["ignored"] = len(found["waiting"]), len(found["ignored"])
-    stats["skipped"] = len(found["gone"])
-    return found["journal"] + found["case"] + found["matched"]
+    stats["skipped"], stats["deleted"] = len(found["gone"]), len(found["deleted"])
+    return found["journal"] + found["case"] + found["matched"], found["deleted"]
 
 
 if __name__ == "__main__":

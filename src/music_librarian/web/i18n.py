@@ -345,8 +345,8 @@ TRANSLATIONS = {
         "tile_orphans": "Lectures Lyrion orphelines",
         "orphans_awaiting": "Orphelins en attente de réponse",
         "lyrion_intro": ("Les lectures et notes que Lyrion garde sur des fichiers disparus, à rendre aux "
-                         "pistes de la bibliothèque : chaque réponse est enregistrée aussitôt, et le "
-                         "passage playcounts l'écrit dans persist.db."),
+                         "pistes de la bibliothèque, ou à supprimer : chaque réponse est enregistrée "
+                         "aussitôt, et le passage playcounts l'écrit dans persist.db."),
         "lyrion_off": "Lyrion n'est pas configuré : renseignez LYRION_PERSIST_DB et LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "La base de Lyrion est illisible : {error}",
         "orphans_title": "Lectures orphelines",
@@ -370,10 +370,13 @@ TRANSLATIONS = {
         "orphan_by_case": "même chemin à la casse près",
         "orphan_given_to": "Rendu à",
         "orphan_is_ignored": "Ignoré : ses lectures restent où elles sont.",
+        "orphan_is_deleted": "À supprimer : le passage playcounts retire ses entrées de persist.db.",
+        "orphan_to_delete": "à supprimer",
         "orphan_search": "mots du chemin de la piste",
         "orphan_no_track": "Aucune piste ne correspond.",
         "orphan_give_button": "Rendre à cette piste",
         "orphan_ignore_button": "Ignorer",
+        "orphan_delete_button": "Supprimer",
         "back_to_lyrion": "Retour à Lyrion",
         "playcounts_intro": ("Écrit dans persist.db les orphelins réglés, après une copie de sauvegarde. "
                              "L'aperçu ne change rien."),
@@ -446,7 +449,8 @@ TRANSLATIONS = {
             "time": "durée", "estimated time": "durée estimée",
             "orphans": "orphelins", "matched": "rapprochés", "from journals": "d'après les journaux",
             "same path but case": "même chemin à la casse près",
-            "awaiting review": "en attente de réponse", "ignored": "ignorés", "backfilled": "rattrapés",
+            "awaiting review": "en attente de réponse", "ignored": "ignorés", "deleted": "supprimés",
+            "backfilled": "rattrapés",
             "plugin backfilled": "rattrapés dans le plugin", "plugin restored": "rendus au plugin",
             "DPSV computed": "DPSV recalculées", "backup": "sauvegarde",
         },
@@ -787,8 +791,8 @@ TRANSLATIONS = {
         "tile_orphans": "Orphan Lyrion play counts",
         "orphans_awaiting": "Orphans awaiting an answer",
         "lyrion_intro": ("The play counts and ratings Lyrion keeps on files gone, to give back to the "
-                         "library's tracks: each answer is recorded at once, and the playcounts pass "
-                         "writes it to persist.db."),
+                         "library's tracks or to delete: each answer is recorded at once, and the "
+                         "playcounts pass writes it to persist.db."),
         "lyrion_off": "Lyrion is not set up: set LYRION_PERSIST_DB and LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "Lyrion's database is unreadable: {error}",
         "orphans_title": "Orphan play counts",
@@ -812,10 +816,13 @@ TRANSLATIONS = {
         "orphan_by_case": "same path but for case",
         "orphan_given_to": "Given to",
         "orphan_is_ignored": "Ignored: its play counts stay where they are.",
+        "orphan_is_deleted": "To delete: the playcounts pass removes its entries from persist.db.",
+        "orphan_to_delete": "to delete",
         "orphan_search": "words of the track's path",
         "orphan_no_track": "No track matches.",
         "orphan_give_button": "Give to this track",
         "orphan_ignore_button": "Ignore",
+        "orphan_delete_button": "Delete",
         "back_to_lyrion": "Back to Lyrion",
         "playcounts_intro": ("Writes the settled orphans to persist.db, after a backup copy. The preview "
                              "changes nothing."),
