@@ -184,10 +184,11 @@ BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
 @pytest.mark.parametrize("command, back", [
     ("scan", f'<a class="button" href="/runs">{BACK}Back to the history</a>'),
     ("split", f'<a class="button" href="/reviews">{BACK}Back to the reviews</a>')])
-def test_ended_run_leads_with_its_outcome_and_the_way_back(client, ctx, command, back):
+def test_ended_run_leads_with_the_way_back_then_its_outcome(client, ctx, command, back):
     run_id = record(ctx, command, code=2, apply=False)
     page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
     assert back in page and "<h2>Ended with problems</h2>" in page
+    assert page.index(back) < page.index(f"<code>{command}") < page.index("Ended with problems")
     assert page.index("Ended with problems") < page.index("<dt>Mode</dt>") < page.index('id="log"')
     assert '<details class="output">' in page
 
