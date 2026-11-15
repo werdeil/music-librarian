@@ -9,6 +9,7 @@ from music_librarian import scan
 from music_librarian.core.log import Log
 from music_librarian.integrations import lyrion
 from music_librarian.playcounts import decisions
+from music_librarian.web.playcounts import Orphans
 
 EN = {"Accept-Language": "en"}
 OLD, OTHER = "Beyonce/Lemonade/01 Formation.m4a", "Beyonce/Lemonade/02 Sorry.m4a"
@@ -168,6 +169,28 @@ def test_pass_asked_from_the_page_gives_the_history(d, database):
     assert decisions.load(d.matches) == ({}, set(), set())
     rebuilt(d)
     assert "Waiting (1)" in page(d, "/lyrion")
+
+
+def test_page_opened_after_an_applied_pass_waits_for_its_orphans(d):
+    post(d, f"/lyrion/orphans/{d.key(OLD)}", choice="match", target=TRACK)
+    post(d, f"/lyrion/orphans/{d.key(OTHER)}", choice="delete")
+    assert "Settled (2)" in page(d, "/lyrion")
+    post(d, "/passes", command="playcounts", apply="1")
+    d.requests.tick(Log())
+    text = page(d, "/lyrion")
+    assert "Waiting (0)" in text and "Settled (0)" in text
+
+
+def test_library_is_only_read_again_when_the_cache_changes(d, database, monkeypatch):
+    page(d, "/lyrion")
+    reads = []
+    cached = Orphans._cached  # pylint: disable=protected-access
+    monkeypatch.setattr(Orphans, "_cached", lambda self: reads.append(1) or cached(self))
+    with sqlite3.connect(database.db) as c:
+        c.execute("UPDATE tracks_persistent SET playCount = 9 WHERE urlmd5 = ?", (d.key(OLD),))
+    c.close()
+    rebuilt(d)
+    assert "Plays: 9" in page(d, f"/lyrion/orphans/{d.key(OLD)}") and not reads
 
 
 def test_unreadable_database_is_said(d, database):

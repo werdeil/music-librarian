@@ -130,8 +130,10 @@ def orphans_of(opts: Options, con, library):
         spelled[folded(rel)].append(rel)
     found = []
     for entry in history.entries(con):
+        if entry.key in library:
+            continue
         path = opts.lyrion.path(entry.url)
-        if entry.key in library or path is None or path.exists():
+        if path is None or path.exists():
             continue
         url = opts.lyrion.url(moved.get(entry.key, ""))
         variants = spelled.get(folded(opts.lyrion.relative(entry.url)), ())

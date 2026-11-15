@@ -66,7 +66,7 @@ An orphan's page shows its play count, rating and last play, and the eight track
 
 At the bottom of the page, a form queues `playcounts` as a dry run, with a box to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
 
-The orphans are read from `persist.db`, opened read-only, and the library from the metadata cache, in the background, again whenever either changes or a journal is written.
+The orphans are read from `persist.db`, opened read-only, in the background, again whenever it changes or a journal is written; the library is read from the metadata cache, again only when the cache changes, and its files are looked for on disk each time.
 
 ## Statuses
 

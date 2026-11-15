@@ -1,14 +1,16 @@
-"""playcounts --review on the dashboard: Lyrion's orphan entries, each given a track of the library
+"""playcounts --review on the dashboard: Lyrion's orphan entries, each given a track of the library,
 ignored or marked to delete on a page of its own, the answer written at once to the matches file.
 
-The orphans are read from persist.db, opened read-only, and the library from the metadata cache,
-in the background, again whenever either changes; what settles each orphan is read from the
-matches file on each page. Only the pass watch runs writes to persist.db.
+The orphans are read from persist.db, opened read-only, in the background, again whenever it
+changes, and the library from the metadata cache, again when the cache changes, its files looked
+for on disk at each build; what settles each orphan is read from the matches file on each page.
+Only the pass watch runs writes to persist.db.
 """
 import contextlib
 import os
 import sqlite3
 import threading
+from collections import defaultdict
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,7 +22,7 @@ from music_librarian.integrations import lyrion
 from music_librarian.media import metadata_cache
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.playcounts import decisions, history
-from music_librarian.playcounts.matching import LIKELY, POSSIBLE
+from music_librarian.playcounts.matching import LIKELY, POSSIBLE, Matcher
 from music_librarian.web.common import paged, when
 from music_librarian.web.library import Refreshed, cache_stamp
 
@@ -40,11 +42,27 @@ def quality(note):
     return "likely" if note >= LIKELY else "possible" if note >= POSSIBLE else "unlikely"
 
 
+def present(root, rels):
+    """Those of `rels`, paths relative to `root`, whose file is there: one listing per folder."""
+    folders = defaultdict(list)
+    for rel in rels:
+        folders[os.path.dirname(rel)].append(rel)
+    found = set()
+    for folder, wanted in folders.items():
+        try:
+            names = set(os.listdir(os.path.join(root, folder)))
+        except OSError:
+            continue
+        found.update(rel for rel in wanted if os.path.basename(rel) in names)
+    return found
+
+
 class Orphans:
     def __init__(self, ctx):
         self.root = ctx.root
         self.opts = playcounts.Options(root=ctx.root, lyrion=ctx.lyrion, state_dir=ctx.state_dir)
         self.lock = threading.Lock()
+        self.tracks = None
         self.built = Refreshed(self._stamp, self._build)
 
     def _stamp(self):
@@ -52,34 +70,44 @@ class Orphans:
         return (cache_stamp(self.opts.state_dir), changed_at(db), changed_at(Path(f"{db}-wal")),
                 changed_at(self.opts.state_dir / "journal"))
 
-    def _library(self):
-        """{urlmd5 Lyrion gives a track of the metadata cache still there: its path relative to the
-        root}."""
+    def _cached(self):
+        """{urlmd5 Lyrion gives a track of the metadata cache: its path relative to the root}."""
         if not (self.opts.state_dir / metadata_cache.FILE).exists():
             return {}
         with MetadataCache(self.opts.state_dir) as cache:
             return {lyrion.md5(url): relative(path, self.root) for path in cache.paths(self.root)
-                    if os.path.exists(path) and (url := self.opts.lyrion.url(Path(path)))}
+                    if (url := self.opts.lyrion.url(Path(path)))}
+
+    def _tracks(self):
+        """(_cached(), its Matcher without play counts), read again when the cache changes.
+        Only called from a build, and Refreshed runs one at a time."""
+        stamp = cache_stamp(self.opts.state_dir)
+        if self.tracks is None or self.tracks[0] != stamp:
+            cached = self._cached()
+            self.tracks = (stamp, cached, Matcher([(key, rel, 0) for key, rel in cached.items()]))
+        return self.tracks[1:]
 
     def _build(self):
-        library = self._library()
+        cached, matcher = self._tracks()
+        there = present(self.root, cached.values())
+        library = {key: rel for key, rel in cached.items() if rel in there}
         try:
             with contextlib.closing(self.opts.lyrion.connect()) as con:
                 orphans = playcounts.orphans_of(self.opts, con, library)
                 return SimpleNamespace(
                     error=None, orphans=orphans, by_key={orphan.key: orphan for orphan, _, _ in orphans},
                     why={orphan.key: why for orphan, _, why in orphans},
-                    filed=set(library.values()), matcher=playcounts.matcher(con, library),
+                    filed=set(library.values()), matcher=matcher.among(library, history.play_counts(con)),
                     zeroed=len(history.zeroed(con)) + len(history.emptied(con)),
                     dpsv=len(history.dpsv_changes(con)))
         except sqlite3.Error as e:
             return SimpleNamespace(error=str(e))
 
-    def state(self):
+    def state(self, wait=False):
         """(what was built, its orphans by what settles them as [(orphan, its track or None)] under
         each of STATES); None, None until first built, the second None when persist.db is
-        unreadable."""
-        built = self.built.get()
+        unreadable. With `wait`, a build that runs is waited for (see Refreshed.awaited)."""
+        built = self.built.awaited() if wait else self.built.get()
         if built is None or built.error:
             return built, None
         found = playcounts.sorted_out(built.orphans, self.opts.matches, built.filed)
@@ -125,7 +153,7 @@ def register(app, ctx):
     def lyrion_page():
         if orphans is None:
             return render_template("lyrion.html", off=True)
-        built, sorted_out = orphans.state()
+        built, sorted_out = orphans.state(wait=True)
         if sorted_out is None:
             return render_template("lyrion.html", building=built is None, error=built and built.error)
         state = request.args.get("state")
@@ -147,7 +175,7 @@ def register(app, ctx):
     def lyrion_orphan(key):
         if orphans is None:
             abort(404)
-        built, sorted_out = orphans.state()
+        built, sorted_out = orphans.state(wait=True)
         if sorted_out is None:
             return render_template("lyrion_orphan.html", building=built is None, error=built and built.error)
         orphan = built.by_key.get(key)
