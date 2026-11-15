@@ -57,6 +57,10 @@ Entries are looked up by `urlmd5`, the MD5 of the file URL. For each moved audio
 
 URLs are built the way Lyrion writes them: `file://` + the Lyrion root + the path relative to the library, percent-encoded except for `-_.!~*()/:@&=+$,[]`.
 
+## The plugin's refresh after a scan
+
+Some 20 seconds after each scan, Alternative Play Count deletes its entries whose file Lyrion does not know and adds an empty one for each new file. A carry-over made before Lyrion scanned the new path is therefore lost in the plugin's table when a scan that missed the file ends in between: the track keeps Lyrion's plays and has none of the plugin's, nor an orphan. The backfill of [`playcounts`](#orphan-play-counts) gives it Lyrion's plays back; its skips are lost.
+
 ## Safety
 
 - Lyrion can keep running. All updates of a pass happen in one short `BEGIN IMMEDIATE` transaction. A busy database is waited for up to 60 seconds, and a carry-over that still finds it locked is tried again four times, after 5, 10, 20 and 40 seconds, asking about a scan before each try.
@@ -94,7 +98,7 @@ A settled orphan is merged into its track as a carry-over does, in each table wh
 
 The pass also does two repairs:
 
-- **Backfill** (`BACKFILL`, `--no-backfill` to skip it): a track Lyrion counts no play for while the plugin counts some gets the plugin's play count and last play.
+- **Backfill** (`BACKFILL`, `--no-backfill` to skip it): a track Lyrion counts no play for while the plugin counts some gets the plugin's play count and last play. And the reverse (`to the plugin`): a track the plugin counts no play for while Lyrion counts some gets Lyrion's, and its `dynPSval` is computed again. That is what [the plugin's refresh](#the-plugins-refresh-after-a-scan) leaves behind.
 - **DPSV** (`DPSV`, only with `--dpsv`): the plugin's `dynPSval` of every track is computed again from its plays and skips. The table does not keep the order of the events, so the value is exact for a track never skipped only: for the others it replaces the plugin's own value by an estimate.
 
 The safety is the carry-over's: one short transaction after a backup copy, taken only when there is something to write. These writes are not journaled, so `undo` does not take them back: the backup copy does.

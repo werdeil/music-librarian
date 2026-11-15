@@ -9,7 +9,7 @@ import pytest
 from music_librarian import cli, playcounts
 from music_librarian.core.lock import locked
 from music_librarian.integrations import lyrion
-from music_librarian.playcounts import decisions
+from music_librarian.playcounts import decisions, dpsv
 
 LYRION_ROOT = "/music"
 
@@ -285,3 +285,21 @@ def test_streams_and_files_outside_the_library_are_not_orphans(env, capsys):
     c.close()
     assert env.run() == 0
     assert "orphans" not in capsys.readouterr().out
+
+
+def test_backfill_gives_the_plugin_the_plays_it_lost(env, capsys):
+    env.track("A/B/01 Emptied.m4a", play=3, alt_play=0, last=700, skip=1)
+    env.track("A/B/02 Both.m4a", play=2, alt_play=1)
+    assert env.run() == 0
+    assert "BACKFILL A/B/01 Emptied.m4a (3 plays, to the plugin)" in summary(capsys)
+    assert env.row("alternativeplaycount", "A/B/01 Emptied.m4a")["playCount"] == 0
+
+    assert env.run("--apply", "--no-backfill") == 0
+    assert "backfilled" not in summary(capsys) and not env.backups()
+
+    assert env.run("--apply") == 0
+    assert "plugin backfilled: 1" in summary(capsys)
+    ap = env.row("alternativeplaycount", "A/B/01 Emptied.m4a")
+    assert (ap["playCount"], ap["lastPlayed"], ap["skipCount"]) == (3, 700, 1)
+    assert ap["dynPSval"] == dpsv.compute(3, 1, 700, 0)
+    assert env.row("alternativeplaycount", "A/B/02 Both.m4a")["playCount"] == 1

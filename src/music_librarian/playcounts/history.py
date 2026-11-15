@@ -79,6 +79,25 @@ def backfill(con):
         "WHERE urlmd5 = ?1", con.execute(f"SELECT tp.urlmd5 {ZEROED}").fetchall())
 
 
+EMPTIED = ("FROM alternativeplaycount ap JOIN tracks_persistent tp ON tp.urlmd5 = ap.urlmd5 "
+           "WHERE IFNULL(ap.playCount, 0) = 0 AND IFNULL(tp.playCount, 0) > 0")
+
+
+def emptied(con):
+    """[(url, plays)] of the tracks Lyrion counts plays for and the plugin none."""
+    return con.execute(f"SELECT tp.url, tp.playCount {EMPTIED} ORDER BY tp.url").fetchall()
+
+
+def refill(con):
+    """Copy Lyrion's plays and last play to the plugin's entries of emptied(), whose DPSV follows."""
+    rows = con.execute(f"SELECT ap.urlmd5, tp.playCount, tp.lastPlayed, ap.skipCount, ap.lastSkipped "
+                       f"{EMPTIED}").fetchall()
+    con.executemany(
+        "UPDATE alternativeplaycount SET playCount = ?, lastPlayed = ?, dynPSval = ? WHERE urlmd5 = ?",
+        [(plays, last, dpsv.compute(plays, skips, last, last_skipped), key)
+         for key, plays, last, skips, last_skipped in rows])
+
+
 def dpsv_changes(con):
     """[(urlmd5, url, value kept, value computed)] of the plugin's entries whose DPSV differs
     from the one their counts give."""

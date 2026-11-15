@@ -377,7 +377,7 @@ TRANSLATIONS = {
         "back_to_lyrion": "Retour à Lyrion",
         "playcounts_intro": ("Écrit dans persist.db les orphelins réglés, après une copie de sauvegarde. "
                              "L'aperçu ne change rien."),
-        "opt_backfill": "recopier les lectures du plugin là où Lyrion n'en compte aucune",
+        "opt_backfill": "recopier les lectures du plugin là où Lyrion n'en compte aucune, et l'inverse",
         "opt_dpsv": "recalculer la DPSV de toutes les pistes, approximative dès qu'il y a des sauts (--dpsv)",
         "reviews": "Revues",
         "questions_waiting": "Questions en attente de réponse",
@@ -445,6 +445,7 @@ TRANSLATIONS = {
             "orphans": "orphelins", "matched": "rapprochés", "from journals": "d'après les journaux",
             "same path but case": "même chemin à la casse près",
             "awaiting review": "en attente de réponse", "ignored": "ignorés", "backfilled": "rattrapés",
+            "plugin backfilled": "rattrapés dans le plugin",
             "DPSV computed": "DPSV recalculées", "backup": "sauvegarde",
         },
     },
@@ -816,7 +817,7 @@ TRANSLATIONS = {
         "back_to_lyrion": "Back to Lyrion",
         "playcounts_intro": ("Writes the settled orphans to persist.db, after a backup copy. The preview "
                              "changes nothing."),
-        "opt_backfill": "copy the plugin's plays where Lyrion counts none",
+        "opt_backfill": "copy the plugin's plays where Lyrion counts none, and the reverse",
         "opt_dpsv": "compute the DPSV of every track again, an estimate once a track was skipped (--dpsv)",
         "reviews": "Reviews",
         "questions_waiting": "Questions awaiting an answer",

@@ -70,7 +70,8 @@ class Orphans:
                     error=None, orphans=orphans, by_key={orphan.key: orphan for orphan, _, _ in orphans},
                     why={orphan.key: why for orphan, _, why in orphans},
                     filed=set(library.values()), matcher=playcounts.matcher(con, library),
-                    zeroed=len(history.zeroed(con)), dpsv=len(history.dpsv_changes(con)))
+                    zeroed=len(history.zeroed(con)) + len(history.emptied(con)),
+                    dpsv=len(history.dpsv_changes(con)))
         except sqlite3.Error as e:
             return SimpleNamespace(error=str(e))
 

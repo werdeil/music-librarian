@@ -83,7 +83,8 @@ def test_tab_tile_and_list(d):
     assert "Waiting (2)" in text and "Settled (0)" in text and "Ignored (0)" in text
     assert text.index(OLD) < text.index(OTHER)                       # the most played first
     assert f'/lyrion/orphans/{d.key(OLD)}"' in text and "★★★★" in text
-    assert "copy the plugin&#39;s plays where Lyrion counts none <span class=\"muted\">(1)</span>" in text
+    assert ("copy the plugin&#39;s plays where Lyrion counts none, and the reverse "
+            '<span class="muted">(1)</span>') in text
     assert 'value="playcounts"' in text
 
 
