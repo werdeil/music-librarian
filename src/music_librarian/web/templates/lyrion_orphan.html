@@ -2,6 +2,7 @@
 {% import "_macros.html" as m %}
 {% block title %}{{ t.orphans_title }} · music-librarian{% endblock %}
 {% block content %}
+<p class="back"><a class="button" href="{{ url_for('lyrion_page') }}">{{ m.icon('back') }}Lyrion</a></p>
 <section>
     <h2>{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>
     {% include "_orphan_recorded.html" %}
@@ -48,7 +49,6 @@
             {% if not deleted %}<button type="submit" name="choice" value="delete" formnovalidate>{{ t.orphan_delete_button }}</button>{% endif %}
             {% if answered %}<button type="submit" name="choice" value="forget" formnovalidate>{{ t.undo_answer }}</button>{% endif %}
             {% if following %}<a class="button" href="{{ url_for('lyrion_orphan', key=following) }}">{{ t.later }}</a>{% endif %}
-            <a class="aside" href="{{ url_for('lyrion_page') }}">{{ m.icon('back') }}{{ t.back_to_lyrion }}</a>
         </div>
     </form>
     {% endif %}
