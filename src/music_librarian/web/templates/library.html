@@ -130,10 +130,10 @@
         </ul>
         {% endif %}
         {% if pages > 1 %}
-        <p class="filters">
-            {% if page > 1 %}<a href="{{ url_for('library_page', page=page - 1, **paging) }}">{{ t.page_previous }}</a>{% endif %}
+        <p class="actions">
+            {% if page > 1 %}<a class="button" href="{{ url_for('library_page', page=page - 1, **paging) }}">{{ t.page_previous }}</a>{% endif %}
             <span class="muted">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ url_for('library_page', page=page + 1, **paging) }}">{{ t.page_next }}</a>{% endif %}
+            {% if page < pages %}<a class="button" href="{{ url_for('library_page', page=page + 1, **paging) }}">{{ t.page_next }}</a>{% endif %}
         </p>
         {% endif %}
         {% endif %}
