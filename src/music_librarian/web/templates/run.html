@@ -3,13 +3,14 @@
 {% block title %}{{ run.command }} {{ run.when }} · music-librarian{% endblock %}
 {% block content %}
 {% set done = run.status != 'running' %}
+<p class="back">
+    {% if back %}<a class="button" href="{{ back[0] }}">{{ m.icon('back') }}{{ t[back[1]] }}</a>{% endif %}
+    <a class="button" href="{{ history_url }}">{{ m.icon('back') }}{{ t.back_to_history }}</a>
+</p>
 <section>
     <h2><code>{{ run.command }}</code> {{ run.when }} <span id="run-status">{{ m.status(t, run) }}</span></h2>
-    {% if not done %}
-    <div class="actions run-actions">
-        {% if can_stop %}{{ m.stop_form(t, csrf, run) }}{% endif %}
-        <a class="button" href="{{ history_url }}">{{ m.icon('back') }}{{ t.back_to_history }}</a>
-    </div>
+    {% if not done and can_stop %}
+    <div class="actions run-actions">{{ m.stop_form(t, csrf, run) }}</div>
     {% endif %}
     {% if done %}
     <div class="panel">
@@ -25,6 +26,7 @@
         {% else %}
         <p class="muted">{{ t.no_summary }}</p>
         {% endif %}
+        {% if can_apply or (journal and ctx.requests) or run.problem %}
         <div class="actions">
             {% if can_apply %}
             <form method="post" action="{{ url_for('apply_run', run_id=run.id) }}">
@@ -48,9 +50,8 @@
                 <button type="submit">{{ m.icon('unchecked' if run.checked else 'checked') }}{{ t.uncheck_button if run.checked else t.check_button }}</button>
             </form>
             {% endif %}
-            {% if back %}<a class="button" href="{{ back[0] }}">{{ m.icon('back') }}{{ t[back[1]] }}</a>{% endif %}
-            <a class="button" href="{{ history_url }}">{{ m.icon('back') }}{{ t.back_to_history }}</a>
         </div>
+        {% endif %}
     </div>
     {% endif %}
     <dl class="facts">
