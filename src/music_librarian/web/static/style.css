@@ -947,6 +947,7 @@ form.inline {
 }
 
 .names-choice .names {
+    flex-wrap: wrap;
     align-items: center;
 }
 
@@ -1281,10 +1282,8 @@ table.found-tracks td.number {
         overflow-wrap: anywhere;
     }
 
-    .names-choice .names input {
-        display: block;
+    .names-choice .names input[name="other"] {
         width: 100%;
-        margin-top: 0.3rem;
     }
 
     .search input[type="search"] {
