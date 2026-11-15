@@ -62,6 +62,12 @@ def test_alias_then_undo(d):
     assert (d.state / "genres.txt").read_text(encoding="utf-8") == "Rock\nRap / Hip-hop: rap\n"
 
 
+def test_no_genre_is_picked_without_a_suggestion(d):
+    assert '<option value="" selected' not in page(d, "/reviews/genres")
+    (d.state / genres.LOOKUP_CACHE).unlink()
+    assert '<option value="" selected disabled>Pick a genre…</option>' in page(d, "/reviews/genres")
+
+
 def test_new_genre(d):
     d.client.post("/reviews/genres", data={"csrf": d.token, "genre": "Zydeco", "choice": "new",
                                            "name": "Zydeco", "position": "1"})

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ t.split_review }} · music-librarian{% endblock %}
 {% block content %}
+<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
-    <h2>{{ t.split_review }} <code class="aside">split --review</code></h2>
+    <h2>{{ t.split_review }}</h2>
     {% if done %}
     <form method="post" action="{{ url_for('undo_split') }}" class="recorded">
         <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -16,10 +18,10 @@
     {% if left is none %}
     {% include "_building.html" %}
     {% elif item %}
-    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }} · {{ t.credits_waiting.format(n=left) }}</p>
+    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
     <div class="question">
         <p class="credit">{{ item.credit }}</p>
-        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <code>{{ item.example }}</code></p>
+        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         <p>{{ t.split_into }}
             {% for part in item.parts %}<span class="part{{ ' known' if part in item.known }}">{{ part }}</span>{% endfor %}
             {% if item.known %}<span class="muted">({{ t.known_names }} — {{ item.known | join(', ') }})</span>{% endif %}
@@ -40,7 +42,7 @@
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>
-    <div class="actions">{{ a.apply_form(t, ctx, csrf, 'split') }}</div>
     {% endif %}
+    {% if left is not none %}{{ a.tools(t, ctx, csrf, 'split', url_for('decisions_page', review=1), t.rules_decisions_link.format(n=rules)) }}{% endif %}
 </section>
 {% endblock %}

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ t.dedupe_review }} · music-librarian{% endblock %}
 {% block content %}
+<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
-    <h2>{{ t.dedupe_review }} <code class="aside">dedupe --review</code></h2>
+    <h2>{{ t.dedupe_review }}</h2>
     {% if done %}
     <form method="post" action="{{ url_for('undo_dedupe') }}" class="recorded">
         <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -16,7 +18,7 @@
     {% if left is none %}
     {% include "_building.html" %}
     {% elif item %}
-    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }} · {{ t.groups_waiting.format(n=left) }}</p>
+    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
     <form method="post" action="{{ url_for('answer_dedupe') }}" class="answer">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="later" value="{{ item.later }}">
@@ -29,17 +31,18 @@
                 {% if name == item.suggested %}<span class="muted">({{ t.suggested }})</span>{% endif %}
                 {% if item.examples[name] %}<span class="muted">· {{ t.example }} <a href="{{ url_for('album_page', folder=item.examples[name]) }}"><code>{{ item.examples[name] }}</code></a></span>{% endif %}</label>
         {% endfor %}
-            <label class="names">{{ t.other_spelling }} <input name="other" aria-label="{{ t.other_spelling }}"></label>
+            <label class="names"><input type="radio" name="target" value="" data-other-choice>
+                {{ t.other_spelling }} <input name="other" aria-label="{{ t.other_spelling }}"></label>
         </fieldset>
         <div class="actions">
             <button type="submit" name="choice" value="unify" class="primary" autofocus>{{ t.unify_button }}</button>
-            <button type="submit" name="choice" value="different">{{ t.different_button }}</button>
+            <button type="submit" name="choice" value="different" formnovalidate>{{ t.different_button }}</button>
             <button type="submit" formaction="{{ url_for('review_later', review='dedupe') }}" formnovalidate>{{ t.later }}</button>
         </div>
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>
-    <div class="actions">{{ a.apply_form(t, ctx, csrf, 'dedupe') }}</div>
     {% endif %}
+    {% if left is not none %}{{ a.tools(t, ctx, csrf, 'dedupe', url_for('aliases_page', review=1), t.rules_aliases_link.format(n=rules)) }}{% endif %}
 </section>
 {% endblock %}

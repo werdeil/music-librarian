@@ -50,13 +50,13 @@ A click on the album's cover, at the top of its page, picks an image (32 MB at m
 
 The Reviews page asks the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
 
-- a credit holding several names: **Split**, **Keep whole**, or the names to write separated by `;`;
-- a group of likely duplicates, each spelling with an album that carries it: the spelling to write them all as, picked among them or typed, or **Different artists**;
-- a genre the validated list does not know, the one most tracks carry first: a name of a validated genre, added to its line of the list (the one iTunes suggests is picked, when `enrich.genres` looked the album up with `GENRE_LOOKUP=itunes`), or a validated genre of its own;
+- a credit holding several names, with an album that carries it: **Split**, **Keep whole**, or the names to write separated by `;`;
+- a group of likely duplicates, each spelling with an album that carries it: the spelling to write them all as, picked among them or typed (typing it picks it), or **Different artists**;
+- a genre the validated list does not know, the one most tracks carry first, with an album that carries it: a name of a validated genre, added to its line of the list (the one iTunes suggests is picked, when `enrich.genres` looked the album up with `GENRE_LOOKUP=itunes`; without a suggestion none is, and the genre has to be chosen), or a validated genre of its own;
 
-**Later** puts the question at the end of its review, after every question never put off, the one put off longest first, as recorded in `state/review-later.json`, so the next visit starts with the questions not seen yet; the page that follows an answer offers to undo it. Each answer is written at once to `state/split-decisions.txt`, `state/artist-aliases.txt` or the genre list (`state/genres.txt`, or `MUSIC_LIBRARIAN_GENRES`), as in the terminal, so the review stops and resumes at will, and an answer that settles questions further down skips them. The queues are built from the metadata cache in the background, again whenever it changes, like the album list: until the first build ends, the counts and the questions say they are still being worked out, and the page reloads by itself once it ends. While a pass writes the cache, they are built again at most once a minute, and at once when the pass ends. Answers rewrite no tag: **Preview these answers** queues `split`, `dedupe` or `enrich.genres` over the library, whose page then offers to apply it and leads back to the reviews, and the weekly `enrich` applies them too.
+**Later** puts the question at the end of its review, after every question never put off, the one put off longest first, as recorded in `state/review-later.json`, so the next visit starts with the questions not seen yet; the page that follows an answer offers to undo it. Each answer is written at once to `state/split-decisions.txt`, `state/artist-aliases.txt` or the genre list (`state/genres.txt`, or `MUSIC_LIBRARIAN_GENRES`), as in the terminal, so the review stops and resumes at will, and an answer that settles questions further down skips them. The queues are built from the metadata cache in the background, again whenever it changes, like the album list: until the first build ends, the counts and the questions say they are still being worked out, and the page reloads by itself once it ends. While a pass writes the cache, they are built again at most once a minute, and at once when the pass ends. Answers rewrite no tag: **Preview these answers**, on the Reviews page and under each question, queues `split`, `dedupe` or `enrich.genres` over the library, whose page then offers to apply it and leads back to the reviews, or to the review it was asked from, and the weekly `enrich` applies them too.
 
-Each review links to the file its answers are kept in, shown read only: the split decisions (each credit and what is done with it, the ones awaiting an answer included), the artist spellings (the variants rewritten as another name, and the artists known to differ), and the validated genres with the names that stand for each and the tracks of the library it gathers, so a genre no track carries any more stands out. To change a line, edit the file in the state folder; the next pass applies it.
+Each review links, from the Reviews page and under each question, to the file its answers are kept in, shown read only: the split decisions (each credit and what is done with it, the ones awaiting an answer included), the artist spellings (the variants rewritten as another name, and the artists known to differ), and the validated genres with the names that stand for each and the tracks of the library it gathers, so a genre no track carries any more stands out. To change a line, edit the file in the state folder; the next pass applies it.
 
 ## Lyrion
 
@@ -95,7 +95,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 |---|---|
 | `/` | the overview |
 | `/runs`, `/runs?command=enrich`, `/runs?problems=1`, `/runs?page=2` | the history |
-| `/runs/<id>` | a run; `POST /runs/<id>/stop` stops it while `watch` runs it |
+| `/runs/<id>?review=1` | a run, leading back to its review rather than to the Reviews page with `review=1`; `POST /runs/<id>/stop` stops it while `watch` runs it |
 | `/runs/<id>/log.txt` | its output as plain text |
 | `POST /runs/<id>/checked` | marks the finished run as checked, or no longer with `checked=0`, and goes back to its page |
 | `/runs/<id>/log.json?from=<offset>&kind=<kind>` | the complete lines written since byte `offset`, each with its style (`error`, `warning`, `section` or empty), the offset to ask from next, and the run's status; `kind` is the style of the line before `offset`, which an indented line continues |
@@ -109,7 +109,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/library/lyrics` | the albums with tracks without lyrics |
 | `/library/repeats` | the albums with tracks whose fields hold a value twice or several values |
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
-| `/reviews/split/decisions`, `/reviews/dedupe/aliases`, `/reviews/genres/list` | the decisions file, the aliases file and the validated genre list, read only |
+| `/reviews/split/decisions`, `/reviews/dedupe/aliases`, `/reviews/genres/list` | the decisions file, the aliases file and the validated genre list, read only; `review=1` leads back to their review rather than to the Reviews page |
 | `/lyrion?state=<state>&page=<n>` | the orphans `waiting`, `settled` or `ignored`, and the form of the `playcounts` pass |
 | `/lyrion/orphans/<urlmd5>?q=<words>` | an orphan and the tracks suggested for it, among those whose path holds the words; `POST` records `choice=match` with `target=<track>`, `choice=ignore`, or `choice=forget` to take the answer back |
 | `/requests/<id>` | waits for a queued request, then redirects to its run; `POST /requests/<id>/cancel` takes it out of the queue, back to the album page `album=<folder>` names |

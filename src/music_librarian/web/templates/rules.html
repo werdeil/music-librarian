@@ -3,7 +3,10 @@
 {% block title %}{{ title }} · music-librarian{% endblock %}
 {% import "_macros.html" as m %}
 {% block content %}
-<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ m.icon('back') }}{{ t.reviews }}</a></p>
+{% set review = {'genres': ('review_genres', t.genre_review), 'aliases': ('review_dedupe', t.dedupe_review),
+                 'decisions': ('review_split', t.split_review)}[kind] %}
+<p class="back">{% if request.args.get('review') %}<a class="button" href="{{ url_for(review[0]) }}">{{ m.icon('back') }}{{ review[1] }}</a>
+{%- else %}<a class="button" href="{{ url_for('reviews_page') }}">{{ m.icon('back') }}{{ t.reviews }}</a>{% endif %}</p>
 <section>
     <h2>{{ title }} <code class="aside">{{ path.name }}</code></h2>
     <p class="muted">{{ t['rules_' ~ kind ~ '_intro'] }}</p>

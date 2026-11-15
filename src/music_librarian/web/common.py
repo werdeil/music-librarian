@@ -60,4 +60,9 @@ def submit(ctx, command, options, apply, album=None):
     request_id = ctx.requests.submit(command, options, apply).id
     if album is not None:
         return redirect(url_for("album_page", folder=album, request=request_id, **place()))
-    return redirect(url_for("request_page", request_id=request_id))
+    return redirect(url_for("request_page", request_id=request_id, **from_review(request.form)))
+
+
+def from_review(values):
+    """What a pass asked from a review's own page carries on, for its run to lead back there."""
+    return {"review": 1} if values.get("review") else {}
