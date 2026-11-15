@@ -18,10 +18,10 @@
     {% if left is none %}
     {% include "_building.html" %}
     {% elif item %}
-    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }} · {{ t.credits_waiting.format(n=left) }}</p>
+    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
     <div class="question">
         <p class="credit">{{ item.credit }}</p>
-        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <code>{{ item.example }}</code></p>
+        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         <p>{{ t.split_into }}
             {% for part in item.parts %}<span class="part{{ ' known' if part in item.known }}">{{ part }}</span>{% endfor %}
             {% if item.known %}<span class="muted">({{ t.known_names }} — {{ item.known | join(', ') }})</span>{% endif %}
@@ -43,6 +43,6 @@
     {% else %}
     <p>{{ t.review_done }}</p>
     {% endif %}
-    {% if left is not none %}{{ a.apply_row(t, ctx, csrf, 'split') }}{% endif %}
+    {% if left is not none %}{{ a.tools(t, ctx, csrf, 'split', url_for('decisions_page', review=1), t.rules_decisions_link.format(n=rules)) }}{% endif %}
 </section>
 {% endblock %}

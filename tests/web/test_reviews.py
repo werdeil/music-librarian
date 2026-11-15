@@ -152,7 +152,32 @@ def test_apply_the_answers_as_a_dry_run(d):
 def test_a_review_leads_back_and_previews_its_answers(d, review):
     text = page(d, f"/reviews/{review}")
     assert '<a class="button" href="/reviews">' in text
-    assert f'name="command" value="{review}"' in text
+    assert f'name="command" value="{review}"' in text and 'name="review" value="1"' in text
+    rules = {"split": "/reviews/split/decisions", "dedupe": "/reviews/dedupe/aliases"}[review]
+    assert f'href="{rules}?review=1"' in text
+    assert f'href="/reviews/{review}"' in page(d, f"{rules}?review=1")
+
+
+def test_a_pass_asked_from_a_review_leads_back_to_it(d):
+    asked = d.client.post("/passes", data={"csrf": d.token, "command": "split", "review": "1"})
+    assert asked.headers["Location"].endswith("?review=1")
+    d.requests.tick(Log())
+    run = d.client.get(asked.headers["Location"])
+    assert run.headers["Location"].endswith("?review=1")
+    text = page(d, run.headers["Location"])
+    assert 'href="/reviews/split"' in text and "Back to the review<" in text
+    assert 'name="review" value="1"' in text
+
+
+def test_a_review_without_question_says_so_on_the_overview(d):
+    d.client.post("/reviews/dedupe", data={"csrf": d.token, "choice": "different",
+                                           "names": names_shown(page(d, "/reviews/dedupe"))})
+    text = page(d, "/reviews")
+    assert "Groups awaiting" not in text and "No question left." in text
+
+
+def test_split_example_opens_its_album(d):
+    assert '<a href="/library/album?folder=Queen/Jazz">' in page(d, "/reviews/split")
 
 
 def test_counts_while_the_first_build_runs(d, monkeypatch):
@@ -165,7 +190,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
         assert text.count(">Being worked out") == 1 and "Credits awaiting" not in text
-        assert '<span class="muted">being worked out</span>' in text
+        assert '<p class="muted">being worked out</p>' in text
         assert 'data-reload-when-built="/built?page=reviews_page"' in text
         assert client.get("/built?page=reviews_page").get_json()["ready"] is False
         for _ in range(100):                                # the album list does not wait on the reviews

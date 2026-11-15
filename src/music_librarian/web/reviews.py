@@ -130,7 +130,8 @@ class Reviews:
             status = resolve(credit, current, decided)[1]
             parts = fragments(credit)
             return dict(number=number, total=len(queues.credits), later=key(credit), credit=credit,
-                        tracks=tracks, example=example, protected=status == PROTECTED, parts=parts,
+                        tracks=tracks, example=example, folder=str(Path(example).parent),
+                        protected=status == PROTECTED, parts=parts,
                         known=[p for p in parts if key(p) in current],
                         suggested=KEEP if status == PROTECTED else suggest(credit, current)), len(left)
 
@@ -248,7 +249,7 @@ class GenreReview:
             shown, entry = items[nxt]
             apple = self.apple(entry["albums"])
             return dict(number=number, total=len(items), later=shown, genre=shown, tracks=entry["tracks"],
-                        example=entry["example"], apple=apple,
+                        example=entry["example"], folder=str(Path(entry["example"]).parent), apple=apple,
                         suggested=genres.resolve([apple], mapping) if apple else None,
                         validated=sorted(set(mapping.values()), key=str.casefold)), len(left)
 
@@ -316,7 +317,8 @@ def register(app, ctx):
     def review_genres():
         item, left = genre_review.item(request.args.get("from", 0, type=int))
         return render_template("review_genres.html", item=item, left=left, done=done_of(request.args),
-                               genre_list=genre_review.mapping() is not None, list_path=genre_review.path)
+                               genre_list=genre_review.mapping() is not None, list_path=genre_review.path,
+                               rules=len(genres.entries(genre_review.path)))
 
     @app.post("/reviews/genres")
     def answer_genre():
@@ -347,7 +349,8 @@ def register(app, ctx):
     @app.get("/reviews/split")
     def review_split():
         item, left = reviews.credit(request.args.get("from", 0, type=int))
-        return render_template("review_split.html", item=item, left=left, done=done_of(request.args))
+        return render_template("review_split.html", item=item, left=left, done=done_of(request.args),
+                               rules=len(decisions.entries(reviews.decisions)))
 
     @app.post("/reviews/split")
     def answer_split():
@@ -373,7 +376,8 @@ def register(app, ctx):
     @app.get("/reviews/dedupe")
     def review_dedupe():
         item, left = reviews.group(request.args.get("from", 0, type=int))
-        return render_template("review_dedupe.html", item=item, left=left, done=done_of(request.args))
+        return render_template("review_dedupe.html", item=item, left=left, done=done_of(request.args),
+                               rules=len(aliases_file.entries(reviews.aliases)))
 
     @app.post("/reviews/dedupe")
     def answer_dedupe():

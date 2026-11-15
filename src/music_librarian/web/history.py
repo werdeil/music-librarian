@@ -11,7 +11,7 @@ from flask import abort, jsonify, redirect, render_template, request, send_file,
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
 from music_librarian.web import library
-from music_librarian.web.common import paged, place, submit, when
+from music_librarian.web.common import from_review, paged, place, submit, when
 from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, box, boxes_ticked, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
@@ -175,7 +175,7 @@ def register(app, ctx):
         if asked.state == DONE and asked.code == EXIT_LOCKED:
             return render_template("request.html", asked=asked, locked=True, album=album)
         if asked.run_id is not None:
-            return redirect(url_for("run_page", run_id=asked.run_id))
+            return redirect(url_for("run_page", run_id=asked.run_id, **from_review(request.args)))
         return render_template("request.html", asked=asked, locked=False, cancelled=asked.state == CANCELLED,
                                album=album)
 
@@ -228,6 +228,8 @@ def register(app, ctx):
         album = album_url(ctx, run["command"], run["options"],
                           journal and journal_path(ctx.state_dir, journal))
         back = (album, "back_to_album") if album else \
+            (url_for(f"review_{run['command']}"), "back_to_review") \
+            if run["command"] in REVIEW_PASSES and request.args.get("review") else \
             (url_for("reviews_page"), "back_to_reviews") if run["command"] in REVIEW_PASSES else \
             (url_for("lyrion_page"), "back_to_lyrion") if run["command"] == "playcounts" else None
         filters = history_filters(request.args)

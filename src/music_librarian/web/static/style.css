@@ -935,6 +935,18 @@ form.inline {
     margin-bottom: 1rem;
 }
 
+.review-waiting {
+    color: var(--warning);
+}
+
+.review-clear {
+    color: var(--text-muted);
+}
+
+.names-choice .names {
+    align-items: center;
+}
+
 .review-tools {
     margin-top: 1.6rem;
     padding-top: 1rem;

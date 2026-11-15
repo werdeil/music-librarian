@@ -577,3 +577,28 @@
         now();
     });
 }());
+
+// A dedupe question's own spelling: typing it picks it, picking a listed one empties it.
+(function () {
+    "use strict";
+
+    var other = document.querySelector("[data-other-choice]");
+    if (!other) {
+        return;
+    }
+    var typed = other.form.elements.other;
+    typed.addEventListener("input", function () {
+        other.checked = true;
+        typed.required = true;
+    });
+    other.form.querySelectorAll("input[name=target]").forEach(function (radio) {
+        radio.addEventListener("change", function () {
+            typed.required = other.checked;
+            if (other.checked) {
+                typed.focus();
+            } else {
+                typed.value = "";
+            }
+        });
+    });
+}());

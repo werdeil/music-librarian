@@ -21,10 +21,10 @@
     {% elif left is none %}
     {% include "_building.html" %}
     {% elif item %}
-    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }} · {{ t.genres_waiting.format(n=left) }}</p>
+    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
     <div class="question">
         <p class="credit">{{ item.genre }}</p>
-        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <code>{{ item.example }}</code></p>
+        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         {% if item.apple %}<p>{{ t.itunes_hint.format(genre=item.apple) }}</p>{% endif %}
     </div>
     <form method="post" action="{{ url_for('answer_genre') }}" class="answer">
@@ -32,7 +32,8 @@
         <input type="hidden" name="genre" value="{{ item.genre }}">
         <input type="hidden" name="later" value="{{ item.later }}">
         <span class="names">
-            <select name="validated" aria-label="{{ t.alias_button }}">
+            <select name="validated" aria-label="{{ t.alias_button }}" required>
+            {% if not item.suggested %}<option value="" selected disabled>{{ t.pick_genre }}</option>{% endif %}
             {% for genre in item.validated %}
                 <option value="{{ genre }}"{% if genre == item.suggested %} selected{% endif %}>{{ genre }}</option>
             {% endfor %}
@@ -41,13 +42,13 @@
         </span>
         <span class="names">
             <input name="name" value="{{ item.genre }}" aria-label="{{ t.new_genre_button }}">
-            <button type="submit" name="choice" value="new">{{ t.new_genre_button }}</button>
+            <button type="submit" name="choice" value="new" formnovalidate>{{ t.new_genre_button }}</button>
         </span>
         <button type="submit" formaction="{{ url_for('review_later', review='genres') }}" formnovalidate>{{ t.later }}</button>
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>
     {% endif %}
-    {% if left is not none and genre_list %}{{ a.apply_row(t, ctx, csrf, 'genres') }}{% endif %}
+    {% if left is not none and genre_list %}{{ a.tools(t, ctx, csrf, 'genres', url_for('genre_list_page', review=1), t.rules_genres_link.format(n=rules)) }}{% endif %}
 </section>
 {% endblock %}
