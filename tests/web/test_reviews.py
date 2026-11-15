@@ -148,6 +148,13 @@ def test_apply_the_answers_as_a_dry_run(d):
     assert (asked.command, asked.apply) == ("split", False)
 
 
+@pytest.mark.parametrize("review", ["split", "dedupe"])
+def test_a_review_leads_back_and_previews_its_answers(d, review):
+    text = page(d, f"/reviews/{review}")
+    assert '<a class="button" href="/reviews">' in text
+    assert f'name="command" value="{review}"' in text
+
+
 def test_counts_while_the_first_build_runs(d, monkeypatch):
     monkeypatch.setattr(library, "PATIENCE", 0.01)
     # the album list builds beside the blocked review build instead of waiting for it

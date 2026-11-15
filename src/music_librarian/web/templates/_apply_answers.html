@@ -8,3 +8,7 @@
 </form>
 {% endif %}
 {%- endmacro %}
+
+{% macro apply_row(t, ctx, csrf, command) -%}
+{% if ctx.requests %}<div class="actions review-tools">{{ apply_form(t, ctx, csrf, command) }}</div>{% endif %}
+{%- endmacro %}

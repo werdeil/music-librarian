@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
+{% from "_macros.html" import icon %}
 {% block title %}{{ t.genre_review }} · music-librarian{% endblock %}
 {% block content %}
+<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
     <h2>{{ t.genre_review }} <code class="aside">genres.txt</code></h2>
     {% if done %}
@@ -45,7 +47,7 @@
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>
-    <div class="actions">{{ a.apply_form(t, ctx, csrf, 'genres') }}</div>
     {% endif %}
+    {% if left is not none and genre_list %}{{ a.apply_row(t, ctx, csrf, 'genres') }}{% endif %}
 </section>
 {% endblock %}
