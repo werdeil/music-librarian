@@ -102,8 +102,9 @@ def register(app, ctx, index, later):
         return library.without_lyrics(everything, later.times("lyrics"))
 
     def in_work_list(rel):
-        """Where the album stands in the work list it was opened from, with its neighbours; for
-        an album the list no longer holds (fixed), its neighbours where it stood. None without one."""
+        """Where the album stands in the work list it was opened from, with its neighbours and its
+        number, in the lyrics list counted from the first album not put off in the round under way;
+        for an album the list no longer holds (fixed), its neighbours where it stood. None without one."""
         where = place()
         albums = work_list(where["list"]) if where else None
         if albums is None:
@@ -123,8 +124,9 @@ def register(app, ctx, index, later):
 
         def step(folder, position):
             return url_for("album_page", folder=folder, **keep, at=position)
+        seen = later.seen("lyrics", folders) if where["list"] == "lyrics" and at is not None else 0
         return dict(name=where["list"], page=page, position=at,
-                    total=len(folders),
+                    number=None if at is None else (seen + at) % len(folders) + 1, total=len(folders),
                     previous=step(folders[before], before) if before >= 0 else None,
                     next=step(folders[after], after) if after < len(folders) else None)
 

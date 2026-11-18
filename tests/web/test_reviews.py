@@ -223,3 +223,17 @@ def test_recorded_answers_pages(d):
 def test_recorded_answers_pages_before_any_answer(d):
     assert "No line yet." in page(d, "/reviews/dedupe/aliases")
     assert "No line yet." in page(d, "/reviews/split/decisions")
+
+
+def test_questions_put_off_counted_round_by_round(tmp_path, monkeypatch):
+    clock = iter(range(1, 100))
+    monkeypatch.setattr(reviews.time, "time", lambda: float(next(clock)))
+    later = reviews.Postponed(tmp_path)
+
+    def round_of(*put):
+        for key in put:
+            later.put("lyrics", key)
+        times = later.times("lyrics")
+        return later.seen("lyrics", sorted("abc", key=lambda k: times.get(k, 0.0)))
+    assert [round_of(), round_of("a"), round_of("b"), round_of("c"), round_of("a"), round_of("b", "c")] == \
+        [0, 1, 2, 0, 1, 0]

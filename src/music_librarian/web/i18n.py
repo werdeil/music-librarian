@@ -34,7 +34,6 @@ TRANSLATIONS = {
         "rules_awaited_intro": ("Les morceaux dont aucun fournisseur n'a encore les paroles, marqués depuis "
                                 "la page de leur album : enrich les cherche toujours à chaque passage."),
         "lyrics_waiting": "Morceaux à classer : {n}",
-        "lyrics_albums_link": "Albums",
         "rules_genres_intro": ("Chaque genre validé, les noms qui le désignent et les pistes de la "
                                "bibliothèque qu'il regroupe : import et enrich écrivent ces genres."),
         "rules_aliases_intro": ("Les orthographes réécrites sous un autre nom, et les artistes reconnus "
@@ -490,7 +489,6 @@ TRANSLATIONS = {
         "rules_awaited_intro": ("The tracks whose lyrics no provider carries yet, marked from their album's "
                                 "page: enrich still looks them up on every pass."),
         "lyrics_waiting": "Tracks to sort out: {n}",
-        "lyrics_albums_link": "Albums",
         "rules_genres_intro": ("Each validated genre, the names that stand for it and the tracks of the "
                                "library it gathers: import and enrich write these genres."),
         "rules_aliases_intro": ("The spellings rewritten as another name, and the artists known to differ: "

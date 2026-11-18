@@ -45,7 +45,8 @@ def quiet(_msg):
 
 
 class Postponed:
-    """The questions put off with Later: {review: {question's key: when}}."""
+    """The questions put off with Later: {review: {question's key: when}}, and under "rounds"
+    {review: when the round under way started}."""
 
     def __init__(self, state_dir: Path):
         self.path = state_dir / LATER
@@ -61,23 +62,41 @@ class Postponed:
         """{question's key: when it was put off} of the review."""
         return self._read().get(review, {})
 
+    def _write(self, data):
+        temp = self.path.with_name(self.path.name + ".tmp")
+        temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.replace(temp, self.path)
+
     def put(self, review, asked):
         with self.lock:
             data = self._read()
             data.setdefault(review, {})[asked] = time.time()
-            temp = self.path.with_name(self.path.name + ".tmp")
-            temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-            os.replace(temp, self.path)
+            self._write(data)
+
+    def seen(self, review, keys):
+        """How many of `keys`, ordered as pick orders them, were put off in the round under way;
+        a round ends once the first of them was put off in it, and the next one starts."""
+        if not keys:
+            return 0
+        with self.lock:
+            data = self._read()
+            times, rounds = data.get(review, {}), data.setdefault("rounds", {})
+            started = rounds.get(review, 0.0)
+            if times.get(keys[0], 0.0) > started:
+                started = rounds[review] = max(times.get(k, 0.0) for k in keys)
+                self._write(data)
+        return sum(1 for k in keys if times.get(k, 0.0) > started)
 
     def pick(self, review, left, key_of, start, total):
         """Of `left`, the positions still awaiting an answer, the one `start` places after the first
-        once those put off are moved to the end, and its number among `total` questions; None, None
-        past the end."""
+        once those put off are moved to the end, and its number among `total` questions, counted
+        from the first not put off in the round under way; None, None past the end."""
         times = self.times(review)
         ordered = sorted(left, key=lambda i: times.get(key_of(i), 0.0))
         if start >= len(ordered):
             return None, None
-        return ordered[start], total - len(left) + start + 1
+        seen = self.seen(review, [key_of(i) for i in ordered])
+        return ordered[start], total - len(left) + (seen + start) % len(ordered) + 1
 
 
 def dedupe_key(names):

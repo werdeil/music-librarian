@@ -50,8 +50,7 @@
     {% elif lyrics %}<p class="review-waiting">{{ t.lyrics_waiting.format(n=lyrics) }}</p>
     {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
     <div class="actions">
-        {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>
-        <a class="button" href="{{ url_for('missed_lyrics') }}">{{ t.lyrics_albums_link }}</a>{% endif %}
+        {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>{% endif %}
         <a class="button" href="{{ url_for('awaited_page') }}">{{ t.rules_awaited_link.format(n=rules.awaited) }}</a>
     </div>
 </section>

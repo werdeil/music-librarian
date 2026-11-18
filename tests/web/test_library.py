@@ -748,12 +748,12 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
     assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
-    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1">Next →</a>' in page
+    assert ">Later</button>" in page and "Next →" not in page
     assert "← Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
                                 headers=EN).get_data(as_text=True)
-    assert "Album 2 of 2" in page and "Last of the list" in page
+    assert "Album 2 of 2" in page and "Last of the list" not in page
     assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">← Previous</a>' in page
 
 
@@ -765,6 +765,7 @@ def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
     later = {"csrf": dashboard.token, "folder": "Beyonce/4", "at": "0"}
     response = dashboard.client.post("/library/album/later", data=later)
     assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    assert "Album 2 of 2" in dashboard.client.get(response.location, headers=EN).get_data(as_text=True)
     page = dashboard.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
     assert page.index("Compilations/Hits") < page.index("Beyonce/4")
     reviews = dashboard.client.get("/reviews", headers=EN).get_data(as_text=True)
@@ -772,6 +773,7 @@ def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
     response = dashboard.client.post("/library/album/later",
                                      data={**later, "folder": "Compilations/Hits", "at": "0"})
     assert response.location.endswith("/library/album?folder=Beyonce/4&list=lyrics&at=0")
+    assert "Album 1 of 2" in dashboard.client.get(response.location, headers=EN).get_data(as_text=True)
     response = dashboard.client.post("/library/album/later", data={**later, "at": "1"})
     assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
