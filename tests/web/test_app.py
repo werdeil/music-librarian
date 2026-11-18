@@ -12,7 +12,7 @@ import pytest
 from music_librarian.core import runs
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
-from music_librarian.web import history
+from music_librarian.web import history, library
 from music_librarian.web.i18n import TRANSLATIONS
 
 EN, FR = {"Accept-Language": "en"}, {"Accept-Language": "fr-FR,fr;q=0.9"}
@@ -377,3 +377,11 @@ def test_next_daily():
 @pytest.mark.parametrize("seconds, text", [(5, "5 s"), (125, "2 min 05 s"), (3725, "1 h 02 min")])
 def test_duration(seconds, text):
     assert history.duration(seconds) == text
+
+
+@pytest.mark.parametrize("build_now, started", [(False, 0), (True, 3)])   # albums, credits, genres
+def test_lists_built_at_startup_only_when_asked(ctx, monkeypatch, build_now, started):
+    calls = []
+    monkeypatch.setattr(library.Refreshed, "start", lambda self: calls.append(self) or (None, 0))
+    web.create_app(ctx, build_now=build_now)
+    assert len(calls) == started
