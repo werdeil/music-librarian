@@ -146,8 +146,7 @@ def register(app, ctx, index):
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         names = [n for n, _ in tracks]
         lyrics = library.with_lyrics(folder, tracks)
-        expected = library.awaited_state(folder, [n for n, v in tracks if v and not lyrics[n]], ctx.state_dir)
-        waiting = {n for n, held in expected.items() if held}
+        catalog = index.catalog()
         gains = library.replaygain_state(folder, names)
         for name, values in tracks:
             if values:
@@ -158,7 +157,8 @@ def register(app, ctx, index):
                                disc_names=library.disc_names(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                lyrics=lyrics, mark=INSTRUMENTAL,
-                               awaited=waiting, unsorted=len(expected) - len(waiting),
+                               awaited=catalog.awaited.get(rel, set()) if catalog else set(),
+                               unsorted=len(catalog.unsorted(rel)) if catalog else 0,
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
@@ -280,35 +280,39 @@ def register(app, ctx, index):
             message = t[key].format(source=PROVIDERS.get(source, source))
         return jsonify(text=text, message=message)
 
-    def track_meta(path):
-        return metadata_cache.metadata(tags.read_snapshot(path))
+    def track_meta(rel, path):
+        """The track's metadata as the album list holds it, read from the file when it holds none."""
+        catalog = index.catalog()
+        known = [meta for t, meta in (catalog.bare if catalog else [])
+                 if (t.folder, t.name) == (rel, path.name)]
+        return known[0] if known else metadata_cache.metadata(tags.read_snapshot(path))
 
     @app.post("/library/track/lyrics/awaited")
     def await_lyrics():
         """Mark one track of an album's page as awaited, or with awaited=0 no longer;
         {"awaited": its state}."""
-        path = library.track_file(ctx.root, request.form.get("folder", ""), request.form.get("file", ""))
+        rel = request.form.get("folder", "")
+        path = library.track_file(ctx.root, rel, request.form.get("file", ""))
         if path is None:
             abort(404)
         if ctx.requests is None:
             abort(403)
         wanted = request.form.get("awaited") == "1"
-        (awaited.mark if wanted else awaited.unmark)(ctx.state_dir, [track_meta(path)])
+        (awaited.mark if wanted else awaited.unmark)(ctx.state_dir, [track_meta(rel, path)])
         return jsonify(awaited=wanted)
 
     @app.post("/library/album/awaited")
     def await_album_lyrics():
-        """Mark every track of the album without lyrics as awaited, then show the album again."""
+        """Mark every track of the album the album list holds without lyrics as awaited, then show
+        the album again."""
         rel = request.form.get("folder", "")
-        folder = library.album_folder(ctx.root, rel)
-        if folder is None:
+        if library.album_folder(ctx.root, rel) is None:
             abort(404)
         if ctx.requests is None:
             abort(403)
-        tracks = library.tracks_of(folder)
-        lyrics = library.with_lyrics(folder, tracks)
-        awaited.mark(ctx.state_dir, [track_meta(folder / name) for name, values in tracks
-                                     if values and not lyrics[name]])
+        catalog = index.catalog()
+        if catalog is not None:
+            awaited.mark(ctx.state_dir, list(catalog.unsorted(rel).values()))
         return redirect(url_for("album_page", folder=rel, **place()))
 
     @app.get("/library/cover")

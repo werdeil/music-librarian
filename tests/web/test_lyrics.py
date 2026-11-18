@@ -251,3 +251,11 @@ def test_mark_of_a_track_outside_the_library(d, folder, file):
     response = d.client.post("/library/track/lyrics/awaited",
                              data={"csrf": d.token, "folder": folder, "file": file, "awaited": "1"})
     assert response.status_code == 404 and not (d.state / awaited.FILE).exists()
+
+
+def test_a_mark_shows_without_rebuilding_the_album_list(d):
+    settled(d, "/library/lyrics")
+    mark(d, "02 T2.m4a")
+    page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+    assert "<td>1 / 3</td>" in page and "Tracks whose lyrics are awaited: 1" in page
+    assert not any(thread.name == "web-build" for thread in threading.enumerate())

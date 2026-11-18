@@ -10,7 +10,7 @@ import threading
 import time
 from collections import Counter, defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field, replace
 from pathlib import Path
 
 from music_librarian import repeats
@@ -61,6 +61,30 @@ VIEWS = ("albums", "tracks")
 class Catalog:
     albums: list   # of Album, in the index's order
     tracks: list   # of query.Track, album by album in that order, then by disc and number
+    bare: list = dataclass_field(default_factory=list)      # (Track, metadata) of those without lyrics
+    awaited: dict = dataclass_field(default_factory=dict)   # {folder: names of its tracks awaited}
+
+    def album(self, folder):
+        return next((a for a in self.albums if a.folder == folder), None)
+
+    def unsorted(self, folder):
+        """{file name: metadata} of the folder's tracks without lyrics not awaited."""
+        held = self.awaited.get(folder, set())
+        return {t.name: meta for t, meta in self.bare if t.folder == folder and t.name not in held}
+
+
+def with_awaited(catalog, marked):
+    """The catalog with its tracks without lyrics that `marked` (an awaited.Awaited) holds flagged
+    awaited, and left out of their album's count of tracks without lyrics."""
+    held = {id(t): t for t, meta in catalog.bare if marked.holds(meta)}
+    names, flagged = defaultdict(set), {}
+    for t in held.values():
+        names[t.folder].add(t.name)
+        flagged[id(t)] = query.Track(t.folder, t.name, t.values, t.tags, t.flags | {"awaited"}, t.duration)
+    albums = [replace(a, without_lyrics=a.without_lyrics - len(names[a.folder]), awaited=len(names[a.folder]))
+              if a.folder in names else a for a in catalog.albums]
+    tracks = [flagged.get(id(t), t) for t in catalog.tracks] if flagged else catalog.tracks
+    return Catalog(albums, tracks, catalog.bare, dict(names))
 
 
 @dataclass
@@ -230,45 +254,51 @@ class Refreshed:
 
 class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
-    when the cache changes. A file gone from the library since it was cached is left out."""
+    when the cache changes. A file gone from the library since it was cached is left out. The
+    awaited tracks are laid over the last build whenever their file changes, without a rebuild."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
-        self.albums = Refreshed(lambda: (cache_stamp(state_dir), awaited_stamp(state_dir)), self._build)
+        self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
+        self.marked, self.lock = None, threading.Lock()   # (build, awaited_stamp, Catalog laid over)
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
-        catalog = self.albums.get()
+        catalog = self.catalog()
         return None if catalog is None else catalog.albums
 
     def catalog(self):
-        """The Catalog, None until it is first built."""
-        return self.albums.get()
+        """The Catalog with the awaited tracks, None until it is first built."""
+        built = self.albums.get()
+        if built is None:
+            return None
+        stamp = awaited_stamp(self.state_dir)
+        with self.lock:
+            if self.marked is None or self.marked[0] is not built or self.marked[1] != stamp:
+                self.marked = built, stamp, with_awaited(built, awaited.Awaited(self.state_dir))
+            return self.marked[2]
 
     def _build(self):
         if cache_stamp(self.state_dir)[0] is None:
             return Catalog([], [])
-        folders = defaultdict(list)
-        bare, waiting, repeated = defaultdict(int), defaultdict(int), defaultdict(int)
-        tracks, rels = [], {}
-        marked = awaited.Awaited(self.state_dir)
+        folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
+        tracks, rels, without = [], {}, []
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
         for path, snap in files:
             folder = path.parent
             rel = rels.setdefault(folder, str(folder.relative_to(self.root)))
             folders[folder].append(snap["tags"])
-            expected = not snap.get("lyrics") and marked.holds(metadata_cache.metadata(snap))
-            bare[folder] += not snap.get("lyrics") and not expected
-            waiting[folder] += expected
+            bare[folder] += not snap.get("lyrics")
             twice = bool(repeats.findings(repeats.from_snapshot(snap)))
             repeated[folder] += twice
             flags = [name for name, held in (("lyrics", snap.get("lyrics")), ("cover", snap.get("cover")),
                                               ("replaygain", snap.get("replaygain")), ("repeated", twice),
-                                              ("compilation", first(snap["tags"], "compilation") == "1"),
-                                              ("awaited", expected))
+                                              ("compilation", first(snap["tags"], "compilation") == "1"))
                      if held]
             tracks.append(query.track_of(rel, path.name, snap, flags))
+            if not snap.get("lyrics"):
+                without.append((tracks[-1], metadata_cache.metadata(snap)))
         albums = []
         for done, (folder, held) in enumerate(folders.items(), 1):
             if done % REPORT_EVERY == 0:
@@ -278,12 +308,12 @@ class Index:
             year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
-                                year, folder_changed(folder), waiting[folder]))
+                                year, folder_changed(folder)))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
                                    query.number_of(t, "track") or 0, t.name))
-        return Catalog(albums, tracks)
+        return Catalog(albums, tracks, without)
 
 
 def album_folder(root: Path, rel):
@@ -510,15 +540,3 @@ def awaited_stamp(state_dir: Path):
     except OSError:
         return None
     return st.st_mtime_ns, st.st_size
-
-
-def awaited_state(folder: Path, names, state_dir: Path):
-    """{file name: whether the track is awaited} of the folder's tracks, read from the files."""
-    marked = awaited.Awaited(state_dir)
-    out = {}
-    for name in names:
-        try:
-            out[name] = marked.holds(metadata_cache.metadata(tags.read_snapshot(folder / name)))
-        except Exception:
-            out[name] = False
-    return out
