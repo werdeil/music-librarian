@@ -65,9 +65,10 @@ def create_app(ctx: Context, build_now=False):
     app = Flask(__name__)
     token = security.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
-    waiting, queues = reviews.register(app, ctx, index)
+    later = reviews.Postponed(ctx.state_dir)
+    waiting, queues = reviews.register(app, ctx, index, later)
     history.register(app, ctx)
-    albums.register(app, ctx, index)
+    albums.register(app, ctx, index, later)
     orphans_waiting, orphans = playcounts.register(app, ctx)
     built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues

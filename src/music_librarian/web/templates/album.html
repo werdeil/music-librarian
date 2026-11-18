@@ -11,6 +11,14 @@
     {% if work.previous %}<a class="button" href="{{ work.previous }}">{{ t.work_previous }}</a>{% endif %}
     {% if work.next %}<a class="button primary" href="{{ work.next }}">{{ t.work_next }}</a>
     {% else %}<span class="muted">{{ t.work_last }}</span>{% endif %}
+    {% if work.name == 'lyrics' %}
+    <form method="post" action="{{ url_for('album_later') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="folder" value="{{ folder }}">
+        <input type="hidden" name="at" value="{{ place.at }}">
+        <button type="submit">{{ t.later }}</button>
+    </form>
+    {% endif %}
     </span>
 </nav>
 {% else %}

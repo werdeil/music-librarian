@@ -757,6 +757,27 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">← Previous</a>' in page
 
 
+def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
+    settled(lambda: dashboard.client.get("/library/lyrics", headers=EN))
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0",
+                                headers=EN).get_data(as_text=True)
+    assert 'action="/library/album/later"' in page and ">Later</button>" in page
+    later = {"csrf": dashboard.token, "folder": "Beyonce/4", "at": "0"}
+    response = dashboard.client.post("/library/album/later", data=later)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    page = dashboard.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+    assert page.index("Compilations/Hits") < page.index("Beyonce/4")
+    reviews = dashboard.client.get("/reviews", headers=EN).get_data(as_text=True)
+    assert "/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0" in reviews
+    response = dashboard.client.post("/library/album/later",
+                                     data={**later, "folder": "Compilations/Hits", "at": "0"})
+    assert response.location.endswith("/library/album?folder=Beyonce/4&list=lyrics&at=0")
+    response = dashboard.client.post("/library/album/later", data={**later, "at": "1"})
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "/library/album/later" not in page
+
+
 def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
     settled(lambda: dashboard.client.get("/library/repeats"))
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)

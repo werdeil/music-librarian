@@ -57,6 +57,10 @@ class Postponed:
         except (OSError, ValueError):
             return {}
 
+    def times(self, review):
+        """{question's key: when it was put off} of the review."""
+        return self._read().get(review, {})
+
     def put(self, review, asked):
         with self.lock:
             data = self._read()
@@ -69,7 +73,7 @@ class Postponed:
         """Of `left`, the positions still awaiting an answer, the one `start` places after the first
         once those put off are moved to the end, and its number among `total` questions; None, None
         past the end."""
-        times = self._read().get(review, {})
+        times = self.times(review)
         ordered = sorted(left, key=lambda i: times.get(key_of(i), 0.0))
         if start >= len(ordered):
             return None, None
@@ -263,12 +267,11 @@ class GenreReview:
             genres.remove_from_list(self.path, genre, alias)
 
 
-def register(app, ctx, index):
+def register(app, ctx, index, later):
     """Add the review pages to the app; return the function that counts the questions awaiting
     an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n}, n None until its queue (for the
     lyrics, the album list of `index`, a library.Index) is first built (counted once per request),
-    and the queues, Refreshed values."""
-    later = Postponed(ctx.state_dir)
+    and the queues, Refreshed values. `later` is the Postponed the questions put off are kept in."""
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
 
@@ -284,7 +287,7 @@ def register(app, ctx, index):
     def reviews_page():
         left = waiting()
         albums = index.get()
-        bare = without_lyrics(albums) if albums else []
+        bare = without_lyrics(albums, later.times("lyrics")) if albums else []
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
                                lyrics=left["lyrics"], first_bare=bare[0].folder if bare else None,

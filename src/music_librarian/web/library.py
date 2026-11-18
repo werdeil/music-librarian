@@ -527,10 +527,13 @@ def replaygain_state(folder: Path, names):
     return out
 
 
-def without_lyrics(albums):
+def without_lyrics(albums, later=None):
     """The albums with tracks without lyrics, neither instrumental nor awaited, the most such
-    tracks first."""
-    return sorted((a for a in albums if a.without_lyrics), key=lambda a: (-a.without_lyrics, a.folder))
+    tracks first, those of `later` ({folder: when it was put off}) after the others, the one put
+    off longest first."""
+    later = later or {}
+    return sorted((a for a in albums if a.without_lyrics),
+                  key=lambda a: (later.get(a.folder, 0.0), -a.without_lyrics, a.folder))
 
 
 def awaited_stamp(state_dir: Path):

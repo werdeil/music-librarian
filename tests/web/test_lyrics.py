@@ -259,3 +259,9 @@ def test_a_mark_shows_without_rebuilding_the_album_list(d):
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
     assert "<td>1 / 3</td>" in page and "Tracks whose lyrics are awaited: 1" in page
     assert not any(thread.name == "web-build" for thread in threading.enumerate())
+
+
+def test_the_only_album_put_off_leads_back_to_the_list(d):
+    settled(d, "/library/lyrics")
+    response = d.client.post("/library/album/later", data={"csrf": d.token, "folder": "Beyonce/4", "at": "0"})
+    assert response.location.endswith("/library/lyrics")

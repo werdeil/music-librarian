@@ -22,8 +22,9 @@ MAX_UPLOAD = 32 * 1024 * 1024
 PROVIDERS = {"lrclib": "LRCLIB", "netease": "NetEase", "musixmatch": "Musixmatch"}
 
 
-def register(app, ctx, index):
-    """Add the library's pages to the app, the albums read from `index` (a library.Index)."""
+def register(app, ctx, index, later):
+    """Add the library's pages to the app, the albums read from `index` (a library.Index), the
+    albums put off in the list of tracks without lyrics kept in `later` (a reviews.Postponed)."""
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD
 
     def searched(args):
@@ -98,7 +99,7 @@ def register(app, ctx, index):
             return None
         if name == "repeats":
             return library.with_repeats(everything)
-        return library.without_lyrics(everything)
+        return library.without_lyrics(everything, later.times("lyrics"))
 
     def in_work_list(rel):
         """Where the album stands in the work list it was opened from, with its neighbours; for
@@ -178,7 +179,7 @@ def register(app, ctx, index):
         everything = index.get()
         if everything is None:
             return render_template("lyrics.html", building=True)
-        albums = library.without_lyrics(everything)
+        albums = library.without_lyrics(everything, later.times("lyrics"))
         shown, page, pages = paged(albums, library.PAGE)
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
@@ -300,6 +301,21 @@ def register(app, ctx, index):
         wanted = request.form.get("awaited") == "1"
         (awaited.mark if wanted else awaited.unmark)(ctx.state_dir, [track_meta(rel, path)])
         return jsonify(awaited=wanted)
+
+    @app.post("/library/album/later")
+    def album_later():
+        """Put the album off to the end of the list of tracks without lyrics, then open the album
+        that now stands where it stood, the first one past the end; the list once none is left."""
+        rel = request.form.get("folder", "")
+        if library.album_folder(ctx.root, rel) is None:
+            abort(404)
+        later.put("lyrics", rel)
+        folders = [a.folder for a in work_list("lyrics") or []]
+        at = min(request.form.get("at", 0, type=int), max(len(folders) - 1, 0))
+        following = next((i for i in (at, 0) if i < len(folders) and folders[i] != rel), None)
+        if following is None:
+            return redirect(url_for("missed_lyrics"))
+        return redirect(url_for("album_page", folder=folders[following], list="lyrics", at=following))
 
     @app.post("/library/album/awaited")
     def await_album_lyrics():

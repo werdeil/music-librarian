@@ -1003,9 +1003,15 @@ form.inline {
 
 .work-steps {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     margin-left: auto;
+}
+
+.work-steps .button,
+.work-steps button {
+    white-space: nowrap;
 }
 
 .output summary {
