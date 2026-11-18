@@ -60,7 +60,9 @@ def inbox_state(inbox: Path):
     return items, sorted(p.name for p in failed.iterdir()) if failed.is_dir() else []
 
 
-def create_app(ctx: Context):
+def create_app(ctx: Context, build_now=False):
+    """The dashboard's app; with `build_now`, its lists start building at once, else on the
+    first request."""
     app = Flask(__name__)
     token = security.register(app, ctx)
     waiting, queues = reviews.register(app, ctx)
@@ -95,11 +97,14 @@ def create_app(ctx: Context):
         values = shows.get(page, built_in_background)
         return round(100 * sum(value.progress() for value in values) / len(values))
 
-    @app.before_request
     def start_builds():
+        for value in built_in_background:
+            value.start()
+
+    @app.before_request
+    def start_builds_on_request():
         if request.endpoint not in POLLED:
-            for value in built_in_background:
-                value.start()
+            start_builds()
 
     @app.get("/health")
     def health():
@@ -163,4 +168,6 @@ def create_app(ctx: Context):
     def not_found(_error):
         return render_template("not_found.html"), 404
 
+    if build_now:
+        start_builds()
     return app
