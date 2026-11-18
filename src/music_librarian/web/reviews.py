@@ -33,7 +33,7 @@ from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
-from music_librarian.web.library import Refreshed, cache_stamp, cached_files, part, without_lyrics
+from music_librarian.web.library import WARMER, Refreshed, cache_stamp, cached_files, part, without_lyrics
 
 
 LATER = "review-later.json"
@@ -307,6 +307,8 @@ def register(app, ctx, index, later):
         left = waiting()
         albums = index.get()
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
+        if bare and (ctx.root / bare[0].folder).is_dir():
+            WARMER.ask(ctx.root / bare[0].folder)
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
                                lyrics=left["lyrics"], first_bare=bare[0].folder if bare else None,

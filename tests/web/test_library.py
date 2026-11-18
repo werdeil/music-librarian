@@ -892,3 +892,20 @@ def test_library_pages_keep_the_search(dashboard, monkeypatch):
     page = settled(lambda: dashboard.client.get("/library?q=e&sort=year", headers=EN)).get_data(as_text=True)
     assert 'href="/library?page=2&amp;q=e&amp;sort=year">Next' in page
     assert 'id="results"' in page and "data-live-search" in page
+
+
+def test_warmer_reads_the_album_asked_for_last(tmp_path, monkeypatch):
+    read, gate = [], threading.Event()
+
+    def tracks_of(folder):
+        gate.wait(5)
+        read.append(folder.name)
+    monkeypatch.setattr(library, "tracks_of", tracks_of)
+    warmer = library.Warmer()
+    for name in ("a", "b", "c"):
+        warmer.ask(tmp_path / name)
+    gate.set()
+    for thread in threading.enumerate():
+        if thread.name == "web-warm":
+            thread.join(5)
+    assert read == ["a", "c"]

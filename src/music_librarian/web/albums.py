@@ -101,6 +101,11 @@ def register(app, ctx, index, later):
             return library.with_repeats(everything)
         return library.without_lyrics(everything, later.times("lyrics"))
 
+    def warm(rel):
+        folder = library.album_folder(ctx.root, rel)
+        if folder is not None:
+            library.WARMER.ask(folder)
+
     def in_work_list(rel):
         """Where the album stands in the work list it was opened from, with its neighbours and its
         number, in the lyrics list counted from the first album not put off in the round under way;
@@ -124,6 +129,9 @@ def register(app, ctx, index, later):
 
         def step(folder, position):
             return url_for("album_page", folder=folder, **keep, at=position)
+        following = folders[after] if after < len(folders) else folders[0] if folders else None
+        if following not in (None, rel):
+            warm(following)
         seen = later.seen("lyrics", folders) if where["list"] == "lyrics" and at is not None else 0
         return dict(name=where["list"], page=page, position=at,
                     number=None if at is None else (seen + at) % len(folders) + 1, total=len(folders),
@@ -183,6 +191,8 @@ def register(app, ctx, index, later):
             return render_template("lyrics.html", building=True)
         albums = library.without_lyrics(everything, later.times("lyrics"))
         shown, page, pages = paged(albums, library.PAGE)
+        if shown:
+            warm(shown[0].folder)
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
                                awaited=sum(a.awaited for a in everything))

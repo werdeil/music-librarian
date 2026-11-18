@@ -331,6 +331,39 @@ def track_file(root: Path, rel, name):
     return path if path.is_file() and path.suffix.lower() in AUDIO_EXT and not is_junk(path) else None
 
 
+class Warmer:
+    """Reads the tracks of the album a page is likely to open next, in a thread of its own, so
+    that page reads them from the system's cache instead of the disk; an album asked for while
+    another is read replaces any still waiting."""
+
+    def __init__(self):
+        self.wanted, self.reading = None, False
+        self.lock = threading.Lock()
+
+    def ask(self, folder: Path):
+        with self.lock:
+            self.wanted = folder
+            if self.reading:
+                return
+            self.reading = True
+        threading.Thread(target=self._run, name="web-warm", daemon=True).start()
+
+    def _run(self):
+        while True:
+            with self.lock:
+                folder, self.wanted = self.wanted, None
+                if folder is None:
+                    self.reading = False
+                    return
+            try:
+                tracks_of(folder)
+            except OSError:
+                pass
+
+
+WARMER = Warmer()
+
+
 def tracks_of(folder: Path):
     """[(file name, fields.read() values or None when unreadable)] of the folder's tracks."""
     out = []
