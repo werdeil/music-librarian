@@ -216,7 +216,7 @@ def test_track_marked_awaited(d):
 def test_album_marked_awaited_leaves_the_review(d):
     response = d.client.post("/library/album/awaited",
                              data={"csrf": d.token, "folder": "Beyonce/4", "list": "lyrics", "at": "0"})
-    assert response.location.endswith("/library/album?folder=Beyonce/4&list=lyrics&at=0")
+    assert response.location.endswith("/library/lyrics")                 # no other album left
     assert tile(d) is None
     page = settled(d, "/library/lyrics")
     assert "Every track without lyrics is sorted out." in page and "awaited: 2" in page

@@ -306,14 +306,20 @@ def register(app, ctx, index, later):
 
     @app.post("/library/album/later")
     def album_later():
-        """Put the album off to the end of the list of tracks without lyrics, then open the album
-        that now stands where it stood, the first one past the end; the list once none is left."""
+        """Put the album off to the end of the list of tracks without lyrics, unless it left the
+        list, then step on (see step_on)."""
         rel = request.form.get("folder", "")
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
-        later.put("lyrics", rel)
+        if rel in [a.folder for a in work_list("lyrics") or []]:
+            later.put("lyrics", rel)
+        return step_on(rel, request.form.get("at", 0, type=int))
+
+    def step_on(rel, at):
+        """Open the album of the list of tracks without lyrics now standing at `at`, where `rel`
+        stood, the first one past the end; the list once none but `rel` is left."""
         folders = [a.folder for a in work_list("lyrics") or []]
-        at = min(request.form.get("at", 0, type=int), max(len(folders) - 1, 0))
+        at = min(at, max(len(folders) - 1, 0))
         following = next((i for i in (at, 0) if i < len(folders) and folders[i] != rel), None)
         if following is None:
             return redirect(url_for("missed_lyrics"))
@@ -321,8 +327,8 @@ def register(app, ctx, index, later):
 
     @app.post("/library/album/awaited")
     def await_album_lyrics():
-        """Mark every track of the album the album list holds without lyrics as awaited, then show
-        the album again."""
+        """Mark every track of the album the album list holds without lyrics as awaited, then step
+        on in the list of tracks without lyrics when the album was opened from it, else show it again."""
         rel = request.form.get("folder", "")
         if library.album_folder(ctx.root, rel) is None:
             abort(404)
@@ -331,6 +337,8 @@ def register(app, ctx, index, later):
         catalog = index.catalog()
         if catalog is not None:
             awaited.mark(ctx.state_dir, list(catalog.unsorted(rel).values()))
+        if place().get("list") == "lyrics":
+            return step_on(rel, place()["at"])
         return redirect(url_for("album_page", folder=rel, **place()))
 
     @app.get("/library/cover")

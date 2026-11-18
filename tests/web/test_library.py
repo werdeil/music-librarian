@@ -780,6 +780,20 @@ def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
     assert "/library/album/later" not in page
 
 
+def test_album_sorted_out_steps_on_in_the_lyrics_list(dashboard):
+    settled(lambda: dashboard.client.get("/library/lyrics", headers=EN))
+    form = {"csrf": dashboard.token, "folder": "Beyonce/4", "list": "lyrics", "at": "0"}
+    response = dashboard.client.post("/library/album/awaited", data=form)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
+    page = page.get_data(as_text=True)
+    assert "Albums left: 1" in page and ">Later</button>" not in page
+    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0">Next →</a>' in page
+    response = dashboard.client.post("/library/album/later", data=form)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    assert not (dashboard.state / "review-later.json").exists()          # nothing put off
+
+
 def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
     settled(lambda: dashboard.client.get("/library/repeats"))
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)

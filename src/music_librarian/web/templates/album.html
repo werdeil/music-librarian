@@ -9,7 +9,7 @@
                            else t.work_left.format(n=work.total) }}</span>
     <span class="work-steps">
     {% if work.previous %}<a class="button" href="{{ work.previous }}">{{ t.work_previous }}</a>{% endif %}
-    {% if work.name == 'lyrics' %}
+    {% if work.name == 'lyrics' and work.position is not none %}
     <form method="post" action="{{ url_for('album_later') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="folder" value="{{ folder }}">
