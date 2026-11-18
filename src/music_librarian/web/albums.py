@@ -15,7 +15,7 @@ from music_librarian.lyrics import INSTRUMENTAL, awaited
 from music_librarian.media import artwork, fields, metadata_cache, tags
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library, query
-from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts
+from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, timed
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
 MAX_UPLOAD = 32 * 1024 * 1024
@@ -152,16 +152,18 @@ def register(app, ctx, index, later):
 
     def album_view(rel, folder, status=200, **shown):
         """The album's page, `shown` adding what a form posted to it asks to show."""
-        tracks = library.tracks_of(folder)
+        with timed("files"):
+            tracks = library.tracks_of(folder)
+            names = [n for n, _ in tracks]
+            lyrics = library.with_lyrics(folder, tracks)
+            gains = library.replaygain_state(folder, names)
         repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        names = [n for n, _ in tracks]
-        lyrics = library.with_lyrics(folder, tracks)
-        catalog = index.catalog()
-        gains = library.replaygain_state(folder, names)
         for name, values in tracks:
             if values:
                 values[fields.REPLAYGAIN] = gains[name]
+        with timed("list"):
+            catalog, work = index.catalog(), in_work_list(rel)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
                                disc_of=library.disc_of,
@@ -173,7 +175,7 @@ def register(app, ctx, index, later):
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
-                               followed=followed(rel), work=in_work_list(rel), **shown)
+                               followed=followed(rel), work=work, **shown)
         return page, status
 
     @app.get("/library/album")

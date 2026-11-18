@@ -8,14 +8,16 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, url_for
+import time as clock
+
+from flask import Flask, g, jsonify, render_template, request, url_for
 
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, playcounts, reviews, security
-from music_librarian.web.common import place, texts, when
+from music_librarian.web.common import place, server_timing, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS
@@ -101,6 +103,16 @@ def create_app(ctx: Context, build_now=False):
     def start_builds():
         for value in built_in_background:
             value.start()
+
+    @app.before_request
+    def start_timing():
+        g.started = clock.perf_counter()
+
+    @app.after_request
+    def timing_header(response):
+        if "started" in g:
+            response.headers["Server-Timing"] = server_timing(g.started)
+        return response
 
     @app.before_request
     def start_builds_on_request():

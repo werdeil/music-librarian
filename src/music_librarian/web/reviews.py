@@ -33,6 +33,7 @@ from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
+from music_librarian.web.common import timed
 from music_librarian.web.library import WARMER, Refreshed, cache_stamp, cached_files, part, without_lyrics
 
 
@@ -296,10 +297,11 @@ def register(app, ctx, index, later):
 
     def waiting():
         if "waiting" not in g:
-            albums = index.get()
-            g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
-                             genres=genre_review.item()[1],
-                             lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
+            with timed("reviews"):
+                albums = index.get()
+                g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
+                                 genres=genre_review.item()[1],
+                                 lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         return g.waiting
 
     @app.get("/reviews")

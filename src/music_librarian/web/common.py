@@ -1,9 +1,11 @@
 """What the dashboard's pages share: times as shown, the language's strings, a page of a list,
 a refusal, and the pass a form queues."""
 import math
+import time
+from contextlib import contextmanager
 from datetime import datetime
 
-from flask import abort, redirect, render_template, request, url_for
+from flask import abort, g, redirect, render_template, request, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -12,6 +14,22 @@ from music_librarian.web.passes import OPTIONS
 
 WORK_LISTS = {"repeats": "repeated_values", "lyrics": "missed_lyrics",   # name: its page
               "search": "library_page"}
+
+
+@contextmanager
+def timed(name):
+    """Add the time the block takes to the response's Server-Timing header, as `name`."""
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        g.setdefault("timings", []).append((name, time.perf_counter() - start))
+
+
+def server_timing(started):
+    """The Server-Timing header of a request handled since `started` (time.perf_counter())."""
+    parts = [*g.get("timings", []), ("total", time.perf_counter() - started)]
+    return ", ".join(f"{name};dur={seconds * 1000:.1f}" for name, seconds in parts)
 
 
 def when(timestamp):

@@ -385,3 +385,8 @@ def test_lists_built_at_startup_only_when_asked(ctx, monkeypatch, build_now, sta
     monkeypatch.setattr(library.Refreshed, "start", lambda self: calls.append(self) or (None, 0))
     web.create_app(ctx, build_now=build_now)
     assert len(calls) == started
+
+
+def test_every_response_says_how_long_the_app_took(client):
+    timing = client.get("/").headers["Server-Timing"]
+    assert "reviews;dur=" in timing and timing.split(", ")[-1].startswith("total;dur=")
