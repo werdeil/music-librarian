@@ -26,7 +26,8 @@
     });
 }());
 
-// On a phone, a track's card folds to its number and title; one holding a repeated value starts open.
+// On a phone, a track's card folds to its number and title; one holding a repeated value or to sort
+// out starts open.
 (function () {
     "use strict";
 
@@ -37,7 +38,7 @@
             button.setAttribute("aria-expanded", open ? "true" : "false");
         }
         button.hidden = false;
-        show(row.querySelector("input.repeated") !== null);
+        show(row.querySelector("input.repeated") !== null || row.classList.contains("to-sort"));
         button.addEventListener("click", function () {
             show(row.classList.contains("folded"));
         });
@@ -358,12 +359,15 @@
     });
 }());
 
-// The awaited box marks its track at once, apart from the form; a mark refused leaves the box as it was.
+// The awaited box marks its track at once, apart from the form, and its row says so; a mark refused
+// leaves the box as it was.
 (function () {
     "use strict";
 
     document.querySelectorAll("[data-awaited]").forEach(function (box) {
         var form = box.form;
+        var row = box.closest("tr").previousElementSibling;
+        var shown = row.querySelector("[data-lyrics-toggle]");
 
         box.addEventListener("change", function () {
             var data = new FormData();
@@ -378,6 +382,8 @@
                         throw new Error(response.statusText);
                     }
                     box.defaultChecked = box.checked;
+                    row.classList.toggle("to-sort", !box.checked);
+                    shown.textContent = box.checked ? box.dataset.shownAwaited : box.dataset.shownToSort;
                 })
                 .catch(function () {
                     box.checked = box.defaultChecked;

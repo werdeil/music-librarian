@@ -813,6 +813,15 @@ table.tracks input {
     width: 8rem;
 }
 
+table.tracks tr.to-sort > td {
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+table.tracks tr.to-sort .t-lyrics button {
+    color: var(--warning);
+    font-weight: 600;
+}
+
 input.repeated {
     border-color: var(--warning);
 }
@@ -1202,6 +1211,16 @@ table.found-tracks td.number {
         gap: 0.4rem 0.6rem;
         padding: 0.6rem 0;
         border-bottom: 1px solid var(--border-color);
+    }
+
+    table.tracks tr.to-sort {
+        background: color-mix(in srgb, var(--warning) 12%, transparent);
+        box-shadow: inset 3px 0 0 var(--warning);
+        padding-left: 0.6rem;
+    }
+
+    table.tracks tr.to-sort > td {
+        background: none;
     }
 
     table.tracks tr[hidden] {

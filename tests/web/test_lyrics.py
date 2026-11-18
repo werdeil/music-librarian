@@ -197,12 +197,26 @@ def mark(d, file, wanted="1"):
                          data={"csrf": d.token, "folder": "Beyonce/4", "file": file, "awaited": wanted})
 
 
+def test_tracks_to_sort_out_stand_out(d):
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert page.count('<tr class="to-sort">') == 2 and page.count('lyrics">to sort out</button>') == 2
+    assert "data-open" not in page
+    settled(d, "/library/lyrics")
+    page = d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN).get_data(as_text=True)
+    assert 'id="lyrics-0" data-lyrics-row>' in page                     # it has lyrics
+    assert 'id="lyrics-1" data-lyrics-row data-open>' in page
+    assert 'id="lyrics-2" data-lyrics-row data-open>' in page
+    mark(d, "02 T2.m4a")
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert page.count('<tr class="to-sort">') == 1
+
+
 def test_track_marked_awaited(d):
     assert mark(d, "02 T2.m4a").get_json() == {"awaited": True}
     assert (d.state / awaited.FILE).read_text(encoding="utf-8").splitlines()[-1] == "Beyonce — T2 — 4 — 0:00"
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert 'data-file="02 T2.m4a"' in page and 'title="See and edit the lyrics">awaited</button>' in page
-    assert re.search(r'data-file="02 T2.m4a"\s+data-failed="[^"]+" checked>', page)
+    assert re.search(r'data-file="02 T2.m4a"[^>]* checked>', page)
     assert "Lyrics awaited for every track without lyrics" in page
     assert tile(d) == 1
     lyrics_page = settled(d, "/library/lyrics")

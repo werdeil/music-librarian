@@ -151,7 +151,9 @@
                                placeholder="{{ t.mixed if disc_names[ns.disc] is none else t.field_discsubtitle }}" aria-label="{{ t.field_discsubtitle }}"></label></td>
                 </tr>
                 {% endif %}
-                <tr>
+                {% set state = lyrics.get(file) %}
+                {% set to_sort = values and state is sameas false and file not in awaited %}
+                <tr{% if to_sort %} class="to-sort"{% endif %}>
                 {% if values %}
                     {% for name in ('disc', 'track') %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}
@@ -167,10 +169,10 @@
                 {% else %}
                     <td class="t-disc"></td><td colspan="4" class="warning">{{ t.unreadable }} <code>{{ file }}</code></td><td class="t-grouping"></td>
                 {% endif %}
-                    {% set state = lyrics.get(file) %}
                     {% set shown = t.lyrics_present if state is sameas true else t.lyrics_instrumental if state
-                                   else t.lyrics_awaited if file in awaited else t.lyrics_none %}
-                    <td class="t-lyrics{{ '' if state is sameas true else ' muted' }}" data-label="{{ t.lyrics }}">
+                                   else t.lyrics_awaited if file in awaited else t.lyrics_to_sort if to_sort
+                                   else t.lyrics_none %}
+                    <td class="t-lyrics{{ '' if state is sameas true or to_sort else ' muted' }}" data-label="{{ t.lyrics }}">
                         {%- if values -%}
                         <button type="button" class="link" data-lyrics-toggle="lyrics-{{ ns.i - 1 }}" aria-controls="lyrics-{{ ns.i - 1 }}"
                                 aria-expanded="true" title="{{ t.lyrics_open }}">{{ shown }}</button>
@@ -194,7 +196,8 @@
                 {% set input = 't' ~ i ~ '.lyrics' %}
                 {% set text = values.lyrics[0] if values.lyrics else '' %}
                 {% set typed = form.get(input, text) if form else text %}
-                <tr class="lyrics-row" id="lyrics-{{ i }}" data-lyrics-row{% if form and typed.replace('\r\n', '\n').strip() != text %} data-open{% endif %}>
+                <tr class="lyrics-row" id="lyrics-{{ i }}" data-lyrics-row{% if (form and typed.replace('\r\n', '\n').strip() != text)
+                    or (not form and to_sort and work and work.name == 'lyrics' and unsorted <= 3) %} data-open{% endif %}>
                     <td colspan="{{ width }}" data-full-row>
                         <textarea name="{{ input }}" class="lyrics" rows="8" aria-label="{{ t.lyrics }} · {{ file }}"
                                   {%- if not ctx.requests %} readonly{% endif %}>{{ typed }}</textarea>
@@ -206,7 +209,8 @@
                                     data-running="{{ t.lookup_running }}">{{ t.lookup_button }}</button>
                             {% if not text %}
                             <label><input type="checkbox" data-awaited="{{ url_for('await_lyrics') }}" data-file="{{ file }}"
-                                          data-failed="{{ t.lyrics_awaited_failed }}"
+                                          data-failed="{{ t.lyrics_awaited_failed }}" data-shown-awaited="{{ t.lyrics_awaited }}"
+                                          data-shown-to-sort="{{ t.lyrics_to_sort }}"
                                           {%- if file in awaited %} checked{% endif %}> {{ t.lyrics_awaited_box }}</label>
                             {% endif %}
                             <span class="muted" data-lookup-status aria-live="polite"></span>
