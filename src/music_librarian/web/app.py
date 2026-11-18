@@ -62,14 +62,15 @@ def inbox_state(inbox: Path):
 def create_app(ctx: Context):
     app = Flask(__name__)
     token = security.register(app, ctx)
-    waiting, queues = reviews.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
+    waiting, queues = reviews.register(app, ctx, index)
     history.register(app, ctx)
     albums.register(app, ctx, index)
     orphans_waiting, orphans = playcounts.register(app, ctx)
     built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues
-    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
+    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,),
+             "reviews_page": (*queues, index.albums),
              "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
              "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
              "lyrion_page": orphans, "lyrion_orphan": orphans}
@@ -134,7 +135,6 @@ def create_app(ctx: Context):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         everything = index.get()
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
-                    lyrics=None if everything is None else sum(a.without_lyrics for a in everything),
                     repeats=None if everything is None else sum(a.repeated for a in everything))
         return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
 

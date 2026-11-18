@@ -5,7 +5,7 @@
 <section>
     <h1 class="visually-hidden">{{ t.reviews }}</h1>
     <p class="muted">{{ t.reviews_intro }}</p>
-    {% if none in (credits, groups, bare) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
+    {% if none in (credits, groups, lyrics) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
 </section>
 <section class="review-card">
     <h2>{{ t.split_review }}</h2>
@@ -43,5 +43,16 @@
     {% else %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
     {% endif %}
+</section>
+<section class="review-card">
+    <h2>{{ t.tracks_without_lyrics_title }}</h2>
+    {% if lyrics is none %}<p class="muted">{{ t.tile_building }}</p>
+    {% elif lyrics %}<p class="review-waiting">{{ t.lyrics_waiting.format(n=lyrics) }}</p>
+    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
+    <div class="actions">
+        {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>
+        <a class="button" href="{{ url_for('missed_lyrics') }}">{{ t.lyrics_albums_link }}</a>{% endif %}
+        <a class="button" href="{{ url_for('awaited_page') }}">{{ t.rules_awaited_link.format(n=rules.awaited) }}</a>
+    </div>
 </section>
 {% endblock %}

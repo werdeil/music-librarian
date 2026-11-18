@@ -175,11 +175,12 @@ def test_tracks_without_lyrics(d):
 
 
 def settled(d, address):
-    """The page at `address`, once the builds its first request started have ended."""
-    d.client.get(address, headers=EN)
-    for thread in threading.enumerate():
-        if thread.name == "web-build":
-            thread.join()
+    """The page at `address`, once the builds under way and those its requests start have ended."""
+    for _ in range(2):
+        d.client.get(address, headers=EN)
+        for thread in threading.enumerate():
+            if thread.name == "web-build":
+                thread.join()
     return d.client.get(address, headers=EN).get_data(as_text=True)
 
 
@@ -221,6 +222,21 @@ def test_album_marked_awaited_leaves_the_review(d):
     assert "Every track without lyrics is sorted out." in page and "awaited: 2" in page
     album = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert "Lyrics awaited for every track without lyrics" not in album
+
+
+def test_tracks_without_lyrics_on_the_reviews_page(d):
+    page = settled(d, "/reviews")
+    card = page[page.index("<h2>Tracks without lyrics</h2>"):]
+    assert "Tracks to sort out: 2" in card
+    assert "/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0" in card
+    assert 'href="/reviews/lyrics/awaited">Lyrics awaited (0)</a>' in card
+    assert '<span class="count" title="Questions awaiting an answer">2</span>' in page
+    mark(d, "02 T2.m4a")
+    mark(d, "03 T3.m4a")
+    card = settled(d, "/reviews")
+    assert "No question left." in card and "Lyrics awaited (2)" in card and "list=lyrics" not in card
+    rules = d.client.get("/reviews/lyrics/awaited", headers=EN).get_data(as_text=True)
+    assert "<tr><td>Beyonce</td><td>T3</td><td>4</td><td>0:00</td></tr>" in rules
 
 
 def test_lyrics_written_no_longer_awaited(d):

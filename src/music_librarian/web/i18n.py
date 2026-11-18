@@ -29,6 +29,12 @@ TRANSLATIONS = {
         "rules_genres_link": "Genres validés ({n})",
         "rules_aliases_link": "Réponses ({n})",
         "rules_decisions_link": "Décisions ({n})",
+        "rules_awaited": "Paroles attendues",
+        "rules_awaited_link": "Paroles attendues ({n})",
+        "rules_awaited_intro": ("Les morceaux dont aucun fournisseur n'a encore les paroles, marqués depuis "
+                                "la page de leur album : enrich les cherche toujours à chaque passage."),
+        "lyrics_waiting": "Morceaux à classer : {n}",
+        "lyrics_albums_link": "Albums",
         "rules_genres_intro": ("Chaque genre validé, les noms qui le désignent et les pistes de la "
                                "bibliothèque qu'il regroupe : import et enrich écrivent ces genres."),
         "rules_aliases_intro": ("Les orthographes réécrites sous un autre nom, et les artistes reconnus "
@@ -386,7 +392,9 @@ TRANSLATIONS = {
         "questions_waiting": "Questions en attente de réponse",
         "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
                           "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
-                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants."),
+                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants. "
+                          "Les morceaux sans paroles se classent album par album, instrumentaux ou "
+                          "paroles attendues."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
         "credits_waiting": "Crédits en attente de réponse : {n}",
@@ -477,6 +485,12 @@ TRANSLATIONS = {
         "rules_genres_link": "Validated genres ({n})",
         "rules_aliases_link": "Answers ({n})",
         "rules_decisions_link": "Decisions ({n})",
+        "rules_awaited": "Lyrics awaited",
+        "rules_awaited_link": "Lyrics awaited ({n})",
+        "rules_awaited_intro": ("The tracks whose lyrics no provider carries yet, marked from their album's "
+                                "page: enrich still looks them up on every pass."),
+        "lyrics_waiting": "Tracks to sort out: {n}",
+        "lyrics_albums_link": "Albums",
         "rules_genres_intro": ("Each validated genre, the names that stand for it and the tracks of the "
                                "library it gathers: import and enrich write these genres."),
         "rules_aliases_intro": ("The spellings rewritten as another name, and the artists known to differ: "
@@ -829,7 +843,8 @@ TRANSLATIONS = {
         "questions_waiting": "Questions awaiting an answer",
         "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does "
                           "not know, one at a time: each answer is saved at once in the decisions, "
-                          "aliases or genres file, and holds for the passes to come."),
+                          "aliases or genres file, and holds for the passes to come. The tracks without "
+                          "lyrics are sorted out album by album, instrumental or lyrics awaited."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
         "credits_waiting": "Credits awaiting an answer: {n}",

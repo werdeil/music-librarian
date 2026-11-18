@@ -42,15 +42,27 @@ def line(meta):
     return f" {SEPARATOR} ".join([*names, duration]).strip()
 
 
-def _parse(text):
-    """(key, seconds or None) of a line, None for a comment or a line that cannot be read."""
+def _fields(text):
+    """[artist, title, album, duration] of a line as written, None for a comment or a line that
+    cannot be read."""
     if not text.strip() or text.lstrip().startswith("#"):
         return None
     parts = [p.strip() for p in text.split(SEPARATOR)]
-    if not 2 <= len(parts) <= 4:
+    return parts + [""] * (4 - len(parts)) if 2 <= len(parts) <= 4 else None
+
+
+def _parse(text):
+    """(key, seconds or None) of a line, None for a comment or a line that cannot be read."""
+    fields = _fields(text)
+    if fields is None:
         return None
-    artist, title, album, duration = parts + [""] * (4 - len(parts))
+    artist, title, album, duration = fields
     return (_fold(artist), _fold(title), _fold(album)), _seconds(duration)
+
+
+def entries(state_dir: Path):
+    """The file's tracks as written, (artist, title, album, duration), in order; unreadable lines left out."""
+    return [tuple(f) for f in map(_fields, _lines(Path(state_dir) / FILE)) if f]
 
 
 def _close(seconds, other):

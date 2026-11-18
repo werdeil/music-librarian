@@ -27,12 +27,13 @@ from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.review import pending, suggestion
 from music_librarian.dedupe.similar import find_groups
 from music_librarian.enrich import genres
+from music_librarian.lyrics import awaited
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
-from music_librarian.web.library import Refreshed, cache_stamp, cached_files, part
+from music_librarian.web.library import Refreshed, cache_stamp, cached_files, part, without_lyrics
 
 
 LATER = "review-later.json"
@@ -262,29 +263,36 @@ class GenreReview:
             genres.remove_from_list(self.path, genre, alias)
 
 
-def register(app, ctx):
+def register(app, ctx, index):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built
-    (counted once per request), and the queues, Refreshed values."""
+    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n}, n None until its queue (for the
+    lyrics, the album list of `index`, a library.Index) is first built (counted once per request),
+    and the queues, Refreshed values."""
     later = Postponed(ctx.state_dir)
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
 
     def waiting():
         if "waiting" not in g:
+            albums = index.get()
             g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
-                             genres=genre_review.item()[1])
+                             genres=genre_review.item()[1],
+                             lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         return g.waiting
 
     @app.get("/reviews")
     def reviews_page():
         left = waiting()
+        albums = index.get()
+        bare = without_lyrics(albums) if albums else []
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
+                               lyrics=left["lyrics"], first_bare=bare[0].folder if bare else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
-                                          genres=len(genres.entries(genre_review.path))))
+                                          genres=len(genres.entries(genre_review.path)),
+                                          awaited=len(awaited.entries(ctx.state_dir))))
 
     @app.post("/reviews/<review>/later")
     def review_later(review):
@@ -307,6 +315,11 @@ def register(app, ctx):
         return render_template("rules.html", kind="aliases", path=reviews.aliases,
                                unified=[(a, b) for a, kind, b in entries if kind == "=>"],
                                different=[(a, b) for a, kind, b in entries if kind == "!="])
+
+    @app.get("/reviews/lyrics/awaited")
+    def awaited_page():
+        return render_template("rules.html", kind="awaited", path=ctx.state_dir / awaited.FILE,
+                               tracks=awaited.entries(ctx.state_dir))
 
     @app.get("/reviews/split/decisions")
     def decisions_page():
