@@ -15,7 +15,7 @@ from pathlib import Path
 
 from music_librarian import repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
-from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
+from music_librarian.lyrics import INSTRUMENTAL, awaited, is_instrumental
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import query
@@ -39,11 +39,12 @@ class Album:
     artist: str
     title: str
     tracks: int
-    without_lyrics: int = 0
+    without_lyrics: int = 0   # neither instrumental nor awaited
     compilation: bool = False
     repeated: int = 0   # tracks with a field holding a value twice or several values
     year: str = ""
     changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
+    awaited: int = 0
 
 
 SORTS = {
@@ -233,7 +234,7 @@ class Index:
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
-        self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
+        self.albums = Refreshed(lambda: (cache_stamp(state_dir), awaited_stamp(state_dir)), self._build)
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -247,20 +248,25 @@ class Index:
     def _build(self):
         if cache_stamp(self.state_dir)[0] is None:
             return Catalog([], [])
-        folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
+        folders = defaultdict(list)
+        bare, waiting, repeated = defaultdict(int), defaultdict(int), defaultdict(int)
         tracks, rels = [], {}
+        marked = awaited.Awaited(self.state_dir)
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
         for path, snap in files:
             folder = path.parent
             rel = rels.setdefault(folder, str(folder.relative_to(self.root)))
             folders[folder].append(snap["tags"])
-            bare[folder] += not snap.get("lyrics")
+            expected = not snap.get("lyrics") and marked.holds(metadata_cache.metadata(snap))
+            bare[folder] += not snap.get("lyrics") and not expected
+            waiting[folder] += expected
             twice = bool(repeats.findings(repeats.from_snapshot(snap)))
             repeated[folder] += twice
             flags = [name for name, held in (("lyrics", snap.get("lyrics")), ("cover", snap.get("cover")),
                                               ("replaygain", snap.get("replaygain")), ("repeated", twice),
-                                              ("compilation", first(snap["tags"], "compilation") == "1"))
+                                              ("compilation", first(snap["tags"], "compilation") == "1"),
+                                              ("awaited", expected))
                      if held]
             tracks.append(query.track_of(rel, path.name, snap, flags))
         albums = []
@@ -272,7 +278,7 @@ class Index:
             year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
-                                year, folder_changed(folder)))
+                                year, folder_changed(folder), waiting[folder]))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
@@ -491,19 +497,28 @@ def replaygain_state(folder: Path, names):
     return out
 
 
-def without_lyrics(albums, root: Path, state_dir: Path):
-    """[(album, the time its tracks were last looked up in vain or None)] of the albums with
-    tracks without lyrics, the most such tracks first."""
-    missed = {folder: at for folder, _n, at in missed_albums(root, state_dir)}
-    bare = [a for a in albums if a.without_lyrics]
-    return [(a, missed.get(a.folder)) for a in sorted(bare, key=lambda a: (-a.without_lyrics, a.folder))]
+def without_lyrics(albums):
+    """The albums with tracks without lyrics, neither instrumental nor awaited, the most such
+    tracks first."""
+    return sorted((a for a in albums if a.without_lyrics), key=lambda a: (-a.without_lyrics, a.folder))
 
 
-def missed_albums(root: Path, state_dir: Path):
-    """[(folder relative to the root, tracks looked up in vain, last lookup)] of the albums of
-    the library, the most tracks first."""
-    folders = defaultdict(list)
-    for path, at in misses.recorded(state_dir).items():
-        if path.is_relative_to(root) and path.exists():
-            folders[str(path.parent.relative_to(root))].append(at)
-    return sorted(((f, len(ats), max(ats)) for f, ats in folders.items()), key=lambda a: (-a[1], a[0]))
+def awaited_stamp(state_dir: Path):
+    """What changes when the awaited tracks do: the time and size of their file, None without one."""
+    try:
+        st = os.stat(state_dir / awaited.FILE)
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size
+
+
+def awaited_state(folder: Path, names, state_dir: Path):
+    """{file name: whether the track is awaited} of the folder's tracks, read from the files."""
+    marked = awaited.Awaited(state_dir)
+    out = {}
+    for name in names:
+        try:
+            out[name] = marked.holds(metadata_cache.metadata(tags.read_snapshot(folder / name)))
+        except Exception:
+            out[name] = False
+    return out

@@ -111,8 +111,6 @@ TRANSLATIONS = {
         "long_since": "Parcourt toute la bibliothèque, pas seulement les dossiers changés.",
         "long_rescan": ("Relit d'abord chaque fichier : une vingtaine de minutes pour 25 000 pistes "
                         "sur disque dur."),
-        "long_retry": ("Cherche en ligne chaque morceau cherché en vain depuis moins de {days} jours : "
-                       "environ 1,5 s par morceau."),
         "long_force": "Relit chaque fichier : une vingtaine de minutes pour 25 000 pistes sur disque dur.",
         "passes": {"import": "Importer l'Inbox", "organize": "Ranger la bibliothèque",
                    "enrich": "Compléter genres, gain, pochettes et paroles",
@@ -123,7 +121,6 @@ TRANSLATIONS = {
         "queued": "En file",
         "opt_since": "dossiers changés depuis le dernier passage (--since)",
         "opt_rescan": "relire d'abord toute la bibliothèque (--rescan)",
-        "opt_retry": "chercher aussi les paroles cherchées en vain récemment (--retry)",
         "opt_genres": "aligner les genres sur la liste validée",
         "opt_replaygain": "mesurer le ReplayGain manquant",
         "opt_covers": "intégrer folder.jpg dans les pistes",
@@ -155,6 +152,7 @@ TRANSLATIONS = {
         "sort_recent": "Ajoutés ou modifiés récemment",
         "only_all": "Tous",
         "only_lyrics": "Sans paroles",
+        "only_awaited": "Paroles attendues",
         "only_repeats": "Valeurs répétées",
         "only_compilations": "Compilations",
         "only_composer": "Sans compositeur",
@@ -200,6 +198,7 @@ TRANSLATIONS = {
         "q_disc": "N° de disque",
         "q_duration": "Durée (min)",
         "q_lyrics": "Paroles",
+        "q_awaited": "Paroles attendues",
         "q_cover": "Pochette intégrée",
         "q_replaygain": "ReplayGain",
         "q_format": "Format",
@@ -286,7 +285,10 @@ TRANSLATIONS = {
                          "ajoutez-le à MUSIC_LIBRARIAN_WEB_HOSTS."),
         "lyrics": "Paroles",
         "lyrics_present": "oui",
-        "lyrics_missed": "Cherchées en vain le {date}.",
+        "lyrics_awaited": "attendues",
+        "lyrics_awaited_box": "Pas encore disponibles, continuer à chercher",
+        "lyrics_awaited_failed": "Marque non enregistrée : réessayez.",
+        "awaited_album_button": "Paroles attendues pour tous les morceaux sans paroles",
         "lyrics_instrumental": "instrumental",
         "lyrics_instrumental_box": "Instrumental",
         "lyrics_none": "—",
@@ -313,11 +315,13 @@ TRANSLATIONS = {
         "tracks_without_lyrics_title": "Morceaux sans paroles",
         "tracks_without_lyrics": "Morceaux sans paroles : {n}",
         "without_lyrics": "Sans paroles",
-        "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles, le plus d'abord. "
-                              "enrich les cherche chaque semaine ; un morceau cherché en vain n'est "
-                              "recherché qu'après {days} jours, ou tout de suite depuis la page de l'album. "
-                              "Un morceau marqué instrumental n'y figure pas."),
-        "lyrics_none_missing": "Tous les morceaux ont des paroles.",
+        "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles et ne sont pas encore "
+                              "classés, le plus d'abord : depuis la page de l'album, marquez chacun "
+                              "instrumental, ou paroles attendues pour qu'il quitte cette liste. enrich "
+                              "cherche chaque semaine les paroles de tous les morceaux qui n'en ont pas, "
+                              "attendus compris."),
+        "lyrics_none_missing": "Tous les morceaux sans paroles sont classés.",
+        "tracks_awaited": "Morceaux aux paroles attendues : {n}",
         "tile_lyrics": "Morceaux sans paroles",
         "tracks_repeated_title": "Valeurs répétées",
         "tracks_repeated": "Morceaux aux valeurs répétées : {n}",
@@ -335,7 +339,6 @@ TRANSLATIONS = {
                              "ne prennent qu'une valeur, sans « ; »."),
         "repeated_differ": "Plusieurs valeurs : garder la bonne seule, sans « ; » dans un titre ou un album",
         "repeated_same": "Une valeur en double : enrich n'en garde qu'une",
-        "last_lookup": "Dernière recherche vaine",
         "genre_review": "Genres hors de la liste validée",
         "genres_waiting": "Genres en attente de réponse : {n}",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
@@ -432,7 +435,6 @@ TRANSLATIONS = {
             "audio growth (MB)": "audio en plus (Mo)", "written": "écrites", "cleared": "effacées",
             "already": "déjà présentes", "not found": "introuvables", "rejected": "rejetées",
             "unreachable": "injoignables", "instrumental": "instrumentaux",
-            "searched recently": "cherchées récemment",
             "no metadata": "sans métadonnées", "credits to split": "crédits à découper",
             "tags to rewrite": "tags à réécrire", "awaiting decision": "en attente de décision",
             "protected": "protégés", "decisions": "décisions", "review": "revue",
@@ -555,8 +557,6 @@ TRANSLATIONS = {
         "start_dry_run": "Preview",
         "long_since": "Goes through the whole library, not only the folders changed.",
         "long_rescan": "Reads every file first: about 20 minutes for 25,000 tracks on a hard disk.",
-        "long_retry": ("Looks up online every track looked up in vain within the last {days} days: "
-                       "about 1.5 s a track."),
         "long_force": "Reads every file again: about 20 minutes for 25,000 tracks on a hard disk.",
         "passes": {"import": "Import the Inbox", "organize": "File the library",
                    "enrich": "Fill in genres, gain, covers and lyrics",
@@ -567,7 +567,6 @@ TRANSLATIONS = {
         "queued": "Queued",
         "opt_since": "folders changed since the last pass (--since)",
         "opt_rescan": "read the whole library again first (--rescan)",
-        "opt_retry": "look up the lyrics found in vain recently too (--retry)",
         "opt_genres": "align the genres with the validated list",
         "opt_replaygain": "measure the missing ReplayGain",
         "opt_covers": "embed folder.jpg into the tracks",
@@ -598,6 +597,7 @@ TRANSLATIONS = {
         "sort_recent": "Recently added or changed",
         "only_all": "All",
         "only_lyrics": "Without lyrics",
+        "only_awaited": "Lyrics awaited",
         "only_repeats": "Repeated values",
         "only_compilations": "Compilations",
         "only_composer": "Without composer",
@@ -643,6 +643,7 @@ TRANSLATIONS = {
         "q_disc": "Disc number",
         "q_duration": "Duration (min)",
         "q_lyrics": "Lyrics",
+        "q_awaited": "Lyrics awaited",
         "q_cover": "Embedded cover",
         "q_replaygain": "ReplayGain",
         "q_format": "Format",
@@ -729,7 +730,10 @@ TRANSLATIONS = {
                          "add it to MUSIC_LIBRARIAN_WEB_HOSTS."),
         "lyrics": "Lyrics",
         "lyrics_present": "yes",
-        "lyrics_missed": "Looked up in vain on {date}.",
+        "lyrics_awaited": "awaited",
+        "lyrics_awaited_box": "Not available yet, keep looking",
+        "lyrics_awaited_failed": "Mark not saved: try again.",
+        "awaited_album_button": "Lyrics awaited for every track without lyrics",
         "lyrics_instrumental": "instrumental",
         "lyrics_instrumental_box": "Instrumental",
         "lyrics_none": "—",
@@ -756,11 +760,12 @@ TRANSLATIONS = {
         "tracks_without_lyrics_title": "Tracks without lyrics",
         "tracks_without_lyrics": "Tracks without lyrics: {n}",
         "without_lyrics": "Without lyrics",
-        "lyrics_page_intro": ("The albums whose tracks have no lyrics, the most first. enrich looks them "
-                              "up every week; a track looked up in vain is only looked up again after "
-                              "{days} days, or right away from the album's page. A track marked "
-                              "instrumental is left out."),
-        "lyrics_none_missing": "Every track has lyrics.",
+        "lyrics_page_intro": ("The albums whose tracks have no lyrics and are not sorted out yet, the "
+                              "most first: from the album's page, mark each instrumental, or lyrics "
+                              "awaited for it to leave this list. enrich looks up every week the lyrics "
+                              "of every track without them, awaited ones included."),
+        "lyrics_none_missing": "Every track without lyrics is sorted out.",
+        "tracks_awaited": "Tracks whose lyrics are awaited: {n}",
         "tile_lyrics": "Tracks without lyrics",
         "tracks_repeated_title": "Repeated values",
         "tracks_repeated": "Tracks with repeated values: {n}",
@@ -777,7 +782,6 @@ TRANSLATIONS = {
                              "value, without \";\"."),
         "repeated_differ": "Several values: keep only the right one, without \";\" in a title or an album",
         "repeated_same": "A value twice: enrich keeps it only once",
-        "last_lookup": "Last lookup in vain",
         "genre_review": "Genres outside the validated list",
         "genres_waiting": "Genres awaiting an answer: {n}",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",

@@ -12,12 +12,13 @@ TEXT, NUMBER, FLAG, FORMAT = "text", "number", "flag", "format"
 FIELDS = {"any": TEXT, "title": TEXT, "artist": TEXT, "albumartist": TEXT, "album": TEXT, "composer": TEXT,
           "genre": TEXT, "grouping": TEXT, "folder": TEXT, "tag": TEXT,
           "year": NUMBER, "track": NUMBER, "disc": NUMBER, "duration": NUMBER,
-          "lyrics": FLAG, "cover": FLAG, "replaygain": FLAG, "repeated": FLAG, "compilation": FLAG,
+          "lyrics": FLAG, "awaited": FLAG, "cover": FLAG, "replaygain": FLAG, "repeated": FLAG,
+          "compilation": FLAG,
           "format": FORMAT}
 GROUPS = (("text", ("any", "title", "artist", "albumartist", "album", "composer", "genre", "grouping",
                     "folder", "tag")),
           ("number", ("year", "track", "disc", "duration")),
-          ("file", ("lyrics", "cover", "replaygain", "format")),
+          ("file", ("lyrics", "awaited", "cover", "replaygain", "format")),
           ("state", ("repeated", "compilation")))
 OPERATORS = {TEXT: ("contains", "lacks", "is", "isnot", "starts", "filled", "empty", "several"),
              NUMBER: ("eq", "lt", "gt", "between", "filled", "empty"),
@@ -29,7 +30,8 @@ SNAPSHOT_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("al
                  "grouping": ("grouping",), "year": ("date", "year"), "track": ("tracknumber",),
                  "disc": ("discnumber",)}
 ANY_FIELDS = ("title", "artist", "albumartist", "album", "composer", "genre", "grouping")
-PRESETS = {"lyrics": ("lyrics:no",), "repeats": ("repeated:yes",), "compilations": ("compilation:yes",),
+PRESETS = {"lyrics": ("lyrics:no",), "awaited": ("awaited:yes",), "repeats": ("repeated:yes",),
+           "compilations": ("compilation:yes",),
            "composer": ("composer:empty",), "genre": ("genre:empty",), "cover": ("cover:no",),
            "replaygain": ("replaygain:no",)}
 SHOWN_ALWAYS = ("any", "title", "artist", "album")   # the track list's own columns
@@ -51,7 +53,7 @@ class Track:
     name: str                # the file's name in it
     values: dict             # {field of SNAPSHOT_KEYS: [values]}
     tags: dict               # every tag of the snapshot, {lowercase key: [values]}
-    flags: frozenset         # of lyrics, cover, replaygain, repeated, compilation
+    flags: frozenset         # of lyrics, awaited, cover, replaygain, repeated, compilation
     duration: float | None = None
     folded: dict = dataclass_field(default_factory=dict)
     text: str = ""           # what the search box matches, folded

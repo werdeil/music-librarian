@@ -113,7 +113,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert "Nothing to handle" in page and 'class="tile tile-' not in page and "Up to date:" not in page
-    assert page.count('class="tile-line tile-none"') == 1 and page.count('class="tile-line tile-info"') == 1
+    assert page.count('class="tile-line tile-none"') == 1 and "tile-info" not in page
     assert "(no validated list)" in page
 
 
@@ -124,8 +124,8 @@ def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):
     assert page.count('class="tile tile-todo"') == 1 and "Failed imports" in page
     assert "Nothing to handle" not in page
     ok = page[page.index("Up to date:"):]
-    assert ok.count('class="tile-line tile-ok"') == 3
-    assert "Credits to split" in ok and "Failed imports" not in ok
+    assert ok.count('class="tile-line tile-ok"') == 4
+    assert "Credits to split" in ok and "Tracks without lyrics" in ok and "Failed imports" not in ok
 
 
 def test_missing_inbox(client, ctx):

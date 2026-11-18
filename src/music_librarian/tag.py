@@ -46,8 +46,8 @@ from music_librarian.core.state import state_path
 from music_librarian.enrich import genres
 from music_librarian.integrations import lyrion
 from music_librarian.integrations.lyrion import Lyrion
-from music_librarian.lyrics.misses import Misses
-from music_librarian.media import fields
+from music_librarian.lyrics import awaited
+from music_librarian.media import fields, metadata_cache
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
 from music_librarian.split.library import run_locked
@@ -164,14 +164,14 @@ def plan(opts, log, stats):
 
 def cached(written, moved, state_dir):
     """The tracks written, (path, field, values), read again into the metadata cache where they
-    now are (`moved`: {source: destination}); those whose lyrics changed no longer recorded as
-    looked up in vain."""
-    with MetadataCache(state_dir) as cache, Misses(state_dir) as misses:
-        for path, name, _new in written:
-            path = moved.get(path, path)
-            cache.snapshot(path)
-            if name == fields.LYRICS:
-                misses.forget(path)
+    now are (`moved`: {source: destination}); those given lyrics no longer awaited."""
+    answered = []
+    with MetadataCache(state_dir) as cache:
+        for path, name, new in written:
+            snap = cache.snapshot(moved.get(path, path))
+            if name == fields.LYRICS and new:
+                answered.append(metadata_cache.metadata(snap))
+    awaited.unmark(state_dir, answered)
 
 
 PROBLEMS = {"REFUSED", "ERROR", "SKIPPED", "CONFLICT", "UNKNOWN"}

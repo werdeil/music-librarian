@@ -11,11 +11,11 @@ from music_librarian import cover, repeats, tag
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.enrich import lyrics as enrich_lyrics
-from music_librarian.lyrics import INSTRUMENTAL, misses
-from music_librarian.media import artwork, fields
+from music_librarian.lyrics import INSTRUMENTAL, awaited
+from music_librarian.media import artwork, fields, metadata_cache, tags
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library, query
-from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, when
+from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
 MAX_UPLOAD = 32 * 1024 * 1024
@@ -98,7 +98,7 @@ def register(app, ctx, index):
             return None
         if name == "repeats":
             return library.with_repeats(everything)
-        return [a for a, _ in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
+        return library.without_lyrics(everything)
 
     def in_work_list(rel):
         """Where the album stands in the work list it was opened from, with its neighbours; for
@@ -146,7 +146,8 @@ def register(app, ctx, index):
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         names = [n for n, _ in tracks]
         lyrics = library.with_lyrics(folder, tracks)
-        missed = misses.recorded(ctx.state_dir)
+        expected = library.awaited_state(folder, [n for n, v in tracks if v and not lyrics[n]], ctx.state_dir)
+        waiting = {n for n, held in expected.items() if held}
         gains = library.replaygain_state(folder, names)
         for name, values in tracks:
             if values:
@@ -157,7 +158,7 @@ def register(app, ctx, index):
                                disc_names=library.disc_names(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                lyrics=lyrics, mark=INSTRUMENTAL,
-                               missed={n: when(missed[folder / n]) for n in names if folder / n in missed},
+                               awaited=waiting, unsorted=len(expected) - len(waiting),
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
@@ -176,13 +177,12 @@ def register(app, ctx, index):
     def missed_lyrics():
         everything = index.get()
         if everything is None:
-            return render_template("lyrics.html", building=True, days=f"{misses.retry_days():g}")
-        albums = [(a, when(at) if at else None)
-                  for a, at in library.without_lyrics(everything, ctx.root, ctx.state_dir)]
+            return render_template("lyrics.html", building=True)
+        albums = library.without_lyrics(everything)
         shown, page, pages = paged(albums, library.PAGE)
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
-                               tracks=sum(a.without_lyrics for a, _ in albums), page=page, pages=pages,
-                               days=f"{misses.retry_days():g}")
+                               tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
+                               awaited=sum(a.awaited for a in everything))
 
     @app.get("/library/repeats")
     def repeated_values():
@@ -271,7 +271,7 @@ def register(app, ctx, index):
             abort(404)
         if ctx.requests is None:
             abort(403)
-        text, source = enrich_lyrics.look_up_track(path, ctx.state_dir)
+        text, source = enrich_lyrics.look_up_track(path)
         t = texts()
         if text is None:
             message = t.get(f"lookup_{source}".replace(" ", "_"), t["lookup_none"])
@@ -279,6 +279,37 @@ def register(app, ctx, index):
             key = "lookup_instrumental" if text == INSTRUMENTAL else "lookup_found"
             message = t[key].format(source=PROVIDERS.get(source, source))
         return jsonify(text=text, message=message)
+
+    def track_meta(path):
+        return metadata_cache.metadata(tags.read_snapshot(path))
+
+    @app.post("/library/track/lyrics/awaited")
+    def await_lyrics():
+        """Mark one track of an album's page as awaited, or with awaited=0 no longer;
+        {"awaited": its state}."""
+        path = library.track_file(ctx.root, request.form.get("folder", ""), request.form.get("file", ""))
+        if path is None:
+            abort(404)
+        if ctx.requests is None:
+            abort(403)
+        wanted = request.form.get("awaited") == "1"
+        (awaited.mark if wanted else awaited.unmark)(ctx.state_dir, [track_meta(path)])
+        return jsonify(awaited=wanted)
+
+    @app.post("/library/album/awaited")
+    def await_album_lyrics():
+        """Mark every track of the album without lyrics as awaited, then show the album again."""
+        rel = request.form.get("folder", "")
+        folder = library.album_folder(ctx.root, rel)
+        if folder is None:
+            abort(404)
+        if ctx.requests is None:
+            abort(403)
+        tracks = library.tracks_of(folder)
+        lyrics = library.with_lyrics(folder, tracks)
+        awaited.mark(ctx.state_dir, [track_meta(folder / name) for name, values in tracks
+                                     if values and not lyrics[name]])
+        return redirect(url_for("album_page", folder=rel, **place()))
 
     @app.get("/library/cover")
     def album_cover():

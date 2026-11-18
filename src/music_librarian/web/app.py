@@ -13,13 +13,12 @@ from flask import Flask, jsonify, render_template, request, url_for
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.importer import ERRORS, list_items
-from music_librarian.lyrics import misses
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, playcounts, reviews, security
 from music_librarian.web.common import place, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import LONG_WHEN, OPTIONS, UNDER
+from music_librarian.web.passes import LONG_WHEN, OPTIONS
 
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover", "request_state"}
@@ -129,8 +128,7 @@ def create_app(ctx: Context):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN, under=UNDER,
-            days=f"{misses.retry_days():g}")
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""

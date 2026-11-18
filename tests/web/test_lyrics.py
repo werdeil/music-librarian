@@ -1,16 +1,16 @@
 """Lyrics on the dashboard: each track's lyrics on its album's page, edited and previewed with the
-album's form, looked up online one track at a time; the tracks without lyrics."""
+album's form, looked up online one track at a time, marked awaited; the tracks without lyrics."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import re
+import threading
 
 import pytest
 
 from music_librarian import scan
 from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.core.log import Log
-from music_librarian.lyrics import misses
-from music_librarian.lyrics.misses import Misses
+from music_librarian.lyrics import awaited
 from music_librarian.media import fields, tags
 
 EN = {"Accept-Language": "en"}
@@ -23,8 +23,6 @@ def lib(tmp_path, make_track):
         make_track(root / f"Beyonce/4/0{n} T{n}.m4a", title=f"T{n}", artist="Beyonce",
                    albumartist="Beyonce", album="4", track=n)
     tags.write_lyrics(root / "Beyonce/4/01 T1.m4a", "la la")
-    with Misses(tmp_path / "state") as misses:
-        misses.record(root / "Beyonce/4/02 T2.m4a", {"artist": "Beyonce", "title": "T2", "album": "4"})
     scan.run(root, tmp_path / "state", Log())
     return root
 
@@ -64,7 +62,8 @@ def test_album_page_shows_each_track_s_lyrics(d):
     assert 'data-lyrics-toggle="lyrics-0"' in page and 'title="See and edit the lyrics">yes</button>' in page
     box = '<textarea name="t{}.lyrics" class="lyrics" rows="8" aria-label="Lyrics · {}">{}</textarea>'
     assert box.format(0, "01 T1.m4a", "la la") in page and box.format(1, "02 T2.m4a", "") in page
-    assert page.count("Looked up in vain on ") == 1 and page.count(">Look up online</button>") == 3
+    assert page.count("> Not available yet, keep looking</label>") == 2
+    assert page.count(">Look up online</button>") == 3
     assert "data-open" not in page and "Look up the album" not in page
 
 
@@ -94,15 +93,11 @@ def test_lyrics_previewed_applied_then_undone(d, lib):
     assert tags.read_lyrics(track) == "la la"
 
 
-def test_lyrics_emptied_are_removed_and_looked_up_again(d, lib):
-    track, meta = lib / "Beyonce/4/01 T1.m4a", {"artist": "Beyonce", "title": "T1", "album": "4"}
-    with Misses(d.state) as misses:
-        misses.record(track, meta)
+def test_lyrics_emptied_are_removed(d, lib):
+    track = lib / "Beyonce/4/01 T1.m4a"
     assert "<del>1 line</del> → <ins>(none)</ins>" in preview(d, **{"t0.lyrics": ""})
     apply(d, **{"t0.lyrics": ""})
     assert fields.lyrics(track) == []
-    with Misses(d.state) as misses:
-        assert not misses.recent(track, meta)
 
 
 def test_lyrics_changed_meanwhile_refused(d, lib):
@@ -162,20 +157,6 @@ def test_lookup_of_one_track_writes_nothing(d, lib, providers, answer, text, mes
     assert fields.lyrics(lib / "Beyonce/4/02 T2.m4a") == [] and d.requests.pending() == []
 
 
-def test_lookup_in_vain_recorded(d, lib, providers):
-    track = lib / "Beyonce/4/03 T3.m4a"
-    providers[1].update(source="unavailable")
-    look_up(d, "03 T3.m4a")
-    assert track not in misses_recorded(d)
-    providers[1].update(source="none")
-    look_up(d, "03 T3.m4a")
-    assert track in misses_recorded(d)
-
-
-def misses_recorded(d):
-    return misses.recorded(d.state)
-
-
 @pytest.mark.parametrize("folder, file", [("Beyonce/4", "../4/01 T1.m4a"), ("../", "x"),
                                           ("Beyonce/4", "9.m4a")])
 def test_lookup_of_a_track_outside_the_library(d, providers, folder, file):
@@ -189,7 +170,68 @@ def test_tracks_without_lyrics(d):
     assert 'href="/library?c=lyrics:no">Without lyrics <span class="muted">(1)</span></a>' in library_page
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
     assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 3</td>" in page
-    assert "<td>—</td>" not in page                         # one of them was looked up in vain
-    home = d.client.get("/", headers=EN).get_data(as_text=True)
-    tile = home[home.index("Tracks without lyrics") - 300:home.index("Tracks without lyrics")]
-    assert 'class="tile-line tile-info"' in tile and '<span class="tile-value">2' in tile
+    assert "Tracks whose lyrics are awaited" not in page
+    assert tile(d) == 2
+
+
+def settled(d, address):
+    """The page at `address`, once the builds its first request started have ended."""
+    d.client.get(address, headers=EN)
+    for thread in threading.enumerate():
+        if thread.name == "web-build":
+            thread.join()
+    return d.client.get(address, headers=EN).get_data(as_text=True)
+
+
+def tile(d):
+    """The overview's count of the tracks without lyrics, None when it has no tile."""
+    home = settled(d, "/")
+    found = re.search(r'class="tile tile-todo" href="/library/lyrics">\s*<span class="tile-value">(\d+)',
+                      home)
+    return int(found[1]) if found else None
+
+
+def mark(d, file, wanted="1"):
+    return d.client.post("/library/track/lyrics/awaited",
+                         data={"csrf": d.token, "folder": "Beyonce/4", "file": file, "awaited": wanted})
+
+
+def test_track_marked_awaited(d):
+    assert mark(d, "02 T2.m4a").get_json() == {"awaited": True}
+    assert (d.state / awaited.FILE).read_text(encoding="utf-8").splitlines()[-1] == "Beyonce — T2 — 4 — 0:00"
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'data-file="02 T2.m4a"' in page and 'title="See and edit the lyrics">awaited</button>' in page
+    assert re.search(r'data-file="02 T2.m4a"\s+data-failed="[^"]+" checked>', page)
+    assert "Lyrics awaited for every track without lyrics" in page
+    assert tile(d) == 1
+    lyrics_page = settled(d, "/library/lyrics")
+    assert "<td>1 / 3</td>" in lyrics_page and "Tracks whose lyrics are awaited: 1" in lyrics_page
+    tracks = d.client.get("/library?c=awaited:yes&view=tracks", headers=EN).get_data(as_text=True)
+    assert "T2" in tracks and "T3" not in tracks
+    assert mark(d, "02 T2.m4a", "0").get_json() == {"awaited": False}
+    assert tile(d) == 2
+
+
+def test_album_marked_awaited_leaves_the_review(d):
+    response = d.client.post("/library/album/awaited",
+                             data={"csrf": d.token, "folder": "Beyonce/4", "list": "lyrics", "at": "0"})
+    assert response.location.endswith("/library/album?folder=Beyonce/4&list=lyrics&at=0")
+    assert tile(d) is None
+    page = settled(d, "/library/lyrics")
+    assert "Every track without lyrics is sorted out." in page and "awaited: 2" in page
+    album = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "Lyrics awaited for every track without lyrics" not in album
+
+
+def test_lyrics_written_no_longer_awaited(d):
+    mark(d, "02 T2.m4a")
+    apply(d, **{"t1.lyrics": "typed"})
+    meta = {"artist": "Beyonce", "title": "T2", "album": "4", "duration": 1}
+    assert not awaited.Awaited(d.state).holds(meta)
+
+
+@pytest.mark.parametrize("folder, file", [("Beyonce/4", "../4/01 T1.m4a"), ("../", "x")])
+def test_mark_of_a_track_outside_the_library(d, folder, file):
+    response = d.client.post("/library/track/lyrics/awaited",
+                             data={"csrf": d.token, "folder": folder, "file": file, "awaited": "1"})
+    assert response.status_code == 404 and not (d.state / awaited.FILE).exists()
