@@ -309,8 +309,7 @@ def register(app, ctx, index, later):
         left = waiting()
         albums = index.get()
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
-        if bare and (ctx.root / bare[0].folder).is_dir():
-            WARMER.ask(ctx.root / bare[0].folder)
+        WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
                                lyrics=left["lyrics"], first_bare=bare[0].folder if bare else None,

@@ -28,6 +28,7 @@ TRACK_PAGE = 100
 PATIENCE = 1.0
 REBUILD_EVERY = 60
 REPORT_EVERY = 200
+WARM_KEPT = 8   # albums read ahead that are taken as still in the system's cache
 
 _building = threading.local()
 _one_build = threading.Lock()
@@ -332,18 +333,18 @@ def track_file(root: Path, rel, name):
 
 
 class Warmer:
-    """Reads the tracks of the album a page is likely to open next, in a thread of its own, so
-    that page reads them from the system's cache instead of the disk; an album asked for while
-    another is read replaces any still waiting."""
+    """Reads the tracks of the albums a page is likely to open next, in order, in a thread of its
+    own, so those pages read them from the system's cache instead of the disk; albums asked for
+    while another is read replace those still waiting, and one read lately is not read again."""
 
     def __init__(self):
-        self.wanted, self.reading = None, False
+        self.wanted, self.reading, self.read = [], False, []
         self.lock = threading.Lock()
 
-    def ask(self, folder: Path):
+    def ask(self, *folders: Path):
         with self.lock:
-            self.wanted = folder
-            if self.reading:
+            self.wanted = [f for f in folders if f not in self.read]
+            if self.reading or not self.wanted:
                 return
             self.reading = True
         threading.Thread(target=self._run, name="web-warm", daemon=True).start()
@@ -351,10 +352,11 @@ class Warmer:
     def _run(self):
         while True:
             with self.lock:
-                folder, self.wanted = self.wanted, None
-                if folder is None:
+                if not self.wanted:
                     self.reading = False
                     return
+                folder = self.wanted.pop(0)
+                self.read = [folder, *self.read][:WARM_KEPT]
             try:
                 tracks_of(folder)
             except OSError:
@@ -365,12 +367,12 @@ WARMER = Warmer()
 
 
 def tracks_of(folder: Path):
-    """[(file name, fields.read() values or None when unreadable)] of the folder's tracks."""
+    """[(file name, fields.read_all() values or None when unreadable)] of the folder's tracks."""
     out = []
     for p in sorted(folder.iterdir()):
         if p.is_file() and p.suffix.lower() in AUDIO_EXT and not is_junk(p):
             try:
-                out.append((p.name, fields.read(p)))
+                out.append((p.name, fields.read_all(p)))
             except Exception:
                 out.append((p.name, None))
     return out
@@ -532,31 +534,13 @@ def cover(folder: Path):
     return None
 
 
-def with_lyrics(folder: Path, tracks):
-    """Add to the values of each readable track its lyrics, as fields.lyrics() gives them, which
-    the page shows and its form carries; return {file name: "instrumental" when they are the
-    INSTRUMENTAL mark, else whether it has some}."""
+def with_lyrics(tracks):
+    """{file name: "instrumental" when its lyrics are the INSTRUMENTAL mark, else whether it has
+    some} of the tracks of tracks_of()."""
     out = {}
     for name, values in tracks:
-        text = []
-        if values:
-            try:
-                text = fields.lyrics(folder / name)
-            except Exception:
-                text = []
-            values[fields.LYRICS] = text
+        text = values[fields.LYRICS] if values else []
         out[name] = "instrumental" if text and is_instrumental(text[0]) else bool(text)
-    return out
-
-
-def replaygain_state(folder: Path, names):
-    """{file name: its fields.replaygain() values, [] when it has none or is unreadable}."""
-    out = {}
-    for name in names:
-        try:
-            out[name] = fields.replaygain(folder / name)
-        except Exception:
-            out[name] = []
     return out
 
 

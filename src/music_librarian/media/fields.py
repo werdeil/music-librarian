@@ -75,7 +75,24 @@ def _open(path):
 
 def read(path):
     """{field: [values]} for every field of FIELDS. Raises FieldError for a format not handled."""
+    return _values(_open(path))
+
+
+def read_all(path):
+    """read() with LYRICS and REPLAYGAIN as lyrics() and replaygain() give them, [] when they
+    cannot be read, the file opened once. Raises FieldError for a format not handled."""
     f = _open(path)
+    out = _values(f)
+    for name, value in ((LYRICS, lambda: [media_tags.lyrics_of(f) or ""]),
+                        (REPLAYGAIN, lambda: [f"{k}={v}" for k, v in media_tags.replaygain_of(f)])):
+        try:
+            out[name] = check(name, value())
+        except Exception:
+            out[name] = []
+    return out
+
+
+def _values(f):
     t = f.tags
     if t is None:
         return {name: [] for name in FIELDS}

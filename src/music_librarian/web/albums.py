@@ -19,6 +19,7 @@ from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
 MAX_UPLOAD = 32 * 1024 * 1024
+AHEAD = 2   # albums of a work list read ahead of their page
 PROVIDERS = {"lrclib": "LRCLIB", "netease": "NetEase", "musixmatch": "Musixmatch"}
 
 
@@ -101,10 +102,8 @@ def register(app, ctx, index, later):
             return library.with_repeats(everything)
         return library.without_lyrics(everything, later.times("lyrics"))
 
-    def warm(rel):
-        folder = library.album_folder(ctx.root, rel)
-        if folder is not None:
-            library.WARMER.ask(folder)
+    def warm(*rels):
+        library.WARMER.ask(*filter(None, (library.album_folder(ctx.root, r) for r in rels)))
 
     def in_work_list(rel):
         """Where the album stands in the work list it was opened from, with its neighbours and its
@@ -129,9 +128,8 @@ def register(app, ctx, index, later):
 
         def step(folder, position):
             return url_for("album_page", folder=folder, **keep, at=position)
-        following = folders[after] if after < len(folders) else folders[0] if folders else None
-        if following not in (None, rel):
-            warm(following)
+        ahead = dict.fromkeys(folders[(after + i) % len(folders)] for i in range(AHEAD)) if folders else {}
+        warm(*[f for f in ahead if f != rel])
         seen = later.seen("lyrics", folders) if where["list"] == "lyrics" and at is not None else 0
         return dict(name=where["list"], page=page, position=at,
                     number=None if at is None else (seen + at) % len(folders) + 1, total=len(folders),
@@ -154,14 +152,10 @@ def register(app, ctx, index, later):
         """The album's page, `shown` adding what a form posted to it asks to show."""
         with timed("files"):
             tracks = library.tracks_of(folder)
-            names = [n for n, _ in tracks]
-            lyrics = library.with_lyrics(folder, tracks)
-            gains = library.replaygain_state(folder, names)
+        lyrics = library.with_lyrics(tracks)
+        gains = {name: values[fields.REPLAYGAIN] if values else [] for name, values in tracks}
         repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
-        for name, values in tracks:
-            if values:
-                values[fields.REPLAYGAIN] = gains[name]
         with timed("list"):
             catalog, work = index.catalog(), in_work_list(rel)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
@@ -193,8 +187,7 @@ def register(app, ctx, index, later):
             return render_template("lyrics.html", building=True)
         albums = library.without_lyrics(everything, later.times("lyrics"))
         shown, page, pages = paged(albums, library.PAGE)
-        if shown:
-            warm(shown[0].folder)
+        warm(*[a.folder for a in shown[:AHEAD]])
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
                                awaited=sum(a.awaited for a in everything))

@@ -894,7 +894,7 @@ def test_library_pages_keep_the_search(dashboard, monkeypatch):
     assert 'id="results"' in page and "data-live-search" in page
 
 
-def test_warmer_reads_the_album_asked_for_last(tmp_path, monkeypatch):
+def test_warmer_reads_the_albums_asked_for_last_once(tmp_path, monkeypatch):
     read, gate = [], threading.Event()
 
     def tracks_of(folder):
@@ -902,10 +902,14 @@ def test_warmer_reads_the_album_asked_for_last(tmp_path, monkeypatch):
         read.append(folder.name)
     monkeypatch.setattr(library, "tracks_of", tracks_of)
     warmer = library.Warmer()
-    for name in ("a", "b", "c"):
-        warmer.ask(tmp_path / name)
+    warmer.ask(tmp_path / "a", tmp_path / "b")
+    warmer.ask(tmp_path / "c", tmp_path / "d")
     gate.set()
     for thread in threading.enumerate():
         if thread.name == "web-warm":
             thread.join(5)
-    assert read == ["a", "c"]
+    warmer.ask(tmp_path / "d", tmp_path / "e")
+    for thread in threading.enumerate():
+        if thread.name == "web-warm":
+            thread.join(5)
+    assert read == ["a", "c", "d", "e"]
