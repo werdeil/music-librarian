@@ -4,6 +4,7 @@ paths, which the library's filing gives the same shape: artist/album/NN title.
 The note is out of 100: the title for 70, the artist folder for 20, the album for 10, plus 5 when
 both have play counts within 20 % of each other.
 """
+import copy
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -49,6 +50,13 @@ class Matcher:
 
     def __init__(self, candidates):
         self.candidates = [(key, rel, plays, named(rel), fold(rel)) for key, rel, plays in candidates]
+
+    def among(self, keys, plays):
+        """The Matcher of the candidates of `keys`, with the play counts of `plays`, {key: plays}."""
+        other = copy.copy(self)
+        other.candidates = [(key, rel, plays.get(key, 0), name, text)
+                            for key, rel, _, name, text in self.candidates if key in keys]
+        return other
 
     def best(self, path, plays=0, top=5, words=""):
         """The `top` candidates for the orphan at `path`, best first, as (note, key, relative

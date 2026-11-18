@@ -60,13 +60,13 @@ Each review links, from the Reviews page and under each question, to the file it
 
 ## Lyrion
 
-The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer, a journal or their case, with the track that takes them, and those **ignored**. The page opens on the settled ones when none is waiting.
+The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer, a journal or their case, with the track that takes them or the mention that they are to delete, and those **ignored**. The page opens on the settled ones when none is waiting.
 
-An orphan's page shows its play count, rating and last play, and the eight tracks of the library whose path looks most like its own, each with its note; the first is picked unless its note is under 60. A search box keeps the tracks whose path holds every word typed, when the right one is not among them. **Give to this track** and **Ignore** write the answer to `playcount-matches.json` at once and open the next orphan waiting, where the answer can be undone; **Later** opens the next one without an answer. Answering never writes to `persist.db`.
+An orphan's page shows its play count, rating and last play, and the eight tracks of the library whose path looks most like its own, each with its note; the first is picked unless its note is under 60. A search box keeps the tracks whose path holds every word typed, when the right one is not among them. **Give to this track**, **Ignore** and **Delete** write the answer to `playcount-matches.json` at once and open the next orphan waiting, where the answer can be undone; **Later** opens the next one without an answer. Answering never writes to `persist.db`.
 
 At the bottom of the page, a form queues `playcounts` as a dry run, with a box to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
 
-The orphans are read from `persist.db`, opened read-only, and the library from the metadata cache, in the background, again whenever either changes or a journal is written.
+The orphans are read from `persist.db`, opened read-only, in the background, again whenever it changes or a journal is written; the library is read from the metadata cache, again only when the cache changes, and its files are looked for on disk each time.
 
 ## Statuses
 
@@ -111,7 +111,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `/reviews`, `/reviews/split?from=<n>`, `/reviews/dedupe?from=<n>`, `/reviews/genres?from=<n>` | the reviews, from the question at position `n`; `POST` records an answer, `POST …/undo` takes it back |
 | `/reviews/split/decisions`, `/reviews/dedupe/aliases`, `/reviews/genres/list` | the decisions file, the aliases file and the validated genre list, read only; `review=1` leads back to their review rather than to the Reviews page |
 | `/lyrion?state=<state>&page=<n>` | the orphans `waiting`, `settled` or `ignored`, and the form of the `playcounts` pass |
-| `/lyrion/orphans/<urlmd5>?q=<words>` | an orphan and the tracks suggested for it, among those whose path holds the words; `POST` records `choice=match` with `target=<track>`, `choice=ignore`, or `choice=forget` to take the answer back |
+| `/lyrion/orphans/<urlmd5>?q=<words>` | an orphan and the tracks suggested for it, among those whose path holds the words; `POST` records `choice=match` with `target=<track>`, `choice=ignore`, `choice=delete`, or `choice=forget` to take the answer back |
 | `/requests/<id>` | waits for a queued request, then redirects to its run; `POST /requests/<id>/cancel` takes it out of the queue, back to the album page `album=<folder>` names |
 | `/requests/<id>.json?folder=<folder>` | `{"done": …, "album": …}`: whether the request ended, and once it has, the page of the album `folder` where the pass left it |
 | `/health` | `{"status": "ok", "version": …}`, for the compose healthcheck |

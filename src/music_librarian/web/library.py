@@ -204,6 +204,14 @@ class Refreshed:
             building.join(max(deadline - time.monotonic(), 0))
         return self.value
 
+    def awaited(self):
+        """get(), once the build that runs was waited for, at most PATIENCE seconds from its
+        start: the last value built is only returned stale past that."""
+        building, deadline = self.start()
+        if building is not None:
+            building.join(max(deadline - time.monotonic(), 0))
+        return self.value
+
     def ready(self):
         """Whether a build has ended and none runs, without starting one."""
         with self.lock:

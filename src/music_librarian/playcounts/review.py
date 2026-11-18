@@ -6,17 +6,17 @@ from music_librarian.core.lock import STOP
 from music_librarian.core.log import count
 from music_librarian.playcounts import decisions
 
-CHOICES = "i ignore · u undo · q quit"
+CHOICES = "i ignore · d delete · u undo · q quit"
 
 
 def answer(ask, matches):
-    """The track picked, or one of "ignore", "later", "undo", "quit"; None to ask again."""
+    """The track picked, or one of "ignore", "delete", "later", "undo", "quit"; None to ask again."""
     try:
         reply = ask(f"         [Enter] later · 1-{len(matches)} pick · {CHOICES} > ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         return "quit"
-    if reply in ("", "i", "u", "q"):
-        return {"": "later", "i": "ignore", "u": "undo", "q": "quit"}[reply]
+    if reply in ("", "i", "d", "u", "q"):
+        return {"": "later", "i": "ignore", "d": "delete", "u": "undo", "q": "quit"}[reply]
     if reply.isdigit() and 1 <= int(reply) <= len(matches):
         return matches[int(reply) - 1]
     return None
@@ -46,6 +46,8 @@ def review(queue, suggest, path, ask, log):
             continue
         if picked == "ignore":
             decisions.update(path, ignore=[orphan.key])
+        elif picked == "delete":
+            decisions.update(path, delete=[orphan.key])
         elif picked != "later":
             decisions.update(path, match={orphan.key: picked[2]})
         if picked != "later":

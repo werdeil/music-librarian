@@ -34,7 +34,8 @@
                 <td>{{ '★' * row.stars }}</td>
                 <td>{{ row.last }}</td>
                 {% if state == 'settled' %}
-                <td><code class="path">{{ row.target }}</code>
+                <td>{% if row.deleted %}<span class="status status-failed">{{ t.orphan_to_delete }}</span>
+                    {% else %}<code class="path">{{ row.target }}</code>{% endif %}
                     {% if row.gone %}<span class="status status-failed">{{ t.orphan_target_gone }}</span>
                     {% elif row.why %}<span class="status status-queued">{{ t['orphan_by_' ~ row.why] }}</span>{% endif %}</td>
                 {% endif %}
