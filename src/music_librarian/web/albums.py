@@ -165,6 +165,9 @@ def register(app, ctx, index, later):
             waiting = catalog.awaited.get(rel, set()) if catalog else set()
             sorted_out = not any(values and lyrics[name] is False and name not in waiting
                                  for name, values in tracks)
+            counted = catalog.album(rel) if catalog else None
+            if not sorted_out or (counted and counted.without_lyrics):
+                index.settle(rel, sorted_out)
             work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
@@ -173,7 +176,7 @@ def register(app, ctx, index, later):
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                lyrics=lyrics, mark=INSTRUMENTAL,
                                awaited=waiting,
-                               unsorted=len(catalog.unsorted(rel)) if catalog else 0,
+                               unsorted=len(catalog.unsorted(rel)) if catalog and not sorted_out else 0,
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},

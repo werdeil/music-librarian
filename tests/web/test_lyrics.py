@@ -287,3 +287,15 @@ def test_an_album_whose_page_has_nothing_to_sort_out_leaves_the_list_at_once(d, 
         tags.write_lyrics(lib / "Beyonce/4" / name, "[Instrumental]")       # the album list not built again
     page = d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN).get_data(as_text=True)
     assert ">Later</button>" not in page and "Albums left: 0" in page and 'class="to-sort"' not in page
+
+
+def test_an_album_found_sorted_out_leaves_the_counts_before_the_list_is_built_again(d, lib):
+    settled(d, "/library/lyrics")
+    for name in ("02 T2.m4a", "03 T3.m4a"):
+        tags.write_lyrics(lib / "Beyonce/4" / name, "[Instrumental]")
+    d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
+    page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+    assert "Every track without lyrics is sorted out." in page
+    tags.clear_lyrics(lib / "Beyonce/4/03 T3.m4a")
+    d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
+    assert "<td>2 / 3</td>" in d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)

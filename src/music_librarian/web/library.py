@@ -64,6 +64,7 @@ class Catalog:
     tracks: list   # of query.Track, album by album in that order, then by disc and number
     bare: list = dataclass_field(default_factory=list)      # (Track, metadata) of those without lyrics
     awaited: dict = dataclass_field(default_factory=dict)   # {folder: names of its tracks awaited}
+    started: float = 0.0   # time.monotonic() when its build started
 
     def album(self, folder):
         return next((a for a in self.albums if a.folder == folder), None)
@@ -85,7 +86,15 @@ def with_awaited(catalog, marked):
     albums = [replace(a, without_lyrics=a.without_lyrics - len(names[a.folder]), awaited=len(names[a.folder]))
               if a.folder in names else a for a in catalog.albums]
     tracks = [flagged.get(id(t), t) for t in catalog.tracks] if flagged else catalog.tracks
-    return Catalog(albums, tracks, catalog.bare, dict(names))
+    return Catalog(albums, tracks, catalog.bare, dict(names), catalog.started)
+
+
+def with_settled(catalog, settled):
+    """The catalog with the albums of `settled` counting no track without lyrics."""
+    if not settled:
+        return catalog
+    albums = [replace(a, without_lyrics=0) if a.folder in settled else a for a in catalog.albums]
+    return Catalog(albums, catalog.tracks, catalog.bare, catalog.awaited, catalog.started)
 
 
 @dataclass
@@ -256,12 +265,23 @@ class Refreshed:
 class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
     when the cache changes. A file gone from the library since it was cached is left out. The
-    awaited tracks are laid over the last build whenever their file changes, without a rebuild."""
+    awaited tracks are laid over the last build whenever their file changes, without a rebuild, and
+    so are the albums whose page found no track left to sort out (see settle)."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
         self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
-        self.marked, self.lock = None, threading.Lock()   # (build, awaited_stamp, Catalog laid over)
+        self.marked, self.lock = None, threading.Lock()   # (build, what is laid over, Catalog laid over)
+        self.settled = {}   # {folder: time.monotonic() its page found nothing to sort out}
+
+    def settle(self, rel, settled):
+        """Note whether the page of the album `rel`, read from its files, found no track left to sort
+        out: until a build started after the note, the album then counts none without lyrics."""
+        with self.lock:
+            if settled:
+                self.settled[rel] = time.monotonic()
+            else:
+                self.settled.pop(rel, None)
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -275,13 +295,17 @@ class Index:
             return None
         stamp = awaited_stamp(self.state_dir)
         with self.lock:
-            if self.marked is None or self.marked[0] is not built or self.marked[1] != stamp:
-                self.marked = built, stamp, with_awaited(built, awaited.Awaited(self.state_dir))
+            self.settled = {rel: at for rel, at in self.settled.items() if at > built.started}
+            over = stamp, frozenset(self.settled)
+            if self.marked is None or self.marked[0] is not built or self.marked[1] != over:
+                laid = with_awaited(built, awaited.Awaited(self.state_dir))
+                self.marked = built, over, with_settled(laid, over[1])
             return self.marked[2]
 
     def _build(self):
+        started = time.monotonic()
         if cache_stamp(self.state_dir)[0] is None:
-            return Catalog([], [])
+            return Catalog([], [], started=started)
         folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
         tracks, rels, without = [], {}, []
         with part(0, 0.5):
@@ -314,7 +338,7 @@ class Index:
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
                                    query.number_of(t, "track") or 0, t.name))
-        return Catalog(albums, tracks, without)
+        return Catalog(albums, tracks, without, started=started)
 
 
 def album_folder(root: Path, rel):
