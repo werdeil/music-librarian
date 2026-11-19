@@ -105,15 +105,17 @@ def register(app, ctx, index, later):
     def warm(*rels):
         library.WARMER.ask(*filter(None, (library.album_folder(ctx.root, r) for r in rels)))
 
-    def in_work_list(rel):
+    def in_work_list(rel, sorted_out=False):
         """Where the album stands in the work list it was opened from, with its neighbours and its
         number, in the lyrics list counted from the first album not put off in the round under way;
-        for an album the list no longer holds (fixed), its neighbours where it stood. None without one."""
+        for an album the list no longer holds (fixed, or with `sorted_out` its page holding no track
+        to sort out, whatever the album list says), its neighbours where it stood. None without one."""
         where = place()
         albums = work_list(where["list"]) if where else None
         if albums is None:
             return None
-        folders = [a.folder for a in albums]
+        folders = [a.folder for a in albums
+                   if not (sorted_out and where["list"] == "lyrics" and a.folder == rel)]
         if rel in folders:
             at = folders.index(rel)
             before, after = at - 1, at + 1
@@ -134,7 +136,9 @@ def register(app, ctx, index, later):
         return dict(name=where["list"], page=page, position=at,
                     number=None if at is None else (seen + at) % len(folders) + 1, total=len(folders),
                     previous=step(folders[before], before) if before >= 0 else None,
-                    next=step(folders[after], after) if after < len(folders) else None)
+                    next=step(folders[after], after) if after < len(folders)
+                    else step(folders[0], 0) if where["list"] == "lyrics" and folders and folders[0] != rel
+                    else None)
 
     def shown_value(name, values):
         """A field's values as the preview shows them, the lyrics by their number of lines."""
@@ -157,14 +161,18 @@ def register(app, ctx, index, later):
         repeated = library.repeated_fields(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         with timed("list"):
-            catalog, work = index.catalog(), in_work_list(rel)
+            catalog = index.catalog()
+            waiting = catalog.awaited.get(rel, set()) if catalog else set()
+            sorted_out = not any(values and lyrics[name] is False and name not in waiting
+                                 for name, values in tracks)
+            work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
                                disc_of=library.disc_of,
                                disc_names=library.disc_names(tracks),
                                seen=library.seen_state(tracks), genres=sorted(set(mapping.values())),
                                lyrics=lyrics, mark=INSTRUMENTAL,
-                               awaited=catalog.awaited.get(rel, set()) if catalog else set(),
+                               awaited=waiting,
                                unsorted=len(catalog.unsorted(rel)) if catalog else 0,
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
@@ -324,7 +332,6 @@ def register(app, ctx, index, later):
         """Open the album of the list of tracks without lyrics now standing at `at`, where `rel`
         stood, the first one past the end; the list once none but `rel` is left."""
         folders = [a.folder for a in work_list("lyrics") or []]
-        at = min(at, max(len(folders) - 1, 0))
         following = next((i for i in (at, 0) if i < len(folders) and folders[i] != rel), None)
         if following is None:
             return redirect(url_for("missed_lyrics"))

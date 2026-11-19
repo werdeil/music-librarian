@@ -359,8 +359,8 @@
     });
 }());
 
-// The awaited box marks its track at once, apart from the form, and its row says so; a mark refused
-// leaves the box as it was.
+// The awaited box marks its track at once, apart from the form, and its row says so, as does Later
+// once no track is left to sort out; a mark refused leaves the box as it was.
 (function () {
     "use strict";
 
@@ -368,6 +368,7 @@
         var form = box.form;
         var row = box.closest("tr").previousElementSibling;
         var shown = row.querySelector("[data-lyrics-toggle]");
+        var later = document.querySelector("[data-later]");
 
         box.addEventListener("change", function () {
             var data = new FormData();
@@ -384,6 +385,10 @@
                     box.defaultChecked = box.checked;
                     row.classList.toggle("to-sort", !box.checked);
                     shown.textContent = box.checked ? box.dataset.shownAwaited : box.dataset.shownToSort;
+                    if (later) {
+                        later.textContent = document.querySelector("tr.to-sort") ? later.dataset.later
+                            : later.dataset.sortedOut;
+                    }
                 })
                 .catch(function () {
                     box.checked = box.defaultChecked;

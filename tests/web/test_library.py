@@ -748,7 +748,7 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
     assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
-    assert ">Later</button>" in page and "Next →" not in page
+    assert ">Later</button>" in page and "Next →</a>" not in page
     assert "← Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",

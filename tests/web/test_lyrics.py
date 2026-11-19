@@ -279,3 +279,11 @@ def test_the_only_album_put_off_leads_back_to_the_list(d):
     settled(d, "/library/lyrics")
     response = d.client.post("/library/album/later", data={"csrf": d.token, "folder": "Beyonce/4", "at": "0"})
     assert response.location.endswith("/library/lyrics")
+
+
+def test_an_album_whose_page_has_nothing_to_sort_out_leaves_the_list_at_once(d, lib):
+    settled(d, "/library/lyrics")
+    for name in ("02 T2.m4a", "03 T3.m4a"):
+        tags.write_lyrics(lib / "Beyonce/4" / name, "[Instrumental]")       # the album list not built again
+    page = d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN).get_data(as_text=True)
+    assert ">Later</button>" not in page and "Albums left: 0" in page and 'class="to-sort"' not in page
