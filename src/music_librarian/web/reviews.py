@@ -312,7 +312,8 @@ def register(app, ctx, index, later):
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
-                               lyrics=left["lyrics"], first_bare=bare[0].folder if bare else None,
+                               lyrics=left["lyrics"], lyrics_albums=len(bare),
+                               first_bare=bare[0].folder if bare else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),

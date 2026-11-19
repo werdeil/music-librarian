@@ -47,7 +47,7 @@
 <section class="review-card">
     <h2>{{ t.tracks_without_lyrics_title }}</h2>
     {% if lyrics is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif lyrics %}<p class="review-waiting">{{ t.lyrics_waiting.format(n=lyrics) }}</p>
+    {% elif lyrics %}<p class="review-waiting">{{ t.lyrics_waiting.format(albums=lyrics_albums, n=lyrics) }}</p>
     {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
     <div class="actions">
         {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>{% endif %}
