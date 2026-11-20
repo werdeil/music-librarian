@@ -209,7 +209,8 @@ def mark(d, file, wanted="1"):
 
 def test_tracks_to_sort_out_stand_out(d):
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert page.count('<tr class="to-sort">') == 2 and page.count('lyrics">to sort out</button>') == 2
+    assert page.count('<tr class="to-sort" data-row=') == 2
+    assert page.count('lyrics">to sort out</button>') == 2
     assert "data-open" not in page
     settled(d, "/library/lyrics")
     page = d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN).get_data(as_text=True)
@@ -218,7 +219,7 @@ def test_tracks_to_sort_out_stand_out(d):
     assert 'id="lyrics-2" data-lyrics-row data-open>' in page
     mark(d, "02 T2.m4a")
     page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert page.count('<tr class="to-sort">') == 1
+    assert page.count('<tr class="to-sort" data-row=') == 1
 
 
 def test_track_marked_awaited(d):

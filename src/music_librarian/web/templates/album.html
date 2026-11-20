@@ -2,6 +2,20 @@
 {% import "_macros.html" as m %}
 {% block title %}{{ common.album or folder }} · music-librarian{% endblock %}
 {% block content %}
+{% macro spread_list(name) %}
+{% if spread[name] %}
+<ul class="spread" aria-label="{{ t.spread_label.format(field=t['field_' ~ name]) }}">
+{% for value, held in spread[name] %}
+    {% set shown = t.value_none if not value else (t.yes if value == '1' else t.no) if name == 'compilation' else value %}
+    <li><button type="button" class="link" data-spread="album.{{ name }}" data-value="{{ value }}"
+                data-rows="{{ held | map('first') | join(' ') }}"
+                title="{{ t.spread_pick if value else t.spread_show }}">{{ shown }}</button>
+        <span class="muted">· {{ held | map('last') | join(', ') if held | length <= 3
+                                else t.track_many.format(n=held | length) }}</span></li>
+{% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
 {% if work %}
 <nav class="work-list" aria-label="{{ t['work_' ~ work.name] }}">
     <a class="button" href="{{ work.page }}">{{ m.icon('back') }}{{ t['work_' ~ work.name] }}</a>
@@ -100,6 +114,7 @@
         <div class="album-fields">
         {% for name in ('albumartist', 'album', 'year', 'genre', 'disctotal') %}
             {% set flag = repeated_album.get(name) %}
+            <div class="album-field">
             <label>{{ t['field_' ~ name] }}
                 <input name="album.{{ name }}" value="{{ form.get('album.' ~ name, '') if form else common[name] or '' }}"
                        {% if flag is not none %}class="repeated" title="{{ t.repeated_differ if flag else t.repeated_same }}"{% endif %}
@@ -107,7 +122,10 @@
                        {% if name == 'genre' and genres %}list="genres"{% endif %}
                        {% if name == 'disctotal' %}inputmode="numeric" class="number"{% endif %}>
             </label>
+            {{ spread_list(name) }}
+            </div>
         {% endfor %}
+            <div class="album-field">
             <label>{{ t.field_compilation }}
                 {% set compilation = form.get('album.compilation') if form
                                      else '' if common.compilation is none else common.compilation or '0' %}
@@ -117,6 +135,8 @@
                     <option value="0"{% if compilation == '0' %} selected{% endif %}>{{ t.no }}</option>
                 </select>
             </label>
+            {{ spread_list('compilation') }}
+            </div>
         </div>
         {% if genres %}
         <datalist id="genres">{% for genre in genres %}<option value="{{ genre }}"></option>{% endfor %}</datalist>
@@ -153,7 +173,7 @@
                 {% endif %}
                 {% set state = lyrics.get(file) %}
                 {% set to_sort = values and state is sameas false and file not in awaited %}
-                <tr{% if to_sort %} class="to-sort"{% endif %}>
+                <tr{% if to_sort %} class="to-sort"{% endif %}{% if values %} data-row="{{ ns.i }}"{% endif %}>
                 {% if values %}
                     {% for name in ('disc', 'track') %}
                     {% set input = 't' ~ ns.i ~ '.' ~ name %}

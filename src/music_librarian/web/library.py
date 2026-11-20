@@ -423,6 +423,20 @@ def common(tracks):
     return out
 
 
+def spread(tracks):
+    """{album field: [(value, [(position among the readable tracks, title)])], the most held
+    value first} of the album fields whose tracks differ."""
+    readable = [(name, values) for name, values in tracks if values]
+    out = {}
+    for field in ALBUM_FIELDS:
+        held = defaultdict(list)
+        for i, (name, values) in enumerate(readable):
+            held[joined(values[field])].append((i, joined(values["title"]) or name))
+        if len(held) > 1:
+            out[field] = sorted(held.items(), key=lambda kept: (-len(kept[1]), not kept[0], kept[0]))
+    return out
+
+
 def repeated_fields(tracks):
     """{file name: {field: whether its values differ, else they only repeat}} of the tracks'
     fields holding a value twice or several values (see repeats)."""

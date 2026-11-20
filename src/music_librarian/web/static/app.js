@@ -45,6 +45,52 @@
     });
 }());
 
+// The values of an album field whose tracks differ: one highlights its tracks while pointed at or
+// chosen, and choosing it puts it in the field, all but the empty value.
+(function () {
+    "use strict";
+
+    var buttons = document.querySelectorAll("[data-spread]");
+    var chosen = null;
+
+    function mark(button, on) {
+        button.dataset.rows.split(" ").forEach(function (row) {
+            var tr = document.querySelector("tr[data-row='" + row + "']");
+            if (tr) {
+                tr.classList.toggle("spread-hit", on);
+            }
+        });
+    }
+
+    function show(button) {
+        document.querySelectorAll("tr.spread-hit").forEach(function (tr) {
+            tr.classList.remove("spread-hit");
+        });
+        if (button) {
+            mark(button, true);
+        }
+    }
+
+    buttons.forEach(function (button) {
+        button.addEventListener("mouseenter", function () { show(button); });
+        button.addEventListener("focus", function () { show(button); });
+        button.addEventListener("mouseleave", function () { show(chosen); });
+        button.addEventListener("blur", function () { show(chosen); });
+        button.addEventListener("click", function () {
+            var field = button.form.elements.namedItem(button.dataset.spread);
+            buttons.forEach(function (other) { other.removeAttribute("aria-pressed"); });
+            chosen = chosen === button ? null : button;
+            if (chosen) {
+                button.setAttribute("aria-pressed", "true");
+                if (button.dataset.value) {
+                    field.value = button.dataset.value;
+                }
+            }
+            show(chosen);
+        });
+    });
+}());
+
 // A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
 // without script, the card submits the options as ticked by default.
 (function () {

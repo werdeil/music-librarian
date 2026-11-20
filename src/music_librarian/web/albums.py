@@ -171,6 +171,7 @@ def register(app, ctx, index, later):
                 index.settle(rel, sorted_out)
             work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
+                               spread=library.spread(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
                                disc_of=library.disc_of,
                                disc_names=library.disc_names(tracks),
