@@ -144,10 +144,11 @@ def test_history_in_pages_of_fifty(client, ctx):
     assert '<h1 class="visually-hidden">History</h1>' in page
 
 
-def test_folders_folded_in_the_footer(client, ctx):
+def test_folders_at_the_bottom_of_the_overview(client, ctx):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    footer = page[page.index("<footer>"):]
-    assert "<summary>folders</summary>" in footer and str(ctx.inbox) in footer
+    folders = page[page.index("<h2>Folders</h2>"):page.index("<footer>")]
+    assert str(ctx.root) in folders and str(ctx.inbox) in folders and str(ctx.state_dir) in folders
+    assert str(ctx.state_dir) not in client.get("/runs", headers=EN).get_data(as_text=True)
 
 
 def test_history_filters(client, ctx):

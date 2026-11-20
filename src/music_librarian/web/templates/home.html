@@ -88,4 +88,13 @@
     </div>
 </section>
 {% endif %}
+
+<section>
+    <h2>{{ t.folders }}</h2>
+    <dl class="facts">
+        <dt>{{ t.library }}</dt><dd><code class="path">{{ ctx.root }}</code></dd>
+        <dt>{{ t.inbox }}</dt><dd><code class="path">{{ ctx.inbox }}</code></dd>
+        <dt>{{ t.state }}</dt><dd><code class="path">{{ ctx.state_dir }}</code></dd>
+    </dl>
+</section>
 {% endblock %}

@@ -219,14 +219,6 @@ progress.building::-moz-progress-bar {
     white-space: nowrap;
 }
 
-footer .folders summary {
-    cursor: pointer;
-}
-
-footer .folders .facts {
-    margin: 0.4rem 0 0;
-}
-
 .path {
     overflow-wrap: anywhere;
 }
