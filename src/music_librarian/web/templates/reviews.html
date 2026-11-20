@@ -11,8 +11,8 @@
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="on" value="{{ '0' if on else '1' }}">
             <button type="submit" role="switch" aria-checked="{{ 'true' if on else 'false' }}"
-                    title="{{ t.review_switch_off if on else t.review_switch_on }}">
-                <span class="switch-track" aria-hidden="true"></span>{{ t.review_on if on else t.review_off }}</button>
+                    title="{{ t.review_switch_off if on else t.review_switch_on }}"
+                    aria-label="{{ title }}"><span class="switch-track" aria-hidden="true"></span></button>
         </form>
     </header>
     {% if not on %}
