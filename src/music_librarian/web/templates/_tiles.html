@@ -27,6 +27,8 @@
     </a>
 {% endfor %}
 </div>
+{% elif ns.aside | rejectattr('note') | list %}
+<p class="muted">{{ t.tile_still_building }}</p>
 {% else %}
 <p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
 {% endif %}

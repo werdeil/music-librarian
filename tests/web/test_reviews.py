@@ -202,7 +202,11 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         assert client.get("/built?page=library_page").get_json() == {"ready": True, "percent": 100}
         assert "Being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
         assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
-        assert client.get("/", headers=EN).status_code == 200
+        token = re.search(r'name="csrf" value="([^"]+)"', text)[1]
+        for kind in ("lyrics", "mixed"):
+            client.post(f"/reviews/{kind}/switch", data={"csrf": token, "on": "0"})
+        home = client.get("/", headers=EN).get_data(as_text=True)
+        assert "Being worked out…" in home and "Nothing to handle" not in home and "tile-todo" not in home
     finally:
         release.set()
 
