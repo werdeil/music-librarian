@@ -101,6 +101,8 @@ def register(app, ctx, index, later):
             return None
         if name == "repeats":
             return library.with_repeats(everything)
+        if name == "mixed":
+            return library.with_mixed(everything)
         return library.without_lyrics(everything, later.times("lyrics"))
 
     def warm(*rels):
@@ -172,6 +174,7 @@ def register(app, ctx, index, later):
                 index.settle(rel, sorted_out)
             work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
+                               spread=library.spread(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
                                disc_of=library.disc_of,
                                disc_names=library.disc_names(tracks),
@@ -207,6 +210,16 @@ def register(app, ctx, index, later):
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
                                tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
                                awaited=sum(a.awaited for a in everything))
+
+    @app.get("/library/mixed")
+    def mixed_albums():
+        everything = index.get()
+        if everything is None:
+            return render_template("mixed.html", building=True)
+        albums = library.with_mixed(everything)
+        shown, page, pages = paged(albums, library.PAGE)
+        return render_template("mixed.html", albums=shown, offset=(page - 1) * library.PAGE,
+                               count=len(albums), page=page, pages=pages)
 
     @app.get("/library/repeats")
     def repeated_values():

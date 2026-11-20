@@ -358,6 +358,30 @@ def test_album_page(dashboard):
     assert '<p class="muted">2 tracks · 0 s</p>' in page
 
 
+def test_spread_of_the_album_fields_whose_tracks_differ(lib, make_track):
+    make_track(lib / "Beyonce/4/03 Bonus.m4a", title="Bonus", artist="Beyonce", album="4", track=3)
+    spread = library.spread(library.tracks_of(lib / "Beyonce/4"))
+    assert spread == {"albumartist": [("Beyonce", [(0, "Run the World"), (1, "Best Thing")]),
+                                      ("", [(2, "Bonus")])]}
+
+
+def test_album_page_shows_which_tracks_hold_each_value(dashboard, lib, make_track, tmp_path):
+    make_track(lib / "Beyonce/4/03 Bonus.m4a", title="Bonus", artist="Beyonce", album="4", track=3)
+    scan.run(lib, tmp_path / "state", Log())
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'aria-label="Values of the field Album artist"' in page
+    assert re.search(r'data-spread="album.albumartist" data-value="Beyonce"\s+data-rows="0 1"', page)
+    assert re.search(r'data-value=""\s+data-rows="2"\s+title="Highlight its tracks">\(none\)</button>'
+                     r'\s+<span class="muted">· Bonus</span>', page)
+    assert ' data-row="2">' in page and page.count('class="spread"') == 1
+
+
+def test_compilation_spread_by_yes_and_no(dashboard):
+    page = dashboard.client.get("/library/album?folder=Compilations/Hits", headers=EN).get_data(as_text=True)
+    assert re.search(r'data-spread="album.compilation" data-value="1"[^>]*>yes</button>\s+'
+                     r'<span class="muted">· One</span>', page)
+
+
 def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_path):
     make_track(lib / "Beyonce/4/03 Bonus.m4a", title="Bonus", artist="Beyonce", albumartist="Beyonce",
                album="4", track=1, disc=2, disctotal=2)

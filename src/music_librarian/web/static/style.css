@@ -793,10 +793,22 @@ td.cell-link a:focus-visible {
     color: var(--text-muted);
 }
 
-.album-fields label {
+.album-fields label,
+.album-field {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+}
+
+ul.spread {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+ul.spread button[aria-pressed="true"] {
+    color: var(--accent);
+    font-weight: 600;
 }
 
 table.tracks td {
@@ -815,6 +827,10 @@ table.tracks input {
 
 table.tracks tr.to-sort > td {
     background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+table.tracks tr.spread-hit > td {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 table.tracks tr.to-sort .t-lyrics button {

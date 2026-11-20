@@ -35,7 +35,7 @@ _one_build = threading.Lock()
 
 
 @dataclass
-class Album:
+class Album:  # pylint: disable=too-many-instance-attributes  # one per column the lists show
     folder: str   # relative to the root
     artist: str
     title: str
@@ -46,6 +46,7 @@ class Album:
     year: str = ""
     changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
     awaited: int = 0
+    mixed: tuple = ()   # the album fields whose tracks differ
 
 
 SORTS = {
@@ -140,6 +141,23 @@ def folder_changed(folder: Path):
 def first(track, *keys):
     easy = {k.lower(): v for k, v in track.items()}
     return next((easy[k][0] for k in keys if easy.get(k)), "")
+
+
+def album_values(track):
+    """{album field: its value} of a track's cached tags, as the album's page compares them."""
+    total = first(track, "disctotal", "totaldiscs") or first(track, "discnumber").partition("/")[2]
+    return {"albumartist": first(track, "albumartist", "album artist"), "album": first(track, "album"),
+            "year": first(track, "date", "year"), "genre": first(track, "genre"),
+            "disctotal": total, "compilation": "1" if first(track, "compilation") == "1" else ""}
+
+
+def mixed_fields(held):
+    """The album fields whose values differ between the tracks' cached tags `held`, in
+    ALBUM_FIELDS' order; the genre counts only when no track is flagged compilation."""
+    values = [album_values(t) for t in held]
+    compilation = any(v["compilation"] for v in values)
+    return tuple(name for name in ALBUM_FIELDS if len({v[name] for v in values}) > 1
+                 and not (name == "genre" and compilation))
 
 
 def cache_stamp(state_dir: Path):
@@ -341,7 +359,7 @@ class Index:
             year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
-                                year, folder_changed(folder)))
+                                year, folder_changed(folder), mixed=mixed_fields(held)))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
@@ -429,6 +447,20 @@ def common(tracks):
     return out
 
 
+def spread(tracks):
+    """{album field: [(value, [(position among the readable tracks, title)])], the most held
+    value first} of the album fields whose tracks differ."""
+    readable = [(name, values) for name, values in tracks if values]
+    out = {}
+    for field in ALBUM_FIELDS:
+        held = defaultdict(list)
+        for i, (name, values) in enumerate(readable):
+            held[joined(values[field])].append((i, joined(values["title"]) or name))
+        if len(held) > 1:
+            out[field] = sorted(held.items(), key=lambda kept: (-len(kept[1]), not kept[0], kept[0]))
+    return out
+
+
 def repeated_fields(tracks):
     """{file name: {field: whether its values differ, else they only repeat}} of the tracks'
     fields holding a value twice or several values (see repeats)."""
@@ -444,6 +476,11 @@ def album_repeats(repeated):
         for field, differ in flags.items():
             out[field] = out.get(field, False) or differ
     return out
+
+
+def with_mixed(albums):
+    """The albums whose tracks differ on an album field, those differing on the most fields first."""
+    return sorted((a for a in albums if a.mixed), key=lambda a: (-len(a.mixed), a.folder))
 
 
 def with_repeats(albums):

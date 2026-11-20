@@ -34,7 +34,8 @@ from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
 from music_librarian.web.common import timed
-from music_librarian.web.library import WARMER, Refreshed, cache_stamp, cached_files, part, without_lyrics
+from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_files, part, with_mixed,
+                                         without_lyrics)
 
 
 LATER = "review-later.json"
@@ -301,7 +302,8 @@ def register(app, ctx, index, later):
                 albums = index.get()
                 g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
                                  genres=genre_review.item()[1],
-                                 lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
+                                 lyrics=None if albums is None else sum(a.without_lyrics for a in albums),
+                                 mixed=None if albums is None else sum(bool(a.mixed) for a in albums))
         return g.waiting
 
     @app.get("/reviews")
@@ -309,11 +311,13 @@ def register(app, ctx, index, later):
         left = waiting()
         albums = index.get()
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
+        mixed = with_mixed(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
                                lyrics=left["lyrics"], lyrics_albums=len(bare),
                                first_bare=bare[0].folder if bare else None,
+                               mixed=left["mixed"], first_mixed=mixed[0].folder if mixed else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
