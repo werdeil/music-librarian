@@ -154,7 +154,10 @@ def create_app(ctx: Context, build_now=False):
         everything = index.get()
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
                     repeats=None if everything is None else sum(a.repeated for a in everything))
-        return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
+        bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
+        return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
+                    first_bare=bare[0].folder if bare else None,
+                    first_mixed=next((a.folder for a in library.with_mixed(everything or [])), None))
 
     @app.get("/tiles")
     def tiles_fragment():
