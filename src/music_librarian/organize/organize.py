@@ -154,9 +154,11 @@ def main(argv=None, ap=None):
                    since=args.since, state_dir=state_path(args.state_dir))
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     if not (args.undo or args.lyrion_replay):
-        return recorded(lambda: run(opts, log).code, log, opts.state_dir, "organize", opts.apply)
+        return recorded(lambda: lyrion.rescanned(opts.lyrion, run(opts, log).code, log), log,
+                        opts.state_dir, "organize", opts.apply)
     command = "lyrion-replay" if args.lyrion_replay else "undo"
-    return recorded(lambda: replay(args, opts, log), log, opts.state_dir, command, opts.apply)
+    return recorded(lambda: lyrion.rescanned(opts.lyrion, replay(args, opts, log), log), log,
+                    opts.state_dir, command, opts.apply)
 
 
 def undo_main(argv=None):

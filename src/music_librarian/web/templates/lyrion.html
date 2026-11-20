@@ -13,6 +13,27 @@
     <p class="warning">{{ t.lyrion_unreadable.format(error=error) }}</p>
     {% endif %}
 </section>
+{% if not off %}
+<section>
+    <h2>{{ t.lyrion_scan_title }}</h2>
+    {% if ctx.lyrion.scan %}
+    <p class="muted">{{ t.lyrion_scan_auto if ctx.lyrion.rescans else t.lyrion_scan_manual }}</p>
+    {% if scan_asked == 'unreachable' %}
+    <p class="warning">{{ t.lyrion_scan_unreachable }}</p>
+    {% elif scan_asked %}
+    <p>{{ t['lyrion_scan_' ~ scan_asked] }}</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('start_scan') }}" class="answer">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="actions">
+            <button type="submit">{{ m.icon('scan') }}{{ t.lyrion_scan_button }}</button>
+        </div>
+    </form>
+    {% else %}
+    <p class="muted">{{ t.lyrion_scan_no_url }}</p>
+    {% endif %}
+</section>
+{% endif %}
 {% if counts is defined %}
 <section>
     <h2>{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>

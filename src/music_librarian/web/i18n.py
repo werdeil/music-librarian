@@ -349,6 +349,17 @@ TRANSLATIONS = {
                          "aussitôt, et le passage playcounts l'écrit dans persist.db."),
         "lyrion_off": "Lyrion n'est pas configuré : renseignez LYRION_PERSIST_DB et LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "La base de Lyrion est illisible : {error}",
+        "lyrion_scan_title": "Scan de Lyrion",
+        "lyrion_scan_auto": ("Une passe qui déplace ou ajoute des morceaux demande un scan à Lyrion dès "
+                             "qu'elle finit ; les tags modifiés sans déplacement attendent son scan "
+                             "programmé."),
+        "lyrion_scan_manual": ("Lyrion découvre les fichiers déplacés à son prochain scan : LYRION_RESCAN "
+                               "en demande un après chaque passe qui en déplace."),
+        "lyrion_scan_button": "Lancer un scan",
+        "lyrion_scan_started": "Scan demandé : Lyrion lit les fichiers nouveaux et modifiés.",
+        "lyrion_scan_running": "Lyrion est déjà en train de scanner.",
+        "lyrion_scan_unreachable": "Lyrion ne répond pas : scan non demandé.",
+        "lyrion_scan_no_url": "Renseignez LYRION_URL pour lancer un scan de Lyrion d'ici.",
         "orphans_title": "Lectures orphelines",
         "orphans_waiting": "En attente",
         "orphans_settled": "Réglés",
@@ -795,6 +806,16 @@ TRANSLATIONS = {
                          "playcounts pass writes it to persist.db."),
         "lyrion_off": "Lyrion is not set up: set LYRION_PERSIST_DB and LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "Lyrion's database is unreadable: {error}",
+        "lyrion_scan_title": "Lyrion's scan",
+        "lyrion_scan_auto": ("A pass that moves or adds tracks asks Lyrion for a scan as soon as it ends; "
+                             "tags changed without a move wait for its scheduled scan."),
+        "lyrion_scan_manual": ("Lyrion finds the moved files on its next scan: LYRION_RESCAN asks for one "
+                               "after each pass that moves some."),
+        "lyrion_scan_button": "Start a scan",
+        "lyrion_scan_started": "Scan asked for: Lyrion reads the new and changed files.",
+        "lyrion_scan_running": "Lyrion is already scanning.",
+        "lyrion_scan_unreachable": "Lyrion does not answer: no scan asked for.",
+        "lyrion_scan_no_url": "Set LYRION_URL to start a scan of Lyrion's from here.",
         "orphans_title": "Orphan play counts",
         "orphans_waiting": "Waiting",
         "orphans_settled": "Settled",

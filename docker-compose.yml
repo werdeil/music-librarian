@@ -59,6 +59,8 @@ services:
       - LYRION_URL=${LYRION_URL:-}
       - LYRION_USER=${LYRION_USER:-}
       - LYRION_PASSWORD=${LYRION_PASSWORD:-}
+      # a scan asked of Lyrion once a pass moved or added tracks, off without LYRION_RESCAN=1
+      - LYRION_RESCAN=${LYRION_RESCAN:-}
       - LYRION_SCAN_POLL=${LYRION_SCAN_POLL:-5}
       - LYRION_SCAN_TIMEOUT=${LYRION_SCAN_TIMEOUT:-900}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,netease}

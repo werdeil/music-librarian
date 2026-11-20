@@ -1,9 +1,12 @@
 # pylint: disable=redefined-outer-name,unused-argument  # pytest fixtures
+import json
 import os
 import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -33,7 +36,7 @@ CREATE UNIQUE INDEX cpurlmd5UniqueIndex ON alternativeplaycount (urlmd5);
 def clean_env(monkeypatch, tmp_path):
     """Tests must not inherit paths from the Docker image or the host, nor write to its state."""
     for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE", "GENRE_LOOKUP",
-                "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT"):
+                "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT", "LYRION_URL", "LYRION_USER", "LYRION_RESCAN"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))
 
@@ -206,3 +209,46 @@ def image(tmp_path_factory):
                         "-frames:v", "1", str(path)], check=True)
         return path.read_bytes()
     return make
+
+
+@pytest.fixture
+def server():
+    """A fake Lyrion answering JSON-RPC: `scans` holds the answers of the next `rescan ?`
+    queries, True while scanning, then none is; `status` is the HTTP status, `result` replaces
+    the answer of `rescan ?`; `started` counts the scans asked for."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # pylint: disable=invalid-name  # http.server's name
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            command = body["params"][1]
+            fake.asked.append(command)
+            fake.logins.append(self.headers.get("Authorization"))
+            if command == ["rescan"]:
+                fake.started += 1
+                result = {}
+            elif command[0] == "rescan":
+                scanning = fake.scans.pop(0) if fake.scans else False
+                result = fake.result if fake.result is not None else {"_rescan": int(scanning)}
+            else:
+                result = {"version": "9.2.0", **fake.serverstatus}
+            answer = json.dumps({"id": 1, "method": "slim.request", "result": result}).encode()
+            self.send_response(fake.status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(answer)))
+            self.end_headers()
+            self.wfile.write(answer)
+
+        def log_message(self, *args):  # pylint: disable=arguments-differ
+            pass
+
+    class Fake:
+        scans, asked, logins, status, result, serverstatus, started = [], [], [], 200, None, {}, 0
+        url = None
+
+    fake = Fake()
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    fake.url = f"http://127.0.0.1:{httpd.server_port}"
+    threading.Thread(target=httpd.serve_forever, args=(0.01,), daemon=True).start()
+    yield fake
+    httpd.shutdown()
+    httpd.server_close()

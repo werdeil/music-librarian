@@ -406,7 +406,8 @@ def main(argv=None):
                    disc_names=found if args.disc_names else [])
     opts.lyrion = lyrion.from_args(args, opts.root, opts.state_dir)
     log = Log(args.syslog)
-    return recorded(lambda: run(opts, log), log, opts.state_dir, "tag", opts.apply)
+    return recorded(lambda: lyrion.rescanned(opts.lyrion, run(opts, log), log), log, opts.state_dir, "tag",
+                    opts.apply)
 
 
 if __name__ == "__main__":

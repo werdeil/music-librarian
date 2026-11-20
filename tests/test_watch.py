@@ -177,6 +177,21 @@ def test_real_import(tmp_path, ticks, make_track, monkeypatch):
     assert list((inbox_dir / importer.DONE).glob("*/Album/1.flac"))
 
 
+def test_import_asks_lyrion_for_a_scan(tmp_path, ticks, make_track, monkeypatch, lyrion_db, server):
+    lib, inbox_dir, state = tmp_path / "Musique", tmp_path / "Inbox", tmp_path / "state"
+    lib.mkdir()
+    inbox_dir.mkdir()
+    monkeypatch.setattr(enrich, "enrichers", lambda: [])
+
+    def deposit():
+        make_track(inbox_dir / "Album/1.flac", title="Un", artist="A", album="B", track=1)
+
+    ticks(inbox_dir, [deposit, nothing, nothing, nothing], "--root", str(lib), "--state-dir", str(state),
+          "--settle", "0", "--apply", "--lyrion-db", str(lyrion_db), "--lyrion-root", "/music",
+          "--lyrion-url", server.url, "--lyrion-rescan")
+    assert list(lib.rglob("*.m4a")) and server.started == 1
+
+
 # ---------- nightly organize (--organize-at) ----------
 
 @pytest.fixture

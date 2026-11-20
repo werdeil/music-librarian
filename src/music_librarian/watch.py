@@ -47,6 +47,7 @@ from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals, re
 from music_librarian.core.log import Log
 from music_librarian.core import runs
 from music_librarian.core.runs import recorded
+from music_librarian.integrations import lyrion
 from music_librarian.web.passes import Requests, passes
 
 
@@ -259,6 +260,7 @@ def main(argv=None):
             if STOP.is_set():
                 break
             job.tick(log)
+        lyrion.rescan(import_opts.lyrion, log, keep=True)
         pause(args.interval, requests.wake)
     if server:
         server.close()
