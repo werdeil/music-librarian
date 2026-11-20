@@ -67,13 +67,13 @@ Each review links, from the Reviews page and under each question, to the file it
 
 ## Lyrion
 
-The **Lyrion** page lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer, a journal or their case, with the track that takes them or the mention that they are to delete, and those **ignored**. The page opens on the settled ones when none is waiting.
+The **Lyrion** page holds three cards: the orphan play counts, writing to Lyrion, and Lyrion's scan. The first lists the orphans `playcounts` finds in `persist.db` (see [lyrion.md](lyrion.md#orphan-play-counts)), the most played first, 50 per page, under three lists: those **waiting** for an answer, counted beside the page's name at the top of every page and on a tile of the overview, those **settled** by an answer, a journal or their case, with the track that takes them or the mention that they are to delete, and those **ignored**. The page opens on the settled ones when none is waiting.
 
 An orphan's page shows its play count, rating and last play, and the eight tracks of the library whose path looks most like its own, each with its note; the first is picked unless its note is under 60. A search box keeps the tracks whose path holds every word typed, when the right one is not among them. **Give to this track**, **Ignore** and **Delete** write the answer to `playcount-matches.json` at once and open the next orphan waiting, where the answer can be undone; **Later** opens the next one without an answer. Answering never writes to `persist.db`.
 
-Under the introduction, **Start a scan** asks Lyrion at once for its scan of new and changed files, and says whether it started, Lyrion was already scanning or did not answer; it needs `LYRION_URL`. It moves nothing in the library, so it is offered whether `watch` applies its passes or not (see [lyrion.md](lyrion.md#asking-lyrion-for-a-scan)).
+On the scan's card, **Start a scan** asks Lyrion at once for its scan of new and changed files, and says whether it started, Lyrion was already scanning or did not answer; it needs `LYRION_URL`. It moves nothing in the library, so it is offered whether `watch` applies its passes or not (see [lyrion.md](lyrion.md#asking-lyrion-for-a-scan)).
 
-At the bottom of the page, a form queues `playcounts` as a dry run, with a box to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
+The card to write to Lyrion counts the settled orphans and queues `playcounts` as a dry run, with a box to copy the plugin's plays where Lyrion counts none (ticked) and one to compute the DPSV of every track again, each with the number of tracks it concerns. The dry run's page applies it, as for any pass.
 
 The orphans are read from `persist.db`, opened read-only, in the background, again whenever it changes or a journal is written; the library is read from the metadata cache, again only when the cache changes, and its files are looked for on disk each time.
 

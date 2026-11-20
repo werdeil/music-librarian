@@ -366,17 +366,13 @@ TRANSLATIONS = {
         "new_genre_button": "En faire un genre validé",
         "tile_orphans": "Lectures Lyrion orphelines",
         "orphans_awaiting": "Orphelins en attente de réponse",
-        "lyrion_intro": ("Les lectures et notes que Lyrion garde sur des fichiers disparus, à rendre aux "
-                         "pistes de la bibliothèque, ou à supprimer : chaque réponse est enregistrée "
-                         "aussitôt, et le passage playcounts l'écrit dans persist.db."),
         "lyrion_off": "Lyrion n'est pas configuré : renseignez LYRION_PERSIST_DB et LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "La base de Lyrion est illisible : {error}",
         "lyrion_scan_title": "Scan de Lyrion",
-        "lyrion_scan_auto": ("Une passe qui déplace ou ajoute des morceaux demande un scan à Lyrion dès "
-                             "qu'elle finit ; les tags modifiés sans déplacement attendent son scan "
-                             "programmé."),
-        "lyrion_scan_manual": ("Lyrion découvre les fichiers déplacés à son prochain scan : LYRION_RESCAN "
-                               "en demande un après chaque passe qui en déplace."),
+        "lyrion_scan_auto": "Demandé de lui-même après chaque passe qui déplace ou ajoute des morceaux.",
+        "lyrion_scan_manual": "Pas de scan automatique : LYRION_RESCAN est désactivé.",
+        "lyrion_write_title": "Écrire dans Lyrion",
+        "orphans_hint": "Lectures et notes que Lyrion garde sur des fichiers disparus.",
         "lyrion_scan_button": "Lancer un scan",
         "lyrion_scan_started": "Scan demandé : Lyrion lit les fichiers nouveaux et modifiés.",
         "lyrion_scan_running": "Lyrion est déjà en train de scanner.",
@@ -411,8 +407,6 @@ TRANSLATIONS = {
         "orphan_ignore_button": "Ignorer",
         "orphan_delete_button": "Supprimer",
         "back_to_lyrion": "Retour à Lyrion",
-        "playcounts_intro": ("Écrit dans persist.db les orphelins réglés, après une copie de sauvegarde. "
-                             "L'aperçu ne change rien."),
         "opt_backfill": "recopier les lectures du plugin là où Lyrion n'en compte aucune, et l'inverse",
         "opt_dpsv": "recalculer la DPSV de toutes les pistes, approximative dès qu'il y a des sauts (--dpsv)",
         "reviews": "Revues",
@@ -851,16 +845,13 @@ TRANSLATIONS = {
         "new_genre_button": "Make it a validated genre",
         "tile_orphans": "Orphan Lyrion play counts",
         "orphans_awaiting": "Orphans awaiting an answer",
-        "lyrion_intro": ("The play counts and ratings Lyrion keeps on files gone, to give back to the "
-                         "library's tracks or to delete: each answer is recorded at once, and the "
-                         "playcounts pass writes it to persist.db."),
         "lyrion_off": "Lyrion is not set up: set LYRION_PERSIST_DB and LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "Lyrion's database is unreadable: {error}",
         "lyrion_scan_title": "Lyrion's scan",
-        "lyrion_scan_auto": ("A pass that moves or adds tracks asks Lyrion for a scan as soon as it ends; "
-                             "tags changed without a move wait for its scheduled scan."),
-        "lyrion_scan_manual": ("Lyrion finds the moved files on its next scan: LYRION_RESCAN asks for one "
-                               "after each pass that moves some."),
+        "lyrion_scan_auto": "Asked for on its own after each pass that moves or adds tracks.",
+        "lyrion_scan_manual": "No automatic scan: LYRION_RESCAN is off.",
+        "lyrion_write_title": "Write to Lyrion",
+        "orphans_hint": "Plays and ratings Lyrion keeps on files that are gone.",
         "lyrion_scan_button": "Start a scan",
         "lyrion_scan_started": "Scan asked for: Lyrion reads the new and changed files.",
         "lyrion_scan_running": "Lyrion is already scanning.",
@@ -895,8 +886,6 @@ TRANSLATIONS = {
         "orphan_ignore_button": "Ignore",
         "orphan_delete_button": "Delete",
         "back_to_lyrion": "Back to Lyrion",
-        "playcounts_intro": ("Writes the settled orphans to persist.db, after a backup copy. The preview "
-                             "changes nothing."),
         "opt_backfill": "copy the plugin's plays where Lyrion counts none, and the reverse",
         "opt_dpsv": "compute the DPSV of every track again, an estimate once a track was skipped (--dpsv)",
         "reviews": "Reviews",
