@@ -611,7 +611,7 @@ def test_queued_passes_head_the_history(dashboard):
     dashboard.requests.submit("scan", {}, False)
     dashboard.requests.submit("organize", {"since": True}, False)
     page = dashboard.client.get("/runs", headers=EN).get_data(as_text=True)
-    rows = re.findall(r"<td><code>(\w+)</code></td>\s*<td>[^<]*</td>\s*<td>[^<]*</td>\s*<td></td>\s*"
+    rows = re.findall(r"<td>(\w+)</td>\s*<td>[^<]*</td>\s*<td>[^<]*</td>\s*<td></td>\s*"
                       r'<td><span class="status status-queued">Queued</span>', page)
     assert rows == ["organize", "scan"]                     # the next to run just above the runs
     for filtered in ("/runs?command=import", "/runs?problems=1"):

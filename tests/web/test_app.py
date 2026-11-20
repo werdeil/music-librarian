@@ -139,10 +139,10 @@ def test_history_in_pages_of_fifty(client, ctx):
     for _ in range(history.HISTORY_PAGE + 5):
         record(ctx, "scan", code=2)
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert page.count('<td><code>scan</code></td>') == history.HISTORY_PAGE and "1 / 2" in page
+    assert page.count('<td>scan</td>') == history.HISTORY_PAGE and "1 / 2" in page
     assert 'href="/runs?problems=1&amp;page=2"' in page
     page = client.get("/runs?problems=1&page=2", headers=EN).get_data(as_text=True)
-    assert page.count('<td><code>scan</code></td>') == 5 and "Previous" in page
+    assert page.count('<td>scan</td>') == 5 and "Previous" in page
     assert '<h1 class="visually-hidden">History</h1>' in page
 
 

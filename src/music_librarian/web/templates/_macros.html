@@ -97,7 +97,7 @@
     {% for asked in queued %}
         <tr>
             <td class="muted">—</td>
-            <td><code>{{ asked.command }}</code></td>
+            <td>{{ asked.command }}</td>
             <td>{{ t.apply if asked.apply else t.dry_run }}</td>
             <td>{{ t.origin_web }}</td>
             <td></td>
@@ -107,7 +107,7 @@
     {% for run in runs %}
         <tr>
             <td><a href="{{ url_for('run_page', run_id=run.id, **filters) }}">{{ run.when }}</a></td>
-            <td><code>{{ run.command }}</code></td>
+            <td>{{ run.command }}</td>
             <td>{{ t.apply if run.apply else t.dry_run }}</td>
             <td>{{ origin(t, run) }}</td>
             <td>{{ run.duration or '' }}</td>
