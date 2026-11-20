@@ -843,6 +843,7 @@ table.tracks td.t-more {
 }
 
 table.tracks .t-length {
+    padding-right: 1.2rem;
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -1264,6 +1265,7 @@ table.found-tracks td.number {
     table.tracks .t-format,
     table.tracks .t-length {
         grid-column: span 3;
+        padding-right: 0;
         text-align: left;
     }
 

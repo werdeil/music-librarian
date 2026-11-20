@@ -355,6 +355,7 @@ def test_album_page(dashboard):
     assert f'href="/library">{BACK}Library</a>' in page
     assert '<table class="tracks" id="tracks">' in page and "Discs and grouping</button>" in page   # folded
     assert '<th class="t-length">Duration</th>' in page and 'data-label="Duration">0:00</td>' in page
+    assert '<p class="muted">2 tracks · 0 s</p>' in page
 
 
 def test_disc_numbers_shown_for_several_discs(dashboard, lib, make_track, tmp_path):
