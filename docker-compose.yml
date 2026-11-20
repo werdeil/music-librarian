@@ -65,7 +65,6 @@ services:
       - LYRION_SCAN_TIMEOUT=${LYRION_SCAN_TIMEOUT:-900}
       - LYRICS_PROVIDERS=${LYRICS_PROVIDERS:-lrclib,netease}
       - MUSIXMATCH_TOKEN=${MUSIXMATCH_TOKEN:-}
-      - LYRICS_RETRY_DAYS=${LYRICS_RETRY_DAYS:-30}
       # genres the list cannot align looked up on iTunes, off with GENRE_LOOKUP=none
       - GENRE_LOOKUP=${GENRE_LOOKUP:-itunes}
       - ITUNES_COUNTRY=${ITUNES_COUNTRY:-us}

@@ -10,12 +10,12 @@ import threading
 import time
 from collections import Counter, defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field, replace
 from pathlib import Path
 
 from music_librarian import repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
-from music_librarian.lyrics import INSTRUMENTAL, is_instrumental, misses
+from music_librarian.lyrics import INSTRUMENTAL, awaited, is_instrumental
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.web import query
@@ -28,6 +28,7 @@ TRACK_PAGE = 100
 PATIENCE = 1.0
 REBUILD_EVERY = 60
 REPORT_EVERY = 200
+WARM_KEPT = 8   # albums read ahead that are taken as still in the system's cache
 
 _building = threading.local()
 _one_build = threading.Lock()
@@ -39,11 +40,12 @@ class Album:
     artist: str
     title: str
     tracks: int
-    without_lyrics: int = 0
+    without_lyrics: int = 0   # neither instrumental nor awaited
     compilation: bool = False
     repeated: int = 0   # tracks with a field holding a value twice or several values
     year: str = ""
     changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
+    awaited: int = 0
 
 
 SORTS = {
@@ -60,6 +62,39 @@ VIEWS = ("albums", "tracks")
 class Catalog:
     albums: list   # of Album, in the index's order
     tracks: list   # of query.Track, album by album in that order, then by disc and number
+    bare: list = dataclass_field(default_factory=list)      # (Track, metadata) of those without lyrics
+    awaited: dict = dataclass_field(default_factory=dict)   # {folder: names of its tracks awaited}
+    started: float = 0.0   # time.monotonic() when its build started
+
+    def album(self, folder):
+        return next((a for a in self.albums if a.folder == folder), None)
+
+    def unsorted(self, folder):
+        """{file name: metadata} of the folder's tracks without lyrics not awaited."""
+        held = self.awaited.get(folder, set())
+        return {t.name: meta for t, meta in self.bare if t.folder == folder and t.name not in held}
+
+
+def with_awaited(catalog, marked):
+    """The catalog with its tracks without lyrics that `marked` (an awaited.Awaited) holds flagged
+    awaited, and left out of their album's count of tracks without lyrics."""
+    held = {id(t): t for t, meta in catalog.bare if marked.holds(meta)}
+    names, flagged = defaultdict(set), {}
+    for t in held.values():
+        names[t.folder].add(t.name)
+        flagged[id(t)] = query.Track(t.folder, t.name, t.values, t.tags, t.flags | {"awaited"}, t.duration)
+    albums = [replace(a, without_lyrics=a.without_lyrics - len(names[a.folder]), awaited=len(names[a.folder]))
+              if a.folder in names else a for a in catalog.albums]
+    tracks = [flagged.get(id(t), t) for t in catalog.tracks] if flagged else catalog.tracks
+    return Catalog(albums, tracks, catalog.bare, dict(names), catalog.started)
+
+
+def with_settled(catalog, settled):
+    """The catalog with the albums of `settled` counting no track without lyrics."""
+    if not settled:
+        return catalog
+    albums = [replace(a, without_lyrics=0) if a.folder in settled else a for a in catalog.albums]
+    return Catalog(albums, catalog.tracks, catalog.bare, catalog.awaited, catalog.started)
 
 
 @dataclass
@@ -237,26 +272,50 @@ class Refreshed:
 
 class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
-    when the cache changes. A file gone from the library since it was cached is left out."""
+    when the cache changes. A file gone from the library since it was cached is left out. The
+    awaited tracks are laid over the last build whenever their file changes, without a rebuild, and
+    so are the albums whose page found no track left to sort out (see settle)."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
         self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
+        self.marked, self.lock = None, threading.Lock()   # (build, what is laid over, Catalog laid over)
+        self.settled = {}   # {folder: time.monotonic() its page found nothing to sort out}
+
+    def settle(self, rel, settled):
+        """Note whether the page of the album `rel`, read from its files, found no track left to sort
+        out: until a build started after the note, the album then counts none without lyrics."""
+        with self.lock:
+            if settled:
+                self.settled[rel] = time.monotonic()
+            else:
+                self.settled.pop(rel, None)
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
-        catalog = self.albums.get()
+        catalog = self.catalog()
         return None if catalog is None else catalog.albums
 
     def catalog(self):
-        """The Catalog, None until it is first built."""
-        return self.albums.get()
+        """The Catalog with the awaited tracks, None until it is first built."""
+        built = self.albums.get()
+        if built is None:
+            return None
+        stamp = awaited_stamp(self.state_dir)
+        with self.lock:
+            self.settled = {rel: at for rel, at in self.settled.items() if at > built.started}
+            over = stamp, frozenset(self.settled)
+            if self.marked is None or self.marked[0] is not built or self.marked[1] != over:
+                laid = with_awaited(built, awaited.Awaited(self.state_dir))
+                self.marked = built, over, with_settled(laid, over[1])
+            return self.marked[2]
 
     def _build(self):
+        started = time.monotonic()
         if cache_stamp(self.state_dir)[0] is None:
-            return Catalog([], [])
+            return Catalog([], [], started=started)
         folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
-        tracks, rels = [], {}
+        tracks, rels, without = [], {}, []
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
         for path, snap in files:
@@ -271,6 +330,8 @@ class Index:
                                               ("compilation", first(snap["tags"], "compilation") == "1"))
                      if held]
             tracks.append(query.track_of(rel, path.name, snap, flags))
+            if not snap.get("lyrics"):
+                without.append((tracks[-1], metadata_cache.metadata(snap)))
         albums = []
         for done, (folder, held) in enumerate(folders.items(), 1):
             if done % REPORT_EVERY == 0:
@@ -285,7 +346,7 @@ class Index:
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
                                    query.number_of(t, "track") or 0, t.name))
-        return Catalog(albums, tracks)
+        return Catalog(albums, tracks, without, started=started)
 
 
 def album_folder(root: Path, rel):
@@ -303,13 +364,47 @@ def track_file(root: Path, rel, name):
     return path if path.is_file() and path.suffix.lower() in AUDIO_EXT and not is_junk(path) else None
 
 
+class Warmer:
+    """Reads the tracks of the albums a page is likely to open next, in order, in a thread of its
+    own, so those pages read them from the system's cache instead of the disk; albums asked for
+    while another is read replace those still waiting, and one read lately is not read again."""
+
+    def __init__(self):
+        self.wanted, self.reading, self.read = [], False, []
+        self.lock = threading.Lock()
+
+    def ask(self, *folders: Path):
+        with self.lock:
+            self.wanted = [f for f in folders if f not in self.read]
+            if self.reading or not self.wanted:
+                return
+            self.reading = True
+        threading.Thread(target=self._run, name="web-warm", daemon=True).start()
+
+    def _run(self):
+        while True:
+            with self.lock:
+                if not self.wanted:
+                    self.reading = False
+                    return
+                folder = self.wanted.pop(0)
+                self.read = [folder, *self.read][:WARM_KEPT]
+            try:
+                tracks_of(folder)
+            except OSError:
+                pass
+
+
+WARMER = Warmer()
+
+
 def tracks_of(folder: Path):
-    """[(file name, fields.read() values or None when unreadable)] of the folder's tracks."""
+    """[(file name, fields.read_all() values or None when unreadable)] of the folder's tracks."""
     out = []
     for p in sorted(folder.iterdir()):
         if p.is_file() and p.suffix.lower() in AUDIO_EXT and not is_junk(p):
             try:
-                out.append((p.name, fields.read(p)))
+                out.append((p.name, fields.read_all(p)))
             except Exception:
                 out.append((p.name, None))
     return out
@@ -471,47 +566,29 @@ def cover(folder: Path):
     return None
 
 
-def with_lyrics(folder: Path, tracks):
-    """Add to the values of each readable track its lyrics, as fields.lyrics() gives them, which
-    the page shows and its form carries; return {file name: "instrumental" when they are the
-    INSTRUMENTAL mark, else whether it has some}."""
+def with_lyrics(tracks):
+    """{file name: "instrumental" when its lyrics are the INSTRUMENTAL mark, else whether it has
+    some} of the tracks of tracks_of()."""
     out = {}
     for name, values in tracks:
-        text = []
-        if values:
-            try:
-                text = fields.lyrics(folder / name)
-            except Exception:
-                text = []
-            values[fields.LYRICS] = text
+        text = values[fields.LYRICS] if values else []
         out[name] = "instrumental" if text and is_instrumental(text[0]) else bool(text)
     return out
 
 
-def replaygain_state(folder: Path, names):
-    """{file name: its fields.replaygain() values, [] when it has none or is unreadable}."""
-    out = {}
-    for name in names:
-        try:
-            out[name] = fields.replaygain(folder / name)
-        except Exception:
-            out[name] = []
-    return out
+def without_lyrics(albums, later=None):
+    """The albums with tracks without lyrics, neither instrumental nor awaited, the most such
+    tracks first, those of `later` ({folder: when it was put off}) after the others, the one put
+    off longest first."""
+    later = later or {}
+    return sorted((a for a in albums if a.without_lyrics),
+                  key=lambda a: (later.get(a.folder, 0.0), -a.without_lyrics, a.folder))
 
 
-def without_lyrics(albums, root: Path, state_dir: Path):
-    """[(album, the time its tracks were last looked up in vain or None)] of the albums with
-    tracks without lyrics, the most such tracks first."""
-    missed = {folder: at for folder, _n, at in missed_albums(root, state_dir)}
-    bare = [a for a in albums if a.without_lyrics]
-    return [(a, missed.get(a.folder)) for a in sorted(bare, key=lambda a: (-a.without_lyrics, a.folder))]
-
-
-def missed_albums(root: Path, state_dir: Path):
-    """[(folder relative to the root, tracks looked up in vain, last lookup)] of the albums of
-    the library, the most tracks first."""
-    folders = defaultdict(list)
-    for path, at in misses.recorded(state_dir).items():
-        if path.is_relative_to(root) and path.exists():
-            folders[str(path.parent.relative_to(root))].append(at)
-    return sorted(((f, len(ats), max(ats)) for f, ats in folders.items()), key=lambda a: (-a[1], a[0]))
+def awaited_stamp(state_dir: Path):
+    """What changes when the awaited tracks do: the time and size of their file, None without one."""
+    try:
+        st = os.stat(state_dir / awaited.FILE)
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size

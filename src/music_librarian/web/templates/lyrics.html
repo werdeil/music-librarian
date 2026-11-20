@@ -3,20 +3,22 @@
 {% block content %}
 <section>
     <h2>{{ t.tracks_without_lyrics_title }}</h2>
-    <p class="muted">{{ t.lyrics_page_intro.format(days=days) }}</p>
+    <p class="muted">{{ t.lyrics_page_intro }}</p>
     {% if building %}
     {% include "_building.html" %}
-    {% elif albums %}
+    {% else %}
+    {% if awaited %}<p class="muted">{{ t.tracks_awaited.format(n=awaited) }}
+        · <a href="{{ url_for('library_page', c='awaited:yes', view='tracks') }}">{{ t.see }}</a></p>{% endif %}
+    {% if albums %}
     <p class="muted">{{ t.tracks_without_lyrics.format(n=tracks) }}</p>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.without_lyrics }}</th><th>{{ t.last_lookup }}</th></tr></thead>
+        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.without_lyrics }}</th></tr></thead>
         <tbody>
-        {% for album, at in albums %}
+        {% for album in albums %}
             <tr>
                 <td><a href="{{ url_for('album_page', folder=album.folder, list='lyrics', at=offset + loop.index0) }}">{{ album.folder }}</a></td>
                 <td>{{ album.without_lyrics }} / {{ album.tracks }}</td>
-                <td>{{ at or '—' }}</td>
             </tr>
         {% endfor %}
         </tbody>
@@ -31,6 +33,7 @@
     {% endif %}
     {% else %}
     <p class="muted">{{ t.lyrics_none_missing }}</p>
+    {% endif %}
     {% endif %}
 </section>
 {% endblock %}

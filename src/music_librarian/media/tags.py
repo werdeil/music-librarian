@@ -323,7 +323,16 @@ def _rg_names(audio):
 
 def read_replaygain(path):
     """[(name, value)] of every REPLAYGAIN_* tag of `path` (track and album gain and peak), by name."""
-    audio = mutagen.File(path)
+    return replaygain_of(mutagen.File(path))
+
+
+def lyrics_of(audio):
+    """The lyrics tag of an opened mutagen file, or None."""
+    return _read_lyrics(audio)
+
+
+def replaygain_of(audio):
+    """read_replaygain() of an opened mutagen file."""
     out = []
     for key, name in _rg_names(audio).items():
         values = audio.tags[key].text if isinstance(audio, MP3) else audio.tags[key]

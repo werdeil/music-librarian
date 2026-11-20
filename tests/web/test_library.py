@@ -748,13 +748,50 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
     assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
-    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=1">Next →</a>' in page
+    assert ">Later</button>" in page and "Next →</a>" not in page
     assert "← Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
                                 headers=EN).get_data(as_text=True)
-    assert "Album 2 of 2" in page and "Last of the list" in page
+    assert "Album 2 of 2" in page and "Last of the list" not in page
     assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">← Previous</a>' in page
+
+
+def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
+    settled(lambda: dashboard.client.get("/library/lyrics", headers=EN))
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0",
+                                headers=EN).get_data(as_text=True)
+    assert 'action="/library/album/later"' in page and ">Later</button>" in page
+    later = {"csrf": dashboard.token, "folder": "Beyonce/4", "at": "0"}
+    response = dashboard.client.post("/library/album/later", data=later)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    assert "Album 2 of 2" in dashboard.client.get(response.location, headers=EN).get_data(as_text=True)
+    page = dashboard.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+    assert page.index("Compilations/Hits") < page.index("Beyonce/4")
+    reviews = dashboard.client.get("/reviews", headers=EN).get_data(as_text=True)
+    assert "/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0" in reviews
+    response = dashboard.client.post("/library/album/later",
+                                     data={**later, "folder": "Compilations/Hits", "at": "0"})
+    assert response.location.endswith("/library/album?folder=Beyonce/4&list=lyrics&at=0")
+    assert "Album 1 of 2" in dashboard.client.get(response.location, headers=EN).get_data(as_text=True)
+    response = dashboard.client.post("/library/album/later", data={**later, "at": "1"})
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert "/library/album/later" not in page
+
+
+def test_album_sorted_out_steps_on_in_the_lyrics_list(dashboard):
+    settled(lambda: dashboard.client.get("/library/lyrics", headers=EN))
+    form = {"csrf": dashboard.token, "folder": "Beyonce/4", "list": "lyrics", "at": "0"}
+    response = dashboard.client.post("/library/album/awaited", data=form)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
+    page = page.get_data(as_text=True)
+    assert "Albums left: 1" in page and ">Later</button>" not in page
+    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0">Next →</a>' in page
+    response = dashboard.client.post("/library/album/later", data=form)
+    assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
+    assert not (dashboard.state / "review-later.json").exists()          # nothing put off
 
 
 def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
@@ -855,3 +892,24 @@ def test_library_pages_keep_the_search(dashboard, monkeypatch):
     page = settled(lambda: dashboard.client.get("/library?q=e&sort=year", headers=EN)).get_data(as_text=True)
     assert 'href="/library?page=2&amp;q=e&amp;sort=year">Next' in page
     assert 'id="results"' in page and "data-live-search" in page
+
+
+def test_warmer_reads_the_albums_asked_for_last_once(tmp_path, monkeypatch):
+    read, gate = [], threading.Event()
+
+    def tracks_of(folder):
+        gate.wait(5)
+        read.append(folder.name)
+    monkeypatch.setattr(library, "tracks_of", tracks_of)
+    warmer = library.Warmer()
+    warmer.ask(tmp_path / "a", tmp_path / "b")
+    warmer.ask(tmp_path / "c", tmp_path / "d")
+    gate.set()
+    for thread in threading.enumerate():
+        if thread.name == "web-warm":
+            thread.join(5)
+    warmer.ask(tmp_path / "d", tmp_path / "e")
+    for thread in threading.enumerate():
+        if thread.name == "web-warm":
+            thread.join(5)
+    assert read == ["a", "c", "d", "e"]

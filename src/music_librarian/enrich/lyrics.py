@@ -34,8 +34,8 @@ Several targets are accepted, and shell-style wildcards work even when quoted
     python -m music_librarian.enrich.lyrics "/path/to/music/A*" /path/to/music/B*
 Each target may be a directory (scanned recursively) or a single music file.
 
-A file looked up in vain is not looked up again for LYRICS_RETRY_DAYS (default 30),
-unless its artist, title or album changes or --force or --retry is given (lyrics/misses.py).
+Every file without lyrics is looked up on every pass, those awaited (lyrics/awaited.py) too; a
+track written lyrics, or the instrumental mark, is no longer awaited.
 
 A provider that calls a track instrumental gets "[Instrumental]" written as its lyrics, which
 keeps it from being looked up again. --force and --clear treat the mark as any lyrics, and
@@ -60,7 +60,7 @@ from music_librarian.core.log import Log
 from music_librarian.core.state import state_path
 from music_librarian.enrich.common import ESTIMATE, album_folders, estimate, finish, label
 from music_librarian.lyrics import INSTRUMENTAL, enabled_providers, fetch_lyrics, is_instrumental
-from music_librarian.lyrics.misses import Misses
+from music_librarian.lyrics import awaited
 from music_librarian.media import metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
 
@@ -90,12 +90,7 @@ def parse_args(argv):
     )
     parser.add_argument(
         "--force", action="store_true",
-        help="Overwrite the lyrics tag even when one is already present, and look up "
-             "the files found in vain recently too.",
-    )
-    parser.add_argument(
-        "--retry", action="store_true",
-        help="Look up the files found in vain recently too, without waiting LYRICS_RETRY_DAYS.",
+        help="Overwrite the lyrics tag even when one is already present.",
     )
     parser.add_argument(
         "--clear", action="store_true",
@@ -143,10 +138,10 @@ def found(meta, verify=True):
     return plain, result
 
 
-def look_up_track(path, state_dir):
+def look_up_track(path):
     """What the providers have for the file at `path`, for its album's page: (its plain lyrics,
     the INSTRUMENTAL mark, or None; where the answer came from, or why there is none: "no
-    metadata", "none", "rejected", "unavailable"). A lookup in vain is recorded as a pass does."""
+    metadata", "none", "rejected", "unavailable"). Writes nothing."""
     meta = metadata_cache.metadata(tags.read_snapshot(path))
     if not meta or not meta.get("artist") or not meta.get("title"):
         return None, "no metadata"
@@ -156,9 +151,6 @@ def look_up_track(path, state_dir):
         return plain, source
     if result.get("instrumental"):
         return INSTRUMENTAL, source
-    if source != "unavailable":
-        with Misses(state_dir) as misses:
-            misses.record(path, meta)
     return None, source
 
 
@@ -184,21 +176,9 @@ MISSES = {"unavailable": ("unreachable", "OFFLINE  {}  (lyrics services unreacha
           "rejected": ("rejected", "REJECTED {}  (no confident match)")}
 
 
-SKIPS = {"already": "has lyrics", "searched recently": "looked up in vain recently"}
-
-
-def skipped(path, meta, already, args, misses):
-    """Why a file is not looked up, a key of SKIPS, or None."""
-    # --force overwrites and --clear may drop the tag: both have to look the file up
-    if already and not args.force and not args.clear:
-        return "already"
-    if not already and not (args.force or args.retry) and misses.recent(path, meta):
-        return "searched recently"
-    return None
-
-
-def handle(path, rel, args, log, cache, misses):
-    """Look one file up and write what was found; the outcome counted."""
+def handle(path, rel, args, log, cache, answered):
+    """Look one file up and write what was found; the outcome counted, the metadata of a track
+    given lyrics or the instrumental mark appended to `answered`."""
     snap = cache.snapshot(path)
     meta = metadata_cache.metadata(snap)
     if not meta or not meta.get("artist") or not meta.get("title"):
@@ -206,39 +186,44 @@ def handle(path, rel, args, log, cache, misses):
             log(f"SKIPPED  (no artist or title)  {rel}")
         return "no metadata"
     already = snap["lyrics"]
-    why = skipped(path, meta, already, args, misses)
-    if why:
+    # --force overwrites and --clear may drop the tag: both have to look the file up
+    if already and not args.force and not args.clear:
         if args.verbose:
-            log(f"SKIPPED  ({SKIPS[why]})  {rel}")
-        return why
+            log(f"SKIPPED  (has lyrics)  {rel}")
+        return "already"
     if args.dry_run and not args.look_up:
         return "to look up"
 
     plain, result = lookup(meta, args)
     source = result.get("source")
     if plain:
-        misses.forget(path)
         if already and not args.force:
             if args.verbose:
                 log(f"SKIPPED  (found online, kept the existing lyrics)  {rel}")
             return "already"
-        return write(path, rel, plain, args, log)
-    if result.get("instrumental"):
-        return instrumental(path, rel, already, args, log, misses)
+        outcome = write(path, rel, plain, args, log)
+    elif result.get("instrumental"):
+        outcome = instrumental(path, rel, already, args, log)
+    else:
+        return missed(path, rel, already, args, log, source)
+    if outcome in ("written", "instrumental") and not args.dry_run:
+        answered.append(meta)
+    return outcome
+
+
+def missed(path, rel, already, args, log, source):
+    """Clear the tag of a track found nowhere under --clear, else log the miss; the outcome counted."""
     # an unreachable provider says nothing about what the providers carry: never cleared
     if already and args.clear and source != "unavailable":
         return write(path, rel, None, args, log)
     key, line = MISSES.get(source, ("not found", "NONE     {}"))
     log(line.format(rel))
-    if key != "unreachable":
-        misses.record(path, meta)
     return key
 
 
-def instrumental(path, rel, already, args, log, misses):
+def instrumental(path, rel, already, args, log):
     """Write the INSTRUMENTAL mark a provider's answer calls for, unless the track carries it
     already; the outcome counted."""
-    misses.forget(path)
     if already and is_instrumental(tags.read_lyrics(path)):
         return "instrumental"
     if already and not args.clear:
@@ -257,16 +242,17 @@ def main(argv=None):
         log(f"SKIPPED  lyrics: LYRICS_PROVIDERS={providers!r} names no known provider")
         return 0
     counts = dict.fromkeys(("scanned", "to look up", "written", "cleared", "already", "not found", "rejected",
-                            "unreachable", "instrumental", "searched recently", "no metadata", "failed"), 0)
-    stopped = False
-    with MetadataCache(state_path()) as cache, Misses(state_path()) as misses:
+                            "unreachable", "instrumental", "no metadata", "failed"), 0)
+    stopped, answered = False, []
+    with MetadataCache(state_path()) as cache:
         for path, rel in music_files(args.targets, log):
             if STOP.is_set():
                 log("STOP     requested: the next files are left for the next pass")
                 stopped = True
                 break
             counts["scanned"] += 1
-            counts[handle(path, rel, args, log, cache, misses)] += 1
+            counts[handle(path, rel, args, log, cache, answered)] += 1
+    awaited.unmark(state_path(), answered)
 
     if counts["to look up"]:
         counts[ESTIMATE] = estimate(counts["to look up"] * (LOOKUP_SECONDS + args.delay))

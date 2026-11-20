@@ -8,18 +8,19 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, url_for
+import time as clock
+
+from flask import Flask, g, jsonify, render_template, request, url_for
 
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.importer import ERRORS, list_items
-from music_librarian.lyrics import misses
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, playcounts, reviews, security
-from music_librarian.web.common import place, texts, when
+from music_librarian.web.common import place, server_timing, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
-from music_librarian.web.passes import LONG_WHEN, OPTIONS, UNDER
+from music_librarian.web.passes import LONG_WHEN, OPTIONS
 
 HOME_PASSES = ("import", "organize", "enrich", "scan")
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover", "request_state"}
@@ -65,14 +66,16 @@ def create_app(ctx: Context, build_now=False):
     first request."""
     app = Flask(__name__)
     token = security.register(app, ctx)
-    waiting, queues = reviews.register(app, ctx)
     index = library.Index(ctx.root, ctx.state_dir)
+    later = reviews.Postponed(ctx.state_dir)
+    waiting, queues = reviews.register(app, ctx, index, later)
     history.register(app, ctx)
-    albums.register(app, ctx, index)
+    albums.register(app, ctx, index, later)
     orphans_waiting, orphans = playcounts.register(app, ctx)
     built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues
-    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,), "reviews_page": queues,
+    shows = {"library_page": (index.albums,), "missed_lyrics": (index.albums,),
+             "reviews_page": (*queues, index.albums),
              "review_split": (credit_queue,), "review_dedupe": (credit_queue,),
              "review_genres": (genre_queue,), "genre_list_page": (genre_queue,),
              "lyrion_page": orphans, "lyrion_orphan": orphans}
@@ -100,6 +103,16 @@ def create_app(ctx: Context, build_now=False):
     def start_builds():
         for value in built_in_background:
             value.start()
+
+    @app.before_request
+    def start_timing():
+        g.started = clock.perf_counter()
+
+    @app.after_request
+    def timing_header(response):
+        if "started" in g:
+            response.headers["Server-Timing"] = server_timing(g.started)
+        return response
 
     @app.before_request
     def start_builds_on_request():
@@ -134,14 +147,12 @@ def create_app(ctx: Context, build_now=False):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN, under=UNDER,
-            days=f"{misses.retry_days():g}")
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         everything = index.get()
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
-                    lyrics=None if everything is None else sum(a.without_lyrics for a in everything),
                     repeats=None if everything is None else sum(a.repeated for a in everything))
         return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
 

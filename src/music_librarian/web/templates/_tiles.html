@@ -5,12 +5,12 @@
          note=None if genre_list else t.tile_no_genre_list),
     dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1')),
     dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
-    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics'), info=True),
+    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics')),
 ] %}
 {% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}
 {% set ns = namespace(todo=[], ok=[], aside=[]) %}
 {% for e in entries %}
-    {% if e.value is none or e.info %}{% set ns.aside = ns.aside + [e] %}
+    {% if e.value is none %}{% set ns.aside = ns.aside + [e] %}
     {% elif e.value %}{% set ns.todo = ns.todo + [e] %}
     {% else %}{% set ns.ok = ns.ok + [e] %}{% endif %}
 {% endfor %}
@@ -31,9 +31,9 @@
 {% if ns.aside %}
 <p class="tile-aside">
 {% for e in ns.aside %}
-    <a class="tile-line {{ 'tile-none' if e.value is none else 'tile-info' }}" href="{{ e.href }}">
-        <span class="tile-value">{{ '—' if e.value is none else e.value }}</span>
-        <span class="tile-label">{{ e.label }}</span>{% if e.value is none %} <span class="tile-note">({{ e.note or t.tile_building }})</span>{% endif %}</a>
+    <a class="tile-line tile-none" href="{{ e.href }}">
+        <span class="tile-value">—</span>
+        <span class="tile-label">{{ e.label }}</span> <span class="tile-note">({{ e.note or t.tile_building }})</span></a>
 {% endfor %}
 </p>
 {% endif %}
