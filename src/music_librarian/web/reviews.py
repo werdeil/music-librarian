@@ -27,12 +27,14 @@ from music_librarian.dedupe.aliases import canonical
 from music_librarian.dedupe.review import pending, suggestion
 from music_librarian.dedupe.similar import find_groups
 from music_librarian.enrich import genres
+from music_librarian.lyrics import awaited
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
-from music_librarian.web.library import Refreshed, cache_stamp, cached_files, part
+from music_librarian.web.common import timed
+from music_librarian.web.library import WARMER, Refreshed, cache_stamp, cached_files, part, without_lyrics
 
 
 LATER = "review-later.json"
@@ -44,7 +46,8 @@ def quiet(_msg):
 
 
 class Postponed:
-    """The questions put off with Later: {review: {question's key: when}}."""
+    """The questions put off with Later: {review: {question's key: when}}, and under "rounds"
+    {review: when the round under way started}."""
 
     def __init__(self, state_dir: Path):
         self.path = state_dir / LATER
@@ -56,23 +59,45 @@ class Postponed:
         except (OSError, ValueError):
             return {}
 
+    def times(self, review):
+        """{question's key: when it was put off} of the review."""
+        return self._read().get(review, {})
+
+    def _write(self, data):
+        temp = self.path.with_name(self.path.name + ".tmp")
+        temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.replace(temp, self.path)
+
     def put(self, review, asked):
         with self.lock:
             data = self._read()
             data.setdefault(review, {})[asked] = time.time()
-            temp = self.path.with_name(self.path.name + ".tmp")
-            temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-            os.replace(temp, self.path)
+            self._write(data)
+
+    def seen(self, review, keys):
+        """How many of `keys`, ordered as pick orders them, were put off in the round under way;
+        a round ends once the first of them was put off in it, and the next one starts."""
+        if not keys:
+            return 0
+        with self.lock:
+            data = self._read()
+            times, rounds = data.get(review, {}), data.setdefault("rounds", {})
+            started = rounds.get(review, 0.0)
+            if times.get(keys[0], 0.0) > started:
+                started = rounds[review] = max(times.get(k, 0.0) for k in keys)
+                self._write(data)
+        return sum(1 for k in keys if times.get(k, 0.0) > started)
 
     def pick(self, review, left, key_of, start, total):
         """Of `left`, the positions still awaiting an answer, the one `start` places after the first
-        once those put off are moved to the end, and its number among `total` questions; None, None
-        past the end."""
-        times = self._read().get(review, {})
+        once those put off are moved to the end, and its number among `total` questions, counted
+        from the first not put off in the round under way; None, None past the end."""
+        times = self.times(review)
         ordered = sorted(left, key=lambda i: times.get(key_of(i), 0.0))
         if start >= len(ordered):
             return None, None
-        return ordered[start], total - len(left) + start + 1
+        seen = self.seen(review, [key_of(i) for i in ordered])
+        return ordered[start], total - len(left) + (seen + start) % len(ordered) + 1
 
 
 def dedupe_key(names):
@@ -262,29 +287,38 @@ class GenreReview:
             genres.remove_from_list(self.path, genre, alias)
 
 
-def register(app, ctx):
+def register(app, ctx, index, later):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n}, n None until its queue is first built
-    (counted once per request), and the queues, Refreshed values."""
-    later = Postponed(ctx.state_dir)
+    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n}, n None until its queue (for the
+    lyrics, the album list of `index`, a library.Index) is first built (counted once per request),
+    and the queues, Refreshed values. `later` is the Postponed the questions put off are kept in."""
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
 
     def waiting():
         if "waiting" not in g:
-            g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
-                             genres=genre_review.item()[1])
+            with timed("reviews"):
+                albums = index.get()
+                g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
+                                 genres=genre_review.item()[1],
+                                 lyrics=None if albums is None else sum(a.without_lyrics for a in albums))
         return g.waiting
 
     @app.get("/reviews")
     def reviews_page():
         left = waiting()
+        albums = index.get()
+        bare = without_lyrics(albums, later.times("lyrics")) if albums else []
+        WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
                                genres=left["genres"], genre_list=genre_review.mapping() is not None,
+                               lyrics=left["lyrics"], lyrics_albums=len(bare),
+                               first_bare=bare[0].folder if bare else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
-                                          genres=len(genres.entries(genre_review.path))))
+                                          genres=len(genres.entries(genre_review.path)),
+                                          awaited=len(awaited.entries(ctx.state_dir))))
 
     @app.post("/reviews/<review>/later")
     def review_later(review):
@@ -307,6 +341,11 @@ def register(app, ctx):
         return render_template("rules.html", kind="aliases", path=reviews.aliases,
                                unified=[(a, b) for a, kind, b in entries if kind == "=>"],
                                different=[(a, b) for a, kind, b in entries if kind == "!="])
+
+    @app.get("/reviews/lyrics/awaited")
+    def awaited_page():
+        return render_template("rules.html", kind="awaited", path=ctx.state_dir / awaited.FILE,
+                               tracks=awaited.entries(ctx.state_dir))
 
     @app.get("/reviews/split/decisions")
     def decisions_page():

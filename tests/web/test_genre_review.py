@@ -118,5 +118,6 @@ def test_later_puts_the_genre_last(d):
     text = page(d, "/reviews/genres")
     assert 'name="later" value="Hip Hop"' in text and 'formaction="/reviews/genres/later"' in text
     d.client.post("/reviews/genres/later", data={"csrf": d.token, "later": "Hip Hop"})
-    assert "Zydeco" in page(d, "/reviews/genres")
+    text = page(d, "/reviews/genres")
+    assert "Zydeco" in text and "Question 2 of 2" in text
     assert "Hip Hop" in page(d, "/reviews/genres?from=1")

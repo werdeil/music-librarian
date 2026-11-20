@@ -463,22 +463,10 @@ footer {
     margin-top: 0.7rem;
 }
 
-.pass-dialog .sub-option {
-    margin-left: 1.6rem;
-}
-
-.pass-dialog .sub-option:has(input:disabled) {
-    color: var(--text-muted);
-}
-
 .pass-warning {
     margin: 0.2rem 0 0 1.6rem;
     font-size: var(--fs-sm);
     color: var(--warning);
-}
-
-.sub-option + .pass-warning {
-    margin-left: 3.2rem;
 }
 
 .tiles {
@@ -825,6 +813,15 @@ table.tracks input {
     width: 8rem;
 }
 
+table.tracks tr.to-sort > td {
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+table.tracks tr.to-sort .t-lyrics button {
+    color: var(--warning);
+    font-weight: 600;
+}
+
 input.repeated {
     border-color: var(--warning);
 }
@@ -1015,9 +1012,15 @@ form.inline {
 
 .work-steps {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     margin-left: auto;
+}
+
+.work-steps .button,
+.work-steps button {
+    white-space: nowrap;
 }
 
 .output summary {
@@ -1208,6 +1211,16 @@ table.found-tracks td.number {
         gap: 0.4rem 0.6rem;
         padding: 0.6rem 0;
         border-bottom: 1px solid var(--border-color);
+    }
+
+    table.tracks tr.to-sort {
+        background: color-mix(in srgb, var(--warning) 12%, transparent);
+        box-shadow: inset 3px 0 0 var(--warning);
+        padding-left: 0.6rem;
+    }
+
+    table.tracks tr.to-sort > td {
+        background: none;
     }
 
     table.tracks tr[hidden] {

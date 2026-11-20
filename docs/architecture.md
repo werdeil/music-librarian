@@ -41,9 +41,9 @@ src/music_librarian/
 │   ├── genres.py    genres aligned with the validated list
 │   └── lyrics.py    lyrics written into the tags
 ├── lyrics/          lyrics lookup: provider chain, matching
+│   ├── awaited.py   the tracks whose lyrics are awaited (lyrics-awaited.txt)
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider
-│   ├── matching.py  is a provider's answer this recording?
-│   └── misses.py    lookups that found nothing, not repeated before LYRICS_RETRY_DAYS
+│   └── matching.py  is a provider's answer this recording?
 ├── media/           tags.py (genres, lyrics and covers in the tags), metadata_cache.py (each file's
 │                    tags kept between passes), fields.py (every field tag and undo rewrite, in each
 │                    format), credit_tags.py (album artist, artist, composer), artwork.py (image
@@ -119,7 +119,7 @@ With `--apply`, the album folders are handed in batches of 20 to four modules ru
 1. **`enrich.genres`** rewrites each genre to the spelling of the validated list (`genres.txt` in the state folder), aliases included. A genre the list does not know is reported `UNKNOWN` and left as is.
 2. **`enrich.replaygain`** measures the files without gain with ffmpeg (EBU R128) and writes ReplayGain 2.0 tags referenced to -18 LUFS.
 3. **`enrich.covers`** embeds `folder.jpg` into the tracks whose embedded cover differs from it, byte for byte.
-4. **`enrich.lyrics`** looks up the files without lyrics (LRCLIB, then NetEase, Musixmatch if enabled) and writes them only when the provider's title, artist and duration (within 3 s) match the file. A file looked up in vain is recorded in `lyrics-misses.db` and skipped for `LYRICS_RETRY_DAYS` (30 by default) unless its artist, title or album changes; `--retry`, which the dashboard's album page uses, looks it up anyway. A provider that calls the track instrumental (LRCLIB's and Musixmatch's `instrumental` flag, NetEase's `nolyric` or `pureMusic`), checked like lyrics, gets `[Instrumental]` written as its lyrics, so the track counts as having some and is never looked up again. `--force` and `--clear` treat the mark as any lyrics, and existing lyrics give way to it only under `--clear`.
+4. **`enrich.lyrics`** looks up the files without lyrics (LRCLIB, then NetEase, Musixmatch if enabled) and writes them only when the provider's title, artist and duration (within 3 s) match the file. Every file without lyrics is looked up on every pass, about 1.5 s each: a track whose lyrics no provider carries yet can be marked awaited from the dashboard (`lyrics-awaited.txt` in the state folder, keyed on its artist, title, album and duration), which only takes it out of the dashboard's list of tracks to sort out, and a track written lyrics or the mark below is no longer awaited. A provider that calls the track instrumental (LRCLIB's and Musixmatch's `instrumental` flag, NetEase's `nolyric` or `pureMusic`), checked like lyrics, gets `[Instrumental]` written as its lyrics, so the track counts as having some and is never looked up again. `--force` and `--clear` treat the mark as any lyrics, and existing lyrics give way to it only under `--clear`.
 
 Each step is announced with its rank (`ENRICH   (lyrics)  step 4/6`), and each batch ends on a `PROGRESS` line: the batch and folders done, the time spent on the tool and the time left, extrapolated from the folders done. The modules' per-batch summaries are not shown: their counts are added up into one summary per tool, with the time it took, and the final summary gives the time of the whole pass. On a stop request the current batch finishes, the tool's summary so far is shown and the rest waits for the next pass. `repeats.py`, `split` and `dedupe` then run over the whole library. A complete pass then drops the files gone from the library from the metadata cache.
 
@@ -141,7 +141,7 @@ A dry run reads only the metadata cache and the library's folders, never the net
 ### tag: fields rewritten, then filed again
 
 1. **Read each track** given (or under each folder given) directly, not through the cache, and plan its changes: a value already there is left, a genre takes the validated list's spelling, and an edit made against values the track no longer holds (`seen`, which the dashboard passes) is `REFUSED`. Tracks outside the library are skipped.
-2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track whose lyrics change is dropped from the lookups in vain (`lyrics/misses.py`), so the next `enrich` looks lyrics removed up again at once. The ReplayGain is another, which only `replaygain=` empties: every `REPLAYGAIN_*` tag goes, journaled as `NAME=value` so that `undo` writes them back, logged by the track gain; the track's snapshot then has no gain, so the next `enrich` measures it again.
+2. **Write the fields** with `--apply` through `media/fields.py`, each change journaled with its old values. The lyrics are one of them for the dashboard, logged by their number of lines; a track given lyrics is no longer awaited (`lyrics/awaited.py`). The ReplayGain is another, which only `replaygain=` empties: every `REPLAYGAIN_*` tag goes, journaled as `NAME=value` so that `undo` writes them back, logged by the track gain; the track's snapshot then has no gain, so the next `enrich` measures it again.
 3. **File the folders of the edited tracks** with `organize_pass`, in the same journal, all or nothing like import. A dry run hands organize the tags as they will be (`Options.overrides`), so it lists the exact moves, conflicts included.
 
 ### cover: an album's folder.jpg replaced

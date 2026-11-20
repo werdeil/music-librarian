@@ -1,10 +1,12 @@
 {% extends "base.html" %}
-{% set title = {'genres': t.rules_genres, 'aliases': t.rules_aliases, 'decisions': t.rules_decisions}[kind] %}
+{% set title = {'genres': t.rules_genres, 'aliases': t.rules_aliases, 'decisions': t.rules_decisions,
+                'awaited': t.rules_awaited}[kind] %}
 {% block title %}{{ title }} · music-librarian{% endblock %}
 {% import "_macros.html" as m %}
 {% block content %}
 {% set review = {'genres': ('review_genres', t.genre_review), 'aliases': ('review_dedupe', t.dedupe_review),
-                 'decisions': ('review_split', t.split_review)}[kind] %}
+                 'decisions': ('review_split', t.split_review),
+                 'awaited': ('missed_lyrics', t.tracks_without_lyrics_title)}[kind] %}
 <p class="back">{% if request.args.get('review') %}<a class="button" href="{{ url_for(review[0]) }}">{{ m.icon('back') }}{{ review[1] }}</a>
 {%- else %}<a class="button" href="{{ url_for('reviews_page') }}">{{ m.icon('back') }}{{ t.reviews }}</a>{% endif %}</p>
 <section>
@@ -54,6 +56,22 @@
         <table>
             <tbody>
             {% for one, other in different %}<tr><td>{{ one }}</td><td class="muted">≠</td><td>{{ other }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+
+    {% elif kind == 'awaited' %}
+        {% if not tracks %}
+        <p class="muted">{{ t.rules_empty }}</p>
+        {% else %}
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>{{ t.field_artist }}</th><th>{{ t.field_title }}</th><th>{{ t.field_album }}</th><th>{{ t.duration }}</th></tr></thead>
+            <tbody>
+            {% for artist, title, album, duration in tracks %}
+                <tr><td>{{ artist }}</td><td>{{ title }}</td><td>{{ album }}</td><td>{{ duration }}</td></tr>
+            {% endfor %}
             </tbody>
         </table>
         </div>

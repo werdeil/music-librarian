@@ -26,7 +26,8 @@
     });
 }());
 
-// On a phone, a track's card folds to its number and title; one holding a repeated value starts open.
+// On a phone, a track's card folds to its number and title; one holding a repeated value or to sort
+// out starts open.
 (function () {
     "use strict";
 
@@ -37,16 +38,15 @@
             button.setAttribute("aria-expanded", open ? "true" : "false");
         }
         button.hidden = false;
-        show(row.querySelector("input.repeated") !== null);
+        show(row.querySelector("input.repeated") !== null || row.classList.contains("to-sort"));
         button.addEventListener("click", function () {
             show(row.classList.contains("folded"));
         });
     });
 }());
 
-// A pass card opens its options in a dialog, each warning shown while its box makes the pass long, and
-// a box under another unticked and disabled while that one is; without script, the card submits the
-// options as ticked by default.
+// A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
+// without script, the card submits the options as ticked by default.
 (function () {
     "use strict";
 
@@ -54,15 +54,8 @@
         var form = opener.form;
         var dialog = form.querySelector("dialog");
         var warnings = dialog.querySelectorAll("[data-long]");
-        var subs = dialog.querySelectorAll("[data-under]");
 
         function update() {
-            subs.forEach(function (sub) {
-                sub.disabled = !form.elements.namedItem(sub.dataset.under).checked;
-                if (sub.disabled) {
-                    sub.checked = false;
-                }
-            });
             warnings.forEach(function (warning) {
                 var box = form.elements.namedItem(warning.dataset.long);
                 warning.hidden = box.checked !== (warning.dataset.longWhen === "checked");
@@ -362,6 +355,46 @@
                 })
                 .catch(function () { status.textContent = ""; })
                 .then(function () { button.disabled = false; });
+        });
+    });
+}());
+
+// The awaited box marks its track at once, apart from the form, and its row says so, as does Later
+// once no track is left to sort out; a mark refused leaves the box as it was.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-awaited]").forEach(function (box) {
+        var form = box.form;
+        var row = box.closest("tr").previousElementSibling;
+        var shown = row.querySelector("[data-lyrics-toggle]");
+        var later = document.querySelector("[data-later]");
+
+        box.addEventListener("change", function () {
+            var data = new FormData();
+            data.append("csrf", form.elements.namedItem("csrf").value);
+            data.append("folder", form.elements.namedItem("folder").value);
+            data.append("file", box.dataset.file);
+            data.append("awaited", box.checked ? "1" : "0");
+            box.disabled = true;
+            fetch(box.dataset.awaited, { method: "POST", body: data })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error(response.statusText);
+                    }
+                    box.defaultChecked = box.checked;
+                    row.classList.toggle("to-sort", !box.checked);
+                    shown.textContent = box.checked ? box.dataset.shownAwaited : box.dataset.shownToSort;
+                    if (later) {
+                        later.textContent = document.querySelector("tr.to-sort") ? later.dataset.later
+                            : later.dataset.sortedOut;
+                    }
+                })
+                .catch(function () {
+                    box.checked = box.defaultChecked;
+                    window.alert(box.dataset.failed);
+                })
+                .then(function () { box.disabled = false; });
         });
     });
 }());

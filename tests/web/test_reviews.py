@@ -62,7 +62,8 @@ def test_home_counts_the_same_questions(d):
     assert '/reviews/split"' in tile("Credits to split")
     assert '<span class="tile-value">1' in tile("Artists to unify")
     assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
-    assert '<span class="count" title="Questions awaiting an answer">3</span>' in page(d, "/library")
+    badge = '<span class="count" title="Questions awaiting an answer">11</span>'   # 8 tracks without lyrics
+    assert badge in page(d, "/library")
 
 
 def test_split_question_then_an_answer_that_settles_another(d):
@@ -222,3 +223,17 @@ def test_recorded_answers_pages(d):
 def test_recorded_answers_pages_before_any_answer(d):
     assert "No line yet." in page(d, "/reviews/dedupe/aliases")
     assert "No line yet." in page(d, "/reviews/split/decisions")
+
+
+def test_questions_put_off_counted_round_by_round(tmp_path, monkeypatch):
+    clock = iter(range(1, 100))
+    monkeypatch.setattr(reviews.time, "time", lambda: float(next(clock)))
+    later = reviews.Postponed(tmp_path)
+
+    def round_of(*put):
+        for key in put:
+            later.put("lyrics", key)
+        times = later.times("lyrics")
+        return later.seen("lyrics", sorted("abc", key=lambda k: times.get(k, 0.0)))
+    assert [round_of(), round_of("a"), round_of("b"), round_of("c"), round_of("a"), round_of("b", "c")] == \
+        [0, 1, 2, 0, 1, 0]
