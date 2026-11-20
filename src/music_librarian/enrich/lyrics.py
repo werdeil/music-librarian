@@ -138,11 +138,14 @@ def found(meta, verify=True):
     return plain, result
 
 
-def look_up_track(path):
-    """What the providers have for the file at `path`, for its album's page: (its plain lyrics,
+def look_up_track(path, typed=None):
+    """What the providers have for the file at `path`, for its album's page, looked up with the
+    artist, title and album of `typed` where they are not blank, else the file's: (its plain lyrics,
     the INSTRUMENTAL mark, or None; where the answer came from, or why there is none: "no
     metadata", "none", "rejected", "unavailable"). Writes nothing."""
     meta = metadata_cache.metadata(tags.read_snapshot(path))
+    if meta:
+        meta.update({key: value for key, value in (typed or {}).items() if value})
     if not meta or not meta.get("artist") or not meta.get("title"):
         return None, "no metadata"
     plain, result = found(meta)
