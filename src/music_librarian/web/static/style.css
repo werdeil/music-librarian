@@ -405,6 +405,15 @@ footer {
     vertical-align: -0.2em;
 }
 
+.icon-after {
+    margin-right: 0;
+    margin-left: 0.45em;
+}
+
+.icon.hidden {
+    display: none;
+}
+
 .pass-icon {
     position: absolute;
     top: 0.85rem;

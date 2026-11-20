@@ -22,15 +22,16 @@
     <span class="muted">{{ t.work_position.format(i=work.number, n=work.total) if work.number is not none
                            else t.work_left.format(n=work.total) }}</span>
     <span class="work-steps">
-    {% if work.previous %}<a class="button" href="{{ work.previous }}">{{ t.work_previous }}</a>{% endif %}
+    {% if work.previous %}<a class="button" href="{{ work.previous }}">{{ m.icon('previous') }}{{ t.work_previous }}</a>{% endif %}
     {% if work.name == 'lyrics' and work.position is not none %}
     <form method="post" action="{{ url_for('album_later') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="folder" value="{{ folder }}">
         <input type="hidden" name="at" value="{{ place.at }}">
-        <button type="submit" class="primary" data-later="{{ t.later }}" data-sorted-out="{{ t.work_next }}">{{ t.later }}</button>
+        <button type="submit" class="primary" data-later="{{ t.later }}" data-sorted-out="{{ t.work_next }}"><span data-label>{{ t.later }}</span>
+            {{- m.icon('next', class="icon icon-after hidden") }}</button>
     </form>
-    {% elif work.next %}<a class="button primary" href="{{ work.next }}">{{ t.work_next }}</a>
+    {% elif work.next %}<a class="button primary" href="{{ work.next }}">{{ t.work_next }}{{ m.icon('next', class="icon icon-after") }}</a>
     {% else %}<span class="muted">{{ t.work_last }}</span>{% endif %}
     </span>
 </nav>

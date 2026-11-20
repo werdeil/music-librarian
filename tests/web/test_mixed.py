@@ -55,7 +55,9 @@ def test_tile_and_list(d):
 def test_album_page_in_the_list(d):
     page = d.client.get("/library/album?folder=A/B&list=mixed&at=0", headers=EN).get_data(as_text=True)
     assert 'href="/library/mixed">' in page and "Inconsistent albums</a>" in page
-    assert 'href="/library/album?folder=C/D&amp;list=mixed&amp;at=1">Next →</a>' in page
+    assert ('href="/library/album?folder=C/D&amp;list=mixed&amp;at=1">Next<svg class="icon icon-after"'
+            ' aria-hidden="true" focusable="false">'
+            '<use href="/static/icons.svg#next"></use></svg></a>') in page
     assert 'data-spread="album.albumartist"' in page
 
 

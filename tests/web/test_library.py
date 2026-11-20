@@ -21,6 +21,9 @@ from music_librarian.web import library, passes, query, reviews
 EN = {"Accept-Language": "en"}
 BACK = ('<svg class="icon" aria-hidden="true" focusable="false">'
         '<use href="/static/icons.svg#back"></use></svg>')
+PREVIOUS = BACK.replace("#back", "#previous")
+NEXT = ('<svg class="icon icon-after" aria-hidden="true" focusable="false">'
+        '<use href="/static/icons.svg#next"></use></svg>')
 JPEG = b"\xff\xd8\xff\xe0" + b"cover" * 10 + b"\xff\xd9"
 
 
@@ -774,20 +777,21 @@ def test_album_opened_from_a_work_list_steps_through_it(dashboard):
     first = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = first.get_data(as_text=True)
     assert f'href="/library/lyrics">{BACK}Without lyrics</a>' in page and "Album 1 of 2" in page
-    assert ">Later</button>" in page and "Next →</a>" not in page
-    assert "← Previous" not in page and f"{BACK}Library" not in page
+    assert "<span data-label>Later</span>" in page and "Next" + NEXT + "</a>" not in page
+    assert PREVIOUS + "Previous" not in page and f"{BACK}Library" not in page
     assert '<input type="hidden" name="list" value="lyrics">' in page          # kept by the album's form
     page = dashboard.client.get("/library/album?folder=Compilations/Hits&list=lyrics&at=1",
                                 headers=EN).get_data(as_text=True)
     assert "Album 2 of 2" in page and "Last of the list" not in page
-    assert 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">← Previous</a>' in page
+    previous = 'href="/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0">' + PREVIOUS + 'Previous</a>'
+    assert previous in page
 
 
 def test_album_put_off_goes_to_the_end_of_the_lyrics_list(dashboard):
     settled(lambda: dashboard.client.get("/library/lyrics", headers=EN))
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0",
                                 headers=EN).get_data(as_text=True)
-    assert 'action="/library/album/later"' in page and ">Later</button>" in page
+    assert 'action="/library/album/later"' in page and "<span data-label>Later</span>" in page
     later = {"csrf": dashboard.token, "folder": "Beyonce/4", "at": "0"}
     response = dashboard.client.post("/library/album/later", data=later)
     assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
@@ -813,8 +817,9 @@ def test_album_sorted_out_steps_on_in_the_lyrics_list(dashboard):
     assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
     page = page.get_data(as_text=True)
-    assert "Albums left: 1" in page and ">Later</button>" not in page
-    assert 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0">Next →</a>' in page
+    assert "Albums left: 1" in page and "<span data-label>Later</span>" not in page
+    following = 'href="/library/album?folder=Compilations/Hits&amp;list=lyrics&amp;at=0">Next' + NEXT + '</a>'
+    assert following in page
     response = dashboard.client.post("/library/album/later", data=form)
     assert response.location.endswith("/library/album?folder=Compilations/Hits&list=lyrics&at=0")
     assert not (dashboard.state / "review-later.json").exists()          # nothing put off
@@ -825,7 +830,7 @@ def test_album_no_longer_in_its_work_list_steps_from_where_it_stood(dashboard):
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=repeats&at=0", headers=EN)
     page = page.get_data(as_text=True)
     assert f'href="/library/repeats">{BACK}Repeated values</a>' in page and "Albums left: 0" in page
-    assert "Last of the list" in page and "Next →" not in page
+    assert "Last of the list" in page and "Next" + NEXT not in page
     page = dashboard.client.get("/library/album?folder=Beyonce/4&list=nope", headers=EN)
     page = page.get_data(as_text=True)
     assert f"{BACK}Library" in page and "work-list" not in page
