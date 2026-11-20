@@ -44,6 +44,7 @@ def test_tile_and_list(d):
     at = home.index("Albums with inconsistent fields")
     tile = home[at - 300:at]
     assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
+    assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0"' in tile
     page = d.client.get("/library/mixed", headers=EN).get_data(as_text=True)
     assert "Albums concerned: 2" in page and "Compilations/E" not in page
     assert page.index("folder=A/B") < page.index("folder=C/D")       # the most fields first
