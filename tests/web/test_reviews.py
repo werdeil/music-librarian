@@ -247,7 +247,8 @@ def test_a_review_switched_off_leaves_every_count(d):
     response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
     assert response.location.endswith("/reviews")
     text = page(d, "/reviews")
-    assert badge.format(n=9) in text and "credits to settle" not in text and "Left out of the counts." in text
+    assert badge.format(n=9) in text and 'class="review-card review-off"' in text
+    assert '<span class="tile-value">2</span> <span>credits to settle</span>' in text      # still shown
     assert 'action="/reviews/split/switch"' in text and 'name="on" value="1"' in text
     assert "Credits to split" not in page(d, "/")
     d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "1"})

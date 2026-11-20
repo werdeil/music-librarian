@@ -1023,7 +1023,8 @@ form.inline {
     border-style: dashed;
 }
 
-.review-off h2 {
+.review-off h2,
+.review-off .review-count .tile-value {
     color: var(--text-muted);
 }
 

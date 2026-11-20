@@ -2,7 +2,7 @@
 {% import "_apply_answers.html" as a %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
 {% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
-{% set on = kind in left %}
+{% set on = kind not in off %}
 {% set n = left.get(kind) %}
 <section class="review-card{% if not on %} review-off{% endif %}">
     <header>
@@ -15,9 +15,7 @@
                     aria-label="{{ title }}"><span class="switch-track" aria-hidden="true"></span></button>
         </form>
     </header>
-    {% if not on %}
-    <p class="muted">{{ t.review_off_note }}</p>
-    {% elif unit is none %}
+    {% if unit is none %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
     {% elif n is none %}
     <p class="muted">{{ t.tile_building }}</p>
@@ -26,7 +24,7 @@
     {% else %}
     <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>
     {% endif %}
-    {% if on and unit is not none %}
+    {% if unit is not none %}
     <div class="actions">
         {% if n and start %}<a class="button primary" href="{{ start }}">{{ start_label or t.start_review }}</a>{% endif %}
         {% if command %}{{ a.apply_form(t, ctx, csrf, command) }}{% endif %}

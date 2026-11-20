@@ -325,21 +325,26 @@ def register(app, ctx, index, later):
                   lyrics=lambda albums: None if albums is None else sum(a.without_lyrics for a in albums),
                   mixed=lambda albums: None if albums is None else sum(bool(a.mixed) for a in albums))
 
-    def waiting():
+    def everything():
         if "waiting" not in g:
             with timed("reviews"):
-                albums, off = index.get(), switched_off.get()
-                g.waiting = {kind: count(albums) for kind, count in counts.items() if kind not in off}
+                albums = index.get()
+                g.waiting = {kind: count(albums) for kind, count in counts.items()}
         return g.waiting
+
+    def waiting():
+        off = switched_off.get()
+        return {kind: n for kind, n in everything().items() if kind not in off}
 
     @app.get("/reviews")
     def reviews_page():
-        left = waiting()
+        left = everything()
         albums = index.get()
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
         mixed = with_mixed(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
-        return render_template("reviews.html", left=left, genre_list=genre_review.mapping() is not None,
+        return render_template("reviews.html", left=left, off=switched_off.get(),
+                               genre_list=genre_review.mapping() is not None,
                                lyrics_albums=len(bare), first_bare=bare[0].folder if bare else None,
                                mixed_albums=len(mixed), first_mixed=mixed[0].folder if mixed else None,
                                list_path=genre_review.path,
