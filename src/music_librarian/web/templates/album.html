@@ -54,7 +54,6 @@
         <p class="muted">{{ common.albumartist or '' }}</p>
         <p class="muted">{{ (t.track_one if tracks | length == 1 else t.track_many).format(n=tracks | length) }}
             {%- if total is not none %} · {{ total }}{% endif %}</p>
-        <p><code class="muted">{{ folder }}</code></p>
     </div>
 </section>
 
