@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import os
+import re
 import socket
 import sqlite3
 from datetime import datetime, time
@@ -164,7 +165,8 @@ def test_environment_names_lyrion_without_its_login(tmp_path, lyrion_db):
     ctx = web.Context(root=tmp_path / "Music", inbox=inbox, state_dir=tmp_path / "state", lyrion=db)
     page = web.create_app(ctx).test_client().get("/", headers=EN).get_data(as_text=True)
     env = page[page.index("<h2>Environment</h2>"):]
-    assert str(lyrion_db) in env and "http://lms.local:9000" in env and "scan after each pass" in env
+    shown = re.findall(r'<code class="path">([^<]*)</code>', env)
+    assert shown[-2:] == [str(lyrion_db), "http://lms.local:9000"] and "scan after each pass" in env
     assert "secret" not in page
 
 
