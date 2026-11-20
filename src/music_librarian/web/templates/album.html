@@ -129,14 +129,14 @@
         <button type="button" data-shows-discs="tracks" hidden>
             {{- t.show_grouping if discs else t.show_discs if groupings else t.show_discs_grouping }}</button>
         {% endif %}
-        {% set width = 7 + (1 if discs else 0) + (1 if groupings else 0) %}
+        {% set width = 8 + (1 if discs else 0) + (1 if groupings else 0) %}
         <div class="table-wrap">
         <table class="{{ ['tracks', 'discs' if discs, 'groupings' if groupings] | select | join(' ') }}" id="tracks">
             <thead>
                 <tr>
                     <th class="t-disc">{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
                     <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th class="t-grouping">{{ t.field_grouping }}</th>
-                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
+                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th><th class="t-length">{{ t.duration }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -188,6 +188,7 @@
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
                     <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
+                    <td class="t-length{{ '' if lengths[file] else ' muted' }}" data-label="{{ t.duration }}">{{ lengths[file] or t.lyrics_none }}</td>
                     {% if values %}<td class="t-more"><button type="button" data-track-more aria-expanded="true"
                             aria-label="{{ t.track_details }}" title="{{ t.track_details }}" hidden></button></td>{% endif %}
                 </tr>

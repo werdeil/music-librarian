@@ -179,6 +179,8 @@ def register(app, ctx, index, later):
                                awaited=waiting,
                                unsorted=len(catalog.unsorted(rel)) if catalog and not sorted_out else 0,
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
+                               lengths={n: query.minutes(v[fields.LENGTH]) if v else None
+                                        for n, v in tracks},
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
                                followed=followed(rel), work=work, **shown)

@@ -21,6 +21,7 @@ FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "dis
           "artist_mbid")
 LYRICS = "lyrics"
 REPLAYGAIN = "replaygain"
+LENGTH = "length"
 NUMBERS = ("track", "tracktotal", "disc", "disctotal")
 PAIRS = {"track": ("track", 0), "tracktotal": ("track", 1), "disc": ("disc", 0), "disctotal": ("disc", 1)}
 
@@ -80,9 +81,11 @@ def read(path):
 
 def read_all(path):
     """read() with LYRICS and REPLAYGAIN as lyrics() and replaygain() give them, [] when they
-    cannot be read, the file opened once. Raises FieldError for a format not handled."""
+    cannot be read, and LENGTH the audio's length in seconds or None, the file opened once.
+    Raises FieldError for a format not handled."""
     f = _open(path)
     out = _values(f)
+    out[LENGTH] = getattr(getattr(f, "info", None), "length", None)
     for name, value in ((LYRICS, lambda: [media_tags.lyrics_of(f) or ""]),
                         (REPLAYGAIN, lambda: [f"{k}={v}" for k, v in media_tags.replaygain_of(f)])):
         try:
