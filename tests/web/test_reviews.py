@@ -51,7 +51,8 @@ def decided(d):
 
 def test_overview(d):
     text = page(d, "/reviews")
-    assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
+    assert '<span class="tile-value">2</span> <span>credits to settle</span>' in text
+    assert '<span class="tile-value">1</span> <span>groups to settle</span>' in text
     assert "/reviews/split" in text and 'value="dedupe"' in text
 
 
@@ -174,7 +175,7 @@ def test_a_review_without_question_says_so_on_the_overview(d):
     d.client.post("/reviews/dedupe", data={"csrf": d.token, "choice": "different",
                                            "names": names_shown(page(d, "/reviews/dedupe"))})
     text = page(d, "/reviews")
-    assert "Groups awaiting" not in text and "No question left." in text
+    assert "groups to settle" not in text and "No question left." in text
 
 
 def test_split_example_opens_its_album(d):
@@ -190,7 +191,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert text.count(">Being worked out") == 1 and "Credits awaiting" not in text
+        assert text.count(">Being worked out") == 1 and "credits to settle" not in text
         assert '<p class="muted">being worked out</p>' in text
         assert 'data-reload-when-built="/built?page=reviews_page"' in text
         assert client.get("/built?page=reviews_page").get_json()["ready"] is False
@@ -237,3 +238,18 @@ def test_questions_put_off_counted_round_by_round(tmp_path, monkeypatch):
         return later.seen("lyrics", sorted("abc", key=lambda k: times.get(k, 0.0)))
     assert [round_of(), round_of("a"), round_of("b"), round_of("c"), round_of("a"), round_of("b", "c")] == \
         [0, 1, 2, 0, 1, 0]
+
+
+def test_a_review_switched_off_leaves_every_count(d):
+    badge = '<span class="count" title="Questions awaiting an answer">{n}</span>'
+    text = page(d, "/reviews")
+    assert badge.format(n=11) in text and 'aria-checked="true"' in text
+    response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
+    assert response.location.endswith("/reviews")
+    text = page(d, "/reviews")
+    assert badge.format(n=9) in text and "credits to settle" not in text and "Left out of the counts." in text
+    assert 'action="/reviews/split/switch"' in text and 'name="on" value="1"' in text
+    assert "Credits to split" not in page(d, "/")
+    d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "1"})
+    assert badge.format(n=11) in page(d, "/reviews")
+    assert d.client.post("/reviews/nothing/switch", data={"csrf": d.token, "on": "0"}).status_code == 404

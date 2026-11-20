@@ -33,7 +33,6 @@ TRANSLATIONS = {
         "rules_awaited_link": "Paroles attendues ({n})",
         "rules_awaited_intro": ("Les morceaux dont aucun fournisseur n'a encore les paroles, marqués depuis "
                                 "la page de leur album : enrich les cherche toujours à chaque passage."),
-        "lyrics_waiting": "Albums à classer : {albums} · morceaux : {n}",
         "rules_genres_intro": ("Chaque genre validé, les noms qui le désignent et les pistes de la "
                                "bibliothèque qu'il regroupe : import et enrich écrivent ces genres."),
         "rules_aliases_intro": ("Les orthographes réécrites sous un autre nom, et les artistes reconnus "
@@ -361,7 +360,6 @@ TRANSLATIONS = {
         "repeated_differ": "Plusieurs valeurs : garder la bonne seule, sans « ; » dans un titre ou un album",
         "repeated_same": "Une valeur en double : enrich n'en garde qu'une",
         "genre_review": "Genres hors de la liste validée",
-        "genres_waiting": "Genres en attente de réponse : {n}",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
         "itunes_hint": "iTunes classe ces albums en « {genre} ».",
         "alias_button": "En faire un nom de ce genre",
@@ -419,18 +417,24 @@ TRANSLATIONS = {
         "opt_dpsv": "recalculer la DPSV de toutes les pistes, approximative dès qu'il y a des sauts (--dpsv)",
         "reviews": "Revues",
         "questions_waiting": "Questions en attente de réponse",
-        "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
-                          "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
-                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants. "
-                          "Les morceaux sans paroles se classent album par album, instrumentaux ou "
-                          "paroles attendues, et les albums incohérents se corrigent un par un."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
-        "credits_waiting": "Crédits en attente de réponse : {n}",
-        "groups_waiting": "Groupes en attente de réponse : {n}",
         "start_review": "Répondre",
         "apply_answers": "Aperçu de ces réponses",
         "review_done": "Plus aucune question.",
+        "reviews_questions": "Questions",
+        "reviews_albums": "Albums à reprendre",
+        "unit_split": "crédits à trancher",
+        "unit_dedupe": "groupes à trancher",
+        "unit_genres": "genres à valider",
+        "unit_lyrics": "morceaux à classer, sur {albums} albums",
+        "unit_mixed": "albums à corriger",
+        "start_fixing": "Corriger",
+        "review_on": "Activée",
+        "review_off": "Désactivée",
+        "review_switch_on": "Activer : compter ces questions",
+        "review_switch_off": "Désactiver : ne plus compter ces questions",
+        "review_off_note": "Hors des compteurs.",
         "question_of": "Question {i} sur {n}",
         "example": "ex.",
         "split_into": "Découpé :",
@@ -519,7 +523,6 @@ TRANSLATIONS = {
         "rules_awaited_link": "Lyrics awaited ({n})",
         "rules_awaited_intro": ("The tracks whose lyrics no provider carries yet, marked from their album's "
                                 "page: enrich still looks them up on every pass."),
-        "lyrics_waiting": "Albums to sort out: {albums} · tracks: {n}",
         "rules_genres_intro": ("Each validated genre, the names that stand for it and the tracks of the "
                                "library it gathers: import and enrich write these genres."),
         "rules_aliases_intro": ("The spellings rewritten as another name, and the artists known to differ: "
@@ -842,7 +845,6 @@ TRANSLATIONS = {
         "repeated_differ": "Several values: keep only the right one, without \";\" in a title or an album",
         "repeated_same": "A value twice: enrich keeps it only once",
         "genre_review": "Genres outside the validated list",
-        "genres_waiting": "Genres awaiting an answer: {n}",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",
         "itunes_hint": "iTunes files these albums under \u201c{genre}\u201d.",
         "alias_button": "Make it a name of this genre",
@@ -899,18 +901,24 @@ TRANSLATIONS = {
         "opt_dpsv": "compute the DPSV of every track again, an estimate once a track was skipped (--dpsv)",
         "reviews": "Reviews",
         "questions_waiting": "Questions awaiting an answer",
-        "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does "
-                          "not know, one at a time: each answer is saved at once in the decisions, "
-                          "aliases or genres file, and holds for the passes to come. The tracks without "
-                          "lyrics are sorted out album by album, instrumental or lyrics awaited, and "
-                          "the inconsistent albums are fixed one by one."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
-        "credits_waiting": "Credits awaiting an answer: {n}",
-        "groups_waiting": "Groups awaiting an answer: {n}",
         "start_review": "Answer",
         "apply_answers": "Preview these answers",
         "review_done": "No question left.",
+        "reviews_questions": "Questions",
+        "reviews_albums": "Albums to rework",
+        "unit_split": "credits to settle",
+        "unit_dedupe": "groups to settle",
+        "unit_genres": "genres to validate",
+        "unit_lyrics": "tracks to sort out, across {albums} albums",
+        "unit_mixed": "albums to fix",
+        "start_fixing": "Fix",
+        "review_on": "On",
+        "review_off": "Off",
+        "review_switch_on": "Switch on: count these questions",
+        "review_switch_off": "Switch off: stop counting these questions",
+        "review_off_note": "Left out of the counts.",
         "question_of": "Question {i} of {n}",
         "example": "e.g.",
         "split_into": "Split:",

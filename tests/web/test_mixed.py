@@ -74,8 +74,9 @@ def test_card_on_the_reviews_page(d):
     at = page.index("<h2>Albums with inconsistent fields</h2>")
     card = page[at:]
     assert page.index("<h2>Tracks without lyrics</h2>") < at
-    assert "Albums concerned: 2" in card and 'href="/library/mixed">See the list</a>' in card
-    assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0">Answer</a>' in card
+    assert '<span class="tile-value">2</span> <span>albums to fix</span>' in card
+    assert 'href="/library/mixed">See the list</a>' in card
+    assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0">Fix</a>' in card
 
 
 def test_card_cleared(tmp_path, make_track, serve):

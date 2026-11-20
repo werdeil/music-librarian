@@ -43,7 +43,7 @@ def page(d, url):
 
 
 def test_overview_and_question(d):
-    assert "Genres awaiting an answer: 2" in page(d, "/reviews")
+    assert '<span class="tile-value">2</span> <span>genres to validate</span>' in page(d, "/reviews")
     text = page(d, "/reviews/genres")
     assert "Hip Hop" in text and "Tracks: 2" in text and "iTunes files these albums under" in text
     assert '<option value="Rap / Hip-hop" selected>' in text and "Question 1 of 2" in text
@@ -72,7 +72,7 @@ def test_new_genre(d):
     d.client.post("/reviews/genres", data={"csrf": d.token, "genre": "Zydeco", "choice": "new",
                                            "name": "Zydeco", "position": "1"})
     assert genres.load(d.state / "genres.txt")[genres.key("zydeco")] == "Zydeco"
-    assert "Genres awaiting an answer: 1" in page(d, "/reviews")
+    assert '<span class="tile-value">1</span> <span>genres to validate</span>' in page(d, "/reviews")
 
 
 @pytest.mark.parametrize("form", [

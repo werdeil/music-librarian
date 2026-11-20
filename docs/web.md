@@ -51,7 +51,9 @@ A click on the album's cover, at the top of its page, picks an image (32 MB at m
 
 ## Reviews
 
-The Reviews page asks the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
+The Reviews page shows a card per review, in two groups: the questions (the credits holding several names, the artists spelled several ways, the genres outside the validated list) and the albums to rework (the tracks without lyrics, the inconsistent albums), each with how many are left and what opens it. Each card has a switch: a review switched off is left out of every count, the menu's Reviews badge and the overview's To do tiles included, until it is switched on again; its questions stay where they are, and the passes still apply the answers already given. The switches are kept in `state/reviews-off.json`.
+
+The reviews ask the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
 
 - a credit holding several names, with an album that carries it: **Split**, **Keep whole**, or the names to write separated by `;`;
 - a group of likely duplicates, each spelling with an album that carries it: the spelling to write them all as, picked among them or typed (typing it picks it), or **Different artists**;

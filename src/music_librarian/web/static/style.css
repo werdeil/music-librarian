@@ -960,11 +960,112 @@ form.inline {
     font-size: var(--fs-sm);
 }
 
+.review-group {
+    margin: 1.5rem 0 0.6rem;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.review-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+    gap: 1rem;
+}
+
 .review-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0;
     padding: 1rem 1.2rem;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    margin-bottom: 1rem;
+    background: var(--surface);
+}
+
+.review-card > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.review-card h2,
+.review-card p {
+    margin: 0;
+}
+
+.review-card h2 {
+    font-size: 1.05rem;
+}
+
+.review-card .actions {
+    margin-top: auto;
+}
+
+.review-count {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    color: var(--text-muted);
+}
+
+.review-count .tile-value {
+    color: var(--warning);
+}
+
+.review-off {
+    background: none;
+    border-style: dashed;
+}
+
+.review-off h2 {
+    color: var(--text-muted);
+}
+
+.review-switch button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    padding: 0.15rem 0.3rem;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.switch-track {
+    position: relative;
+    width: 2rem;
+    height: 1.1rem;
+    border-radius: 1rem;
+    background: var(--border-color);
+    transition: background 0.15s;
+}
+
+.switch-track::after {
+    content: "";
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background: var(--text-bright);
+    transition: transform 0.15s;
+}
+
+.review-switch [aria-checked="true"] .switch-track {
+    background: var(--accent);
+}
+
+.review-switch [aria-checked="true"] .switch-track::after {
+    transform: translateX(0.9rem);
 }
 
 .review-waiting {

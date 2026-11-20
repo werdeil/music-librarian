@@ -39,7 +39,9 @@ from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_
 
 
 LATER = "review-later.json"
+SWITCHED_OFF = "reviews-off.json"
 REVIEWS = ("split", "dedupe", "genres")
+KINDS = (*REVIEWS, "lyrics", "mixed")
 
 
 def quiet(_msg):
@@ -288,22 +290,46 @@ class GenreReview:
             genres.remove_from_list(self.path, genre, alias)
 
 
+class SwitchedOff:
+    """The reviews switched off on the Reviews page, left out of every count of questions."""
+
+    def __init__(self, state_dir: Path):
+        self.path = state_dir / SWITCHED_OFF
+        self.lock = threading.Lock()
+
+    def get(self):
+        try:
+            return set(json.loads(self.path.read_text(encoding="utf-8"))) & set(KINDS)
+        except (OSError, ValueError, TypeError):
+            return set()
+
+    def switch(self, kind, on):
+        with self.lock:
+            off = self.get() - {kind} if on else self.get() | {kind}
+            temp = self.path.with_name(self.path.name + ".tmp")
+            temp.write_text(json.dumps(sorted(off)), encoding="utf-8")
+            os.replace(temp, self.path)
+
+
 def register(app, ctx, index, later):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n}, n None until its queue (for the
-    lyrics, the album list of `index`, a library.Index) is first built (counted once per request),
-    and the queues, Refreshed values. `later` is the Postponed the questions put off are kept in."""
+    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n, "mixed": n} without the reviews
+    switched off, n None until its queue (for the lyrics and the mixed albums, the album list of
+    `index`, a library.Index) is first built (counted once per request), and the queues, Refreshed
+    values. `later` is the Postponed the questions put off are kept in."""
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
+    switched_off = SwitchedOff(ctx.state_dir)
+    counts = dict(split=lambda _albums: reviews.credit()[1], dedupe=lambda _albums: reviews.group()[1],
+                  genres=lambda _albums: genre_review.item()[1],
+                  lyrics=lambda albums: None if albums is None else sum(a.without_lyrics for a in albums),
+                  mixed=lambda albums: None if albums is None else sum(bool(a.mixed) for a in albums))
 
     def waiting():
         if "waiting" not in g:
             with timed("reviews"):
-                albums = index.get()
-                g.waiting = dict(split=reviews.credit()[1], dedupe=reviews.group()[1],
-                                 genres=genre_review.item()[1],
-                                 lyrics=None if albums is None else sum(a.without_lyrics for a in albums),
-                                 mixed=None if albums is None else sum(bool(a.mixed) for a in albums))
+                albums, off = index.get(), switched_off.get()
+                g.waiting = {kind: count(albums) for kind, count in counts.items() if kind not in off}
         return g.waiting
 
     @app.get("/reviews")
@@ -313,16 +339,21 @@ def register(app, ctx, index, later):
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
         mixed = with_mixed(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
-        return render_template("reviews.html", credits=left["split"], groups=left["dedupe"],
-                               genres=left["genres"], genre_list=genre_review.mapping() is not None,
-                               lyrics=left["lyrics"], lyrics_albums=len(bare),
-                               first_bare=bare[0].folder if bare else None,
-                               mixed=left["mixed"], first_mixed=mixed[0].folder if mixed else None,
+        return render_template("reviews.html", left=left, genre_list=genre_review.mapping() is not None,
+                               lyrics_albums=len(bare), first_bare=bare[0].folder if bare else None,
+                               mixed_albums=len(mixed), first_mixed=mixed[0].folder if mixed else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
                                           genres=len(genres.entries(genre_review.path)),
                                           awaited=len(awaited.entries(ctx.state_dir))))
+
+    @app.post("/reviews/<kind>/switch")
+    def switch_review(kind):
+        if kind not in KINDS:
+            abort(404)
+        switched_off.switch(kind, request.form.get("on") == "1")
+        return redirect(url_for("reviews_page"))
 
     @app.post("/reviews/<review>/later")
     def review_later(review):

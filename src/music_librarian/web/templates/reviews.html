@@ -1,67 +1,59 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
-{% block content %}
-<section>
-    <h1 class="visually-hidden">{{ t.reviews }}</h1>
-    <p class="muted">{{ t.reviews_intro }}</p>
-    {% if none in (credits, groups, lyrics, mixed) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
-</section>
-<section class="review-card">
-    <h2>{{ t.split_review }}</h2>
-    {% if credits is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif credits %}<p class="review-waiting">{{ t.credits_waiting.format(n=credits) }}</p>
-    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
-    <div class="actions">
-        {% if credits %}<a class="button primary" href="{{ url_for('review_split') }}">{{ t.start_review }}</a>{% endif %}
-        {{ a.apply_form(t, ctx, csrf, 'split') }}
-        <a class="button" href="{{ url_for('decisions_page') }}">{{ t.rules_decisions_link.format(n=rules.decisions) }}</a>
-    </div>
-</section>
-<section class="review-card">
-    <h2>{{ t.dedupe_review }}</h2>
-    {% if groups is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif groups %}<p class="review-waiting">{{ t.groups_waiting.format(n=groups) }}</p>
-    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
-    <div class="actions">
-        {% if groups %}<a class="button primary" href="{{ url_for('review_dedupe') }}">{{ t.start_review }}</a>{% endif %}
-        {{ a.apply_form(t, ctx, csrf, 'dedupe') }}
-        <a class="button" href="{{ url_for('aliases_page') }}">{{ t.rules_aliases_link.format(n=rules.aliases) }}</a>
-    </div>
-</section>
-<section class="review-card">
-    <h2>{{ t.genre_review }}</h2>
-    {% if genre_list %}
-    {% if genres is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif genres %}<p class="review-waiting">{{ t.genres_waiting.format(n=genres) }}</p>
-    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
-    <div class="actions">
-        {% if genres %}<a class="button primary" href="{{ url_for('review_genres') }}">{{ t.start_review }}</a>{% endif %}
-        {{ a.apply_form(t, ctx, csrf, 'genres') }}
-        <a class="button" href="{{ url_for('genre_list_page') }}">{{ t.rules_genres_link.format(n=rules.genres) }}</a>
-    </div>
-    {% else %}
+{% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
+{% set on = kind in left %}
+{% set n = left.get(kind) %}
+<section class="review-card{% if not on %} review-off{% endif %}">
+    <header>
+        <h2>{{ title }}</h2>
+        <form method="post" action="{{ url_for('switch_review', kind=kind) }}" class="review-switch">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="on" value="{{ '0' if on else '1' }}">
+            <button type="submit" role="switch" aria-checked="{{ 'true' if on else 'false' }}"
+                    title="{{ t.review_switch_off if on else t.review_switch_on }}">
+                <span class="switch-track" aria-hidden="true"></span>{{ t.review_on if on else t.review_off }}</button>
+        </form>
+    </header>
+    {% if not on %}
+    <p class="muted">{{ t.review_off_note }}</p>
+    {% elif unit is none %}
     <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
+    {% elif n is none %}
+    <p class="muted">{{ t.tile_building }}</p>
+    {% elif n %}
+    <p class="review-count"><span class="tile-value">{{ n }}</span> <span>{{ unit }}</span></p>
+    {% else %}
+    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>
+    {% endif %}
+    {% if on and unit is not none %}
+    <div class="actions">
+        {% if n and start %}<a class="button primary" href="{{ start }}">{{ start_label or t.start_review }}</a>{% endif %}
+        {% if command %}{{ a.apply_form(t, ctx, csrf, command) }}{% endif %}
+        {% for href, label in links %}<a class="button" href="{{ href }}">{{ label }}</a>{% endfor %}
+    </div>
     {% endif %}
 </section>
-<section class="review-card">
-    <h2>{{ t.tracks_without_lyrics_title }}</h2>
-    {% if lyrics is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif lyrics %}<p class="review-waiting">{{ t.lyrics_waiting.format(albums=lyrics_albums, n=lyrics) }}</p>
-    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
-    <div class="actions">
-        {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>{% endif %}
-        <a class="button" href="{{ url_for('awaited_page') }}">{{ t.rules_awaited_link.format(n=rules.awaited) }}</a>
-    </div>
-</section>
-<section class="review-card">
-    <h2>{{ t.tile_mixed }}</h2>
-    {% if mixed is none %}<p class="muted">{{ t.tile_building }}</p>
-    {% elif mixed %}<p class="review-waiting">{{ t.mixed_count.format(n=mixed) }}</p>
-    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
-    <div class="actions">
-        {% if first_mixed %}<a class="button primary" href="{{ url_for('album_page', folder=first_mixed, list='mixed', at=0) }}">{{ t.start_review }}</a>
-        <a class="button" href="{{ url_for('mixed_albums') }}">{{ t.mixed_list_link }}</a>{% endif %}
-    </div>
-</section>
+{% endmacro %}
+{% block content %}
+<h1 class="visually-hidden">{{ t.reviews }}</h1>
+{% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}{% include "_building.html" %}{% endif %}
+<h2 class="review-group">{{ t.reviews_questions }}</h2>
+<div class="review-grid">
+{{ card('split', t.split_review, t.unit_split, url_for('review_split'), command='split',
+        links=[(url_for('decisions_page'), t.rules_decisions_link.format(n=rules.decisions))]) }}
+{{ card('dedupe', t.dedupe_review, t.unit_dedupe, url_for('review_dedupe'), command='dedupe',
+        links=[(url_for('aliases_page'), t.rules_aliases_link.format(n=rules.aliases))]) }}
+{{ card('genres', t.genre_review, t.unit_genres if genre_list else none, url_for('review_genres'),
+        command='genres', links=[(url_for('genre_list_page'), t.rules_genres_link.format(n=rules.genres))]) }}
+</div>
+<h2 class="review-group">{{ t.reviews_albums }}</h2>
+<div class="review-grid">
+{{ card('lyrics', t.tracks_without_lyrics_title, t.unit_lyrics.format(albums=lyrics_albums),
+        url_for('album_page', folder=first_bare, list='lyrics', at=0) if first_bare else none, t.start_fixing,
+        links=[(url_for('awaited_page'), t.rules_awaited_link.format(n=rules.awaited))]) }}
+{{ card('mixed', t.tile_mixed, t.unit_mixed,
+        url_for('album_page', folder=first_mixed, list='mixed', at=0) if first_mixed else none, t.start_fixing,
+        links=[(url_for('mixed_albums'), t.mixed_list_link)] if first_mixed else []) }}
+</div>
 {% endblock %}
