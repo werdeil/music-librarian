@@ -352,6 +352,7 @@ TRANSLATIONS = {
                              "genre n'est pas compté sur une compilation. Chaque champ se corrige sur la "
                              "page de l'album, qui montre quels morceaux tiennent quelle valeur."),
         "mixed_count": "Albums concernés : {n}",
+        "mixed_list_link": "Voir la liste",
         "mixed_column": "Champs en désaccord",
         "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
@@ -422,7 +423,7 @@ TRANSLATIONS = {
                           "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
                           "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants. "
                           "Les morceaux sans paroles se classent album par album, instrumentaux ou "
-                          "paroles attendues."),
+                          "paroles attendues, et les albums incohérents se corrigent un par un."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
         "credits_waiting": "Crédits en attente de réponse : {n}",
@@ -832,6 +833,7 @@ TRANSLATIONS = {
                              "Each field is fixed on the album's page, which shows which tracks hold "
                              "which value."),
         "mixed_count": "Albums concerned: {n}",
+        "mixed_list_link": "See the list",
         "mixed_column": "Fields in disagreement",
         "mixed_none": "The tracks of every album agree on its fields.",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
@@ -900,7 +902,8 @@ TRANSLATIONS = {
         "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does "
                           "not know, one at a time: each answer is saved at once in the decisions, "
                           "aliases or genres file, and holds for the passes to come. The tracks without "
-                          "lyrics are sorted out album by album, instrumental or lyrics awaited."),
+                          "lyrics are sorted out album by album, instrumental or lyrics awaited, and "
+                          "the inconsistent albums are fixed one by one."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
         "credits_waiting": "Credits awaiting an answer: {n}",

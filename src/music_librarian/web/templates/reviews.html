@@ -5,7 +5,7 @@
 <section>
     <h1 class="visually-hidden">{{ t.reviews }}</h1>
     <p class="muted">{{ t.reviews_intro }}</p>
-    {% if none in (credits, groups, lyrics) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
+    {% if none in (credits, groups, lyrics, mixed) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
 </section>
 <section class="review-card">
     <h2>{{ t.split_review }}</h2>
@@ -52,6 +52,16 @@
     <div class="actions">
         {% if first_bare %}<a class="button primary" href="{{ url_for('album_page', folder=first_bare, list='lyrics', at=0) }}">{{ t.start_review }}</a>{% endif %}
         <a class="button" href="{{ url_for('awaited_page') }}">{{ t.rules_awaited_link.format(n=rules.awaited) }}</a>
+    </div>
+</section>
+<section class="review-card">
+    <h2>{{ t.tile_mixed }}</h2>
+    {% if mixed is none %}<p class="muted">{{ t.tile_building }}</p>
+    {% elif mixed %}<p class="review-waiting">{{ t.mixed_count.format(n=mixed) }}</p>
+    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
+    <div class="actions">
+        {% if first_mixed %}<a class="button primary" href="{{ url_for('album_page', folder=first_mixed, list='mixed', at=0) }}">{{ t.start_review }}</a>
+        <a class="button" href="{{ url_for('mixed_albums') }}">{{ t.mixed_list_link }}</a>{% endif %}
     </div>
 </section>
 {% endblock %}
