@@ -319,8 +319,8 @@
     });
 }());
 
-// Look up online puts what the providers have for the track in its lyrics box, to preview with the
-// rest of the form; the instrumental box follows.
+// Look up online puts what the providers have for the track, as typed in the form, in its lyrics box,
+// to preview with the rest of the form; the instrumental box follows.
 (function () {
     "use strict";
 
@@ -335,6 +335,9 @@
             data.append("csrf", form.elements.namedItem("csrf").value);
             data.append("folder", form.elements.namedItem("folder").value);
             data.append("file", button.dataset.file);
+            data.append("artist", form.elements.namedItem(button.dataset.track + ".artist").value);
+            data.append("title", form.elements.namedItem(button.dataset.track + ".title").value);
+            data.append("album", form.elements.namedItem("album.album").value);
             button.disabled = true;
             status.textContent = button.dataset.running;
             fetch(button.dataset.lookup, { method: "POST", body: data })

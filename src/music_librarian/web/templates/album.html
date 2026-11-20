@@ -206,6 +206,7 @@
                             <label><input type="checkbox" name="t{{ i }}.instrumental" value="1" data-instrumental="{{ mark }}" data-target="{{ input }}"
                                           {%- if (form and form.get('t' ~ i ~ '.instrumental')) or (not form and state == 'instrumental') %} checked{% endif %}> {{ t.lyrics_instrumental_box }}</label>
                             <button type="button" data-lookup="{{ url_for('look_up_lyrics') }}" data-file="{{ file }}" data-target="{{ input }}"
+                                    data-track="t{{ i }}"
                                     data-running="{{ t.lookup_running }}">{{ t.lookup_button }}</button>
                             {% if not text %}
                             <label><input type="checkbox" data-awaited="{{ url_for('await_lyrics') }}" data-file="{{ file }}"

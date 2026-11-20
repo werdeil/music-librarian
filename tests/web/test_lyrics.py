@@ -133,9 +133,9 @@ def providers(monkeypatch):
     return asked, answer
 
 
-def look_up(d, file="02 T2.m4a"):
+def look_up(d, file="02 T2.m4a", **typed):
     return d.client.post("/library/track/lyrics/lookup", headers=EN,
-                         data={"csrf": d.token, "folder": "Beyonce/4", "file": file})
+                         data={"csrf": d.token, "folder": "Beyonce/4", "file": file, **typed})
 
 
 FOUND = "Found on {}: read them over, then preview."
@@ -155,6 +155,16 @@ def test_lookup_of_one_track_writes_nothing(d, lib, providers, answer, text, mes
     assert look_up(d).get_json() == {"text": text, "message": message}
     assert [(a["artist"], a["title"], a["album"]) for a in asked] == [("Beyonce", "T2", "4")]
     assert fields.lyrics(lib / "Beyonce/4/02 T2.m4a") == [] and d.requests.pending() == []
+
+
+def test_lookup_uses_what_the_form_holds(d, lib, providers):
+    asked, answer = providers
+    answer.update(source="none")
+    look_up(d, artist="Beyonce; Jay-Z", title="Typed", album="")
+    assert [(a["artist"], a["title"], a["album"]) for a in asked] == [("Beyonce", "Typed", "4")]
+    assert tags.read_snapshot(lib / "Beyonce/4/02 T2.m4a")["tags"]["title"] == ["T2"]
+    page = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
+    assert 'data-target="t1.lyrics"\n                                    data-track="t1"' in page
 
 
 @pytest.mark.parametrize("folder, file", [("Beyonce/4", "../4/01 T1.m4a"), ("../", "x"),

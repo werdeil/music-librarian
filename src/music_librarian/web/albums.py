@@ -13,6 +13,7 @@ from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.lyrics import INSTRUMENTAL, awaited
 from music_librarian.media import artwork, fields, metadata_cache, tags
+from music_librarian.split.rules import names_of
 from music_librarian.tag import genre_list
 from music_librarian.web import history, library, query
 from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, timed
@@ -283,14 +284,17 @@ def register(app, ctx, index, later):
 
     @app.post("/library/track/lyrics/lookup")
     def look_up_lyrics():
-        """What the providers have for one track of an album's page, for its lyrics box:
-        {"text": the lyrics, the INSTRUMENTAL mark or null, "message": what was found}."""
+        """What the providers have for one track of an album's page, for its lyrics box, looked up
+        with the artist, title and album typed in its form: {"text": the lyrics, the INSTRUMENTAL
+        mark or null, "message": what was found}."""
         path = library.track_file(ctx.root, request.form.get("folder", ""), request.form.get("file", ""))
         if path is None:
             abort(404)
         if ctx.requests is None:
             abort(403)
-        text, source = enrich_lyrics.look_up_track(path)
+        typed = {key: next(iter(names_of(request.form.get(key, ""))), None)
+                 for key in ("artist", "title", "album")}
+        text, source = enrich_lyrics.look_up_track(path, typed)
         t = texts()
         if text is None:
             message = t.get(f"lookup_{source}".replace(" ", "_"), t["lookup_none"])
