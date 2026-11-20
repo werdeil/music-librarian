@@ -212,3 +212,24 @@ def test_file_gone_since_it_was_cached_leaves_an_orphan(d, lib, database):
     text = page(d, "/lyrion")
     assert "Waiting (3)" in text and "Queen/Jazz/01 Mustapha.m4a" in text
     assert "Mustapha.m4a\"" not in page(d, f"/lyrion/orphans/{d.key(OLD)}?q=queen")
+
+
+def test_scan_asked_for_from_the_page(lib, tmp_path, serve, database, server):
+    database.scan = lyrion.Scan(server.url)
+    d = serve(lib, tmp_path / "state", tmp_path / "Inbox", database)
+    assert "Start a scan" in page(d, "/lyrion")
+    assert d.client.post("/lyrion/scan", headers=EN).status_code == 403 and not server.asked
+    assert post(d, "/lyrion/scan").headers["Location"].endswith("/lyrion?scan=started")
+    assert server.started == 1
+    assert "Scan asked for" in page(d, "/lyrion?scan=started")
+    server.scans = [True]
+    assert post(d, "/lyrion/scan").headers["Location"].endswith("/lyrion?scan=running")
+    assert server.started == 1
+    server.status = 500
+    assert post(d, "/lyrion/scan").headers["Location"].endswith("/lyrion?scan=unreachable")
+    assert "Lyrion does not answer" in page(d, "/lyrion?scan=unreachable")
+
+
+def test_no_scan_without_lyrion_url(d):
+    assert "Set LYRION_URL" in page(d, "/lyrion") and "Start a scan" not in page(d, "/lyrion")
+    assert post(d, "/lyrion/scan").status_code == 404

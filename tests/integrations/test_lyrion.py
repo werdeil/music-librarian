@@ -5,7 +5,6 @@ import base64
 import hashlib
 import json
 import sqlite3
-import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -276,45 +275,6 @@ def test_journal_unchanged_format(misplaced):
 
 
 @pytest.fixture
-def server():
-    """A fake Lyrion answering JSON-RPC: `scans` holds the answers of the next `rescan ?`
-    queries, True while scanning, then none is; `status` is the HTTP status, `result` replaces
-    the answer of `rescan ?`."""
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):  # pylint: disable=invalid-name  # http.server's name
-            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            command = body["params"][1]
-            fake.asked.append(command)
-            fake.logins.append(self.headers.get("Authorization"))
-            if command[0] == "rescan":
-                scanning = fake.scans.pop(0) if fake.scans else False
-                result = fake.result if fake.result is not None else {"_rescan": int(scanning)}
-            else:
-                result = {"version": "9.2.0", **fake.serverstatus}
-            answer = json.dumps({"id": 1, "method": "slim.request", "result": result}).encode()
-            self.send_response(fake.status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(answer)))
-            self.end_headers()
-            self.wfile.write(answer)
-
-        def log_message(self, *args):  # pylint: disable=arguments-differ
-            pass
-
-    class Fake:
-        scans, asked, logins, status, result, serverstatus = [], [], [], 200, None, {}
-
-    fake = Fake()
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    fake.url = f"http://127.0.0.1:{httpd.server_port}"
-    threading.Thread(target=httpd.serve_forever, args=(0.01,), daemon=True).start()
-    yield fake
-    httpd.shutdown()
-    httpd.server_close()
-
-
-@pytest.fixture
 def no_pause(monkeypatch):
     """The waits of lyrion.py return at once; the list holds what each was asked to wait."""
     waits = []
@@ -459,3 +419,78 @@ def test_locked_database_is_tried_again(misplaced, server, monkeypatch, capsys):
     assert capsys.readouterr().out.count("LYRION   database is locked, trying again in") == 2
     assert misplaced.row("tracks_persistent", "A/B/01 Un.m4a")["playCount"] == 7
     assert len(list((misplaced.state / lyrion.BACKUPS).glob("persist-*.db"))) == 1
+
+
+def test_scan_asked_for_once_the_pass_moved_files(misplaced, server, capsys):
+    assert misplaced.run("--apply", "--lyrion-url", server.url, "--lyrion-rescan") == 0
+    assert server.started == 1 and server.asked[-1] == ["rescan"]
+    out = capsys.readouterr().out
+    assert out.index("--- Organize summary ---") < out.index("LYRION   scan asked for, the files moved")
+    assert misplaced.run("--apply", "--lyrion-url", server.url, "--lyrion-rescan") == 0
+    assert server.started == 1
+
+
+def test_scan_asked_for_by_the_environment(misplaced, server, monkeypatch):
+    monkeypatch.setenv("LYRION_URL", server.url)
+    monkeypatch.setenv("LYRION_RESCAN", "1")
+    assert misplaced.run("--apply") == 0
+    assert server.started == 1
+
+
+def test_no_scan_asked_for_by_a_dry_run_nor_without_the_option(misplaced, server):
+    assert misplaced.run("--lyrion-url", server.url, "--lyrion-rescan") == 0
+    assert not server.asked
+    assert misplaced.run("--apply", "--lyrion-url", server.url) == 0
+    assert server.started == 0
+
+
+def test_rescan_needs_the_url(misplaced):
+    with pytest.raises(SystemExit, match="--lyrion-rescan needs --lyrion-url"):
+        misplaced.run("--apply", "--lyrion-rescan")
+
+
+def test_scan_asked_for_after_the_one_running_ends(misplaced, server, no_pause, capsys):
+    server.scans = [False, False, True, False]
+    assert misplaced.run("--apply", "--lyrion-url", server.url, "--lyrion-rescan") == 0
+    assert server.started == 1 and no_pause == [5]
+    out = capsys.readouterr().out
+    assert out.index("LYRION   scan ended") < out.index("LYRION   scan asked for")
+
+
+def test_scan_running_without_waiting_is_left_to_lyrion(misplaced, server, capsys):
+    server.scans = [True]
+    args = ["--apply", "--lyrion-url", server.url, "--lyrion-rescan", "--no-wait-scan"]
+    assert misplaced.run(*args) == 0
+    assert server.started == 0 and server.asked == [["rescan", "?"]]
+    assert "WARNING  Lyrion already scanning, its scan not asked for" in capsys.readouterr().out
+
+
+def test_unreachable_lyrion_leaves_the_scan_to_it(misplaced, capsys):
+    closed = ThreadingHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+    port = closed.server_port
+    closed.server_close()
+    assert misplaced.run("--apply", "--lyrion-url", f"http://127.0.0.1:{port}", "--lyrion-rescan") == 0
+    assert "WARNING  Lyrion's scan cannot be asked for (connection failed)" in capsys.readouterr().out
+
+
+def test_scan_kept_while_lyrion_scans(misplaced, server, lines):
+    db = lyrion.Lyrion(misplaced.db, LYRION_ROOT, misplaced.lib, misplaced.state / lyrion.BACKUPS,
+                       lyrion.Scan(server.url), rescans=True)
+    db.note([(misplaced.lib / "vrac/1.m4a", misplaced.lib / "A/B/01 Un.m4a")])
+    server.scans = [True, True]
+    lyrion.rescan(db, lines.log, keep=True)
+    lyrion.rescan(db, lines.log, keep=True)
+    assert server.started == 0 and lines == ["LYRION   scanning: a new scan is asked for once it ends"]
+    lyrion.rescan(db, lines.log, keep=True)
+    lyrion.rescan(db, lines.log, keep=True)
+    assert server.started == 1 and lines[-1] == "LYRION   scan asked for, the files moved"
+
+
+def test_only_audio_files_moved_into_the_library_call_for_a_scan(misplaced, server):
+    db = lyrion.Lyrion(misplaced.db, LYRION_ROOT, misplaced.lib, misplaced.state / lyrion.BACKUPS,
+                       lyrion.Scan(server.url), rescans=True)
+    db.note([(misplaced.lib / "A/cover.jpg", misplaced.lib / "A/B/folder.jpg"),
+             (misplaced.lib / "A/1.m4a", misplaced.lib.parent / "elsewhere/1.m4a")])
+    assert not db.moved
+    db.note([(misplaced.lib.parent / "Inbox/1.m4a", misplaced.lib / "A/B/01 Un.m4a")])
+    assert db.moved

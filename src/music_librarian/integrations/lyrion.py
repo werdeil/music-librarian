@@ -15,7 +15,8 @@ $LYRION_MUSIC_ROOT = the library root as Lyrion sees it.
 
 With --lyrion-url / $LYRION_URL, an applied pass asks Lyrion whether it scans (JSON-RPC) and
 waits for the end of the scan, before changing files and before the carry-over. A database
-found locked is tried again a few times.
+found locked is tried again a few times. With --lyrion-rescan / $LYRION_RESCAN too, a pass
+that moved audio files into the library asks Lyrion for a scan once it ends.
 """
 import contextlib
 import hashlib
@@ -73,6 +74,13 @@ def add_arguments(ap):
                          f"(default: $LYRION_SCAN_TIMEOUT, else {SCAN_TIMEOUT})")
     ap.add_argument("--no-wait-scan", action="store_true",
                     help="do not wait for the end of Lyrion's scans, --lyrion-url set or not")
+    ap.add_argument("--lyrion-rescan", action="store_true", default=enabled(os.environ.get("LYRION_RESCAN")),
+                    help="ask Lyrion for a scan once a pass moved audio files into the library, "
+                         "needs --lyrion-url (default: $LYRION_RESCAN)")
+
+
+def enabled(value):
+    return (value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def from_args(args, root: Path, state_dir: Path):
@@ -80,11 +88,14 @@ def from_args(args, root: Path, state_dir: Path):
         return None
     if not args.lyrion_root:
         raise SystemExit("--lyrion-db needs --lyrion-root (or $LYRION_MUSIC_ROOT)")
+    if args.lyrion_rescan and not args.lyrion_url:
+        raise SystemExit("--lyrion-rescan needs --lyrion-url (or $LYRION_URL)")
     scan = None
-    if args.lyrion_url and not args.no_wait_scan:
+    if args.lyrion_url:
         auth = (args.lyrion_user, os.environ.get("LYRION_PASSWORD", "")) if args.lyrion_user else None
         scan = Scan(args.lyrion_url, auth, args.scan_poll, args.scan_timeout)
-    return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS, scan)
+    return Lyrion(Path(args.lyrion_db), args.lyrion_root, root, state_dir / BACKUPS, scan,
+                  waits=not args.no_wait_scan, rescans=args.lyrion_rescan)
 
 
 def pause(seconds):
@@ -135,6 +146,14 @@ class Scan:
             state = self.ask("serverstatus", 0, 0).get("rescan")
         return str(state or 0).strip() != "0"
 
+    def start(self):
+        """Ask Lyrion for a scan of new and changed files: False when it already scans. Raises
+        requests.RequestException or ValueError when it cannot be asked."""
+        if self.running():
+            return False
+        self.ask("rescan")
+        return True
+
     def wait(self, log):
         """Wait for the end of a scan; False when it still runs after `timeout` or once a stop
         is requested. Lyrion out of reach counts as not scanning, after a warning."""
@@ -162,15 +181,27 @@ class Scan:
 
 
 class Lyrion:
+    """`waits` for the end of Lyrion's scans when `scan` is given; `rescans` once audio files
+    moved into the library (see rescan())."""
+
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
-    def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path, scan: Scan | None = None):
+    def __init__(self, db: Path, lyrion_root, root: Path, backup_dir: Path, scan: Scan | None = None,
+                 waits=True, rescans=False):
         self.db, self.lyrion_root, self.root = db, os.fsencode(lyrion_root).rstrip(b"/"), root
-        self.backup_dir, self.scan = backup_dir, scan
+        self.backup_dir, self.scan, self.waits = backup_dir, scan, waits
+        self.rescans = rescans and scan is not None
         self.plugin_counts = backup_dir.with_name(plugin_counts.FILE)
+        self.moved = self.told = False
 
     def scan_ended(self, log):
         """Wait for Lyrion's scan to end; False when it still runs. True without --lyrion-url."""
-        return self.scan is None or self.scan.wait(log)
+        return self.scan is None or not self.waits or self.scan.wait(log)
+
+    def note(self, moves):
+        """Remember that the applied `moves` brought audio files into the library, for rescan()."""
+        self.moved = self.moved or any(
+            Path(dst).suffix.lower() in AUDIO_EXT and Path(dst).is_relative_to(self.root)
+            and src != dst for src, dst in moves)
 
     def url(self, path: Path):
         """Lyrion URL for a library file; None if it is outside --root."""
@@ -343,6 +374,8 @@ def carry_over(db, moves, apply, log):
     """Carry the Lyrion history over to moved files; False on failure."""
     if db is None:
         return True
+    if apply:
+        db.note(moves)
     pairs = db.pairs(moves, AUDIO_EXT)
     try:
         if not pairs and not (apply and db.plugin_lost()):
@@ -371,3 +404,36 @@ def replay(args, db, log):
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] Lyrion carry-over of {args.lyrion_replay}"
         f" ({len(moves)} moves)")
     return 0 if carry_over(db, moves, args.apply, log) else EXIT_LYRION
+
+
+def rescan(db, log, keep=False):
+    """With --lyrion-rescan, ask Lyrion for a scan once audio files moved into the library since
+    the last one asked. A scan running is waited for, unless --no-wait-scan; with `keep`, it is
+    not and the request is kept for the next call. Lyrion out of reach leaves it to its own scans."""
+    if db is None or not db.rescans or not db.moved:
+        return
+    if not keep and db.waits and not db.scan.wait(log):
+        log("WARNING  Lyrion's scan not asked for: left to its next one")
+        db.moved = False
+        return
+    try:
+        started = db.scan.start()
+    except (requests.RequestException, ValueError) as e:
+        log(f"WARNING  Lyrion's scan cannot be asked for ({reason(e)}): left to its next one")
+        db.moved = db.told = False
+        return
+    if started:
+        log("LYRION   scan asked for, the files moved")
+        db.moved = db.told = False
+    elif not keep:
+        log("WARNING  Lyrion already scanning, its scan not asked for: left to its next one")
+        db.moved = False
+    elif not db.told:
+        log("LYRION   scanning: a new scan is asked for once it ends")
+        db.told = True
+
+
+def rescanned(db, code, log):
+    """`code`, once rescan() asked Lyrion for a scan if the pass ended called for one."""
+    rescan(db, log)
+    return code

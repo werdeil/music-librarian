@@ -4,7 +4,8 @@ ignored or marked to delete on a page of its own, the answer written at once to 
 The orphans are read from persist.db, opened read-only, in the background, again whenever it
 changes, and the library from the metadata cache, again when the cache changes, its files looked
 for on disk at each build; what settles each orphan is read from the matches file on each page.
-Only the pass watch runs writes to persist.db.
+Only the pass watch runs writes to persist.db. The page also asks Lyrion for a scan, at once:
+it moves nothing in the library.
 """
 import contextlib
 import os
@@ -14,6 +15,7 @@ from collections import defaultdict
 from pathlib import Path
 from types import SimpleNamespace
 
+import requests
 from flask import abort, g, redirect, render_template, request, url_for
 
 from music_librarian import playcounts
@@ -29,6 +31,7 @@ from music_librarian.web.library import Refreshed, cache_stamp
 PAGE = 50
 SUGGESTIONS = 8
 STATES = ("waiting", "settled", "ignored")
+SCAN_ANSWERS = ("started", "running", "unreachable")
 
 
 def changed_at(path: Path):
@@ -149,13 +152,19 @@ def register(app, ctx):
         done = built.by_key.get(request.args.get("done", ""))
         return orphans.shown(done) if done else None
 
+    def scan_asked():
+        """What became of the scan asked for from the page, carried by the redirect."""
+        asked = request.args.get("scan")
+        return asked if asked in SCAN_ANSWERS else None
+
     @app.get("/lyrion")
     def lyrion_page():
         if orphans is None:
             return render_template("lyrion.html", off=True)
         built, sorted_out = orphans.state(wait=True)
         if sorted_out is None:
-            return render_template("lyrion.html", building=built is None, error=built and built.error)
+            return render_template("lyrion.html", building=built is None, error=built and built.error,
+                                   scan_asked=scan_asked())
         state = request.args.get("state")
         if state not in STATES:
             state = "settled" if sorted_out["settled"] and not sorted_out["waiting"] else "waiting"
@@ -169,7 +178,18 @@ def register(app, ctx):
                        why=None if orphan.key in matched or orphan.key in deleted
                        else built.why[orphan.key])
                   for orphan, target in rows],
-            page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, done=recorded(built))
+            page=page, pages=pages, zeroed=built.zeroed, dpsv=built.dpsv, done=recorded(built),
+            scan_asked=scan_asked())
+
+    @app.post("/lyrion/scan")
+    def start_scan():
+        if orphans is None or ctx.lyrion.scan is None:
+            abort(404)
+        try:
+            asked = "started" if ctx.lyrion.scan.start() else "running"
+        except (requests.RequestException, ValueError):
+            asked = "unreachable"
+        return redirect(url_for("lyrion_page", scan=asked))
 
     @app.get("/lyrion/orphans/<key>")
     def lyrion_orphan(key):

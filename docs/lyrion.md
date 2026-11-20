@@ -47,6 +47,22 @@ The question is the JSON-RPC query `rescan ?` (`POST /jsonrpc.js`), whose `_resc
 
 A stop request (SIGTERM, Ctrl-C) ends the wait.
 
+## Asking Lyrion for a scan
+
+Lyrion's AutoRescan plugin starts a scan whenever files change, in the middle of a pass. With `LYRION_RESCAN`, music-librarian asks for the scan itself once a pass ends, so the AutoRescan plugin can be turned off and Lyrion's scheduled scan, every night, kept to catch up on the rest:
+
+| Variable | Option | Meaning |
+|---|---|---|
+| `LYRION_RESCAN` | `--lyrion-rescan` | `1` asks Lyrion for a scan once an applied pass moved audio files into the library; needs `LYRION_URL` |
+
+- **What calls for a scan**: an applied `import`, `organize`, `tag` or `undo` that moved or added audio files in the library, the carry-over done or not. Tags changed without a move (`enrich`, `split`, `dedupe`, `tag --no-refile`) wait for Lyrion's scheduled scan.
+- **When**: once the whole pass ended, the enrichment of an import included, so that Lyrion reads the files as the pass left them. In `watch`, once per round of its jobs, however many passes moved files, those queued from the dashboard included.
+- **What is asked**: `rescan`, Lyrion's scan of new and changed files, after the carry-over: the history already has the new paths when Lyrion reads them, and [the plugin's refresh](#the-plugins-refresh-after-a-scan) finds the files it knows.
+- **Lyrion already scanning**: a command waits for the end of that scan as above, then asks (unless `--no-wait-scan`, then it leaves the files to Lyrion's next scan). `watch` does not wait: it asks again on its next round, until the scan ended.
+- **Lyrion out of reach**: a `WARNING`, and the files are left to Lyrion's next scan.
+
+The dashboard's **Lyrion** page also starts a scan at any time, with or without `LYRION_RESCAN` (see [web.md](web.md#lyrion)).
+
 ## What happens to an entry
 
 Entries are looked up by `urlmd5`, the MD5 of the file URL. For each moved audio file, in both tables:

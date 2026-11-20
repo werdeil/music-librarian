@@ -473,7 +473,8 @@ def new_log(opts):
 def main(argv=None):
     opts = options(parser().parse_args(argv))
     log = new_log(opts)
-    return recorded(lambda: run(opts, log), log, opts.state_dir, "import", opts.apply)
+    return recorded(lambda: lyrion.rescanned(opts.lyrion, run(opts, log), log), log, opts.state_dir, "import",
+                    opts.apply)
 
 
 def run(opts: Options, log):

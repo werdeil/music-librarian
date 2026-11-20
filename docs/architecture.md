@@ -65,7 +65,7 @@ src/music_librarian/
     ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
-    ├── playcounts.py Lyrion's orphan play counts, one orphan per page
+    ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
@@ -109,6 +109,7 @@ The first three are run by **watch**, which reads the Inbox root every `--interv
 5. **Put the MP4 index first**: an `.m4a` file whose `moov` atom comes after `mdat` is rewritten in place with `moov` first, without re-encoding and without a journal entry, so Lyrion streams it as `alc`.
 6. **Move files one by one**, each move written to the journal right after it happens, so an interrupted pass can still be undone. Side files follow their album only when every track of the folder goes to the same place and none was held back.
 7. **Carry the Lyrion history over** for the moved files (see [lyrion.md](lyrion.md)), once Lyrion's scan has ended when its address is set; a failure leaves the moves done and exits with code 5.
+8. **Ask Lyrion for a scan** with `--lyrion-rescan`, once the command ended, when audio files moved into the library (see [lyrion.md](lyrion.md#asking-lyrion-for-a-scan)); `watch` asks once per round of its jobs instead.
 
 `last_run` only moves forward after a complete pass over the whole root.
 
