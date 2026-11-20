@@ -428,6 +428,12 @@ def tracks_of(folder: Path):
     return out
 
 
+def total_length(tracks):
+    """The summed length in seconds of the tracks of tracks_of(), None when one is unknown."""
+    lengths = [values[fields.LENGTH] if values else None for _, values in tracks]
+    return None if not lengths or None in lengths else sum(lengths)
+
+
 def joined(values):
     return "; ".join(values)
 

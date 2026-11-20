@@ -354,6 +354,8 @@ def test_album_page(dashboard):
     assert "Preview the changes" in page and '<code class="muted" title="01 One.flac">FLAC</code>' in page
     assert f'href="/library">{BACK}Library</a>' in page
     assert '<table class="tracks" id="tracks">' in page and "Discs and grouping</button>" in page   # folded
+    assert '<th class="t-length">Duration</th>' in page and 'data-label="Duration">0:00</td>' in page
+    assert '<p class="muted">2 tracks · 0 s</p>' in page
 
 
 def test_spread_of_the_album_fields_whose_tracks_differ(lib, make_track):
@@ -406,7 +408,7 @@ def test_grouping_shown_without_the_discs(dashboard, lib, tmp_path):
     scan.run(lib, tmp_path / "state", Log())
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert '<table class="tracks groupings" id="tracks">' in page and ">Discs</button>" in page
-    assert 'colspan="8" data-full-row' in page
+    assert 'colspan="9" data-full-row' in page
 
 
 def test_disc_name_mixed_on_a_disc(dashboard, lib, tmp_path):

@@ -52,6 +52,8 @@
     <div>
         <h2>{{ common.album or folder }}</h2>
         <p class="muted">{{ common.albumartist or '' }}</p>
+        <p class="muted">{{ (t.track_one if tracks | length == 1 else t.track_many).format(n=tracks | length) }}
+            {%- if total is not none %} · {{ total }}{% endif %}</p>
         <p><code class="muted">{{ folder }}</code></p>
     </div>
 </section>
@@ -149,14 +151,14 @@
         <button type="button" data-shows-discs="tracks" hidden>
             {{- t.show_grouping if discs else t.show_discs if groupings else t.show_discs_grouping }}</button>
         {% endif %}
-        {% set width = 7 + (1 if discs else 0) + (1 if groupings else 0) %}
+        {% set width = 8 + (1 if discs else 0) + (1 if groupings else 0) %}
         <div class="table-wrap">
         <table class="{{ ['tracks', 'discs' if discs, 'groupings' if groupings] | select | join(' ') }}" id="tracks">
             <thead>
                 <tr>
                     <th class="t-disc">{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
                     <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th class="t-grouping">{{ t.field_grouping }}</th>
-                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th>{{ t.format }}</th>
+                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th class="t-length">{{ t.duration }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -207,6 +209,7 @@
                                {%- if form and form.get('t' ~ (ns.i - 1) ~ '.replaygain_delete') %} checked{% endif %}><span>{{ gain_shown }}</span></label>
                         {%- else %}{{ gain_shown }}{% endif -%}
                     </td>
+                    <td class="t-length{{ '' if lengths[file] else ' muted' }}" data-label="{{ t.duration }}">{{ lengths[file] or t.lyrics_none }}</td>
                     <td class="t-format" data-label="{{ t.format }}"><code class="muted" title="{{ file }}">{{ file.rsplit('.', 1)[-1] | upper }}</code></td>
                     {% if values %}<td class="t-more"><button type="button" data-track-more aria-expanded="true"
                             aria-label="{{ t.track_details }}" title="{{ t.track_details }}" hidden></button></td>{% endif %}
