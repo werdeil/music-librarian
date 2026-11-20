@@ -153,7 +153,8 @@ def create_app(ctx: Context, build_now=False):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         everything = index.get()
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
-                    repeats=None if everything is None else sum(a.repeated for a in everything))
+                    repeats=None if everything is None else sum(a.repeated for a in everything),
+                    mixed=None if everything is None else sum(bool(a.mixed) for a in everything))
         return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None)
 
     @app.get("/tiles")

@@ -5,6 +5,7 @@
          note=None if genre_list else t.tile_no_genre_list),
     dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1')),
     dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
+    dict(value=todo.mixed, label=t.tile_mixed, href=url_for('mixed_albums')),
     dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('missed_lyrics')),
 ] %}
 {% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}

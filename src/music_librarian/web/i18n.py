@@ -263,6 +263,7 @@ TRANSLATIONS = {
         "preview_button": "Prévisualiser les changements",
         "nothing_changed": "Rien n'a changé.",
         "work_repeats": "Valeurs répétées",
+        "work_mixed": "Albums incohérents",
         "work_lyrics": "Sans paroles",
         "work_position": "Album {i} sur {n}",
         "work_left": "Albums restants : {n}",
@@ -343,6 +344,16 @@ TRANSLATIONS = {
                                "l'import refuse, un morceau qui en tient plusieurs."),
         "repeats_none": "Aucun morceau n'a de valeur répétée.",
         "tile_repeats": "Morceaux aux valeurs répétées",
+        "tile_mixed": "Albums aux champs incohérents",
+        "mixed_title": "Albums incohérents",
+        "mixed_page_intro": ("Les albums dont les morceaux ne s'accordent pas sur un champ d'album : "
+                             "artiste de l'album, album, année, genre, nombre de disques ou drapeau "
+                             "compilation, un morceau sans valeur comptant comme une valeur à part. Le "
+                             "genre n'est pas compté sur une compilation. Chaque champ se corrige sur la "
+                             "page de l'album, qui montre quels morceaux tiennent quelle valeur."),
+        "mixed_count": "Albums concernés : {n}",
+        "mixed_column": "Champs en désaccord",
+        "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
                              "valeurs, séparées par « ; » : garder la bonne seule. Le titre et l'album "
                              "ne prennent qu'une valeur, sans « ; »."),
@@ -734,6 +745,7 @@ TRANSLATIONS = {
         "preview_button": "Preview the changes",
         "nothing_changed": "Nothing changed.",
         "work_repeats": "Repeated values",
+        "work_mixed": "Inconsistent albums",
         "work_lyrics": "Without lyrics",
         "work_position": "Album {i} of {n}",
         "work_left": "Albums left: {n}",
@@ -812,6 +824,16 @@ TRANSLATIONS = {
                                "\";\": organize does not file, and import refuses, a track holding several."),
         "repeats_none": "No track has a repeated value.",
         "tile_repeats": "Tracks with repeated values",
+        "tile_mixed": "Albums with inconsistent fields",
+        "mixed_title": "Inconsistent albums",
+        "mixed_page_intro": ("The albums whose tracks disagree on an album field: album artist, album, "
+                             "year, genre, number of discs or compilation flag, a track without a value "
+                             "counting as a value of its own. The genre is not counted on a compilation. "
+                             "Each field is fixed on the album's page, which shows which tracks hold "
+                             "which value."),
+        "mixed_count": "Albums concerned: {n}",
+        "mixed_column": "Fields in disagreement",
+        "mixed_none": "The tracks of every album agree on its fields.",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
                              "by \"; \": keep only the right one. The title and the album take one "
                              "value, without \";\"."),

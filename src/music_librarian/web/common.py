@@ -12,7 +12,7 @@ from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import OPTIONS
 
 
-WORK_LISTS = {"repeats": "repeated_values", "lyrics": "missed_lyrics",   # name: its page
+WORK_LISTS = {"repeats": "repeated_values", "mixed": "mixed_albums", "lyrics": "missed_lyrics",   # its page
               "search": "library_page"}
 
 
