@@ -11,6 +11,7 @@ import pytest
 
 from music_librarian.core import runs
 from music_librarian.core.log import Log
+from music_librarian.integrations import lyrion
 from music_librarian.web import app as web
 from music_librarian.web import history, library
 from music_librarian.web.i18n import TRANSLATIONS
@@ -144,11 +145,27 @@ def test_history_in_pages_of_fifty(client, ctx):
     assert '<h1 class="visually-hidden">History</h1>' in page
 
 
-def test_folders_at_the_bottom_of_the_overview(client, ctx):
+def test_environment_at_the_bottom_of_the_overview(client, ctx, monkeypatch):
+    monkeypatch.setenv("LYRICS_PROVIDERS", "netease,nowhere")
+    monkeypatch.setenv("GENRE_LOOKUP", "itunes")
     page = client.get("/", headers=EN).get_data(as_text=True)
-    folders = page[page.index("<h2>Folders</h2>"):page.index("<footer>")]
-    assert str(ctx.root) in folders and str(ctx.inbox) in folders and str(ctx.state_dir) in folders
+    env = page[page.index("<h2>Environment</h2>"):page.index("<footer>")]
+    assert str(ctx.root) in env and str(ctx.inbox) in env and str(ctx.state_dir) in env
+    assert "<dd>previews only</dd>" in env and "<dt>Lyrion</dt><dd>none</dd>" in env
+    assert "<dd>netease</dd>" in env and "no validated list · iTunes lookup (US)" in env
     assert str(ctx.state_dir) not in client.get("/runs", headers=EN).get_data(as_text=True)
+
+
+def test_environment_names_lyrion_without_its_login(tmp_path, lyrion_db):
+    inbox = tmp_path / "Inbox"
+    inbox.mkdir()
+    db = lyrion.Lyrion(lyrion_db, "/music", tmp_path / "Music", tmp_path / "backups",
+                       scan=lyrion.Scan("http://me:secret@lms.local:9000/"), rescans=True)
+    ctx = web.Context(root=tmp_path / "Music", inbox=inbox, state_dir=tmp_path / "state", lyrion=db)
+    page = web.create_app(ctx).test_client().get("/", headers=EN).get_data(as_text=True)
+    env = page[page.index("<h2>Environment</h2>"):]
+    assert str(lyrion_db) in env and "http://lms.local:9000" in env and "scan after each pass" in env
+    assert "secret" not in page
 
 
 def test_history_filters(client, ctx):

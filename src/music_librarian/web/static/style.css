@@ -1571,3 +1571,22 @@ table.tracks .lyrics-row input[type="checkbox"] {
 .note-unlikely {
     color: var(--text-muted);
 }
+
+.environment {
+    color: var(--text-muted);
+}
+
+.environment h2 {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.environment dd {
+    margin: 0;
+}
+
+.environment code {
+    color: inherit;
+}
