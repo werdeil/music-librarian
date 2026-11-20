@@ -5,9 +5,9 @@
 <section>
     <h1 class="visually-hidden">{{ t.history }}</h1>
     <p class="filters">
-        <a href="{{ url_for('history', problems='1' if problems else None) }}"{% if not command %} aria-current="true"{% endif %}>{{ t.filter_all }}</a>
+        <a href="{{ url_for('history', problems='1' if problems else None) }}"{% if not command %} aria-current="true"{% endif %}>{{ t.filter_all }} <span class="muted">({{ total }})</span></a>
         {% for c in commands %}
-            <a href="{{ url_for('history', command=c, problems='1' if problems else None) }}"{% if c == command %} aria-current="true"{% endif %}><code>{{ c }}</code></a>
+            <a href="{{ url_for('history', command=c, problems='1' if problems else None) }}"{% if c == command %} aria-current="true"{% endif %}>{{ c }} <span class="muted">({{ counts[c] }})</span></a>
         {% endfor %}
     </p>
     <form method="get" action="{{ url_for('history') }}" class="filters">

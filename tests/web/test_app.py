@@ -182,6 +182,11 @@ def test_history_filters(client, ctx):
     assert 'name="command" value="enrich"' in page and "data-autosubmit>" in page
     page = client.get("/runs?command=scan&problems=1", headers=EN).get_data(as_text=True)
     assert "No run matches" in page
+    record(ctx, "organize")
+    page = client.get("/runs", headers=EN).get_data(as_text=True)
+    assert 'All <span class="muted">(3)</span>' in page and 'organize <span class="muted">(2)</span>' in page
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)          # counts follow it
+    assert 'All <span class="muted">(1)</span>' in page and 'organize <span class="muted">(0)</span>' in page
 
 
 def test_run_page(client, ctx):
