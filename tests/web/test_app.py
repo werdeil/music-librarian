@@ -150,7 +150,7 @@ def test_environment_at_the_bottom_of_the_overview(client, ctx, monkeypatch):
     monkeypatch.setenv("LYRICS_PROVIDERS", "netease,nowhere")
     monkeypatch.setenv("GENRE_LOOKUP", "itunes")
     page = client.get("/", headers=EN).get_data(as_text=True)
-    env = page[page.index("<h2>Environment</h2>"):page.index("<footer>")]
+    env = page[page.index("<summary>Environment</summary>"):page.index("<footer>")]
     assert str(ctx.root) in env and str(ctx.inbox) in env and str(ctx.state_dir) in env
     assert "<dd>previews only</dd>" in env and "<dt>Lyrion</dt><dd>none</dd>" in env
     assert "<dd>netease</dd>" in env and "no validated list · iTunes lookup (US)" in env
@@ -164,7 +164,7 @@ def test_environment_names_lyrion_without_its_login(tmp_path, lyrion_db):
                        scan=lyrion.Scan("http://me:secret@lms.local:9000/"), rescans=True)
     ctx = web.Context(root=tmp_path / "Music", inbox=inbox, state_dir=tmp_path / "state", lyrion=db)
     page = web.create_app(ctx).test_client().get("/", headers=EN).get_data(as_text=True)
-    env = page[page.index("<h2>Environment</h2>"):]
+    env = page[page.index("<summary>Environment</summary>"):]
     shown = re.findall(r'<code class="path">([^<]*)</code>', env)
     assert shown[-2:] == [str(lyrion_db), "http://lms.local:9000"] and "scan after each pass" in env
     assert "secret" not in page

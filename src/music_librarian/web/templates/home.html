@@ -89,8 +89,8 @@
 </section>
 {% endif %}
 
-<section class="environment">
-    <h2>{{ t.environment }}</h2>
+<details class="environment">
+    <summary>{{ t.environment }}</summary>
     <dl class="facts">
         <dt>{{ t.library }}</dt><dd><code class="path">{{ ctx.root }}</code></dd>
         <dt>{{ t.inbox }}</dt><dd><code class="path">{{ ctx.inbox }}</code></dd>
@@ -103,5 +103,5 @@
         <dt>{{ t.env_genres }}</dt><dd>{{ t.env_genre_count.format(n=env.genres) if env.genres is not none else t.env_no_genre_list }}
             {%- if env.genre_lookup %} · {{ t.env_itunes.format(country=env.genre_lookup | upper) }}{% endif %}</dd>
     </dl>
-</section>
+</details>
 {% endblock %}

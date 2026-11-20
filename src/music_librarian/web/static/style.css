@@ -1573,14 +1573,17 @@ table.tracks .lyrics-row input[type="checkbox"] {
 }
 
 .environment {
+    margin-top: 1.8rem;
     color: var(--text-muted);
+    font-size: var(--fs-sm);
 }
 
-.environment h2 {
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+.environment summary {
+    cursor: pointer;
+}
+
+.environment .facts {
+    margin-top: 0.6rem;
 }
 
 .environment dd {
