@@ -234,6 +234,7 @@ def test_track_marked_awaited(d):
     assert "<td>1 / 3</td>" in lyrics_page and "Tracks whose lyrics are awaited: 1" in lyrics_page
     tracks = d.client.get("/library?c=awaited:yes&view=tracks", headers=EN).get_data(as_text=True)
     assert "T2" in tracks and "T3" not in tracks
+    assert "Lyrics awaited <span" not in settled(d, "/library")            # a condition, not a filter
     assert mark(d, "02 T2.m4a", "0").get_json() == {"awaited": False}
     assert tile(d) == 2
 

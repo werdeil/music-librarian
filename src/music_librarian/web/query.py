@@ -30,7 +30,7 @@ SNAPSHOT_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("al
                  "grouping": ("grouping",), "year": ("date", "year"), "track": ("tracknumber",),
                  "disc": ("discnumber",)}
 ANY_FIELDS = ("title", "artist", "albumartist", "album", "composer", "genre", "grouping")
-PRESETS = {"lyrics": ("lyrics:no",), "awaited": ("awaited:yes",), "repeats": ("repeated:yes",),
+PRESETS = {"lyrics": ("lyrics:no",), "repeats": ("repeated:yes",),
            "compilations": ("compilation:yes",),
            "composer": ("composer:empty",), "genre": ("genre:empty",), "cover": ("cover:no",),
            "replaygain": ("replaygain:no",)}
