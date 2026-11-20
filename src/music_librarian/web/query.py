@@ -227,6 +227,14 @@ def from_args(args):
     return Search(tuple(dict.fromkeys(found)), args.get("match") == "any")
 
 
+def minutes(seconds):
+    """`seconds` as "m:ss", None for None."""
+    if seconds is None:
+        return None
+    m, s = divmod(int(seconds), 60)
+    return f"{m}:{s:02d}"
+
+
 def cell(track, name):
     """What the track list shows of `name`: its values as text, a bool for a flag, None for none."""
     if FIELDS.get(name) == FLAG:
@@ -234,10 +242,7 @@ def cell(track, name):
     if name == "format":
         return track.format
     if name == "duration":
-        if track.duration is None:
-            return None
-        minutes, seconds = divmod(int(track.duration), 60)
-        return f"{minutes}:{seconds:02d}"
+        return minutes(track.duration)
     if name == "folder":
         return track.folder
     values = track.tags.get(name[4:], []) if name.startswith("tag.") else track.values.get(name, [])

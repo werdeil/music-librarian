@@ -842,6 +842,13 @@ table.tracks td.t-more {
     display: none;
 }
 
+table.tracks .t-length {
+    padding-right: 1.2rem;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
 button[data-track-more] {
     width: 2.2rem;
     height: 2rem;
@@ -1207,7 +1214,7 @@ table.found-tracks td.number {
 
     table.tracks tr {
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(12, minmax(0, 1fr));
         gap: 0.4rem 0.6rem;
         padding: 0.6rem 0;
         border-bottom: 1px solid var(--border-color);
@@ -1240,18 +1247,26 @@ table.found-tracks td.number {
         color: var(--text-muted);
     }
 
+    table.tracks .t-disc,
+    table.tracks .t-track {
+        grid-column: span 2;
+    }
+
     table.tracks .t-title {
-        grid-column: span 4;
+        grid-column: span 8;
     }
 
     table.tracks.discs .t-title {
-        grid-column: span 3;
+        grid-column: span 6;
     }
 
     table.tracks .t-lyrics,
     table.tracks .t-gain,
-    table.tracks .t-format {
-        grid-column: span 2;
+    table.tracks .t-format,
+    table.tracks .t-length {
+        grid-column: span 3;
+        padding-right: 0;
+        text-align: left;
     }
 
     table.tracks .t-artist,
@@ -1263,13 +1278,13 @@ table.found-tracks td.number {
 
     table.tracks td.t-more {
         display: flex;
-        grid-column: -2;
+        grid-column: -3 / -1;
         grid-row: 1;
         align-items: flex-end;
         justify-content: flex-end;
     }
 
-    table.tracks tr.folded > td:is(.t-artist, .t-composer, .t-grouping, .t-lyrics, .t-gain, .t-format) {
+    table.tracks tr.folded > td:is(.t-artist, .t-composer, .t-grouping, .t-lyrics, .t-gain, .t-format, .t-length) {
         display: none;
     }
 

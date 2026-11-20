@@ -160,6 +160,7 @@ def register(app, ctx, index, later):
         lyrics = library.with_lyrics(tracks)
         gains = {name: values[fields.REPLAYGAIN] if values else [] for name, values in tracks}
         repeated = library.repeated_fields(tracks)
+        total = library.total_length(tracks)
         mapping = genre_list(ctx.state_dir, lambda _msg: None) or {}
         with timed("list"):
             catalog = index.catalog()
@@ -179,6 +180,9 @@ def register(app, ctx, index, later):
                                awaited=waiting,
                                unsorted=len(catalog.unsorted(rel)) if catalog and not sorted_out else 0,
                                repeated=repeated, repeated_album=library.album_repeats(repeated),
+                               lengths={n: query.minutes(v[fields.LENGTH]) if v else None
+                                        for n, v in tracks},
+                               total=None if total is None else history.duration(total),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
                                followed=followed(rel), work=work, **shown)
