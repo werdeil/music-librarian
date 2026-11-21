@@ -264,6 +264,7 @@ TRANSLATIONS = {
         "nothing_changed": "Rien n'a changé.",
         "work_repeats": "Valeurs répétées",
         "work_mixed": "Albums incohérents",
+        "work_dates": "Années à revoir",
         "work_lyrics": "Sans paroles",
         "work_position": "Album {i} sur {n}",
         "work_left": "Albums restants : {n}",
@@ -355,6 +356,17 @@ TRANSLATIONS = {
         "mixed_list_link": "Voir la liste",
         "mixed_column": "Champs en désaccord",
         "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
+        "tile_dates": "Albums aux années à revoir",
+        "dates_title": "Années à revoir",
+        "dates_page_intro": ("Les albums dont un morceau n'a pas d'année, ou une année qui n'est pas "
+                             "seule (AAAA) : chaque morceau tient l'année de sortie de l'édition "
+                             "possédée, celle qu'affichent Apple Music et Lyrion. enrich ramène chaque "
+                             "semaine une date complète à son année ; une année absente ou illisible "
+                             "se corrige sur la page de l'album."),
+        "dates_column": "À revoir",
+        "dates_missing": "année absente",
+        "dates_format": "pas une année seule",
+        "dates_none": "Chaque morceau tient une année seule.",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
                              "valeurs, séparées par « ; » : garder la bonne seule. Le titre et l'album "
                              "ne prennent qu'une valeur, sans « ; »."),
@@ -747,6 +759,7 @@ TRANSLATIONS = {
         "nothing_changed": "Nothing changed.",
         "work_repeats": "Repeated values",
         "work_mixed": "Inconsistent albums",
+        "work_dates": "Years to fix",
         "work_lyrics": "Without lyrics",
         "work_position": "Album {i} of {n}",
         "work_left": "Albums left: {n}",
@@ -836,6 +849,16 @@ TRANSLATIONS = {
         "mixed_list_link": "See the list",
         "mixed_column": "Fields in disagreement",
         "mixed_none": "The tracks of every album agree on its fields.",
+        "tile_dates": "Albums with years to fix",
+        "dates_title": "Years to fix",
+        "dates_page_intro": ("The albums with a track without a year, or with a year that is not alone "
+                             "(YYYY): each track holds the year the edition owned came out, the one "
+                             "Apple Music and Lyrion show. The weekly enrich cuts a whole date down to "
+                             "its year; a year missing or unreadable is fixed on the album's page."),
+        "dates_column": "To fix",
+        "dates_missing": "year missing",
+        "dates_format": "not a year alone",
+        "dates_none": "Every track holds a year alone.",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
                              "by \"; \": keep only the right one. The title and the album take one "
                              "value, without \";\"."),

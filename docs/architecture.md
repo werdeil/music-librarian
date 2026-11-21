@@ -13,6 +13,7 @@ src/music_librarian/
 ├── tag.py           tag: tag fields rewritten, then the tracks filed again
 ├── cover.py         cover: an image put as an album's folder.jpg, then embedded into its tracks
 ├── repeats.py       the fields holding a value twice, kept once; those holding values that differ, reported
+├── dates.py         the edition's year, alone, the one date a track holds
 ├── core/            what every command shares
 │   ├── arguments.py the options every command takes: --root, --apply, --state-dir, --syslog
 │   ├── files.py     audio extensions, junk files, emptied folders

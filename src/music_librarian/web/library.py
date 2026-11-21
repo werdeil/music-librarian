@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclass_field, replace
 from pathlib import Path
 
-from music_librarian import repeats
+from music_librarian import dates, repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.lyrics import INSTRUMENTAL, awaited, is_instrumental
 from music_librarian.media import fields, metadata_cache, tags
@@ -47,6 +47,7 @@ class Album:  # pylint: disable=too-many-instance-attributes  # one per column t
     changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
     awaited: int = 0
     mixed: tuple = ()   # the album fields whose tracks differ
+    dates: tuple = ()   # what is wrong with its tracks' years, as dates.problems() tells
 
 
 SORTS = {
@@ -359,7 +360,8 @@ class Index:
             year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
-                                year, folder_changed(folder), mixed=mixed_fields(held)))
+                                year, folder_changed(folder), mixed=mixed_fields(held),
+                                dates=dates.problems([first(t, "date", "year") for t in held])))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
@@ -481,6 +483,11 @@ def album_repeats(repeated):
 def with_mixed(albums):
     """The albums whose tracks differ on an album field, those differing on the most fields first."""
     return sorted((a for a in albums if a.mixed), key=lambda a: (-len(a.mixed), a.folder))
+
+
+def with_dates(albums):
+    """The albums whose tracks' years break the rule of dates, those with the most problems first."""
+    return sorted((a for a in albums if a.dates), key=lambda a: (-len(a.dates), a.folder))
 
 
 def with_repeats(albums):

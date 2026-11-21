@@ -5,7 +5,7 @@
 <section>
     <h1 class="visually-hidden">{{ t.reviews }}</h1>
     <p class="muted">{{ t.reviews_intro }}</p>
-    {% if none in (credits, groups, lyrics, mixed) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
+    {% if none in (credits, groups, lyrics, mixed, dates) or (genre_list and genres is none) %}{% include "_building.html" %}{% endif %}
 </section>
 <section class="review-card">
     <h2>{{ t.split_review }}</h2>
@@ -62,6 +62,16 @@
     <div class="actions">
         {% if first_mixed %}<a class="button primary" href="{{ url_for('album_page', folder=first_mixed, list='mixed', at=0) }}">{{ t.start_review }}</a>
         <a class="button" href="{{ url_for('mixed_albums') }}">{{ t.mixed_list_link }}</a>{% endif %}
+    </div>
+</section>
+<section class="review-card">
+    <h2>{{ t.tile_dates }}</h2>
+    {% if dates is none %}<p class="muted">{{ t.tile_building }}</p>
+    {% elif dates %}<p class="review-waiting">{{ t.mixed_count.format(n=dates) }}</p>
+    {% else %}<p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>{% endif %}
+    <div class="actions">
+        {% if first_dated %}<a class="button primary" href="{{ url_for('album_page', folder=first_dated, list='dates', at=0) }}">{{ t.start_review }}</a>
+        <a class="button" href="{{ url_for('dated_albums') }}">{{ t.mixed_list_link }}</a>{% endif %}
     </div>
 </section>
 {% endblock %}

@@ -7,6 +7,8 @@
     dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
     dict(value=todo.mixed, label=t.tile_mixed, href=url_for('album_page', folder=first_mixed, list='mixed', at=0)
          if first_mixed else url_for('mixed_albums')),
+    dict(value=todo.dates, label=t.tile_dates, href=url_for('album_page', folder=first_dated, list='dates', at=0)
+         if first_dated else url_for('dated_albums')),
     dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('album_page', folder=first_bare, list='lyrics', at=0)
          if first_bare else url_for('missed_lyrics')),
 ] %}

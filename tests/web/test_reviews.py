@@ -62,7 +62,8 @@ def test_home_counts_the_same_questions(d):
     assert '/reviews/split"' in tile("Credits to split")
     assert '<span class="tile-value">1' in tile("Artists to unify")
     assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
-    badge = '<span class="count" title="Questions awaiting an answer">11</span>'   # 8 tracks without lyrics
+    badge = '<span class="count" title="Questions awaiting an answer">16</span>'   # 8 tracks without lyrics,
+    # 5 albums without a year
     assert badge in page(d, "/library")
 
 
