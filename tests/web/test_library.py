@@ -527,7 +527,7 @@ def test_edit_applied_then_undone_from_the_album_page(dashboard, lib):
     page = dashboard.client.get(following, headers=EN).get_data(as_text=True)
     assert "Queued: starts" in page and f'data-follow="/requests/{asked.id}.json?folder=Beyonce/4"' in page
     assert dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4").get_json() == \
-        {"done": False, "album": None}
+        {"done": False, "progress": None}
 
     dashboard.requests.tick(Log())
     state = dashboard.client.get(f"/requests/{asked.id}.json?folder=Beyonce/4").get_json()

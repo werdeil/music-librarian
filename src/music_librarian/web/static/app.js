@@ -461,11 +461,26 @@
         return;
     }
 
+    function shown(progress) {
+        var duration = panel.querySelector("[data-follow-duration]");
+        var details = panel.querySelector("[data-follow-details]");
+        var step = panel.querySelector("[data-follow-step]");
+        if (!progress || !duration) {
+            return;
+        }
+        duration.textContent = progress.duration || "";
+        details.href = progress.url;
+        details.hidden = false;
+        step.firstElementChild.textContent = progress.step;
+        step.hidden = !progress.step;
+    }
+
     function poll() {
         fetch(panel.dataset.follow)
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 if (!data.done) {
+                    shown(data.progress);
                     setTimeout(poll, POLL_MS);
                 } else if (data.album) {
                     window.location.replace(data.album);
