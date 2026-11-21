@@ -7,9 +7,9 @@ For each Inbox item (an album folder, or a loose file):
      goes to _failed/; of several titles, a track keeps the one its file is
      named after;
   3. enrichment (genres, ReplayGain, cover, lyrics) of the target folders only,
-     then the values held twice kept once (repeats.py), the split of their
-     credits holding several names (split/) and the spellings decided in the
-     artist aliases (dedupe/);
+     then the dates cut down to their year (dates.py), the values held twice
+     kept once (repeats.py), the split of their credits holding several names
+     (split/) and the spellings decided in the artist aliases (dedupe/);
   4. the original item (FLAC included) goes to _done/YYYY-MM-DD/, purged
      after 7 days.
 
@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from music_librarian import dedupe, enrich, organize, repeats, split
+from music_librarian import dates, dedupe, enrich, organize, repeats, split
 from music_librarian.core import arguments
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
@@ -170,10 +170,11 @@ def enrich_targets(dirs, log):
 
 
 def fix_credits(opts, dirs, log):
-    """Rewrites the fields holding a value twice, then splits and unifies the credits of `dirs`,
-    under the lock import already holds."""
+    """Cuts the dates down to their year, rewrites the fields holding a value twice, then splits and
+    unifies the credits of `dirs`, under the lock import already holds."""
     ok = True
     for name, wanted, tag_pass, pass_options in (
+            ("dates", True, dates.dates_pass, CreditOptions),
             ("repeated values", True, repeats.repeats_pass, CreditOptions),
             ("credit split", opts.split, split.split_pass, split.Options),
             ("artist aliases", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):

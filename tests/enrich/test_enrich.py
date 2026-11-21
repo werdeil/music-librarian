@@ -52,8 +52,8 @@ def tools(tmp_path, monkeypatch):
 
 
 def run(lib, state, *a):
-    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-repeats", "--no-split",
-                        "--no-dedupe", *a])
+    return enrich.main(["--root", str(lib), "--state-dir", str(state), "--no-dates", "--no-repeats",
+                        "--no-split", "--no-dedupe", *a])
 
 
 def test_album_dirs(lib):
@@ -343,3 +343,11 @@ def test_a_stop_is_passed_on_to_the_tool(tmp_path):
 
     assert enrich.run_tool([sys.executable, str(script)], None, log) == EXIT_STOPPED
     assert lines[-1] == "STOP     requested" and len(lines) < 20
+
+
+def test_dates_before_repeats(lib, tools, tmp_path, capsys):
+    enrich.main(["--root", str(lib), "--state-dir", str(tmp_path / "state"), "--no-split", "--no-dedupe",
+                 *[f"--no-{name}" for name in enrich.TOOLS]])
+    out = capsys.readouterr().out
+    assert "ENRICH   (dates)  step 1/2" in out
+    assert out.index("--- Dates summary ---") < out.index("--- Repeats summary ---")

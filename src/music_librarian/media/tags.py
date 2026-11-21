@@ -10,7 +10,7 @@ import os
 import re
 
 import mutagen
-from mutagen.id3 import APIC, ID3, TXXX, USLT
+from mutagen.id3 import APIC, ID3, TDOR, TXXX, USLT
 from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC, Picture
 from mutagen.easymp4 import EasyMP4Tags
@@ -48,6 +48,10 @@ class ReplayGainTagError(Exception):
 
 class GenreTagError(Exception):
     """A user-facing failure while writing the genre."""
+
+
+class DateTagError(Exception):
+    """A user-facing failure while reading or writing the dates other than the year."""
 
 
 def lrc_to_plain(text):
@@ -365,6 +369,88 @@ def replace_replaygain(path, pairs):
         raise
     except Exception as exc:
         raise ReplayGainTagError(f"write failed: {exc}") from exc
+
+
+# the dates other than the year: a FLAC tag, an MP4 freeform or a TXXX of these names, TDOR and TRDA
+_OTHER_DATES = {"originaldate", "originalyear", "recordingdate"}
+
+
+def _other_date_keys(audio):
+    """{name as other_dates() shows it: the key it is held under} in the opened file `audio`."""
+    t = audio.tags
+    if t is None:
+        return {}
+    if isinstance(audio, MP4):
+        return {k[len(_MP4_FREEFORM):]: k for k in t.keys()
+                if k.startswith(_MP4_FREEFORM) and k[len(_MP4_FREEFORM):].lower() in _OTHER_DATES}
+    if isinstance(audio, MP3):
+        return {k: k for k in t.keys()
+                if k == "TDOR" or (k.startswith("TXXX:") and k[5:].lower() in _OTHER_DATES)}
+    if isinstance(audio, FLAC):
+        return {k: k for k in {k.lower() for k in t.keys()} if k in _OTHER_DATES}
+    return None
+
+
+def _other_date_values(audio, key):
+    if isinstance(audio, MP4):
+        return _freeform_text(audio.tags[key])
+    if isinstance(audio, MP3):
+        return [str(v) for v in audio.tags[key].text]
+    return list(audio.tags[key])
+
+
+def other_dates(path):
+    """["NAME=value"] of the dates `path` holds besides the year, by name: TDOR, TXXX:<name> and
+    TRDA in MP3, the freeform name in MP4, the tag's in FLAC. Raises DateTagError."""
+    audio = mutagen.File(path)
+    keys = None if audio is None else _other_date_keys(audio)
+    if keys is None:
+        raise DateTagError("unsupported format for dates")
+    out = [f"{name}={v}" for name, key in keys.items() for v in _other_date_values(audio, key) if v.strip()]
+    if isinstance(audio, MP3) and audio.tags is not None and audio.tags.version < (2, 4, 0):
+        out += [f"TRDA={v}" for f in _untranslated(path).getall("TRDA") for v in f.text if str(v).strip()]
+    return sorted(out, key=str.lower)
+
+
+def replace_other_dates(path, pairs):
+    """Remove every date other_dates() reads from `path`, then write `pairs` [(name, value)] back.
+    TRDA cannot be written back, ID3v2.4 having no such frame: the rest is, then DateTagError raised."""
+    try:
+        audio = mutagen.File(path)
+        keys = None if audio is None else _other_date_keys(audio)
+        if keys is None:
+            raise DateTagError("unsupported format for dates")
+        if audio.tags is None:
+            audio.add_tags()
+        for key in keys.values():
+            del audio.tags[key]
+        lost = [value for name, value in pairs if name == "TRDA"]
+        held = {}
+        for name, value in pairs:
+            if name != "TRDA":
+                held.setdefault(name, []).append(value)
+        for name, values in held.items():
+            _write_other_date(audio, name, values)
+        audio.save()
+    except DateTagError:
+        raise
+    except Exception as exc:
+        raise DateTagError(f"write failed: {exc}") from exc
+    if lost:
+        raise DateTagError(f"TRDA {', '.join(lost)} cannot be written back: ID3v2.4 has no such frame")
+
+
+def _write_other_date(audio, name, values):
+    bare = name[5:] if name.startswith("TXXX:") else name
+    if bare.lower() not in _OTHER_DATES and name != "TDOR":
+        raise DateTagError(f"not a date other than the year: {name!r}")
+    if isinstance(audio, MP3):
+        audio.tags.add(TDOR(encoding=3, text=values) if name == "TDOR"
+                       else TXXX(encoding=3, desc=bare, text=values))
+    elif isinstance(audio, MP4):
+        audio.tags[_MP4_FREEFORM + name] = [MP4FreeForm(v.encode()) for v in values]
+    else:
+        audio[name] = values
 
 
 def _mp4_compilation(tags, key):
