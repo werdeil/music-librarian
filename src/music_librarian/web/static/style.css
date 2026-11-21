@@ -1118,17 +1118,34 @@ form.inline {
     border-top: 1px solid var(--border-color);
 }
 
-.follow-step {
-    margin: 0.3rem 0 0;
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
-    overflow-wrap: anywhere;
-}
-
 .following {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+}
+
+.follow-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.follow-text p {
+    margin: 0;
+}
+
+.follow-step {
+    margin-top: 0.2rem;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.follow-details {
+    flex: none;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
 }
 
 .following .spinner {

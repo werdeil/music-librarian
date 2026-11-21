@@ -471,7 +471,7 @@
         duration.textContent = progress.duration || "";
         details.href = progress.url;
         details.hidden = false;
-        step.firstElementChild.textContent = progress.step;
+        step.textContent = progress.step;
         step.hidden = !progress.step;
     }
 
