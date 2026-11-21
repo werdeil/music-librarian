@@ -858,9 +858,7 @@ table.tracks td.t-more {
 }
 
 table.tracks .t-gain {
-    text-align: right;
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
 }
 
 table.tracks .t-length {

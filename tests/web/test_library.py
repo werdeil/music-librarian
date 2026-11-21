@@ -745,7 +745,7 @@ def test_replaygain_struck_then_removed_with_the_album_form(dashboard, lib):
     tags.write_replaygain(one, -7.12, 0.98)
     tags.write_replaygain(two, -5.5, 0.9)
     page = dashboard.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
-    assert 'name="t0.replaygain_delete"' in page and "<span>-7.12</span>" in page
+    assert 'name="t0.replaygain_delete"' in page and "<span>-7.12 dB</span>" in page
     form = album_form(dashboard, "Beyonce/4", **{"t0.replaygain_delete": "1"})
     page = dashboard.client.post("/library/album", data=form, headers=EN).get_data(as_text=True)
     assert "<del>track gain -7.12 dB</del> → <ins>(none)</ins>" in page
