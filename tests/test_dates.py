@@ -37,9 +37,10 @@ def test_cut(value, year):
 @pytest.mark.parametrize("tags, found", [
     ({"date": ["2011"]}, (None, False, None)),
     ({"date": ["2011-05-02"]}, ("2011", False, None)),
-    ({"DATE": ["2011-05-02"], "YEAR": ["2011"]}, ("2011", False, None)),
+    ({"DATE": ["2011-05-02"], "YEAR": ["2011"]}, ("2011", True, None)),
+    ({"year": ["2011-05-02"]}, ("2011", False, None)),
     ({"date": ["2011"], "originaldate": ["1973"]}, (None, True, None)),
-    ({"date": ["2011"], "year": ["2015"]}, (None, False, None)),
+    ({"date": ["2011"], "year": ["2015"]}, (None, True, None)),
     ({"trda": ["1972"]}, (None, True, dates.MISSING)),
     ({"date": ["mai 2011"]}, (None, False, dates.FORMAT)),
 ])
@@ -62,7 +63,7 @@ def lib(tmp_path, make_track):
         t.add(frame)
     t.save(mp3, v2_version=3)
     make_track(root / "A/B/03 Trois.flac", title="Trois", artist="A", album="B", track=3,
-               extra={"date": "2011", "recordingdate": "1972"})
+               extra={"date": "2011", "year": "1973", "recordingdate": "1972"})
     make_track(root / "A/C/01 Rien.flac", title="Rien", artist="A", album="C", track=1,
                extra={"date": "vers 2011"})
     make_track(root / "A/C/02 Vide.flac", title="Vide", artist="A", album="C", track=2)
@@ -86,7 +87,7 @@ def test_dry_run_changes_nothing(lib, tmp_path):
     assert "DATE     year → '2011'  A/B/01 Un.m4a" in out
     assert "DATE     removed: originaldate 1973-03-01  A/B/01 Un.m4a" in out
     assert "DATE     removed: originaldate 1973; trda 1972-06-10  A/B/02 Deux.mp3" in out
-    assert "DATE     removed: recordingdate 1972  A/B/03 Trois.flac" in out
+    assert "DATE     removed: recordingdate 1972; year 1973  A/B/03 Trois.flac" in out
     assert "INVALID  year: 'vers 2011'  A/C/01 Rien.flac" in out
     assert "years to cut: 1" in out and "dates to remove: 3" in out
     assert "without a year: 1" in out and "not a year: 1" in out

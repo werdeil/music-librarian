@@ -371,7 +371,8 @@ def replace_replaygain(path, pairs):
         raise ReplayGainTagError(f"write failed: {exc}") from exc
 
 
-# the dates other than the year: a FLAC tag, an MP4 freeform or a TXXX of these names, TDOR and TRDA
+# the dates other than the year: a FLAC tag, an MP4 freeform or a TXXX of these names, TDOR and TRDA,
+# and a FLAC YEAR beside a DATE
 _OTHER_DATES = {"originaldate", "originalyear", "recordingdate"}
 
 
@@ -387,7 +388,8 @@ def _other_date_keys(audio):
         return {k: k for k in t.keys()
                 if k == "TDOR" or (k.startswith("TXXX:") and k[5:].lower() in _OTHER_DATES)}
     if isinstance(audio, FLAC):
-        return {k: k for k in {k.lower() for k in t.keys()} if k in _OTHER_DATES}
+        names = {k.lower() for k in t.keys()}
+        return {k: k for k in names if k in _OTHER_DATES or (k == "year" and "date" in names)}
     return None
 
 
@@ -442,7 +444,8 @@ def replace_other_dates(path, pairs):
 
 def _write_other_date(audio, name, values):
     bare = name[5:] if name.startswith("TXXX:") else name
-    if bare.lower() not in _OTHER_DATES and name != "TDOR":
+    flac_year = name == "year" and isinstance(audio, FLAC)
+    if bare.lower() not in _OTHER_DATES and name != "TDOR" and not flac_year:
         raise DateTagError(f"not a date other than the year: {name!r}")
     if isinstance(audio, MP3):
         audio.tags.add(TDOR(encoding=3, text=values) if name == "TDOR"
