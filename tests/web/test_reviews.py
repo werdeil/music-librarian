@@ -258,3 +258,13 @@ def test_a_review_switched_off_leaves_every_count(d):
     d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "1"})
     assert badge.format(n=11) in page(d, "/reviews")
     assert d.client.post("/reviews/nothing/switch", data={"csrf": d.token, "on": "0"}).status_code == 404
+
+
+def test_cards_with_the_most_left_first_and_those_switched_off_last(d):
+    def titles():
+        return re.findall(r'<section class="review-card[^"]*">\s*<header>\s*<h2>([^<]+)</h2>',
+                          page(d, "/reviews"))
+    assert titles()[:3] == ["Tracks without lyrics", "Credits holding several names",
+                            "One artist spelled several ways"]
+    d.client.post("/reviews/lyrics/switch", data={"csrf": d.token, "on": "0"})
+    assert titles()[0] == "Credits holding several names" and titles()[-1] == "Tracks without lyrics"

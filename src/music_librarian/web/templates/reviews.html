@@ -36,22 +36,26 @@
 {% block content %}
 <h1 class="visually-hidden">{{ t.reviews }}</h1>
 {% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}{% include "_building.html" %}{% endif %}
-<h2 class="review-group">{{ t.reviews_questions }}</h2>
 <div class="review-grid">
+{% for kind in order %}
+{% if kind == 'split' %}
 {{ card('split', t.split_review, t.unit_split, url_for('review_split'), command='split',
         links=[(url_for('decisions_page'), t.rules_decisions_link.format(n=rules.decisions))]) }}
+{% elif kind == 'dedupe' %}
 {{ card('dedupe', t.dedupe_review, t.unit_dedupe, url_for('review_dedupe'), command='dedupe',
         links=[(url_for('aliases_page'), t.rules_aliases_link.format(n=rules.aliases))]) }}
+{% elif kind == 'genres' %}
 {{ card('genres', t.genre_review, t.unit_genres if genre_list else none, url_for('review_genres'),
         command='genres', links=[(url_for('genre_list_page'), t.rules_genres_link.format(n=rules.genres))]) }}
-</div>
-<h2 class="review-group">{{ t.reviews_albums }}</h2>
-<div class="review-grid">
+{% elif kind == 'lyrics' %}
 {{ card('lyrics', t.tracks_without_lyrics_title, t.unit_lyrics.format(albums=lyrics_albums),
         url_for('album_page', folder=first_bare, list='lyrics', at=0) if first_bare else none, t.start_fixing,
         links=[(url_for('awaited_page'), t.rules_awaited_link.format(n=rules.awaited))]) }}
+{% elif kind == 'mixed' %}
 {{ card('mixed', t.tile_mixed, t.unit_mixed,
         url_for('album_page', folder=first_mixed, list='mixed', at=0) if first_mixed else none, t.start_fixing,
         links=[(url_for('mixed_albums'), t.mixed_list_link)] if first_mixed else []) }}
+{% endif %}
+{% endfor %}
 </div>
 {% endblock %}

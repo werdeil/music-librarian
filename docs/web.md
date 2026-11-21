@@ -51,7 +51,7 @@ A click on the album's cover, at the top of its page, picks an image (32 MB at m
 
 ## Reviews
 
-The Reviews page shows a card per review, in two groups: the questions (the credits holding several names, the artists spelled several ways, the genres outside the validated list) and the albums to rework (the tracks without lyrics, the inconsistent albums), each with how many are left and what opens it. Each card has a switch: a review switched off is left out of the menu's Reviews badge and the overview's To do tiles until it is switched on again; its card, greyed, still shows its count and opens its questions, and the passes still apply the answers already given. The switches are kept in `state/reviews-off.json`.
+The Reviews page shows a card per review (the credits holding several names, the artists spelled several ways, the genres outside the validated list, the tracks without lyrics, the inconsistent albums), each with how many are left and what opens it: first those with something left, the largest count first, then those up to date, then those switched off. Each card has a switch: a review switched off is left out of the menu's Reviews badge and the overview's To do tiles until it is switched on again; its card, greyed, still shows its count and opens its questions, and the passes still apply the answers already given. The switches are kept in `state/reviews-off.json`.
 
 The reviews ask the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
 
