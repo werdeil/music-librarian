@@ -7,6 +7,7 @@ themselves change nothing.
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import time as clock
 
@@ -15,6 +16,8 @@ from flask import Flask, g, jsonify, render_template, request, url_for
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.importer import ERRORS, list_items
+from music_librarian.integrations import itunes
+from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
 from music_librarian.web import albums, history, library, playcounts, reviews, security
 from music_librarian.web.common import place, server_timing, texts, when
@@ -59,6 +62,24 @@ def inbox_state(inbox: Path):
         return None
     failed = inbox / ERRORS
     return items, sorted(p.name for p in failed.iterdir()) if failed.is_dir() else []
+
+
+def without_login(url):
+    parts = urlsplit(url)
+    return parts._replace(netloc=parts.netloc.rpartition("@")[2]).geturl()
+
+
+def environment(ctx: Context):
+    """What the overview shows of the setup watch runs with, beside its folders."""
+    validated = genre_list(ctx.state_dir, lambda _msg: None)
+    lookup = itunes.from_env()
+    scan = ctx.lyrion.scan if ctx.lyrion else None
+    return dict(providers=[name for name, _ in enabled_providers()],
+                genres=None if validated is None else len(set(validated.values())),
+                genre_lookup=lookup.country if lookup else None,
+                lyrion_db=ctx.lyrion.db if ctx.lyrion else None,
+                lyrion_url=without_login(scan.url) if scan else None,
+                lyrion_rescans=bool(ctx.lyrion and ctx.lyrion.rescans))
 
 
 def create_app(ctx: Context, build_now=False):
@@ -147,7 +168,8 @@ def create_app(ctx: Context, build_now=False):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN)
+            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
+            env=environment(ctx))
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
@@ -155,7 +177,8 @@ def create_app(ctx: Context, build_now=False):
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
                     repeats=None if everything is None else sum(a.repeated for a in everything))
         bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
-        return dict(todo=todo, genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
+        return dict(todo=todo, switched_off=set(reviews.KINDS) - set(todo),
+                    genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,
                     first_mixed=next((a.folder for a in library.with_mixed(everything or [])), None),
                     first_dated=next((a.folder for a in library.with_dates(everything or [])), None))

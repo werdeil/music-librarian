@@ -57,7 +57,7 @@ def test_editions_listed_and_nothing_written(d, asked):
 
 def test_nothing_found(d, monkeypatch):
     monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", lambda album: [])
-    assert "No edition found." in look_up(d)
+    assert "Nothing found." in look_up(d)
 
 
 def test_outside_the_library(d, asked):

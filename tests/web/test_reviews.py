@@ -12,6 +12,7 @@ import pytest
 from music_librarian import scan
 from music_librarian.core.log import Log
 from music_librarian.dedupe import aliases
+from music_librarian.media import fields
 from music_librarian.split import decisions
 from music_librarian.web import app as web
 from music_librarian.web import library, reviews
@@ -32,6 +33,8 @@ def lib(tmp_path, make_track):
     for i in range(2):
         make_track(root / f"Beyoncé/Lemonade/0{i} T.m4a", title="T", artist="Beyoncé", albumartist="Beyoncé")
     make_track(root / "Beyonce/Single/01 T.mp3", title="T", artist="Beyonce", albumartist="Beyonce")
+    for track in root.rglob("*.*"):
+        fields.write(str(track), "year", ["1978"])
     scan.run(root, tmp_path / "state", Log())
     return root
 
@@ -51,7 +54,8 @@ def decided(d):
 
 def test_overview(d):
     text = page(d, "/reviews")
-    assert "Credits awaiting an answer: 2" in text and "Groups awaiting an answer: 1" in text
+    assert '<span class="tile-value">2</span> <span>credits to settle</span>' in text
+    assert '<span class="tile-value">1</span> <span>groups to settle</span>' in text
     assert "/reviews/split" in text and 'value="dedupe"' in text
 
 
@@ -62,8 +66,7 @@ def test_home_counts_the_same_questions(d):
     assert '/reviews/split"' in tile("Credits to split")
     assert '<span class="tile-value">1' in tile("Artists to unify")
     assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
-    badge = '<span class="count" title="Questions awaiting an answer">16</span>'   # 8 tracks without lyrics,
-    # 5 albums without a year
+    badge = '<span class="count" title="Questions awaiting an answer">11</span>'   # 8 tracks without lyrics
     assert badge in page(d, "/library")
 
 
@@ -175,7 +178,7 @@ def test_a_review_without_question_says_so_on_the_overview(d):
     d.client.post("/reviews/dedupe", data={"csrf": d.token, "choice": "different",
                                            "names": names_shown(page(d, "/reviews/dedupe"))})
     text = page(d, "/reviews")
-    assert "Groups awaiting" not in text and "No question left." in text
+    assert "groups to settle" not in text and "No question left." in text
 
 
 def test_split_example_opens_its_album(d):
@@ -191,7 +194,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
     client = web.create_app(d.ctx).test_client()
     try:
         text = client.get("/reviews", headers=EN).get_data(as_text=True)
-        assert text.count(">Being worked out") == 1 and "Credits awaiting" not in text
+        assert text.count(">Being worked out") == 1 and "credits to settle" not in text
         assert '<p class="muted">being worked out</p>' in text
         assert 'data-reload-when-built="/built?page=reviews_page"' in text
         assert client.get("/built?page=reviews_page").get_json()["ready"] is False
@@ -202,7 +205,11 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         assert client.get("/built?page=library_page").get_json() == {"ready": True, "percent": 100}
         assert "Being worked out" in client.get("/reviews/split", headers=EN).get_data(as_text=True)
         assert "No question left" not in client.get("/reviews/dedupe", headers=EN).get_data(as_text=True)
-        assert client.get("/", headers=EN).status_code == 200
+        token = re.search(r'name="csrf" value="([^"]+)"', text)[1]
+        for kind in ("lyrics", "mixed"):
+            client.post(f"/reviews/{kind}/switch", data={"csrf": token, "on": "0"})
+        home = client.get("/", headers=EN).get_data(as_text=True)
+        assert "Being worked out…" in home and "Nothing to handle" not in home and "tile-todo" not in home
     finally:
         release.set()
 
@@ -238,3 +245,29 @@ def test_questions_put_off_counted_round_by_round(tmp_path, monkeypatch):
         return later.seen("lyrics", sorted("abc", key=lambda k: times.get(k, 0.0)))
     assert [round_of(), round_of("a"), round_of("b"), round_of("c"), round_of("a"), round_of("b", "c")] == \
         [0, 1, 2, 0, 1, 0]
+
+
+def test_a_review_switched_off_leaves_every_count(d):
+    badge = '<span class="count" title="Questions awaiting an answer">{n}</span>'
+    text = page(d, "/reviews")
+    assert badge.format(n=11) in text and 'aria-checked="true"' in text
+    response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
+    assert response.location.endswith("/reviews")
+    text = page(d, "/reviews")
+    assert badge.format(n=9) in text and 'class="review-card review-off"' in text
+    assert '<span class="tile-value">2</span> <span>credits to settle</span>' in text      # still shown
+    assert 'action="/reviews/split/switch"' in text and 'name="on" value="1"' in text
+    assert "Credits to split" not in page(d, "/")
+    d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "1"})
+    assert badge.format(n=11) in page(d, "/reviews")
+    assert d.client.post("/reviews/nothing/switch", data={"csrf": d.token, "on": "0"}).status_code == 404
+
+
+def test_cards_with_the_most_left_first_and_those_switched_off_last(d):
+    def titles():
+        return re.findall(r'<section class="review-card[^"]*">\s*<header>\s*<h2>([^<]+)</h2>',
+                          page(d, "/reviews"))
+    assert titles()[:3] == ["Tracks without lyrics", "Credits holding several names",
+                            "One artist spelled several ways"]
+    d.client.post("/reviews/lyrics/switch", data={"csrf": d.token, "on": "0"})
+    assert titles()[0] == "Credits holding several names" and titles()[-1] == "Tracks without lyrics"

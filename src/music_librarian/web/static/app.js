@@ -435,8 +435,10 @@
                     row.classList.toggle("to-sort", !box.checked);
                     shown.textContent = box.checked ? box.dataset.shownAwaited : box.dataset.shownToSort;
                     if (later) {
-                        later.textContent = document.querySelector("tr.to-sort") ? later.dataset.later
-                            : later.dataset.sortedOut;
+                        var sortedOut = !document.querySelector("tr.to-sort");
+                        later.querySelector("[data-label]").textContent = sortedOut ? later.dataset.sortedOut
+                            : later.dataset.later;
+                        later.querySelector(".icon-after").classList.toggle("hidden", !sortedOut);
                     }
                 })
                 .catch(function () {

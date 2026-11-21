@@ -2,41 +2,18 @@
 {% import "_macros.html" as m %}
 {% block title %}Lyrion · music-librarian{% endblock %}
 {% block content %}
-<section>
-    <h1 class="visually-hidden">Lyrion</h1>
-    <p class="muted">{{ t.lyrion_intro }}</p>
-    {% if off %}
-    <p class="warning">{{ t.lyrion_off }}</p>
-    {% elif building %}
-    {% include "_building.html" %}
-    {% elif error %}
-    <p class="warning">{{ t.lyrion_unreadable.format(error=error) }}</p>
-    {% endif %}
-</section>
-{% if not off %}
-<section>
-    <h2>{{ t.lyrion_scan_title }}</h2>
-    {% if ctx.lyrion.scan %}
-    <p class="muted">{{ t.lyrion_scan_auto if ctx.lyrion.rescans else t.lyrion_scan_manual }}</p>
-    {% if scan_asked == 'unreachable' %}
-    <p class="warning">{{ t.lyrion_scan_unreachable }}</p>
-    {% elif scan_asked %}
-    <p>{{ t['lyrion_scan_' ~ scan_asked] }}</p>
-    {% endif %}
-    <form method="post" action="{{ url_for('start_scan') }}" class="answer">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <div class="actions">
-            <button type="submit">{{ m.icon('scan') }}{{ t.lyrion_scan_button }}</button>
-        </div>
-    </form>
-    {% else %}
-    <p class="muted">{{ t.lyrion_scan_no_url }}</p>
-    {% endif %}
-</section>
+<h1 class="visually-hidden">Lyrion</h1>
+{% if off %}
+<p class="warning">{{ t.lyrion_off }}</p>
+{% elif building %}
+{% include "_building.html" %}
+{% elif error %}
+<p class="warning">{{ t.lyrion_unreadable.format(error=error) }}</p>
 {% endif %}
 {% if counts is defined %}
-<section>
-    <h2>{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>
+<section class="review-card">
+    <header><h2>{{ t.orphans_title }}</h2></header>
+    <p class="muted">{{ t.orphans_hint }}</p>
     {% include "_orphan_recorded.html" %}
     <p class="filters">
         {% for name in ('waiting', 'settled', 'ignored') %}
@@ -76,9 +53,12 @@
     <p class="muted">{{ t['orphans_no_' ~ state] }}</p>
     {% endif %}
 </section>
-<section>
-    <h2>{{ t.passes.playcounts }} <code class="aside">playcounts</code></h2>
-    <p class="muted">{{ t.playcounts_intro }}</p>
+{% endif %}
+{% if not off %}
+<div class="review-grid lyrion-grid">
+{% if counts is defined %}
+<section class="review-card">
+    <header><h2>{{ t.lyrion_write_title }}</h2></header>
     <p>{{ t.orphans_to_write.format(n=counts.settled) }}</p>
     {% if ctx.requests %}
     <form method="post" action="{{ url_for('new_pass') }}" class="answer">
@@ -94,5 +74,26 @@
     </form>
     {% endif %}
 </section>
+{% endif %}
+<section class="review-card">
+    <header><h2>{{ t.lyrion_scan_title }}</h2></header>
+    {% if ctx.lyrion.scan %}
+    <p class="muted">{{ t.lyrion_scan_auto if ctx.lyrion.rescans else t.lyrion_scan_manual }}</p>
+    {% if scan_asked == 'unreachable' %}
+    <p class="warning">{{ t.lyrion_scan_unreachable }}</p>
+    {% elif scan_asked %}
+    <p>{{ t['lyrion_scan_' ~ scan_asked] }}</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('start_scan') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="actions">
+            <button type="submit">{{ m.icon('scan') }}{{ t.lyrion_scan_button }}</button>
+        </div>
+    </form>
+    {% else %}
+    <p class="muted">{{ t.lyrion_scan_no_url }}</p>
+    {% endif %}
+</section>
+</div>
 {% endif %}
 {% endblock %}

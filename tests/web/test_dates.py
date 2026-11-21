@@ -38,14 +38,15 @@ def test_tile_and_list(d):
 def test_album_page_in_the_list(d):
     page = d.client.get("/library/album?folder=B/Whole&list=dates&at=0", headers=EN).get_data(as_text=True)
     assert 'href="/library/dates">' in page and "Years to fix</a>" in page
-    assert 'href="/library/album?folder=C/Missing&amp;list=dates&amp;at=1">Next →</a>' in page
+    assert 'href="/library/album?folder=C/Missing&amp;list=dates&amp;at=1">Next<svg' in page
 
 
 def test_card_on_the_reviews_page(d):
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
     card = page[page.index("<h2>Albums with years to fix</h2>"):].split("</section>")[0]
-    assert "Albums concerned: 2" in card and 'href="/library/dates">See the list</a>' in card
-    assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0">Answer</a>' in card
+    assert '<span class="tile-value">2</span> <span>albums with years to fix</span>' in card
+    assert 'href="/library/dates">See the list</a>' in card
+    assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0">Fix</a>' in card
 
 
 def test_every_year_alone(tmp_path, make_track, serve):
@@ -58,3 +59,10 @@ def test_every_year_alone(tmp_path, make_track, serve):
     assert "Every track holds a year alone." in page
     card = client.get("/reviews", headers=EN).get_data(as_text=True).split("years to fix</h2>")[1]
     assert "No question left." in card.split("</section>")[0]
+
+
+def test_switched_off(d):
+    d.client.post("/reviews/dates/switch", data={"csrf": d.token, "on": "0"})
+    assert "Albums with years to fix" not in d.client.get("/", headers=EN).get_data(as_text=True)
+    page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
+    assert 'class="review-card review-off"' in page and "albums with years to fix" in page
