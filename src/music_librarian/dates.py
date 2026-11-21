@@ -8,8 +8,9 @@ No other date: Lyrion shows the original date of an MP3 or a FLAC that holds one
 enrich, and import on the folders it files, run it before repeats (--no-dates on enrich to leave
 them): a whole date (2011-05-02, or Apple's 2011-05-02T07:00:00Z) is cut down to its year, and the
 original and recording dates are removed (TDOR, TORY, TRDA, ORIGINALDATE, ORIGINALYEAR,
-RECORDINGDATE, as a FLAC tag, an MP4 freeform or a TXXX). A track without a year, or with one that
-is no date, is counted, and listed by the dashboard: which year is right is not for the tool to guess.
+RECORDINGDATE, as a FLAC tag, an MP4 freeform or a TXXX, and a FLAC YEAR beside a DATE). A track
+without a year, or with one that is no date, is counted, and listed by the dashboard: which year is
+right is not for the tool to guess.
 
 Every tag change goes through the journal: `music-librarian undo` restores it, but a TRDA, which
 ID3v2.4 has no frame for.
@@ -57,9 +58,9 @@ def _easy(snap):
 
 
 def years_of(snap):
-    """The values of a snapshot's year: its date tag's, then its year tag's."""
+    """The values of a snapshot's year: its date tag's, else its year tag's."""
     easy = _easy(snap)
-    return easy.get("date", []) + easy.get("year", [])
+    return easy.get("date") or easy.get("year", [])
 
 
 def findings(snap):
@@ -78,9 +79,11 @@ def findings(snap):
 
 
 def other_dates_of(snap):
-    """The dates of a snapshot other than the year, as a log line shows them; "" without any."""
+    """The dates of a snapshot other than the year, a year tag beside a date tag included, as a log
+    line shows them; "" without any."""
     easy = _easy(snap)
-    return "; ".join(f"{k} {v}" for k in OTHER for v in easy.get(k, []))
+    names = OTHER + (("year",) if easy.get("date") else ())
+    return "; ".join(f"{k} {v}" for k in names for v in easy.get(k, []))
 
 
 def plan(scan, root, state_dir, log, stats):
@@ -89,14 +92,14 @@ def plan(scan, root, state_dir, log, stats):
     writes = []
     for p, snap in repeats.snapshots(scan, root, state_dir, log, stats):
         year, others, left = findings(snap)
+        if others:   # before the year: writing it removes a FLAC YEAR, which only DATES journals as it was
+            log(f"DATE     removed: {other_dates_of(snap)}  {relative(p, root)}")
+            writes.append((p, fields.DATES, None, []))
+            stats["dates to remove"] += 1
         if year is not None:
             log(f"DATE     year → {year!r}  {relative(p, root)}")
             writes.append((p, "year", None, [year]))
             stats["years to cut"] += 1
-        if others:
-            log(f"DATE     removed: {other_dates_of(snap)}  {relative(p, root)}")
-            writes.append((p, fields.DATES, None, []))
-            stats["dates to remove"] += 1
         if left == FORMAT:
             log(f"INVALID  year: {'; '.join(years_of(snap))!r}  {relative(p, root)}")
             stats["not a year"] += 1
