@@ -5,12 +5,12 @@ from datetime import time
 
 import pytest
 
-from music_librarian import organize, watch
+from music_librarian import enrich, importer, organize, watch
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, resume
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
-from music_librarian.web.passes import DONE, QUEUED, Requests
+from music_librarian.web.passes import DONE, QUEUED, Request, Requests, passes
 
 EN = {"Accept-Language": "en"}
 
@@ -105,13 +105,14 @@ def test_options_taken_from_the_form(tmp_path, requests):
                                  "repeats": "1", "split": "1", "since": "1", "retry": "1", "csrf": token})
     client.post("/passes", data={"command": "rm", "csrf": token})
     assert [(r.command, r.options) for r in requests.pending()] == \
-        [("enrich", {"rescan": True, "no_covers": True, "no_lyrics": True, "no_dedupe": True})]
+        [("enrich", {"rescan": True, "no_covers": True, "no_lyrics": True, "no_dates": True,
+                     "no_dedupe": True})]
 
 
 def test_enrich_options_shown_ticked(tmp_path, requests):
     _, client, _ = dashboard(tmp_path, requests)
     page = client.get("/", headers=EN).get_data(as_text=True)
-    for box in ("genres", "replaygain", "covers", "lyrics", "repeats", "split", "dedupe"):
+    for box in ("genres", "replaygain", "covers", "lyrics", "dates", "repeats", "split", "dedupe"):
         assert f'name="{box}" value="1" checked' in page
     assert 'name="rescan" value="1">' in page and "no_" not in page
     assert "retry" not in page
@@ -257,3 +258,14 @@ def test_stop_the_running_pass(tmp_path, requests):
     run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
     assert client.post(f"/runs/{run_id}/stop", data={"csrf": token}).status_code == 404   # ended
     assert not STOP.is_set()
+
+
+def test_enrich_left_without_dates(tmp_path, monkeypatch):
+    ran = []
+    monkeypatch.setattr(enrich, "run", lambda opts, _log: ran.append(opts) or 0)
+    runners = passes(importer.Options(inbox=tmp_path, root=tmp_path, state_dir=tmp_path / "state"),
+                     organize.Options(root=tmp_path, state_dir=tmp_path / "state"),
+                     enrich.Options(root=tmp_path, state_dir=tmp_path / "state"), Log())
+    runners["enrich"](Request(1, "enrich", {"no_dates": True}), Log())
+    runners["enrich"](Request(2, "enrich", {}), Log())
+    assert [(o.dates, o.repeats) for o in ran] == [(False, True), (True, True)]
