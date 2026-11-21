@@ -3,6 +3,7 @@ page, the history, a run's page and output followed live, and a running pass sto
 import json
 import os
 import socket
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -200,15 +201,18 @@ def register(app, ctx):
     def history():
         command = request.args.get("command") or None
         problems = request.args.get("problems") == "1"
-        shown_runs = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP, command)]
+        kept = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP)]
         if problems:
-            shown_runs = [r for r in shown_runs if r["problem"] and not r["checked"]]
+            kept = [r for r in kept if r["problem"] and not r["checked"]]
+        counts = Counter(r["command"] for r in kept)
+        shown_runs = [r for r in kept if command in (None, r["command"])]
         commands = sorted(runs.latest(ctx.state_dir))
         page_runs, page, pages = paged(shown_runs, HISTORY_PAGE)
         queued = [] if problems or page > 1 or not ctx.requests else \
             [r for r in reversed(ctx.requests.pending()) if command in (None, r.command)]
         return render_template("runs.html", runs=page_runs,
                                queued=queued, commands=commands, command=command, problems=problems,
+                               counts=counts, total=len(kept),
                                page=page, pages=pages)
 
     @app.post("/runs/<int:run_id>/checked")

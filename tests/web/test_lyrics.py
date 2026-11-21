@@ -234,6 +234,7 @@ def test_track_marked_awaited(d):
     assert "<td>1 / 3</td>" in lyrics_page and "Tracks whose lyrics are awaited: 1" in lyrics_page
     tracks = d.client.get("/library?c=awaited:yes&view=tracks", headers=EN).get_data(as_text=True)
     assert "T2" in tracks and "T3" not in tracks
+    assert "Lyrics awaited <span" not in settled(d, "/library")            # a condition, not a filter
     assert mark(d, "02 T2.m4a", "0").get_json() == {"awaited": False}
     assert tile(d) == 2
 
@@ -252,7 +253,7 @@ def test_album_marked_awaited_leaves_the_review(d):
 def test_tracks_without_lyrics_on_the_reviews_page(d):
     page = settled(d, "/reviews")
     card = page[page.index("<h2>Tracks without lyrics</h2>"):]
-    assert "Albums to sort out: 1 · tracks: 2" in card
+    assert '<span class="tile-value">2</span> <span>tracks to sort out, across 1 albums</span>' in card
     assert "/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0" in card
     assert 'href="/reviews/lyrics/awaited">Lyrics awaited (0)</a>' in card
     assert '<span class="count" title="Questions awaiting an answer">2</span>' in page
@@ -297,7 +298,8 @@ def test_an_album_whose_page_has_nothing_to_sort_out_leaves_the_list_at_once(d, 
     for name in ("02 T2.m4a", "03 T3.m4a"):
         tags.write_lyrics(lib / "Beyonce/4" / name, "[Instrumental]")       # the album list not built again
     page = d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN).get_data(as_text=True)
-    assert ">Later</button>" not in page and "Albums left: 0" in page and 'class="to-sort"' not in page
+    assert "<span data-label>Later</span>" not in page and "Albums left: 0" in page
+    assert 'class="to-sort"' not in page
 
 
 def test_an_album_found_sorted_out_leaves_the_counts_before_the_list_is_built_again(d, lib):

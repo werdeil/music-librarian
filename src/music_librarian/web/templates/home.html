@@ -88,4 +88,20 @@
     </div>
 </section>
 {% endif %}
+
+<details class="environment">
+    <summary>{{ t.environment }}</summary>
+    <dl class="facts">
+        <dt>{{ t.library }}</dt><dd><code class="path">{{ ctx.root }}</code></dd>
+        <dt>{{ t.inbox }}</dt><dd><code class="path">{{ ctx.inbox }}</code></dd>
+        <dt>{{ t.state }}</dt><dd><code class="path">{{ ctx.state_dir }}</code></dd>
+        <dt>{{ t.env_mode }}</dt><dd>{{ t.env_applies if ctx.apply else t.env_dry_runs }}</dd>
+        <dt>Lyrion</dt><dd>{% if env.lyrion_db %}<code class="path">{{ env.lyrion_db }}</code>
+            {%- if env.lyrion_url %} · <code class="path">{{ env.lyrion_url }}</code>{% endif %}
+            · {{ t.env_rescans if env.lyrion_rescans else t.env_no_rescan }}{% else %}{{ t.env_none }}{% endif %}</dd>
+        <dt>{{ t.env_lyrics }}</dt><dd>{{ env.providers | join(', ') if env.providers else t.env_none }}</dd>
+        <dt>{{ t.env_genres }}</dt><dd>{{ t.env_genre_count.format(n=env.genres) if env.genres is not none else t.env_no_genre_list }}
+            {%- if env.genre_lookup %} · {{ t.env_itunes.format(country=env.genre_lookup | upper) }}{% endif %}</dd>
+    </dl>
+</details>
 {% endblock %}
