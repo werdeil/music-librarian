@@ -91,6 +91,14 @@ def with_awaited(catalog, marked):
     return Catalog(albums, tracks, catalog.bare, dict(names), catalog.started)
 
 
+def with_dated(catalog, dated):
+    """The catalog with the albums of `dated` ({folder: dates.problems() of its years}) holding those."""
+    if not dated:
+        return catalog
+    albums = [replace(a, dates=dated[a.folder]) if a.folder in dated else a for a in catalog.albums]
+    return Catalog(albums, catalog.tracks, catalog.bare, catalog.awaited, catalog.started)
+
+
 def with_settled(catalog, settled):
     """The catalog with the albums of `settled` counting no track without lyrics."""
     if not settled:
@@ -293,13 +301,15 @@ class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
     when the cache changes. A file gone from the library since it was cached is left out. The
     awaited tracks are laid over the last build whenever their file changes, without a rebuild, and
-    so are the albums whose page found no track left to sort out (see settle)."""
+    so are the albums whose page found no track left to sort out (see settle), and the problems their
+    page found with their years (see redate)."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
         self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
         self.marked, self.lock = None, threading.Lock()   # (build, what is laid over, Catalog laid over)
         self.settled = {}   # {folder: time.monotonic() its page found nothing to sort out}
+        self.dated = {}   # {folder: (time.monotonic() its page read its years, dates.problems() of them)}
 
     def settle(self, rel, settled):
         """Note whether the page of the album `rel`, read from its files, found no track left to sort
@@ -309,6 +319,12 @@ class Index:
                 self.settled[rel] = time.monotonic()
             else:
                 self.settled.pop(rel, None)
+
+    def redate(self, rel, found):
+        """Note what the page of the album `rel`, read from its files, found wrong with its years
+        (dates.problems()): until a build started after the note, the album holds that."""
+        with self.lock:
+            self.dated[rel] = time.monotonic(), found
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -323,10 +339,12 @@ class Index:
         stamp = awaited_stamp(self.state_dir)
         with self.lock:
             self.settled = {rel: at for rel, at in self.settled.items() if at > built.started}
-            over = stamp, frozenset(self.settled)
+            self.dated = {rel: seen for rel, seen in self.dated.items() if seen[0] > built.started}
+            dated = {rel: found for rel, (_, found) in self.dated.items()}
+            over = stamp, frozenset(self.settled), tuple(sorted(dated.items()))
             if self.marked is None or self.marked[0] is not built or self.marked[1] != over:
                 laid = with_awaited(built, awaited.Awaited(self.state_dir))
-                self.marked = built, over, with_settled(laid, over[1])
+                self.marked = built, over, with_dated(with_settled(laid, over[1]), dated)
             return self.marked[2]
 
     def _build(self):

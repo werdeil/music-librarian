@@ -66,3 +66,16 @@ def test_switched_off(d):
     assert "Albums with years to fix" not in d.client.get("/", headers=EN).get_data(as_text=True)
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
     assert 'class="review-card review-off"' in page and "albums with years to fix" in page
+
+
+def test_album_fixed_leaves_the_counts_once_its_page_is_read(d):
+    root = d.ctx.root
+    fields.write(str(root / "C/Missing/02 T2.m4a"), "year", ["2011"])
+    listed = lambda: d.client.get("/library/dates", headers=EN).get_data(as_text=True)
+    assert "Albums concerned: 2" in listed()                              # the cache is not read again
+    page = d.client.get("/library/album?folder=C/Missing&list=dates&at=1", headers=EN).get_data(as_text=True)
+    assert "Albums left: 1" in page
+    assert "Albums concerned: 1" in listed() and "C/Missing" not in listed()
+    fields.write(str(root / "C/Missing/02 T2.m4a"), "year", [])
+    d.client.get("/library/album?folder=C/Missing", headers=EN)
+    assert "Albums concerned: 2" in listed()
