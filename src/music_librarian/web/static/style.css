@@ -1090,6 +1090,27 @@ form.inline {
     margin-top: 0;
 }
 
+.panel {
+    position: relative;
+}
+
+.panel-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px;
+    color: var(--text-muted);
+    line-height: 0;
+}
+
+.panel-close:hover {
+    color: var(--text-bright);
+}
+
+.panel-close .icon {
+    margin: 0;
+}
+
 .changes {
     margin: 0 0 12px;
     padding-left: 20px;

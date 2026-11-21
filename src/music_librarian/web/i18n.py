@@ -297,6 +297,7 @@ TRANSLATIONS = {
         "follow_problems": "Terminé avec des problèmes",
         "follow_undo": "Défaire",
         "follow_details": "voir le détail",
+        "close": "Fermer",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
         "host_refused": ("Refusé : ce dashboard ne répond pas au nom {host}. Si c'est bien le sien, "
@@ -783,6 +784,7 @@ TRANSLATIONS = {
         "follow_problems": "Ended with problems",
         "follow_undo": "Undo",
         "follow_details": "see the details",
+        "close": "Close",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
         "host_refused": ("Refused: this dashboard does not answer to the name {host}. If it is its name, "

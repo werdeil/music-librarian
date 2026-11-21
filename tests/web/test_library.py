@@ -534,6 +534,7 @@ def test_edit_applied_then_undone_from_the_album_page(dashboard, lib):
     assert state == {"done": True, "album": f"/library/album?folder=Beyonc%C3%A9/4&request={asked.id}"}
     page = dashboard.client.get(state["album"], headers=EN).get_data(as_text=True)
     assert "<h2>Applied</h2>" in page and ">Undo</button>" in page and "see the details" in page
+    assert 'class="panel-close" href="/library/album?folder=Beyonc%C3%A9/4"' in page          # no request
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()

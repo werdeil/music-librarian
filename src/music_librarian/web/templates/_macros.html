@@ -27,6 +27,8 @@
 {% macro followed_pass(t, ctx, csrf, f, album, place) -%}
 {% set asked, run = f.asked, f.run %}
 <section class="panel" aria-live="polite"{% if not f.done %} data-follow="{{ f.poll }}"{% endif %}>
+{% if f.done %}<a class="panel-close" href="{{ url_for('album_page', folder=album, **place) }}" title="{{ t.close }}"
+   aria-label="{{ t.close }}">{{ icon('cancel') }}</a>{% endif %}
 {% if not f.done %}
     {% set p = f.progress %}
     <div class="following">
