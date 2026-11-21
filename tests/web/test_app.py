@@ -415,3 +415,14 @@ def test_lists_built_at_startup_only_when_asked(ctx, monkeypatch, build_now, sta
 def test_every_response_says_how_long_the_app_took(client):
     timing = client.get("/").headers["Server-Timing"]
     assert "reviews;dur=" in timing and timing.split(", ")[-1].startswith("total;dur=")
+
+
+def test_progress_of_a_running_pass(ctx):
+    run_id = unfinished(ctx, "tag", os.getpid())
+    runs.log_path(ctx.state_dir, run_id).write_text(
+        "TAG      A/B/01 T.m4a\nMOVE     A/B/01 T.m4a\n         → C/B/01 T.m4a\n", encoding="utf-8")
+    with web.create_app(ctx).test_request_context():
+        shown = history.progress(ctx.state_dir, runs.get(ctx.state_dir, run_id))
+        assert (shown["step"], shown["url"]) == ("MOVE     A/B/01 T.m4a", f"/runs/{run_id}")
+        assert shown["duration"].startswith("1 min")                      # started 90 s ago
+        assert history.progress(ctx.state_dir, None) is None

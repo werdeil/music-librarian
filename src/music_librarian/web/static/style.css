@@ -1118,6 +1118,13 @@ form.inline {
     border-top: 1px solid var(--border-color);
 }
 
+.follow-step {
+    margin: 0.3rem 0 0;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
 .following {
     display: flex;
     align-items: center;

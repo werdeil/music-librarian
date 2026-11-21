@@ -61,6 +61,16 @@ def shown(run):
                 duration=None if status == runs.INTERRUPTED else duration(end - run["started"]))
 
 
+def progress(state_dir, run):
+    """How far a running pass has got: its last log line that is not a continuation, its
+    duration so far and its page; None before it is recorded."""
+    if run is None:
+        return None
+    lines, _ = runs.read_log(state_dir, run["id"])
+    step = next((line.strip() for line in reversed(lines) if line.strip() and not line[0].isspace()), "")
+    return dict(step=step, duration=shown(run)["duration"], url=url_for("run_page", run_id=run["id"]))
+
+
 def journal_of(run):
     """The file name of the journal a run's summary names, when it is still in the state folder."""
     for entry in run["summary"]:
@@ -137,9 +147,12 @@ def register(app, ctx):
         if asked is None:
             abort(404)
         done = asked.state in (DONE, CANCELLED)
+        if not done:
+            run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
+            return jsonify(done=False, progress=progress(ctx.state_dir, run))
         folder = request.args.get("folder")
         album = None
-        if done and folder is not None:
+        if folder is not None:
             run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
             journal = run_journal(ctx, run)
             moved = moved_to(journal, ctx.root, folder) if journal else folder
