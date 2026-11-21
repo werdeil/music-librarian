@@ -20,7 +20,8 @@
     {% else %}{% set ns.ok = ns.ok + [e] %}{% endif %}
 {% endfor %}
 
-{% if ns.todo %}
+{% set building = ns.aside | rejectattr('note') | list %}
+{% if ns.todo or building %}
 <div class="tiles">
 {% for e in ns.todo | sort(attribute='value', reverse=True) %}
     <a class="tile tile-todo" href="{{ e.href }}">
@@ -28,22 +29,20 @@
         <span class="tile-label">{{ e.label }}</span>
     </a>
 {% endfor %}
+{% for e in building %}
+    <a class="tile tile-building" href="{{ e.href }}">
+        <span class="tile-value"><span class="spinner" aria-hidden="true"></span><span class="visually-hidden">{{ t.tile_building }}</span></span>
+        <span class="tile-label">{{ e.label }}</span>
+    </a>
+{% endfor %}
 </div>
-{% elif ns.aside | rejectattr('note') | list %}
-<p class="muted">{{ t.tile_still_building }}</p>
 {% else %}
 <p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
 {% endif %}
 
-{% if ns.aside %}
-<p class="tile-aside">
-{% for e in ns.aside %}
-    <a class="tile-line tile-none" href="{{ e.href }}">
-        <span class="tile-value">—</span>
-        <span class="tile-label">{{ e.label }}</span> <span class="tile-note">({{ e.note or t.tile_building }})</span></a>
+{% for e in ns.aside if e.note %}
+<p class="tile-aside muted"><a class="tile-line" href="{{ e.href }}">{{ e.label }}</a> ({{ e.note }})</p>
 {% endfor %}
-</p>
-{% endif %}
 
 {% if ns.ok and ns.todo %}
 <p class="tile-ok-line muted"><span aria-hidden="true">✓</span> {{ t.tile_up_to_date }}

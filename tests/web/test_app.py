@@ -115,8 +115,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert "Nothing to handle" in page and 'class="tile tile-' not in page and "Up to date:" not in page
-    assert page.count('class="tile-line tile-none"') == 1 and "tile-info" not in page
-    assert "(no validated list)" in page
+    assert '>Genres outside the list</a> (no validated list)' in page and "tile-building" not in page
 
 
 def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):

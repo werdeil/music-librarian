@@ -27,13 +27,19 @@
 {% macro followed_pass(t, ctx, csrf, f, album, place) -%}
 {% set asked, run = f.asked, f.run %}
 <section class="panel" aria-live="polite"{% if not f.done %} data-follow="{{ f.poll }}"{% endif %}>
+{% if f.done %}<a class="panel-close" href="{{ url_for('album_page', folder=album, **place) }}" title="{{ t.close }}"
+   aria-label="{{ t.close }}">{{ icon('cancel') }}</a>{% endif %}
 {% if not f.done %}
     {% set p = f.progress %}
-    <p class="following"><span class="spinner" aria-hidden="true"></span>
-       {{ t.follow_queued if asked.state == 'queued' else t.follow_applying if asked.apply else t.follow_previewing }}
-       <span class="muted" data-follow-duration>{{ p.duration if p and p.duration else '' }}</span>
-       <a class="aside" href="{{ p.url if p else '' }}" data-follow-details{% if not p %} hidden{% endif %}>{{ icon('details') }}{{ t.follow_details }}</a></p>
-    <p class="follow-step" data-follow-step{% if not (p and p.step) %} hidden{% endif %}><code>{{ p.step if p else '' }}</code></p>
+    <div class="following">
+        <span class="spinner" aria-hidden="true"></span>
+        <div class="follow-text">
+            <p>{{ t.follow_queued if asked.state == 'queued' else t.follow_applying if asked.apply else t.follow_previewing }}
+               <span class="muted" data-follow-duration>{{ p.duration if p and p.duration else '' }}</span></p>
+            <p class="follow-step" data-follow-step{% if not (p and p.step) %} hidden{% endif %}>{{ p.step if p else '' }}</p>
+        </div>
+        <a class="follow-details" href="{{ p.url if p else '' }}" data-follow-details{% if not p %} hidden{% endif %}>{{ icon('details') }}{{ t.follow_details }}</a>
+    </div>
     {% if asked.state == 'queued' %}<div class="actions">{{ cancel_form(t, csrf, asked, album, place) }}</div>{% endif %}
 {% elif asked.state == 'cancelled' %}
     <p class="muted">{{ t.request_cancelled }}</p>

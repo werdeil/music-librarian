@@ -501,10 +501,6 @@ footer {
     font-size: var(--fs-sm);
 }
 
-.tile-note {
-    font-size: 0.8rem;
-}
-
 .tile-todo {
     border-color: var(--warning);
 }
@@ -518,11 +514,18 @@ footer {
     color: var(--ok);
 }
 
-.tile-aside {
+.tile-building .tile-value {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.3rem 1.2rem;
+    align-items: center;
+    height: 2.2rem;
+}
+
+.tile-building .spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.tile-aside {
     margin: 0.8rem 0 0;
     font-size: var(--fs-sm);
 }
@@ -536,11 +539,6 @@ footer {
     color: var(--text-bright);
 }
 
-.tile-line .tile-value {
-    font-size: 1rem;
-}
-
-.tile-none .tile-value,
 .tile-line.tile-ok {
     color: var(--text-muted);
 }
@@ -1092,6 +1090,27 @@ form.inline {
     margin-top: 0;
 }
 
+.panel {
+    position: relative;
+}
+
+.panel-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px;
+    color: var(--text-muted);
+    line-height: 0;
+}
+
+.panel-close:hover {
+    color: var(--text-bright);
+}
+
+.panel-close .icon {
+    margin: 0;
+}
+
 .changes {
     margin: 0 0 12px;
     padding-left: 20px;
@@ -1118,17 +1137,34 @@ form.inline {
     border-top: 1px solid var(--border-color);
 }
 
-.follow-step {
-    margin: 0.3rem 0 0;
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
-    overflow-wrap: anywhere;
-}
-
 .following {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+}
+
+.follow-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.follow-text p {
+    margin: 0;
+}
+
+.follow-step {
+    margin-top: 0.2rem;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.follow-details {
+    flex: none;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
 }
 
 .following .spinner {

@@ -248,9 +248,9 @@ def test_pages_while_the_first_build_runs(dashboard, monkeypatch):
         assert "Being worked out" in page and '<progress class="building" max="100" value="' in page
         assert "Being worked out" in client.get("/library/lyrics", headers=EN).get_data(as_text=True)
         tiles = client.get("/", headers=EN).get_data(as_text=True)
-        assert 'class="tile-line tile-none"' in tiles and "being worked out" in tiles
+        assert 'class="tile tile-building"' in tiles and "being worked out" in tiles
         assert 'data-refresh="/tiles"' in tiles and "data-reload-when-built" not in tiles
-        assert 'class="tile-line tile-none"' in client.get("/tiles", headers=EN).get_data(as_text=True)
+        assert 'class="tile tile-building"' in client.get("/tiles", headers=EN).get_data(as_text=True)
         assert client.get("/built").get_json()["ready"] is False
     finally:
         release.set()
@@ -534,6 +534,7 @@ def test_edit_applied_then_undone_from_the_album_page(dashboard, lib):
     assert state == {"done": True, "album": f"/library/album?folder=Beyonc%C3%A9/4&request={asked.id}"}
     page = dashboard.client.get(state["album"], headers=EN).get_data(as_text=True)
     assert "<h2>Applied</h2>" in page and ">Undo</button>" in page and "see the details" in page
+    assert 'class="panel-close" href="/library/album?folder=Beyonc%C3%A9/4"' in page          # no request
     moved = lib / "Beyoncé/4/01 Run the World.m4a"
     assert fields.read(moved)["albumartist"] == ["Beyoncé"] and fields.read(moved)["year"] == ["2011"]
     assert (lib / "Beyoncé/4/folder.jpg").exists() and not (lib / "Beyonce").exists()

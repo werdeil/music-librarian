@@ -15,7 +15,6 @@ TRANSLATIONS = {
         "tile_no_genre_list": "pas de liste validée",
         "tile_building": "calcul en cours",
         "tile_all_clear": "Rien à traiter",
-        "tile_still_building": "Calcul en cours…",
         "tile_up_to_date": "À jour :",
         "environment": "Environnement",
         "env_mode": "Mode",
@@ -300,6 +299,7 @@ TRANSLATIONS = {
         "follow_problems": "Terminé avec des problèmes",
         "follow_undo": "Défaire",
         "follow_details": "voir le détail",
+        "close": "Fermer",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
         "host_refused": ("Refusé : ce dashboard ne répond pas au nom {host}. Si c'est bien le sien, "
@@ -530,7 +530,6 @@ TRANSLATIONS = {
         "tile_no_genre_list": "no validated list",
         "tile_building": "being worked out",
         "tile_all_clear": "Nothing to handle",
-        "tile_still_building": "Being worked out…",
         "tile_up_to_date": "Up to date:",
         "environment": "Environment",
         "env_mode": "Mode",
@@ -812,6 +811,7 @@ TRANSLATIONS = {
         "follow_problems": "Ended with problems",
         "follow_undo": "Undo",
         "follow_details": "see the details",
+        "close": "Close",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
         "host_refused": ("Refused: this dashboard does not answer to the name {host}. If it is its name, "
