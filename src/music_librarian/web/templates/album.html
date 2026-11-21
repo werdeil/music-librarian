@@ -158,7 +158,7 @@
                 <tr>
                     <th class="t-disc">{{ t.field_disc }}</th><th>{{ t.field_track }}</th><th>{{ t.field_title }}</th>
                     <th>{{ t.field_artist }}</th><th>{{ t.field_composer }}</th><th class="t-grouping">{{ t.field_grouping }}</th>
-                    <th>{{ t.lyrics }}</th><th>{{ t.replaygain }}</th><th class="t-length">{{ t.duration }}</th><th>{{ t.format }}</th>
+                    <th>{{ t.lyrics }}</th><th class="t-gain"><abbr title="{{ t.replaygain_db }}">{{ t.replaygain_short }}</abbr></th><th class="t-length">{{ t.duration }}</th><th>{{ t.format }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -201,8 +201,9 @@
                         {%- else %}{{ shown }}{% endif -%}
                     </td>
                     {% set gain = gains.get(file) %}
-                    {% set gain_shown = t.replaygain_unknown if gain == '?' else gain or t.lyrics_none %}
-                    <td class="t-gain {{ 'gain' if gain else 'muted' }}" data-label="{{ t.replaygain }}">
+                    {% set gain_shown = gain | replace(' dB', '') if gain else t.lyrics_none %}
+                    <td class="t-gain {{ 'gain' if gain else 'muted' }}" data-label="{{ t.replaygain_db }}"
+                        {%- if gain == '?' %} title="{{ t.replaygain_unknown }}"{% endif %}>
                         {%- if gain and values and ctx.requests -%}
                         <label title="{{ t.replaygain_click }}"><input type="checkbox" name="t{{ ns.i - 1 }}.replaygain_delete"
                                value="1" aria-label="{{ t.replaygain_click }}"
