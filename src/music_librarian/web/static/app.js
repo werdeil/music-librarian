@@ -695,6 +695,7 @@
     document.querySelectorAll("[data-editions]").forEach(function (button) {
         var form = button.form;
         var out = document.getElementById(button.dataset.target);
+        var status = button.parentElement.querySelector("[data-editions-status]");
 
         button.addEventListener("click", function () {
             var data = new FormData();
@@ -703,7 +704,7 @@
             data.append("albumartist", form.elements.namedItem("album.albumartist").value);
             data.append("album", form.elements.namedItem("album.album").value);
             button.disabled = true;
-            out.textContent = button.dataset.running;
+            status.textContent = button.dataset.running;
             fetch(button.dataset.editions, { method: "POST", body: data })
                 .then(function (response) { return response.ok ? response.text() : Promise.reject(); })
                 .then(function (html) {
@@ -718,7 +719,10 @@
                     });
                 })
                 .catch(function () { out.textContent = ""; })
-                .then(function () { button.disabled = false; });
+                .then(function () {
+                    status.textContent = "";
+                    button.disabled = false;
+                });
         });
     });
 }());
