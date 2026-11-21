@@ -34,7 +34,7 @@ def mb(monkeypatch):
         if isinstance(answer, Exception):
             raise answer
         return answer
-    monkeypatch.setattr(musicbrainz.requests, "get", get)
+    monkeypatch.setattr(requests, "get", get)
     monkeypatch.setattr(musicbrainz, "INTERVAL", 0)
     return asked, answers
 

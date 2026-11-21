@@ -36,8 +36,10 @@ CREATE UNIQUE INDEX cpurlmd5UniqueIndex ON alternativeplaycount (urlmd5);
 def clean_env(monkeypatch, tmp_path):
     """Tests must not inherit paths from the Docker image or the host, nor write to its state."""
     for var in ("MUSIC_LIBRARIAN_ROOT", "MUSIC_LIBRARIAN_INBOX", "MUSIC_LIBRARIAN_STATE", "GENRE_LOOKUP",
-                "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT", "LYRION_URL", "LYRION_USER", "LYRION_RESCAN"):
+                "LYRION_PERSIST_DB", "LYRION_MUSIC_ROOT", "LYRION_URL", "LYRION_USER", "LYRION_RESCAN",
+                "DISCOGS_TOKEN", "ITUNES_COUNTRY"):
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("EDITION_PROVIDERS", "musicbrainz")   # the tests stand in for MusicBrainz alone
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))
 
 
