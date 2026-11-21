@@ -85,4 +85,5 @@ def test_card_cleared(tmp_path, make_track, serve):
     scan.run(root, tmp_path / "state", Log())
     page = serve(root, tmp_path / "state", tmp_path / "Inbox").client.get("/reviews", headers=EN)
     card = page.get_data(as_text=True).split("<h2>Albums with inconsistent fields</h2>")[1]
-    assert "No question left." in card.split("</section>")[0] and "See the list" not in card
+    card = card.split("</section>")[0]
+    assert "No question left." in card and "See the list" not in card

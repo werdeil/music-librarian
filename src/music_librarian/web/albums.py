@@ -103,6 +103,8 @@ def register(app, ctx, index, later):
             return library.with_repeats(everything)
         if name == "mixed":
             return library.with_mixed(everything)
+        if name == "dates":
+            return library.with_dates(everything)
         return library.without_lyrics(everything, later.times("lyrics"))
 
     def warm(*rels):
@@ -219,6 +221,16 @@ def register(app, ctx, index, later):
         albums = library.with_mixed(everything)
         shown, page, pages = paged(albums, library.PAGE)
         return render_template("mixed.html", albums=shown, offset=(page - 1) * library.PAGE,
+                               count=len(albums), page=page, pages=pages)
+
+    @app.get("/library/dates")
+    def dated_albums():
+        everything = index.get()
+        if everything is None:
+            return render_template("dates.html", building=True)
+        albums = library.with_dates(everything)
+        shown, page, pages = paged(albums, library.PAGE)
+        return render_template("dates.html", albums=shown, offset=(page - 1) * library.PAGE,
                                count=len(albums), page=page, pages=pages)
 
     @app.get("/library/repeats")

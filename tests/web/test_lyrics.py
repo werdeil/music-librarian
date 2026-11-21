@@ -256,7 +256,7 @@ def test_tracks_without_lyrics_on_the_reviews_page(d):
     assert '<span class="tile-value">2</span> <span>tracks to sort out, across 1 albums</span>' in card
     assert "/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0" in card
     assert 'href="/reviews/lyrics/awaited">Lyrics awaited (0)</a>' in card
-    assert '<span class="count" title="Questions awaiting an answer">2</span>' in page
+    assert '<span class="count" title="Questions awaiting an answer">3</span>' in page   # and its year
     mark(d, "02 T2.m4a")
     mark(d, "03 T3.m4a")
     card = settled(d, "/reviews")
