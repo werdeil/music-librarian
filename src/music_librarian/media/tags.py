@@ -10,10 +10,11 @@ import os
 import re
 
 import mutagen
-from mutagen.id3 import APIC, TXXX, USLT
+from mutagen.id3 import APIC, ID3, TXXX, USLT
+from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC, Picture
 from mutagen.easymp4 import EasyMP4Tags
-from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
+from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm, MP4Tags
 from mutagen.mp3 import MP3
 from mutagen.aiff import AIFF
 from mutagen.wave import WAVE
@@ -383,13 +384,73 @@ if "composer" not in EasyMP4Tags.Get:
 
 # lyrics and embedded pictures are kept as a flag and a hash, never as text
 _BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
+# the names the library's own fields are read under: a freeform or TXXX tag never fills one
+_OWN = {"title", "artist", "albumartist", "album artist", "album", "tracknumber", "tracktotal",
+        "totaltracks", "discnumber", "disctotal", "totaldiscs", "discsubtitle", "setsubtitle",
+        "grouping", "date", "year", "genre", "composer", "compilation", "musicbrainz_albumartistid",
+        "musicbrainz_artistid"}
+
+
+def _written_by(easy_set, blank):
+    """The frames or atoms the setters of an easy view write."""
+    out = set()
+    for key, setter in easy_set.items():
+        tags = blank()
+        try:
+            setter(tags, key, ["1"])
+        except Exception:
+            continue
+        out |= set(tags.keys())
+    return out
+
+
+_EASY_ATOMS = _written_by(EasyMP4Tags.Set, MP4Tags)
+_EASY_FRAMES = _written_by(EasyID3.Set, ID3)
+
+
+def _freeform_text(values):
+    out = []
+    for v in values:
+        try:
+            out.append(bytes(v).decode("utf-8"))
+        except UnicodeDecodeError:
+            pass
+    return out
+
+
+def _untranslated(path):
+    try:
+        return ID3(path, translate=False)
+    except Exception:
+        return ID3()
+
+
+def _raw_tags(path, audio):
+    """{name: [values]} of the freeform MP4 atoms and the MP3 TXXX and TRDA frames the easy view
+    leaves out, each under its name in lower case, TRDA as "trda"."""
+    found = []
+    if isinstance(audio, MP4) and audio.tags:
+        found = [(key.split(":", 2)[2], _freeform_text(values)) for key, values in audio.tags.items()
+                 if key.startswith("----:") and key not in _EASY_ATOMS and key.count(":") >= 2]
+    elif isinstance(audio, MP3) and audio.tags:
+        found = [(frame.desc, [str(v) for v in frame.text]) for key, frame in audio.tags.items()
+                 if key.startswith("TXXX:") and key not in _EASY_FRAMES]
+        if audio.tags.version < (2, 4, 0):   # mutagen drops TRDA when it reads a tag as ID3v2.4
+            found += [("trda", [str(v) for v in f.text]) for f in _untranslated(path).getall("TRDA")]
+    out = {}
+    for name, values in found:
+        name, values = name.lower(), [v for v in values if v.strip()]
+        if name and name not in _OWN and name not in _BULKY and values:
+            out.setdefault(name, []).extend(values)
+    return out
 
 
 def read_snapshot(path):
     """Everything the tools check in one read, or None if the file is unreadable.
 
-    {"tags": {easy key: [str]}, "duration": seconds or None, "lyrics": bool,
-     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None,
+    {"tags": {easy key, or the lower-case name of a freeform MP4 or TXXX tag: [str]},
+     "duration": seconds or None, "lyrics": bool, "replaygain": bool,
+     "cover": SHA-1 hex of the embedded cover or None,
      "leading_mdat": bool, true for an MP4 file whose moov atom comes after mdat}
     """
     try:
@@ -406,6 +467,8 @@ def read_snapshot(path):
         found.pop("grouping", None)
         if audio.tags and audio.tags.get("GRP1"):
             found["grouping"] = [str(v) for v in audio.tags["GRP1"].text]
+    for name, values in _raw_tags(path, audio).items():
+        found[name] = found.get(name, []) + [v for v in values if v not in found.get(name, [])]
     return {
         "tags": found,
         "duration": getattr(getattr(audio, "info", None), "length", None),
