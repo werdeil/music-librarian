@@ -32,13 +32,20 @@ def from_snapshot(snap):
 
 
 def rewrite_tags(writes, journal, log, stats):
-    """Write each (path, field, old, new) and journal it; True if a stop request cut it short."""
+    """Write each (path, field, old, new) and journal it, `new` one value; with `old` None, `new` is
+    the field's values and the old ones are read from the file. True if a stop request cut it short."""
     for i, (p, field, old, new) in enumerate(writes):
         if STOP.is_set():
             log(f"STOP     requested: {count(len(writes) - i, 'tag')} not rewritten, left for the next pass")
             return True
         try:
-            write(p, field, new)
+            if old is None:
+                old = fields.read_field(p, field)
+                if old == new:
+                    continue
+                fields.write(p, field, new)
+            else:
+                write(p, field, new)
         except Exception as e:
             log(f"ERROR    ({e})  {p}")
             stats["errors"] += 1

@@ -5,7 +5,8 @@ read() gives {field: [values]}, numbers as text ("3"); write() replaces one fiel
 MP3 (TRCK, TPOS "3/12"): writing one keeps the other. The lyrics and the ReplayGain are fields
 too, read apart (lyrics(), replaygain(), read_field()) as read() leaves them out: the lyrics one
 text, its lines joined by "\n"; the ReplayGain one "NAME=value" per REPLAYGAIN_* tag, written
-back only as read, so that removing them can be undone.
+back only as read, so that removing them can be undone. The dates other than the year (DATES) are
+read and written back the same way, as tags.other_dates() names them.
 """
 from mutagen import File as MFile
 from mutagen.flac import FLAC
@@ -21,6 +22,7 @@ FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "dis
           "artist_mbid")
 LYRICS = "lyrics"
 REPLAYGAIN = "replaygain"
+DATES = "dates"
 LENGTH = "length"
 NUMBERS = ("track", "tracktotal", "disc", "disctotal")
 PAIRS = {"track": ("track", 0), "tracktotal": ("track", 1), "disc": ("disc", 0), "disctotal": ("disc", 1)}
@@ -140,7 +142,18 @@ def read_field(path, field):
     """The values of one field of the file at `path`, the lyrics and the ReplayGain included."""
     if field == LYRICS:
         return lyrics(path)
+    if field == DATES:
+        return other_dates(path)
     return replaygain(path) if field == REPLAYGAIN else read(path)[field]
+
+
+def other_dates(path):
+    """The dates of the file at `path` other than the year, as tags.other_dates() gives them."""
+    _open(path)
+    try:
+        return media_tags.other_dates(path)
+    except media_tags.DateTagError as e:
+        raise FieldError(str(e)) from None
 
 
 def track_gain(values):
@@ -174,6 +187,8 @@ def check(field, values):
         return [text] if text else []
     if field == REPLAYGAIN:
         return _replaygain_tags(values)
+    if field == DATES:
+        return _named_values(field, values)
     if field not in FIELDS:
         raise FieldError(f"unknown field {field!r}")
     values = [v.strip() for v in values if v.strip()]
@@ -187,6 +202,14 @@ def check(field, values):
             raise FieldError(f"compilation takes 1 or 0: {values[0]!r}")
         return ["1"] if flag in ("1", "yes", "true") else []
     return values
+
+
+def _named_values(field, values):
+    values = [v.strip() for v in values if v.strip()]
+    for v in values:
+        if not v.partition("=")[1]:
+            raise FieldError(f"{field} takes NAME=value: {v!r}")
+    return sorted(values, key=str.lower)
 
 
 def _replaygain_tags(values):
@@ -212,6 +235,13 @@ def write(path, field, values):
         try:
             media_tags.replace_replaygain(path, [tuple(v.split("=", 1)) for v in values])
         except media_tags.ReplayGainTagError as e:
+            raise FieldError(str(e)) from None
+        return
+    if field == DATES:
+        _open(path)
+        try:
+            media_tags.replace_other_dates(path, [tuple(v.split("=", 1)) for v in values])
+        except media_tags.DateTagError as e:
             raise FieldError(str(e)) from None
         return
     f = _open(path)

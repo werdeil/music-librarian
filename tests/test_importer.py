@@ -105,6 +105,18 @@ def test_flac_album_imported(env, make_track):
     assert env.calls.read_text().split() == [str(env.lib / "A/B")]
 
 
+def test_dates_imported_as_the_year_alone(env, make_track):
+    d = env.inbox / "Album"
+    make_track(d / "x1.flac", title="Un", track=1, artist="A", albumartist="A", album="B",
+               extra={"date": "2011-05-02", "year": "1973", "originaldate": "1973-03-01"})
+    make_track(d / "x2.flac", title="Deux", track=2, artist="A", albumartist="A", album="B",
+               extra={"year": "2011"})
+    assert env.run("--apply") == 0
+    for name in ("01 Un.m4a", "02 Deux.m4a"):
+        t = MP4(env.lib / "A/B" / name).tags
+        assert t["\xa9day"] == ["2011"] and not [k for k in t.keys() if "DATE" in k or "YEAR" in k]
+
+
 def test_cover_renamed_and_useless_annexes_left(env, make_track, capsys):
     # real case: Salut C'est Cool - Mon premier EP
     d = flac_album(env, make_track)
