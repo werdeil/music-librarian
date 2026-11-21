@@ -3,6 +3,8 @@
 import os
 
 import pytest
+from mutagen.id3 import ID3, TDOR, TPE1, TRDA, TXXX, TYER
+from mutagen.mp4 import MP4, MP4FreeForm
 
 from music_librarian.media import credit_tags, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
@@ -37,6 +39,37 @@ def test_snapshot(tmp_path, make_track, ext):
     assert snap["duration"] == pytest.approx(0.1, abs=0.05)
     assert snap["lyrics"] and snap["replaygain"] and snap["cover"] == tags.cover_hash(COVER)
     assert "lyrics" not in snap["tags"]
+
+
+def test_snapshot_of_freeform_atoms(tmp_path, make_track):
+    p = str(make_track(tmp_path / "01.m4a", artist="Artiste"))
+    f = MP4(p)
+    for name, value in (("ORIGINALDATE", "1973-03-01"), ("MusicBrainz Album Id", "abc"),
+                        ("ARTIST", "Autre"), ("RECORDINGDATE", "")):
+        f["----:com.apple.iTunes:" + name] = [MP4FreeForm(value.encode())]
+    f["----:com.apple.iTunes:BINARY"] = [MP4FreeForm(b"\xff\xfe")]
+    f.save()
+    found = tags.read_snapshot(p)["tags"]
+    assert found["originaldate"] == ["1973-03-01"] and found["musicbrainz_albumid"] == ["abc"]
+    assert found["artist"] == ["Artiste"]
+    assert not {"musicbrainz album id", "recordingdate", "binary"} & set(found)
+
+
+@pytest.mark.parametrize("version", [3, 4])
+def test_snapshot_of_txxx_frames(tmp_path, make_track, version):
+    p = str(make_track(tmp_path / "01.mp3", artist="Artiste"))
+    t = ID3(p)
+    for frame in (TDOR(encoding=3, text="1973"), TYER(encoding=3, text="2011"),
+                  TRDA(encoding=3, text="1972-06-10"),
+                  TXXX(encoding=3, desc="ORIGINALDATE", text="1973-03-01"),
+                  TXXX(encoding=3, desc="MusicBrainz Album Id", text="abc"),
+                  TXXX(encoding=3, desc="ARTIST", text="Autre"), TPE1(encoding=3, text="Artiste")):
+        t.add(frame)
+    t.save(p, v2_version=version)
+    found = tags.read_snapshot(p)["tags"]
+    assert found["originaldate"] == ["1973", "1973-03-01"] and found["musicbrainz_albumid"] == ["abc"]
+    assert found["artist"] == ["Artiste"] and "musicbrainz album id" not in found
+    assert found.get("trda") == (["1972-06-10"] if version == 3 else None)
 
 
 def test_bare_and_unreadable(tmp_path, make_track):
