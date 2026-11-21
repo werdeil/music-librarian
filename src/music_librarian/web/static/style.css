@@ -857,6 +857,10 @@ table.tracks td.t-more {
     display: none;
 }
 
+table.tracks .t-gain {
+    white-space: nowrap;
+}
+
 table.tracks .t-length {
     padding-right: 1.2rem;
     text-align: right;
