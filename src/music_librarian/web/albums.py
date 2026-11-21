@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlencode
 from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.datastructures import MultiDict
 
-from music_librarian import cover, dates, editions, repeats, tag
+from music_librarian import cover, editions, repeats, tag
 from music_librarian.core import runs
 from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED
@@ -176,9 +176,9 @@ def register(app, ctx, index, later):
             counted = catalog.album(rel) if catalog else None
             if not sorted_out or (counted and counted.without_lyrics):
                 index.settle(rel, sorted_out)
-            found = dates.problems([(values["year"] or [""])[0] for _, values in tracks if values])
-            if counted and counted.dates != found:
-                index.redate(rel, found)
+            found = library.reread_album(tracks)
+            if counted and any(getattr(counted, name) != value for name, value in found.items()):
+                index.note(rel, found)
             work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                spread=library.spread(tracks),

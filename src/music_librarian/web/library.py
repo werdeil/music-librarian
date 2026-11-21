@@ -91,11 +91,11 @@ def with_awaited(catalog, marked):
     return Catalog(albums, tracks, catalog.bare, dict(names), catalog.started)
 
 
-def with_dated(catalog, dated):
-    """The catalog with the albums of `dated` ({folder: dates.problems() of its years}) holding those."""
-    if not dated:
+def with_reread(catalog, reread):
+    """The catalog with the albums of `reread` ({folder: {Album field: value}}) holding those values."""
+    if not reread:
         return catalog
-    albums = [replace(a, dates=dated[a.folder]) if a.folder in dated else a for a in catalog.albums]
+    albums = [replace(a, **reread[a.folder]) if a.folder in reread else a for a in catalog.albums]
     return Catalog(albums, catalog.tracks, catalog.bare, catalog.awaited, catalog.started)
 
 
@@ -158,6 +158,20 @@ def album_values(track):
     return {"albumartist": first(track, "albumartist", "album artist"), "album": first(track, "album"),
             "year": first(track, "date", "year"), "genre": first(track, "genre"),
             "disctotal": total, "compilation": "1" if first(track, "compilation") == "1" else ""}
+
+
+def as_tags(values):
+    """A track's fields.read_all() values as the cached tags that album_values() reads."""
+    return {"albumartist": values["albumartist"], "album": values["album"], "date": values["year"],
+            "genre": values["genre"], "discnumber": values["disc"], "disctotal": values["disctotal"],
+            "compilation": values["compilation"]}
+
+
+def reread_album(tracks):
+    """{Album field: value} of the album fields that tracks_of() `tracks`, read from the files, give
+    as the album list builds them from the cache: mixed, dates."""
+    held = [as_tags(values) for _, values in tracks if values]
+    return {"mixed": mixed_fields(held), "dates": dates.problems([first(t, "date", "year") for t in held])}
 
 
 def mixed_fields(held):
@@ -301,15 +315,15 @@ class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
     when the cache changes. A file gone from the library since it was cached is left out. The
     awaited tracks are laid over the last build whenever their file changes, without a rebuild, and
-    so are the albums whose page found no track left to sort out (see settle), and the problems their
-    page found with their years (see redate)."""
+    so are the albums whose page found no track left to sort out (see settle), and the album fields
+    their page found differing and the problems it found with their years (see reread)."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
         self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
         self.marked, self.lock = None, threading.Lock()   # (build, what is laid over, Catalog laid over)
         self.settled = {}   # {folder: time.monotonic() its page found nothing to sort out}
-        self.dated = {}   # {folder: (time.monotonic() its page read its years, dates.problems() of them)}
+        self.reread = {}   # {folder: (time.monotonic() its page read its files, {Album field: value})}
 
     def settle(self, rel, settled):
         """Note whether the page of the album `rel`, read from its files, found no track left to sort
@@ -320,11 +334,11 @@ class Index:
             else:
                 self.settled.pop(rel, None)
 
-    def redate(self, rel, found):
-        """Note what the page of the album `rel`, read from its files, found wrong with its years
-        (dates.problems()): until a build started after the note, the album holds that."""
+    def note(self, rel, found):
+        """Note what the page of the album `rel` found reading its files, {Album field: value} (mixed,
+        dates): until a build started after the note, the album holds those values."""
         with self.lock:
-            self.dated[rel] = time.monotonic(), found
+            self.reread[rel] = time.monotonic(), found
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -339,12 +353,13 @@ class Index:
         stamp = awaited_stamp(self.state_dir)
         with self.lock:
             self.settled = {rel: at for rel, at in self.settled.items() if at > built.started}
-            self.dated = {rel: seen for rel, seen in self.dated.items() if seen[0] > built.started}
-            dated = {rel: found for rel, (_, found) in self.dated.items()}
-            over = stamp, frozenset(self.settled), tuple(sorted(dated.items()))
+            self.reread = {rel: seen for rel, seen in self.reread.items() if seen[0] > built.started}
+            reread = {rel: found for rel, (_, found) in self.reread.items()}
+            over = stamp, frozenset(self.settled), tuple(sorted((rel, tuple(sorted(found.items())))
+                                                                for rel, found in reread.items()))
             if self.marked is None or self.marked[0] is not built or self.marked[1] != over:
                 laid = with_awaited(built, awaited.Awaited(self.state_dir))
-                self.marked = built, over, with_dated(with_settled(laid, over[1]), dated)
+                self.marked = built, over, with_reread(with_settled(laid, over[1]), reread)
             return self.marked[2]
 
     def _build(self):

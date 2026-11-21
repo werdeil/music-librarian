@@ -5,6 +5,7 @@ import pytest
 from music_librarian import scan
 from music_librarian.core.log import Log
 from music_librarian.web import library
+from music_librarian.media import fields
 
 EN = {"Accept-Language": "en"}
 
@@ -87,3 +88,14 @@ def test_card_cleared(tmp_path, make_track, serve):
     card = page.get_data(as_text=True).split("<h2>Albums with inconsistent fields</h2>")[1]
     card = card.split("</section>")[0]
     assert "No question left." in card and "See the list" not in card
+
+
+def test_album_fixed_leaves_the_counts_once_its_page_is_read(d):
+    fields.write(str(d.ctx.root / "C/D/02 X2.flac"), "genre", ["Pop"])
+    listed = lambda: d.client.get("/library/mixed", headers=EN).get_data(as_text=True)
+    assert '<span class="tile-value">2</span> <span>albums to fix</span>' in \
+        d.client.get("/reviews", headers=EN).get_data(as_text=True)   # the cache is not read again
+    page = d.client.get("/library/album?folder=C/D&list=mixed&at=1", headers=EN).get_data(as_text=True)
+    assert "Albums left: 1" in page and "C/D" not in listed()
+    assert '<span class="tile-value">1</span> <span>albums to fix</span>' in \
+        d.client.get("/reviews", headers=EN).get_data(as_text=True)
