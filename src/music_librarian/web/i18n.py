@@ -381,11 +381,9 @@ TRANSLATIONS = {
         "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
         "tile_dates": "Albums aux années à revoir",
         "dates_title": "Années à revoir",
-        "dates_page_intro": ("Les albums dont un morceau n'a pas d'année, ou une année qui n'est pas "
-                             "seule (AAAA) : chaque morceau tient l'année de sortie de l'édition "
-                             "possédée, celle qu'affichent Apple Music et Lyrion. enrich ramène chaque "
-                             "semaine une date complète à son année ; une année absente ou illisible "
-                             "se corrige sur la page de l'album."),
+        "dates_page_intro": ("Les albums dont un morceau n'a pas d'année seule (AAAA), celle de l'édition "
+                             "possédée, qu'affichent Apple Music et Lyrion. enrich ramène chaque semaine une "
+                             "date complète à son année ; le reste se corrige sur la page de l'album."),
         "dates_column": "À revoir",
         "dates_missing": "année absente",
         "dates_format": "pas une année seule",
@@ -892,10 +890,9 @@ TRANSLATIONS = {
         "mixed_none": "The tracks of every album agree on its fields.",
         "tile_dates": "Albums with years to fix",
         "dates_title": "Years to fix",
-        "dates_page_intro": ("The albums with a track without a year, or with a year that is not alone "
-                             "(YYYY): each track holds the year the edition owned came out, the one "
-                             "Apple Music and Lyrion show. The weekly enrich cuts a whole date down to "
-                             "its year; a year missing or unreadable is fixed on the album's page."),
+        "dates_page_intro": ("The albums with a track without a year alone (YYYY), the edition owned's, "
+                             "which Apple Music and Lyrion show. The weekly enrich cuts a whole date down "
+                             "to its year; the rest is fixed on the album's page."),
         "dates_column": "To fix",
         "dates_missing": "year missing",
         "dates_format": "not a year alone",
