@@ -1459,3 +1459,12 @@ table.tracks .lyrics-row input[type="checkbox"] {
 .note-unlikely {
     color: var(--text-muted);
 }
+
+.editions tr.edition-match td {
+    color: var(--text-bright);
+    font-weight: 600;
+}
+
+.edition-exact {
+    color: var(--ok);
+}

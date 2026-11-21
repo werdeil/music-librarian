@@ -140,6 +140,13 @@
             {{ spread_list('compilation') }}
             </div>
         </div>
+        {% if ctx.requests %}
+        <div class="actions">
+            <button type="button" data-editions="{{ url_for('look_up_editions') }}" data-target="editions"
+                    data-running="{{ t.editions_running }}">{{ t.editions_button }}</button>
+        </div>
+        <div id="editions" aria-live="polite"></div>
+        {% endif %}
         {% if genres %}
         <datalist id="genres">{% for genre in genres %}<option value="{{ genre }}"></option>{% endfor %}</datalist>
         {% endif %}

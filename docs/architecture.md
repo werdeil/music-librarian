@@ -41,6 +41,8 @@ src/music_librarian/
 │   ├── covers.py    folder.jpg embedded into the tracks
 │   ├── genres.py    genres aligned with the validated list
 │   └── lyrics.py    lyrics written into the tags
+├── editions/        an album's editions looked up from the dashboard: provider chain, ranking
+│   └── musicbrainz.py one module per provider
 ├── lyrics/          lyrics lookup: provider chain, matching
 │   ├── awaited.py   the tracks whose lyrics are awaited (lyrics-awaited.txt)
 │   ├── lrclib.py, musixmatch.py, netease.py   one module per provider

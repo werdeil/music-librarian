@@ -31,13 +31,14 @@ Lyrion keeps one year per track, the album taking the year of the last track sca
 - [x] **Read the missing tags.** The metadata cache also reads the MP4 freeform tags and the MP3 `TXXX` frames, so that rule 4 can be checked in every format. Bump `metadata_cache.VERSION`: the whole library is read again once.
 - [x] **Report.** The dashboard lists the albums without an edition date or with one that is not `YYYY`, fixed from the album's page.
 - [x] **Fix in `enrich`.** A tool of its own, run on every pass: the other date tags removed, a `YYYY-MM-DD` date or Apple's `YYYY-MM-DDThh:mm:ssZ` cut down to `YYYY`. A dry run lists the changes; the values removed go to the journal so that `undo` writes them back, as the ReplayGain tags do.
-- [ ] **Look the edition up, by hand only.** A button on every album's page asks the providers for the album's editions and writes nothing: each with its year, country, label, number of tracks and a link, those matching the album's number of tracks and durations first, a release MBID or a barcode in the tags naming the edition exactly. Picking a year puts it in the album form's year field, applied as a `tag` pass. `enrich` never looks anything up. The providers live in a package of their own, one module each, ordered by an environment variable, as the lyrics providers are. Their outcomes are found, nothing found, several editions of different years, or unreachable.
-  - [ ] MusicBrainz first: no key, one request a second, the existing `USER_AGENT` as its contact.
-  - [ ] Update the network rule in CLAUDE.md, both READMEs and `docs/web.md`: the edition lookup is a second exception, beside the lookup of one track's lyrics.
+- [x] **Look the edition up, by hand only.** A button on every album's page asks the providers for the album's editions and writes nothing: each with its year, country, label, number of tracks and a link, those matching the album's number of tracks first, a release MBID or a barcode in the tags naming the edition exactly. Picking a year puts it in the album form's year field, applied as a `tag` pass. `enrich` never looks anything up. The providers live in a package of their own, one module each, ordered by an environment variable, as the lyrics providers are. Their outcomes are the editions listed, nothing found, or unreachable.
+  - [x] MusicBrainz first: no key, one request a second, the existing `USER_AGENT` as its contact.
+  - [x] Update the network rule in CLAUDE.md, both READMEs and `docs/web.md`: the edition lookup is a second exception, beside the lookup of one track's lyrics.
 
 ### Later
 
 - [ ] iTunes as a provider: already used for the genre, and the edition Apple Music knows, though its `releaseDate` is often the original date.
 - [ ] Discogs as a provider: the most precise on editions, but it needs a token and allows 60 requests a minute.
 - [ ] Deezer as a provider: no key, but its date is often that of the digital release.
-- [ ] `media/convert.py` copies the FLAC's MusicBrainz ids into MP4 freeform tags named in capitals (`MUSICBRAINZ_ALBUMID`), where Picard and mutagen expect `MusicBrainz Album Id`: a converted file's release MBID is not read back, and the lookup could not use it.
+- [ ] Rank the editions by the durations of their tracks too: it takes one more request per release, at one a second.
+- [ ] `media/convert.py` copies the FLAC's MusicBrainz ids into MP4 freeform tags named in capitals (`MUSICBRAINZ_ALBUMID`), where Picard and mutagen expect `MusicBrainz Album Id`. The metadata cache reads them under the same name in lower case, so the edition lookup finds the MBID, but Picard and mutagen's easy view do not.

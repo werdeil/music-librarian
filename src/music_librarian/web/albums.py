@@ -7,8 +7,9 @@ from urllib.parse import parse_qsl, urlencode
 from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.datastructures import MultiDict
 
-from music_librarian import cover, repeats, tag
+from music_librarian import cover, editions, repeats, tag
 from music_librarian.core import runs
+from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.lyrics import INSTRUMENTAL, awaited
@@ -331,6 +332,23 @@ def register(app, ctx, index, later):
             key = "lookup_instrumental" if text == INSTRUMENTAL else "lookup_found"
             message = t[key].format(source=PROVIDERS.get(source, source))
         return jsonify(text=text, message=message)
+
+    @app.post("/library/album/editions")
+    def look_up_editions():
+        """The editions the providers know of an album of the dashboard, looked up with the album artist
+        and album typed in its form, as an HTML fragment for its page. Writes nothing."""
+        folder = library.album_folder(ctx.root, request.form.get("folder", ""))
+        if folder is None:
+            abort(404)
+        if ctx.requests is None:
+            abort(403)
+        snapshots = [tags.read_snapshot(p) for p in sorted(folder.iterdir())
+                     if p.is_file() and p.suffix.lower() in AUDIO_EXT and not is_junk(p)]
+        album = editions.album_of(snapshots, {"artist": request.form.get("albumartist", ""),
+                                              "title": request.form.get("album", "")})
+        found, source = editions.look_up(album)
+        return render_template("_editions.html", editions=found, source=editions.NAMES.get(source),
+                               why=None if found else source.replace(" ", "_"))
 
     def track_meta(rel, path):
         """The track's metadata as the album list holds it, read from the file when it holds none."""

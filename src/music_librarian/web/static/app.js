@@ -684,3 +684,39 @@
         });
     });
 }());
+
+// Look the edition up lists what the providers know of the album, as typed in the form; taking a year
+// puts it in the album's year field, to preview with the rest of the form.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-editions]").forEach(function (button) {
+        var form = button.form;
+        var out = document.getElementById(button.dataset.target);
+
+        button.addEventListener("click", function () {
+            var data = new FormData();
+            data.append("csrf", form.elements.namedItem("csrf").value);
+            data.append("folder", form.elements.namedItem("folder").value);
+            data.append("albumartist", form.elements.namedItem("album.albumartist").value);
+            data.append("album", form.elements.namedItem("album.album").value);
+            button.disabled = true;
+            out.textContent = button.dataset.running;
+            fetch(button.dataset.editions, { method: "POST", body: data })
+                .then(function (response) { return response.ok ? response.text() : Promise.reject(); })
+                .then(function (html) {
+                    out.innerHTML = html;
+                    out.querySelectorAll("[data-pick-year]").forEach(function (pick) {
+                        pick.addEventListener("click", function () {
+                            var year = form.elements.namedItem("album.year");
+                            year.value = pick.dataset.pickYear;
+                            year.dispatchEvent(new window.Event("input", { bubbles: true }));
+                            year.focus();
+                        });
+                    });
+                })
+                .catch(function () { out.textContent = ""; })
+                .then(function () { button.disabled = false; });
+        });
+    });
+}());
