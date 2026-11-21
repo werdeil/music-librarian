@@ -701,3 +701,16 @@
         });
     });
 }());
+
+// Closing the panel of a pass that ended drops it at once; the address loses the request alike.
+(function () {
+    "use strict";
+
+    document.querySelectorAll(".panel-close").forEach(function (link) {
+        link.addEventListener("click", function (event) {
+            event.preventDefault();
+            link.closest(".panel").remove();
+            window.history.replaceState(window.history.state, "", link.href);
+        });
+    });
+}());
