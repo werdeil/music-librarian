@@ -32,6 +32,8 @@ FROM base
 USER librarian
 # The tools are checked on each platform at build time: an image whose ffmpeg fails is never produced.
 RUN music-librarian --help > /dev/null \
+ && music-librarian deezer --help > /dev/null \
+ && python -c "from Crypto.Cipher import Blowfish" \
  && python -m music_librarian.enrich.lyrics --help > /dev/null \
  && python -m music_librarian.enrich.covers --help > /dev/null \
  && python -m music_librarian.enrich.genres --help > /dev/null \
