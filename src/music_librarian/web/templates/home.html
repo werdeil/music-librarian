@@ -7,19 +7,47 @@
     <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 
-{% if inbox is none or waiting_items %}
 <section>
     <h2>{{ t.inbox }}</h2>
     {% if inbox is none %}
         <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
-    {% else %}
+    {% elif waiting_items %}
         <p>{{ t.inbox_waiting }}</p>
         <ul class="inbox">
         {% for name in waiting_items %}<li>{{ name }}</li>{% endfor %}
         </ul>
+    {% else %}
+        <p class="muted">{{ t.inbox_empty }}</p>
+    {% endif %}
+    {% if ctx.requests and inbox is not none %}
+    <div class="upload" data-upload="{{ url_for('inbox_upload_start') }}" data-csrf="{{ csrf }}"
+         data-extensions="{{ upload.extensions | join(' ') }}" data-junk="{{ upload.junk | join('/') }}"
+         data-max-file="{{ upload.max_file }}" data-texts="{{ t.upload_js | tojson | forceescape }}">
+        <button type="button" data-upload-open{% if not ctx.apply %} disabled{% endif %}>{{ m.icon('upload') }}{{ t.upload_button }}</button>
+        {% if not ctx.apply %}<span class="muted">{{ t.upload_read_only }}</span>{% endif %}
+        <dialog class="pass-dialog upload-dialog">
+            <h3>{{ t.upload_button }}</h3>
+            <p class="pass-sub">{{ t.upload_help }}</p>
+            <div class="drop-zone" data-drop-zone>{{ t.upload_drop }}</div>
+            <input type="file" multiple hidden data-pick-files>
+            <input type="file" multiple hidden webkitdirectory data-pick-folder>
+            <div class="actions">
+                <button type="button" data-picks="files">{{ t.upload_pick_files }}</button>
+                <button type="button" data-picks="folder">{{ t.upload_pick_folder }}</button>
+            </div>
+            <ul class="upload-items" data-upload-items></ul>
+            <p class="pass-sub" data-upload-summary></p>
+            <progress max="1" value="0" hidden data-upload-progress></progress>
+            <p data-upload-status aria-live="polite"></p>
+            <div class="actions">
+                <button type="button" class="primary" disabled data-upload-send>{{ m.icon('upload') }}{{ t.upload_send }}</button>
+                <button type="button" data-upload-cancel>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
+                <button type="button" hidden data-upload-close>{{ t.close }}</button>
+            </div>
+        </dialog>
+    </div>
     {% endif %}
 </section>
-{% endif %}
 
 <section>
     <h2>{{ t.scheduled_passes }}</h2>

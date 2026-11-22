@@ -754,3 +754,315 @@
         });
     });
 }());
+
+// Files sent to the Inbox: those the import takes, picked or dropped, folders kept whole, sent one at a
+// time into a batch the dashboard moves into the Inbox once every file has arrived.
+(function () {
+    "use strict";
+
+    var box = document.querySelector("[data-upload]");
+    if (!box) {
+        return;
+    }
+    var dialog = box.querySelector("dialog");
+    var texts = JSON.parse(box.dataset.texts);
+    var base = box.dataset.upload;
+    var csrf = box.dataset.csrf;
+    var extensions = box.dataset.extensions.split(" ");
+    var junk = box.dataset.junk.split("/");
+    var maxFile = Number(box.dataset.maxFile);
+    var zone = dialog.querySelector("[data-drop-zone]");
+    var inputs = { files: dialog.querySelector("[data-pick-files]"), folder: dialog.querySelector("[data-pick-folder]") };
+    var list = dialog.querySelector("[data-upload-items]");
+    var summary = dialog.querySelector("[data-upload-summary]");
+    var progress = dialog.querySelector("[data-upload-progress]");
+    var status = dialog.querySelector("[data-upload-status]");
+    var send = dialog.querySelector("[data-upload-send]");
+    var cancel = dialog.querySelector("[data-upload-cancel]");
+    var close = dialog.querySelector("[data-upload-close]");
+    var MB = 1024 * 1024;
+    var chosen = [];
+    var skipped = 0;
+    var sending = false;
+    var stopping = false;
+    var finished = false;
+    var xhr = null;
+
+    function format(text, values) {
+        return text.replace(/\{(\w+)\}/g, function (all, key) { return key in values ? values[key] : all; });
+    }
+
+    function number(n) {
+        return n.toLocaleString(document.documentElement.lang);
+    }
+
+    function taken(path) {
+        var parts = path.split("/");
+        var name = parts[parts.length - 1];
+        var dot = name.lastIndexOf(".");
+        return parts.every(function (part) { return part && part.charAt(0) !== "."; }) &&
+            junk.indexOf(name) < 0 && dot > 0 && extensions.indexOf(name.slice(dot).toLowerCase()) >= 0;
+    }
+
+    function add(file, path) {
+        if (!taken(path)) {
+            skipped += 1;
+        } else if (!chosen.some(function (c) { return c.path === path; })) {
+            chosen.push({ file: file, path: path });
+        }
+    }
+
+    function total() {
+        return chosen.reduce(function (sum, c) { return sum + c.file.size; }, 0);
+    }
+
+    function show() {
+        var groups = [];
+        var counts = {};
+        chosen.forEach(function (c) {
+            var top = c.path.split("/")[0];
+            if (!(top in counts)) {
+                groups.push({ name: top, folder: c.path !== top });
+                counts[top] = 0;
+            }
+            counts[top] += 1;
+        });
+        list.textContent = "";
+        groups.forEach(function (group) {
+            var li = document.createElement("li");
+            var n = counts[group.name];
+            li.textContent = !group.folder ? group.name
+                : format(n === 1 ? texts.folder_one : texts.folder_many, { name: group.name, n: number(n) });
+            list.appendChild(li);
+        });
+        var parts = [];
+        if (chosen.length) {
+            parts.push(format(texts.selected, { n: number(chosen.length), size: number(Math.max(1, Math.round(total() / MB))) }));
+        }
+        if (skipped) {
+            parts.push(format(texts.skipped, { n: number(skipped) }));
+        }
+        summary.textContent = parts.join(" · ");
+        send.disabled = !chosen.length || sending || finished;
+    }
+
+    function walk(entry, path) {
+        return new Promise(function (resolve) {
+            if (entry.isFile) {
+                entry.file(function (file) { add(file, path); resolve(); }, function () { resolve(); });
+                return;
+            }
+            if (!entry.isDirectory) {
+                resolve();
+                return;
+            }
+            var reader = entry.createReader();
+            var entries = [];
+            (function more() {
+                reader.readEntries(function (some) {
+                    if (some.length) {
+                        entries = entries.concat(some);
+                        more();
+                    } else {
+                        Promise.all(entries.map(function (e) { return walk(e, path + "/" + e.name); })).then(resolve);
+                    }
+                }, function () { resolve(); });
+            }());
+        });
+    }
+
+    function reset() {
+        chosen = [];
+        skipped = 0;
+        stopping = false;
+        finished = false;
+        progress.hidden = true;
+        progress.value = 0;
+        status.textContent = "";
+        send.hidden = cancel.hidden = false;
+        close.hidden = true;
+        show();
+    }
+
+    function form(values) {
+        var data = new FormData();
+        data.append("csrf", csrf);
+        Object.keys(values).forEach(function (key) { data.append(key, values[key]); });
+        return data;
+    }
+
+    function reason(text) {
+        try {
+            return JSON.parse(text).error || texts.unanswered;
+        } catch (e) {
+            return texts.unanswered;
+        }
+    }
+
+    function post(url, values) {
+        return fetch(url, { method: "POST", body: form(values) })
+            .catch(function () { return Promise.reject(texts.unanswered); })
+            .then(function (response) {
+                return response.text().then(function (text) {
+                    if (!response.ok) {
+                        return Promise.reject(reason(text));
+                    }
+                    return text ? JSON.parse(text) : null;
+                });
+            });
+    }
+
+    function sendFile(batch, c, before, size, index) {
+        return new Promise(function (resolve, reject) {
+            if (stopping) {
+                reject(null);
+                return;
+            }
+            xhr = new XMLHttpRequest();
+            xhr.open("POST", base + "/" + batch + "?path=" + encodeURIComponent(c.path));
+            xhr.setRequestHeader("X-CSRF-Token", csrf);
+            xhr.setRequestHeader("Content-Type", "application/octet-stream");
+            xhr.upload.addEventListener("progress", function (event) {
+                progress.value = size ? (before + event.loaded) / size : 1;
+            });
+            xhr.addEventListener("load", function () {
+                if (xhr.status === 204) {
+                    resolve();
+                } else {
+                    reject(reason(xhr.responseText));
+                }
+            });
+            xhr.addEventListener("error", function () { reject(texts.unanswered); });
+            xhr.addEventListener("abort", function () { reject(null); });
+            status.textContent = format(texts.sending, { done: number(index + 1), total: number(chosen.length), name: c.path });
+            xhr.send(c.file);
+        });
+    }
+
+    function start() {
+        var big = chosen.filter(function (c) { return c.file.size > maxFile; })[0];
+        if (big) {
+            status.textContent = format(texts.too_large, { name: big.path, gb: number(maxFile / 1024 / MB) });
+            return;
+        }
+        var size = total();
+        var batch = null;
+        sending = true;
+        stopping = false;
+        progress.hidden = false;
+        progress.value = 0;
+        show();
+        post(base, { size: size })
+            .then(function (answer) {
+                batch = answer.id;
+                var before = 0;
+                return chosen.reduce(function (previous, c, index) {
+                    return previous.then(function () {
+                        var done = sendFile(batch, c, before, size, index);
+                        before += c.file.size;
+                        return done;
+                    });
+                }, Promise.resolve());
+            })
+            .then(function () { return post(base + "/" + batch + "/done", {}); })
+            .then(function (answer) {
+                finished = true;
+                progress.value = 1;
+                status.textContent = answer.message;
+                send.hidden = cancel.hidden = true;
+                close.hidden = false;
+                close.focus();
+            })
+            .catch(function (why) {
+                if (batch) {
+                    post(base + "/" + batch + "/cancel", {}).catch(function () { return null; });
+                }
+                progress.hidden = true;
+                status.textContent = why === null ? texts.cancelled : format(texts.failed, { reason: why });
+            })
+            .then(function () {
+                sending = false;
+                xhr = null;
+                show();
+            });
+    }
+
+    function stop() {
+        stopping = true;
+        if (xhr) {
+            xhr.abort();
+        }
+    }
+
+    box.querySelector("[data-upload-open]").addEventListener("click", function () {
+        reset();
+        dialog.showModal();
+    });
+    dialog.querySelectorAll("[data-picks]").forEach(function (button) {
+        button.addEventListener("click", function () {
+            if (!sending && !finished) {
+                inputs[button.dataset.picks].click();
+            }
+        });
+    });
+    Object.keys(inputs).forEach(function (kind) {
+        inputs[kind].addEventListener("change", function () {
+            Array.prototype.forEach.call(inputs[kind].files, function (file) {
+                add(file, file.webkitRelativePath || file.name);
+            });
+            inputs[kind].value = "";
+            show();
+        });
+    });
+    dialog.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        zone.classList.add("over");
+    });
+    dialog.addEventListener("dragleave", function (event) {
+        if (!dialog.contains(event.relatedTarget)) {
+            zone.classList.remove("over");
+        }
+    });
+    dialog.addEventListener("drop", function (event) {
+        event.preventDefault();
+        zone.classList.remove("over");
+        if (sending || finished) {
+            return;
+        }
+        var entries = Array.prototype.map.call(event.dataTransfer.items, function (item) {
+            return item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        });
+        if (entries.length && entries.every(Boolean)) {
+            Promise.all(entries.map(function (entry) { return walk(entry, entry.name); })).then(show);
+        } else {
+            Array.prototype.forEach.call(event.dataTransfer.files, function (file) { add(file, file.name); });
+            show();
+        }
+    });
+    send.addEventListener("click", start);
+    cancel.addEventListener("click", function () {
+        if (sending) {
+            stop();
+        } else {
+            dialog.close();
+        }
+    });
+    dialog.addEventListener("cancel", function (event) {
+        if (sending) {
+            event.preventDefault();
+            stop();
+        }
+    });
+    close.addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("close", function () {
+        if (finished) {
+            window.location.reload();
+        }
+    });
+    window.addEventListener("beforeunload", function (event) {
+        if (sending) {
+            event.preventDefault();
+            event.returnValue = "";
+        }
+    });
+}());

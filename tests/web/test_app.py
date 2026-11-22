@@ -83,7 +83,7 @@ def test_home_without_history(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert 'class="activity"' not in page and "Never" in page
     assert "Every day at 02:00" in page and "Every Sunday at 03:00" in page
-    assert "<h2>Inbox</h2>" not in page and "Read-only (dry run)" in page
+    assert "The Inbox is empty." in page and "Read-only (dry run)" in page
 
 
 def test_no_mode_badge_when_watch_applies(client, ctx):

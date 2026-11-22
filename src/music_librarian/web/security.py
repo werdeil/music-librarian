@@ -1,5 +1,5 @@
-"""What the dashboard refuses before any page, a name it is not reached by and a form without
-the page's token, and the headers of every response."""
+"""What the dashboard refuses before any page, a name it is not reached by and a form or a file sent
+without the page's token, and the headers of every response."""
 import hmac
 import ipaddress
 import secrets
@@ -43,7 +43,11 @@ def register(app, ctx):
 
     @app.before_request
     def same_origin_forms():
-        if request.method == "POST" and not hmac.compare_digest(request.form.get("csrf", ""), token):
+        if request.method != "POST":
+            return
+        # a file's body is never read as a form: its token comes in a header
+        sent = request.headers.get("X-CSRF-Token")
+        if not hmac.compare_digest(request.form.get("csrf", "") if sent is None else sent, token):
             abort(403)
 
     @app.after_request
