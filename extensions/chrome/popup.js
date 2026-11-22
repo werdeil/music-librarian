@@ -137,10 +137,19 @@ function checkServerConnection() {
     });
 }
 
+function isDeezerPage(url) {
+    try {
+        const host = new URL(url).hostname;
+        return host === 'deezer.com' || host.endsWith('.deezer.com');
+    } catch (e) {
+        return false;
+    }
+}
+
 function extractCurrentPageInfo() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
-        if (tab.url.includes('deezer.com')) {
+        if (isDeezerPage(tab.url)) {
             deezerUrlEl.value = tab.url;
             extractUrlId();
         }

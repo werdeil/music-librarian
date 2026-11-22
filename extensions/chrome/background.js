@@ -1,6 +1,15 @@
 // Background Service Worker
 // Captures license token from network requests and manages extension state
 
+// A host is compared whole: a substring of the URL could sit in another site's path or query.
+function onHost(url, hosts) {
+    try {
+        return hosts.includes(new URL(url).hostname);
+    } catch (e) {
+        return false;
+    }
+}
+
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getTokenFromTab') {
@@ -30,9 +39,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // This captures API calls that contain the license token
 chrome.webRequest.onBeforeSendHeaders.addListener(
     (details) => {
-        if (details.url.includes('api.deezer.com') ||
-            details.url.includes('media.deezer.com') ||
-            details.url.includes('cdn-ssl-reloc.dzcdn.net')) {
+        if (onHost(details.url, ['api.deezer.com', 'media.deezer.com', 'cdn-ssl-reloc.dzcdn.net'])) {
             // Extract token from request headers
             const headers = details.requestHeaders || [];
             
@@ -53,7 +60,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 // Also inspect request body for cases where the token is sent in JSON payload (e.g. get_url)
 chrome.webRequest.onBeforeRequest.addListener(
     (details) => {
-        if ((details.url.includes('api.deezer.com') || details.url.includes('media.deezer.com')) &&
+        if (onHost(details.url, ['api.deezer.com', 'media.deezer.com']) &&
         details.requestBody && details.requestBody.raw) {
             try {
                 const decoder = new TextDecoder('utf-8');
