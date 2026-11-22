@@ -21,6 +21,7 @@
 #   docker compose run --rm music-librarian dedupe --review
 #   docker compose run --rm music-librarian tag <album folder> --set albumartist=<name>
 #   docker compose run --rm music-librarian playcounts --review
+#   docker compose run --rm music-librarian deezer album <id or deezer.com address>
 #   docker compose run --rm music-librarian undo /state/journal/<date>.jsonl
 #
 # Create ./state BEFORE the first start (mkdir state): otherwise Docker creates
@@ -69,6 +70,13 @@ services:
       - ITUNES_COUNTRY=${ITUNES_COUNTRY:-us}
       - EDITION_PROVIDERS=${EDITION_PROVIDERS:-musicbrainz,discogs,itunes}
       - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
+      # the Deezer download, off until DEEZER_ARL, DEEZER_PRE_KEY and DEEZER_IV are set (docs/deezer.md)
+      - DEEZER_ARL=${DEEZER_ARL:-}
+      - DEEZER_PRE_KEY=${DEEZER_PRE_KEY:-}
+      - DEEZER_IV=${DEEZER_IV:-}
+      - DEEZER_LICENSE_TOKEN=${DEEZER_LICENSE_TOKEN:-}
+      - DEEZER_EXTENSION_KEY=${DEEZER_EXTENSION_KEY:-}
+      - DEEZER_EXTENSION_ORIGIN=${DEEZER_EXTENSION_ORIGIN:-}
     volumes:
       # Inbox and library under this single mount, at the same path as on the
       # host: moves stay renames and journal paths are valid on both sides.
