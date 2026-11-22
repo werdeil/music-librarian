@@ -23,6 +23,8 @@ music-librarian organize --root /path/to/library     # dry run
 music-librarian import --inbox /path/to/inbox --root /path/to/library
 ```
 
+In Claude Code on the web, `.claude/hooks/session-start.sh` installs these into a project `.venv` at session start (put first on `PATH`), so the tests and pylint run without manual setup; locally it does nothing. Before each commit, `.claude/hooks/review-comments.sh` refuses it once with the comment lines it adds, to be re-read against the rules below; the same commit run again goes through.
+
 Pylint is configured in `pyproject.toml`: docstring-required checks and `broad-exception-caught` are disabled, lines go up to 110 characters. Match those norms rather than fighting them.
 
 **Judge pylint by its exit code, never by its score.** It still prints "rated at 10.00/10" above a message such as `line-too-long`, and CI fails on any message. Before every push, run `pylint src tests; echo "exit $?"` and read the whole output: anything but `exit 0` is a failure to fix.

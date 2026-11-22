@@ -5,3 +5,4 @@ state/
 .env
 *.egg-info/
 build/
+.claude/settings.local.json
