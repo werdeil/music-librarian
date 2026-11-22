@@ -11,7 +11,7 @@ from music_librarian.web.passes import Requests, passes
 
 EN, FR = {"Accept-Language": "en"}, {"Accept-Language": "fr"}
 SETTINGS = {"DEEZER_ARL": "dummy-arl-value", "DEEZER_PRE_KEY": "AAAAAAAAAAAAAAAA",
-            "DEEZER_IV": "0001020304050607"}
+            "DEEZER_IV": "0001020304050607", "DEEZER_LICENSE_TOKEN": "dummy-env-token"}
 
 
 @pytest.fixture
@@ -47,6 +47,23 @@ def test_nothing_shown_without_configuration(ctx):
     assert 'action="/deezer"' not in page
     assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 403
     assert not ctx.requests.pending()
+
+
+@pytest.mark.usefixtures("configured")
+def test_without_a_license_token_the_form_is_off(ctx, monkeypatch):
+    monkeypatch.delenv("DEEZER_LICENSE_TOKEN")
+    client, page, token = dashboard(ctx)
+    assert "Set DEEZER_LICENSE_TOKEN to download from here." in page
+    assert '<fieldset class="deezer-fields" disabled>' in page
+    assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 403
+
+
+@pytest.mark.usefixtures("configured")
+def test_a_short_link_is_explained(ctx):
+    client, _page, token = dashboard(ctx)
+    answer = client.post("/deezer", data={"csrf": token, "item": "https://link.deezer.com/s/abc"}, headers=EN)
+    assert answer.status_code == 400
+    assert "Short links are not followed" in answer.get_data(as_text=True)
 
 
 @pytest.mark.usefixtures("configured")

@@ -1,5 +1,6 @@
-"""A Deezer download asked from the overview's Inbox: queued for watch as any pass, applied at once,
-refused while watch runs without --apply or the download is off (deezer/config.py)."""
+"""A Deezer download asked from the overview's Inbox: queued for watch as any pass, applied at once as
+an upload is, refused while watch runs without --apply, the download is off (deezer/config.py) or
+DEEZER_LICENSE_TOKEN is not set."""
 from flask import abort, request
 
 from music_librarian import deezer
@@ -18,12 +19,14 @@ def register(app, ctx):
 
     @app.post("/deezer")
     def deezer_download():
-        if ctx.requests is None or not ctx.apply or not config.enabled():
+        if ctx.requests is None or not ctx.apply or not config.enabled() or not config.has_license_token():
             abort(403)
         value = request.form.get("item", "")
         kind = kind_of(value, request.form.get("kind", "album"))
         if kind not in deezer.KINDS:
             abort(400)
+        if deezer.SHORT_URL.match(value.strip()):
+            return refused("deezer_short_link", value=value)
         try:
             item = deezer.item_id(kind, value)
         except ValueError:

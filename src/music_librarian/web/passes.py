@@ -23,9 +23,8 @@ UPLOADS = "uploads"
 UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
 UPLOAD_DAYS = 7
 
-# the options each command takes from the dashboard: booleans, but undo's journal, tag's edits
-# ([[path relative to the root, field, value, values seen]]) and cover ([album folder, upload name]),
-# and deezer's kind and ids; they are kept in the run history, so a license token is not one of them
+# the options each command takes from the dashboard, kept in the run history: booleans, but undo's
+# journal, tag's edits ([[path, field, value, seen]]) and cover ([folder, upload]), deezer's kind and ids
 OPTIONS = {
     "import": (),
     "organize": ("since",),

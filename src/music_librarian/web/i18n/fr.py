@@ -99,6 +99,11 @@ FR = {
     "deezer_complete_only": "seulement si toutes les pistes sont disponibles",
     "deezer_button": "Télécharger",
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
+    "deezer_short_link": "Les liens courts ne sont pas suivis : ouvrez {value}, puis donnez l'adresse "
+                         "deezer.com.",
+    "deezer_no_token": "Définissez DEEZER_LICENSE_TOKEN pour télécharger d'ici.",
+    "deezer_placeholder": "https://www.deezer.com/fr/album/302127",
+    "deezer_id_is": "Un identifiant désigne :",
     "upload_js": {"selected": "Fichiers : {n} · {size} Mo",
                   "folder_one": "{name} : 1 fichier", "folder_many": "{name} : {n} fichiers",
                   "skipped": "Ignorés, ni musique, ni pochette, ni paroles : {n}",

@@ -30,6 +30,12 @@ def enabled(env=None):
     return all(_value(env, name) for name in REQUIRED)
 
 
+def has_license_token(env=None):
+    """Whether DEEZER_LICENSE_TOKEN is set: a download asked from the dashboard has no other."""
+    env = os.environ if env is None else env
+    return bool(_value(env, LICENSE_TOKEN))
+
+
 def load(env=None, license_token=None):
     """The settings, `license_token` (a request's own) taking the place of DEEZER_LICENSE_TOKEN.
     Raises ConfigError."""
