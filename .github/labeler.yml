@@ -38,6 +38,14 @@ lyrion:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/integrations/lyrion.py", "src/music_librarian/playcounts/**"]
 
+deezer:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/deezer/**", "src/music_librarian/web/deezer.py"]
+
+extension:
+  - changed-files:
+      - any-glob-to-any-file: ["extensions/**"]
+
 docker:
   - changed-files:
       - any-glob-to-any-file: ["Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example"]
