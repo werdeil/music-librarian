@@ -24,7 +24,7 @@ from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
 from music_librarian.deezer import config, crypto, download, license_token, tags
-from music_librarian.deezer.api import FORMATS, Album, Api, disc_total
+from music_librarian.deezer.api import FORMATS, Album, Api, disc_total, user_license_token
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
 from music_librarian.importer import free_name
@@ -129,11 +129,15 @@ def run(opts: Options, log, cfg=None, client=None):
     client = client or Client(cfg.arl)
 
     def renew():
-        token = license_token.fresh(client, opts.state_dir)
+        token = user_license_token(client)
         log("TOKEN    license token renewed from the arl")
+        try:
+            license_token.save(opts.state_dir, cfg.arl, token)
+        except OSError as exc:
+            log(f"WARNING  license token not kept in the state folder ({exc.strerror or exc})")
         return token
 
-    token = license_token.read(opts.state_dir) or cfg.license_token
+    token = license_token.read(opts.state_dir, cfg.arl) or cfg.license_token
     if opts.apply and not token:
         try:
             token = renew()

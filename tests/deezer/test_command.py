@@ -307,8 +307,11 @@ def test_without_a_license_token_one_is_read_from_the_arl_and_kept(inbox, cfg, s
     assert code == 0, out
     assert "TOKEN    license token renewed from the arl" in out and "dummy-fresh-token" not in out
     assert set(sent_tokens(client)) == {"dummy-fresh-token"}
-    kept = inbox.parent / "state" / license_token.FILE
-    assert kept.read_text() == "dummy-fresh-token" and kept.stat().st_mode & 0o777 == 0o600
+    state = inbox.parent / "state"
+    assert license_token.read(state, "dummy-arl") == "dummy-fresh-token"
+    assert (state / license_token.FILE).stat().st_mode & 0o777 == 0o600
+    assert b"dummy-arl" not in (state / license_token.FILE).read_bytes()
+    assert license_token.read(state, "another-dummy-arl") == ""      # set aside once the arl changes
     again = site()
     assert run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), again, "302127", apply=True)[0] == 0
     assert not [s for s in again.session.sent if s["url"] == GW]     # the kept token is used
@@ -322,6 +325,25 @@ def test_an_expired_token_is_renewed_once(inbox, cfg, site):
     assert out.count("TOKEN    license token renewed from the arl") == 1
     assert sent_tokens(client)[:2] == ["dummy-token", "dummy-fresh-token"]
     assert set(sent_tokens(client)[1:]) == {"dummy-fresh-token"}
+
+
+def test_an_expired_token_and_a_refused_arl_end_in_one_try(inbox, cfg, site):
+    client = site()
+    site.expired.add("dummy-token")
+    site.user["USER_ID"] = 0
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 1
+    assert len([s for s in client.session.sent if s["url"] == GW]) == 1
+    assert out.count("the arl is refused by Deezer") == 1
+
+
+def test_a_token_that_cannot_be_kept_still_serves(inbox, cfg, site, monkeypatch):
+    def full(*_args):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(license_token, "save", full)
+    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), site(), apply=True)
+    assert code == 0, out
+    assert "WARNING  license token not kept in the state folder (No space left on device)" in out
 
 
 def test_a_refused_arl_is_said_once(inbox, cfg, site):

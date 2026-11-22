@@ -174,6 +174,14 @@ def test_no_license_token_from_the_arl(deezer, http, answer, message):
         user_license_token(deezer({GW: http.answer(answer)}))
 
 
+def test_an_expired_token_given_as_text(api, http):
+    with pytest.raises(TokenExpired):
+        api({GET_URL: http.answer({"errors": [{"code": "1001", "message": "expired"}]}, 403)}).resolve("t")
+    with pytest.raises(TokenExpired):
+        api({GET_URL: http.answer({"data": [{"errors": [{"code": 1001, "message": "expired"}]}]})}
+            ).resolve("t")
+
+
 def test_an_expired_token_without_renewal(api, http):
     expired = http.answer({"errors": [{"code": 1001, "message": "License token is expired."}]}, 403)
     with pytest.raises(TokenExpired, match="error 1001: License token is expired."):
