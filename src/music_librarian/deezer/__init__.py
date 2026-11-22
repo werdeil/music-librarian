@@ -23,8 +23,8 @@ from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.deezer import config, crypto, download, license_token, tags
-from music_librarian.deezer.api import FORMATS, Album, Api, disc_total, user_license_token
+from music_librarian.deezer import config, crypto, download, kept, tags
+from music_librarian.deezer.api import FORMATS, Album, Api, ArlRefused, disc_total, user_license_token
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
 from music_librarian.importer import free_name
@@ -115,11 +115,11 @@ def run(opts: Options, log, cfg=None, client=None):
     only writes to a hidden folder of the Inbox, then moves into it."""
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] inbox: {opts.inbox}")
     if cfg is None:
-        if not config.enabled():
+        if not config.enabled(state_dir=opts.state_dir):
             log(f"ERROR    the Deezer download is off: set {', '.join(config.REQUIRED)} (see docs/deezer.md)")
             return EXIT_FAILED
         try:
-            cfg = config.load()
+            cfg = config.load(state_dir=opts.state_dir)
         except config.ConfigError as exc:
             log(f"ERROR    {exc}")
             return EXIT_FAILED
@@ -129,15 +129,20 @@ def run(opts: Options, log, cfg=None, client=None):
     client = client or Client(cfg.arl)
 
     def renew():
-        token = user_license_token(client)
+        try:
+            token = user_license_token(client)
+        except ArlRefused:
+            kept.mark_refused(opts.state_dir, cfg.arl)
+            raise
+        kept.forget_refused(opts.state_dir)
         log("TOKEN    license token renewed from the arl")
         try:
-            license_token.save(opts.state_dir, cfg.arl, token)
+            kept.save_token(opts.state_dir, cfg.arl, token)
         except OSError as exc:
             log(f"WARNING  license token not kept in the state folder ({exc.strerror or exc})")
         return token
 
-    token = license_token.read(opts.state_dir, cfg.arl) or cfg.license_token
+    token = kept.token(opts.state_dir, cfg.arl) or cfg.license_token
     if opts.apply and not token:
         try:
             token = renew()

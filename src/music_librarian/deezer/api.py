@@ -158,9 +158,13 @@ class TokenExpired(DeezerError):
     """get_url refused the license token as expired."""
 
 
+class ArlRefused(DeezerError):
+    """Deezer takes the arl for no account."""
+
+
 def user_license_token(client):
     """The license token of the account whose arl `client` sends, as the web player gets it before it
-    plays. Raises DeezerError when Deezer takes the arl for no account."""
+    plays. Raises ArlRefused when Deezer takes the arl for no account, DeezerError otherwise."""
     params = {"method": "deezer.getUserData", "input": "3", "api_version": "1.0", "api_token": "null"}
     response = client.get(GW, params=params)
     if response.status_code != 200:
@@ -170,7 +174,7 @@ def user_license_token(client):
     except (ValueError, AttributeError) as exc:
         raise DeezerError("user data: not JSON") from exc
     if str(user.get("USER_ID") or "0") == "0":
-        raise DeezerError("the arl is refused by Deezer: take the arl cookie of a logged-in session again")
+        raise ArlRefused("the arl is refused by Deezer: take the arl cookie of a logged-in session again")
     token = _text((user.get("OPTIONS") or {}).get("license_token"))
     if not token:
         raise DeezerError("user data: no license token")

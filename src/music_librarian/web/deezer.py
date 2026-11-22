@@ -10,18 +10,21 @@ import hmac
 import os
 import re
 
-from flask import abort, jsonify, request
+from flask import abort, jsonify, render_template, request
 
 from music_librarian import deezer
 from music_librarian.core import runs
-from music_librarian.deezer import config
-from music_librarian.web.common import refused, submit
+from music_librarian.deezer import config, kept
+from music_librarian.deezer.api import ArlRefused, user_license_token
+from music_librarian.deezer.client import Client, DeezerError
+from music_librarian.web.common import refused, submit, when
 from music_librarian.web.history import progress
 from music_librarian.web.passes import CANCELLED, DONE
 
 EXTENSION_KEY, EXTENSION_ORIGIN = "DEEZER_EXTENSION_KEY", "DEEZER_EXTENSION_ORIGIN"
 TOTAL = re.compile(r"^(?:ALBUM|PLAYLIST) .* \((\d+) tracks?\)$")
 TRACK_DONE = ("DOWNLOAD ", "SKIPPED  ")
+ARL_SHAPE = re.compile(r"^[0-9A-Za-z]{100,400}$")
 
 
 def kind_of(value, kind):
@@ -33,9 +36,38 @@ def kind_of(value, kind):
 def register(app, ctx):
     """Add the route of the overview's Deezer form."""
 
+    def arl_page(status=200, **shown):
+        if ctx.requests is None or not config.keys_set():
+            abort(404)
+        current = config.load(state_dir=ctx.state_dir).arl if config.enabled(state_dir=ctx.state_dir) else ""
+        source = "kept" if kept.arl(ctx.state_dir) else "env" if current else None
+        refused_at = kept.refused(ctx.state_dir, current) if current else None
+        return render_template("deezer_arl.html", source=source,
+                               refused=when(refused_at) if refused_at else None, **shown), status
+
+    @app.get("/deezer/arl")
+    def deezer_arl_page():
+        return arl_page()
+
+    @app.post("/deezer/arl")
+    def deezer_arl_save():
+        """Check the arl sent with Deezer, then keep it in place of DEEZER_ARL, with its license token."""
+        value = request.form.get("arl", "").strip()
+        if not ARL_SHAPE.match(value):
+            return arl_page(400, error="deezer_arl_malformed")
+        try:
+            token = user_license_token(Client(value))
+        except ArlRefused:
+            return arl_page(400, error="deezer_arl_rejected")
+        except DeezerError:
+            return arl_page(502, error="deezer_arl_unreachable")
+        kept.save_arl(ctx.state_dir, value)
+        kept.save_token(ctx.state_dir, value, token)
+        return arl_page(saved=True)
+
     @app.post("/deezer")
     def deezer_download():
-        if ctx.requests is None or not ctx.apply or not config.enabled():
+        if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
             abort(403)
         value = request.form.get("item", "")
         kind = kind_of(value, request.form.get("kind", "album"))
@@ -94,7 +126,8 @@ def register_extension(app, ctx):
 
     @app.route("/deezer/ext/health", methods=["GET", "OPTIONS"])
     def deezer_ext_health():
-        return guarded(lambda: (jsonify(status="ok", enabled=config.enabled(), apply=ctx.apply), 200))
+        return guarded(lambda: (jsonify(status="ok", enabled=config.enabled(state_dir=ctx.state_dir),
+                                       apply=ctx.apply), 200))
 
     @app.route("/deezer/ext/request", methods=["POST", "OPTIONS"])
     def deezer_ext_request():
@@ -105,7 +138,7 @@ def register_extension(app, ctx):
         return guarded(lambda: _state(request_id))
 
     def _queue():
-        if ctx.requests is None or not ctx.apply or not config.enabled():
+        if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
             return jsonify(error="the dashboard cannot download: watch runs without --apply, "
                                  "or the Deezer download is off"), 403
         body = request.get_json(silent=True)

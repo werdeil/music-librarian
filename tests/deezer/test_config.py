@@ -1,6 +1,6 @@
 import pytest
 
-from music_librarian.deezer import config
+from music_librarian.deezer import config, kept
 
 GOOD = {"DEEZER_ARL": "dummy-arl", "DEEZER_PRE_KEY": "AAAAAAAAAAAAAAAA", "DEEZER_IV": "0001020304050607"}
 
@@ -36,3 +36,14 @@ def test_the_settings_never_show_in_their_repr():
     shown = repr(config.load({**GOOD, "DEEZER_LICENSE_TOKEN": "dummy-token"}))
     for secret in ("dummy-arl", "AAAA", "dummy-token", "0001020304050607"):
         assert secret not in shown
+
+
+def test_the_arl_set_from_the_dashboard_stands_for_deezer_arl(tmp_path):
+    keys = {name: value for name, value in GOOD.items() if name != "DEEZER_ARL"}
+    assert config.keys_set(keys) and not config.enabled(keys, tmp_path)
+    kept.save_arl(tmp_path, "dummy-kept-arl")
+    assert config.enabled(keys, tmp_path)
+    assert config.load(keys, tmp_path).arl == "dummy-kept-arl"
+    assert config.load(GOOD, tmp_path).arl == "dummy-kept-arl"
+    assert config.load(GOOD).arl == "dummy-arl"
+    assert (tmp_path / kept.ARL).stat().st_mode & 0o777 == 0o600

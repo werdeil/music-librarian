@@ -55,6 +55,7 @@ FR = {
     "rules_decision": "Décision",
     "rules_pending": "en attente de réponse",
     "state": "État",
+    "tile_deezer_arl": "arl Deezer refusé",
     "tile_failed": "Imports en échec",
     "scheduled_passes": "Passages programmés",
     "recent_problems": "Passages à problème non vérifiés ces 7 derniers jours : {n}",
@@ -101,6 +102,25 @@ FR = {
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
     "deezer_short_link": "Les liens courts ne sont pas suivis : ouvrez {value}, puis donnez l'adresse "
                          "deezer.com.",
+    "deezer_arl_link": "arl",
+    "deezer_arl_title": "arl Deezer",
+    "deezer_arl_source_kept": "Le téléchargement utilise l'arl défini ici, à la place de DEEZER_ARL.",
+    "deezer_arl_source_env": "Le téléchargement utilise DEEZER_ARL.",
+    "deezer_arl_source_none": "Aucun arl n'est encore défini.",
+    "deezer_arl_refused": "Deezer a refusé cet arl le {when} : il a expiré, ou sa session a été fermée.",
+    "deezer_arl_help": "Sur deezer.com, connecté, ouvrez les outils de développement du navigateur, puis "
+                       "Application, Cookies, https://www.deezer.com, et copiez la valeur du cookie arl. "
+                       "Il est vérifié auprès de Deezer, puis gardé dans le dossier d'état, lisible par son "
+                       "seul propriétaire, et jamais affiché.",
+    "deezer_arl_field": "Nouvel arl",
+    "deezer_arl_save": "Vérifier et garder",
+    "deezer_arl_back": "Vue d'ensemble",
+    "deezer_arl_saved": "Deezer accepte cet arl : il est gardé, et les prochains téléchargements "
+                        "l'utilisent.",
+    "deezer_arl_malformed": "Ce n'est pas un arl : des lettres et des chiffres seulement, environ 192.",
+    "deezer_arl_rejected": "Deezer a refusé cet arl : recopiez-le depuis une session connectée. Rien n'a "
+                           "été gardé.",
+    "deezer_arl_unreachable": "Deezer n'a pas pu être joint pour vérifier cet arl. Rien n'a été gardé.",
     "deezer_placeholder": "https://www.deezer.com/fr/album/302127",
     "deezer_id_is": "Un identifiant désigne :",
     "upload_js": {"selected": "Fichiers : {n} · {size} Mo",

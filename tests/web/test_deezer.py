@@ -7,6 +7,9 @@ import pytest
 from music_librarian import deezer, enrich, importer, organize, watch
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
+from music_librarian.deezer import kept
+from music_librarian.deezer.api import ArlRefused
+from music_librarian.deezer.client import DeezerError
 from music_librarian.web import deezer as web_deezer
 from music_librarian.web.passes import Requests, passes
 
@@ -208,3 +211,66 @@ def test_tracks_done():
     lines = ["[APPLY] inbox: /x", "ALBUM    A - B (3 tracks)", "DOWNLOAD One as FLAC", "SKIPPED  Two: no",
              "PLAYLIST Mix (1 track)", "WARNING  cover"]
     assert web_deezer.tracks_done(lines) == (2, 4)
+
+
+ARL = "a1" * 96   # dummy, the shape of an arl
+
+
+@pytest.mark.usefixtures("configured")
+def test_the_arl_page(ctx):
+    client, page, _token = dashboard(ctx)
+    assert 'href="/deezer/arl"' in page
+    shown = client.get("/deezer/arl", headers=EN).get_data(as_text=True)
+    assert "The download goes with DEEZER_ARL." in shown and "dummy-arl-value" not in shown
+    assert 'type="password" name="arl"' in shown
+
+
+def test_no_arl_page_without_the_keys(ctx):
+    assert web.create_app(ctx).test_client().get("/deezer/arl").status_code == 404
+
+
+@pytest.mark.usefixtures("configured")
+def test_an_arl_checked_then_kept(ctx, monkeypatch):
+    asked = []
+
+    def user_license_token(client):
+        asked.append(client)
+        return "dummy-fresh-token"
+    monkeypatch.setattr(web_deezer, "user_license_token", user_license_token)
+    client, _page, token = dashboard(ctx)
+    answer = client.post("/deezer/arl", data={"csrf": token, "arl": f"  {ARL}  "}, headers=EN)
+    assert answer.status_code == 200
+    shown = answer.get_data(as_text=True)
+    assert "Deezer accepts this arl" in shown and "set here, in place of DEEZER_ARL" in shown
+    assert ARL not in shown
+    assert kept.arl(ctx.state_dir) == ARL and kept.token(ctx.state_dir, ARL) == "dummy-fresh-token"
+    assert (ctx.state_dir / kept.ARL).stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.usefixtures("configured")
+@pytest.mark.parametrize("value, error, status, message", [
+    ("not an arl", None, 400, "This is not an arl"),
+    (ARL, ArlRefused("refused"), 400, "Deezer refused this arl"),
+    (ARL, DeezerError("down"), 502, "Deezer could not be reached"),
+])
+def test_an_arl_refused_is_not_kept(ctx, monkeypatch, value, error, status, message):
+    def user_license_token(_client):
+        raise error
+    monkeypatch.setattr(web_deezer, "user_license_token", user_license_token)
+    client, _page, token = dashboard(ctx)
+    answer = client.post("/deezer/arl", data={"csrf": token, "arl": value}, headers=EN)
+    assert answer.status_code == status and message in answer.get_data(as_text=True)
+    assert kept.arl(ctx.state_dir) == ""
+    assert client.post("/deezer/arl", data={"arl": ARL}).status_code == 403   # the page's token
+
+
+@pytest.mark.usefixtures("configured")
+def test_a_refused_arl_shows_on_the_overview(ctx):
+    client, page, _token = dashboard(ctx)
+    assert "Deezer arl refused" not in page
+    kept.mark_refused(ctx.state_dir, "dummy-arl-value")
+    tiles = client.get("/tiles", headers=EN).get_data(as_text=True)
+    assert "Deezer arl refused" in tiles and 'href="/deezer/arl"' in tiles
+    assert "Deezer refused this arl on" in client.get("/deezer/arl", headers=EN).get_data(as_text=True)
+    kept.save_arl(ctx.state_dir, ARL)
+    assert "Deezer arl refused" not in client.get("/tiles", headers=EN).get_data(as_text=True)

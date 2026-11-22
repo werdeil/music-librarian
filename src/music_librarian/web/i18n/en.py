@@ -54,6 +54,7 @@ EN = {
     "rules_decision": "Decision",
     "rules_pending": "awaiting an answer",
     "state": "State",
+    "tile_deezer_arl": "Deezer arl refused",
     "tile_failed": "Failed imports",
     "scheduled_passes": "Scheduled passes",
     "recent_problems": "Unchecked runs with problems over the last 7 days: {n}",
@@ -99,6 +100,24 @@ EN = {
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",
     "deezer_short_link": "Short links are not followed: open {value}, then give the deezer.com address.",
+    "deezer_arl_link": "arl",
+    "deezer_arl_title": "Deezer arl",
+    "deezer_arl_source_kept": "The download goes with the arl set here, in place of DEEZER_ARL.",
+    "deezer_arl_source_env": "The download goes with DEEZER_ARL.",
+    "deezer_arl_source_none": "No arl is set yet.",
+    "deezer_arl_refused": "Deezer refused this arl on {when}: it has expired, or its session was closed.",
+    "deezer_arl_help": "On deezer.com, logged in, open the browser's developer tools, then Application, "
+                       "Cookies, https://www.deezer.com, and copy the value of the arl cookie. It is checked "
+                       "with Deezer, then kept in the state folder, readable by its owner only, and never "
+                       "shown.",
+    "deezer_arl_field": "New arl",
+    "deezer_arl_save": "Check and keep",
+    "deezer_arl_back": "Overview",
+    "deezer_arl_saved": "Deezer accepts this arl: it is kept, and the next downloads go with it.",
+    "deezer_arl_malformed": "This is not an arl: letters and digits only, about 192 of them.",
+    "deezer_arl_rejected": "Deezer refused this arl: copy it again from a logged-in session. Nothing was "
+                           "kept.",
+    "deezer_arl_unreachable": "Deezer could not be reached to check this arl. Nothing was kept.",
     "deezer_placeholder": "https://www.deezer.com/album/302127",
     "deezer_id_is": "An id names:",
     "upload_js": {"selected": "Files: {n} · {size} MB",
