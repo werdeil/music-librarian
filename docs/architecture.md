@@ -70,7 +70,7 @@ src/music_librarian/
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
-    ├── i18n.py      the strings shown, in French and English
+    ├── i18n/        the strings shown, one module per language (`fr.py`, `en.py`)
     └── templates/, static/
 ```
 
