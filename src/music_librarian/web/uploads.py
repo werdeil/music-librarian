@@ -3,12 +3,11 @@ Inbox that watch does not list, then moved into it, where watch imports them as 
 import re
 import secrets
 import shutil
-import time
 from pathlib import Path, PurePosixPath
 
 from flask import abort, jsonify, request
 
-from music_librarian.core.files import AUDIO_EXT, is_junk
+from music_librarian.core.files import AUDIO_EXT, drop_abandoned, is_junk
 from music_librarian.importer import ANNEX_EXT, OTHER_AUDIO, RESERVED, free_name
 from music_librarian.web.common import texts
 
@@ -16,7 +15,6 @@ STAGING = ".upload-"
 BATCH_ID = re.compile(r"^[0-9a-f]{16}$")
 SENT_EXT = frozenset(AUDIO_EXT | OTHER_AUDIO | ANNEX_EXT)
 MAX_FILE = 2 * 1024 ** 3   # waitress's max_request_body_size is raised to match
-ABANDONED_HOURS = 24
 CHUNK = 1024 * 1024
 
 
@@ -29,17 +27,6 @@ def sent_path(rel):
     if parts[0] in RESERVED or is_junk(Path(parts[-1])):
         return None
     return parts if PurePosixPath(parts[-1]).suffix.lower() in SENT_EXT else None
-
-
-def last_change(folder: Path):
-    return max((p.stat().st_mtime for p in folder.rglob("*")), default=folder.stat().st_mtime)
-
-
-def drop_abandoned(inbox: Path):
-    """Remove the batches nothing was written to for ABANDONED_HOURS: a tab closed while sending."""
-    for folder in inbox.glob(STAGING + "*"):
-        if folder.is_dir() and last_change(folder) < time.time() - ABANDONED_HOURS * 3600:
-            shutil.rmtree(folder, ignore_errors=True)
 
 
 def register(app, ctx):
@@ -65,7 +52,7 @@ def register(app, ctx):
     def inbox_upload_start():
         """{"id": …} of a new batch, `size` the bytes it will send; 507 when the disk lacks room."""
         allowed()
-        drop_abandoned(ctx.inbox)
+        drop_abandoned(ctx.inbox, STAGING)
         size = request.form.get("size", 0, type=int)
         free = shutil.disk_usage(ctx.inbox).free
         if size > free:

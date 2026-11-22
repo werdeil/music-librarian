@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from music_librarian import importer, watch
+from music_librarian.core import files
 from music_librarian.web import app as web
 from music_librarian.web import uploads
 from music_librarian.web.passes import Requests
@@ -144,7 +145,7 @@ def test_cancel_and_unknown_batches(d, ctx):
 def test_abandoned_batches_dropped(d, ctx):
     old = d.start().json["id"]
     d.put(old, "A/01.flac")
-    long_ago = time.time() - (uploads.ABANDONED_HOURS + 1) * 3600
+    long_ago = time.time() - (files.ABANDONED_HOURS + 1) * 3600
     for p in (ctx.inbox / f".upload-{old}").rglob("*"):
         os.utime(p, (long_ago, long_ago))
     recent = d.start().json["id"]
