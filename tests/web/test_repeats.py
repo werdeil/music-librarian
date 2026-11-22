@@ -32,7 +32,8 @@ def test_tile_and_list(d):
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
     assert 'href="/library?c=repeated:yes">Repeated values <span class="muted">(1)</span></a>' in library_page
     page = d.client.get("/library/repeats", headers=EN).get_data(as_text=True)
-    assert "/library/album?folder=A/B" in page and "<td>2 / 3</td>" in page and "C/D" not in page
+    assert "/library/album?folder=A/B" in page and "C/D" not in page
+    assert '<span class="work-detail muted">2 / 3</span>' in page
 
 
 def test_album_page_marks_the_fields(d):

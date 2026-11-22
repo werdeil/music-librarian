@@ -1640,3 +1640,57 @@ table.tracks .lyrics-row input[type="checkbox"] {
 .environment code {
     color: inherit;
 }
+
+.work-rows {
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border-color);
+}
+
+.work-rows li {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.work-rows a {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.5rem 0.3rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.work-rows a:hover,
+.work-rows a:focus-visible {
+    background: var(--surface);
+}
+
+.work-rows img {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.work-album {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.work-album > span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.work-detail {
+    flex: none;
+    max-width: 40%;
+    font-size: var(--fs-sm);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

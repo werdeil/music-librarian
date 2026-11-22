@@ -14,6 +14,7 @@ from music_librarian.lyrics import awaited
 from music_librarian.media import fields, tags
 
 EN = {"Accept-Language": "en"}
+DETAIL = '<span class="work-detail muted">'
 
 
 @pytest.fixture
@@ -179,8 +180,8 @@ def test_tracks_without_lyrics(d):
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
     assert 'href="/library?c=lyrics:no">Without lyrics <span class="muted">(1)</span></a>' in library_page
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
-    assert "/library/album?folder=Beyonce/4" in page and "<td>2 / 3</td>" in page
-    assert "Tracks whose lyrics are awaited" not in page
+    assert "/library/album?folder=Beyonce/4" in page and DETAIL + '2 / 3</span>' in page
+    assert "Lyrics awaited (" not in page
     assert tile(d) == 2
 
 
@@ -231,7 +232,7 @@ def test_track_marked_awaited(d):
     assert "Lyrics awaited for every track without lyrics" in page
     assert tile(d) == 1
     lyrics_page = settled(d, "/library/lyrics")
-    assert "<td>1 / 3</td>" in lyrics_page and "Tracks whose lyrics are awaited: 1" in lyrics_page
+    assert DETAIL + '1 / 3</span>' in lyrics_page and "Lyrics awaited (1)" in lyrics_page
     tracks = d.client.get("/library?c=awaited:yes&view=tracks", headers=EN).get_data(as_text=True)
     assert "T2" in tracks and "T3" not in tracks
     assert "Lyrics awaited <span" not in settled(d, "/library")            # a condition, not a filter
@@ -245,7 +246,7 @@ def test_album_marked_awaited_leaves_the_review(d):
     assert response.location.endswith("/library/lyrics")                 # no other album left
     assert tile(d) is None
     page = settled(d, "/library/lyrics")
-    assert "Every track without lyrics is sorted out." in page and "awaited: 2" in page
+    assert "Every track without lyrics is sorted out." in page and "Lyrics awaited (2)" in page
     album = d.client.get("/library/album?folder=Beyonce/4", headers=EN).get_data(as_text=True)
     assert "Lyrics awaited for every track without lyrics" not in album
 
@@ -283,7 +284,7 @@ def test_a_mark_shows_without_rebuilding_the_album_list(d):
     settled(d, "/library/lyrics")
     mark(d, "02 T2.m4a")
     page = d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
-    assert "<td>1 / 3</td>" in page and "Tracks whose lyrics are awaited: 1" in page
+    assert DETAIL + '1 / 3</span>' in page and "Lyrics awaited (1)" in page
     assert not any(thread.name == "web-build" for thread in threading.enumerate())
 
 
@@ -311,4 +312,4 @@ def test_an_album_found_sorted_out_leaves_the_counts_before_the_list_is_built_ag
     assert "Every track without lyrics is sorted out." in page
     tags.clear_lyrics(lib / "Beyonce/4/03 T3.m4a")
     d.client.get("/library/album?folder=Beyonce/4&list=lyrics&at=0", headers=EN)
-    assert "<td>2 / 3</td>" in d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)
+    assert DETAIL + '2 / 3</span>' in d.client.get("/library/lyrics", headers=EN).get_data(as_text=True)

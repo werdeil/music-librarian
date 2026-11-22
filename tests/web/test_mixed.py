@@ -47,9 +47,11 @@ def test_tile_and_list(d):
     assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
     assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0"' in tile
     page = d.client.get("/library/mixed", headers=EN).get_data(as_text=True)
-    assert "Albums concerned: 2" in page and "Compilations/E" not in page
+    assert '<span class="tile-value">2</span> <span>albums to fix</span>' in page
+    assert "Compilations/E" not in page
     assert page.index("folder=A/B") < page.index("folder=C/D")       # the most fields first
-    assert "<td>Album artist, Discs</td>" in page and "<td>Genre</td>" in page
+    assert '<span class="work-detail muted">Album artist, Discs</span>' in page
+    assert '<span class="work-detail muted">Genre</span>' in page
     assert 'href="/library/album?folder=C/D&amp;list=mixed&amp;at=1"' in page
 
 

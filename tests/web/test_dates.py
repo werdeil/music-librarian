@@ -7,6 +7,7 @@ from music_librarian.core.log import Log
 from music_librarian.media import fields
 
 EN = {"Accept-Language": "en"}
+TO_FIX = '<span class="tile-value">{}</span> <span>albums with years to fix</span>'
 
 
 @pytest.fixture
@@ -30,9 +31,10 @@ def test_tile_and_list(d):
     assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
     assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0"' in tile
     page = d.client.get("/library/dates", headers=EN).get_data(as_text=True)
-    assert "Albums concerned: 2" in page and "A/Good" not in page
+    assert TO_FIX.format(2) in page and "A/Good" not in page
     assert page.index("folder=B/Whole") < page.index("folder=C/Missing")    # the most problems first
-    assert "<td>year missing, not a year alone</td>" in page and "<td>year missing</td>" in page
+    assert '<span class="work-detail muted">year missing, not a year alone</span>' in page
+    assert '<span class="work-detail muted">year missing</span>' in page
 
 
 def test_album_page_in_the_list(d):
@@ -44,7 +46,7 @@ def test_album_page_in_the_list(d):
 def test_card_on_the_reviews_page(d):
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
     card = page[page.index("<h2>Albums with years to fix</h2>"):].split("</section>")[0]
-    assert '<span class="tile-value">2</span> <span>albums with years to fix</span>' in card
+    assert TO_FIX.format(2) in card
     assert 'href="/library/dates">See the list</a>' in card
     assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0">Fix</a>' in card
 
@@ -72,10 +74,10 @@ def test_album_fixed_leaves_the_counts_once_its_page_is_read(d):
     root = d.ctx.root
     fields.write(str(root / "C/Missing/02 T2.m4a"), "year", ["2011"])
     listed = lambda: d.client.get("/library/dates", headers=EN).get_data(as_text=True)
-    assert "Albums concerned: 2" in listed()                              # the cache is not read again
+    assert TO_FIX.format(2) in listed()   # the cache is not read again
     page = d.client.get("/library/album?folder=C/Missing&list=dates&at=1", headers=EN).get_data(as_text=True)
     assert "Albums left: 1" in page
-    assert "Albums concerned: 1" in listed() and "C/Missing" not in listed()
+    assert TO_FIX.format(1) in listed() and "C/Missing" not in listed()
     fields.write(str(root / "C/Missing/02 T2.m4a"), "year", [])
     d.client.get("/library/album?folder=C/Missing", headers=EN)
-    assert "Albums concerned: 2" in listed()
+    assert TO_FIX.format(2) in listed()
