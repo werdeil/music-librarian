@@ -37,8 +37,8 @@ Lyrion keeps one year per track, the album taking the year of the last track sca
 
 ### Later
 
-- [ ] iTunes as a provider: already used for the genre, and the edition Apple Music knows, though its `releaseDate` is often the original date.
-- [ ] Discogs as a provider: the most precise on editions, but it needs a token and allows 60 requests a minute.
-- [ ] Deezer as a provider: no key, but its date is often that of the digital release.
+- [x] iTunes as a provider: already used for the genre, and the edition Apple Music knows, though its `releaseDate` is often the original date.
+- [x] Discogs as a provider: the most precise on editions, but it needs a token and allows 60 requests a minute.
+- [ ] ~~Deezer as a provider~~: dropped, its dates being too often those of a later upload rather than of the edition.
 - [ ] Rank the editions by the durations of their tracks too: it takes one more request per release, at one a second.
 - [ ] `media/convert.py` copies the FLAC's MusicBrainz ids into MP4 freeform tags named in capitals (`MUSICBRAINZ_ALBUMID`), where Picard and mutagen expect `MusicBrainz Album Id`. The metadata cache reads them under the same name in lower case, so the edition lookup finds the MBID, but Picard and mutagen's easy view do not.

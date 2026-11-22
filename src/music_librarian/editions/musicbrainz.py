@@ -1,15 +1,9 @@
 """MusicBrainz (musicbrainz.org): the releases of an album, each an edition with its date, country and
 label."""
-import time
-
-import requests
-
-from music_librarian.editions.common import ProviderUnavailable
-from music_librarian.lyrics.common import USER_AGENT
+from music_librarian.editions.common import edition as an_edition, get_json
 
 API = "https://musicbrainz.org/ws/2"
 SITE = "https://musicbrainz.org/release/"
-TIMEOUT = 15
 INTERVAL = 1.0   # MusicBrainz allows a client one request a second
 SEARCHED = 50
 _last = [0.0]
@@ -18,23 +12,7 @@ _last = [0.0]
 def _get(path, params):
     """The JSON MusicBrainz answers `path` with, None for a release it does not know. Raises
     ProviderUnavailable."""
-    delay = _last[0] + INTERVAL - time.monotonic()
-    if delay > 0:
-        time.sleep(delay)
-    _last[0] = time.monotonic()
-    try:
-        r = requests.get(f"{API}/{path}", params={**params, "fmt": "json"},
-                         headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
-    except requests.RequestException as exc:
-        raise ProviderUnavailable(str(exc)) from exc
-    if r.status_code in (400, 404):
-        return None
-    if r.status_code != 200:
-        raise ProviderUnavailable(f"HTTP {r.status_code}")
-    try:
-        return r.json()
-    except ValueError as exc:
-        raise ProviderUnavailable("not JSON") from exc
+    return get_json(f"{API}/{path}", {**params, "fmt": "json"}, _last, INTERVAL)
 
 
 def _phrase(text):
@@ -48,19 +26,14 @@ def edition(release, exact=False):
     names = [li["label"]["name"] for li in labels if (li.get("label") or {}).get("name")]
     media = release.get("media") or []
     credited = release.get("artist-credit") or []
-    return {
-        "title": release.get("title") or "",
-        "artist": "".join(c.get("name", "") + c.get("joinphrase", "") for c in credited),
-        "date": release.get("date") or "",
-        "country": release.get("country") or "",
-        "label": "; ".join(dict.fromkeys(names)),
-        "catalog": next((li["catalog-number"] for li in labels if li.get("catalog-number")), ""),
-        "barcode": release.get("barcode") or "",
-        "tracks": release.get("track-count") or sum(m.get("track-count") or 0 for m in media) or None,
-        "format": "; ".join(dict.fromkeys(m["format"] for m in media if m.get("format"))),
-        "url": SITE + release["id"],
-        "exact": exact,
-    }
+    return an_edition(
+        SITE + release["id"], exact, title=release.get("title"),
+        artist="".join(c.get("name", "") + c.get("joinphrase", "") for c in credited),
+        date=release.get("date"), country=release.get("country"), label="; ".join(dict.fromkeys(names)),
+        catalog=next((li["catalog-number"] for li in labels if li.get("catalog-number")), ""),
+        barcode=release.get("barcode"),
+        tracks=release.get("track-count") or sum(m.get("track-count") or 0 for m in media) or None,
+        format="; ".join(dict.fromkeys(m["format"] for m in media if m.get("format"))))
 
 
 def fetch(album):

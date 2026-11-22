@@ -327,8 +327,8 @@ TRANSLATIONS = {
         "lookup_unavailable": "Les fournisseurs ne répondent pas : réessayez plus tard.",
         "lookup_no_metadata": "Il faut un artiste et un titre pour chercher.",
         "editions_button": "Chercher l'édition",
-        "editions_found": ("{n} éditions sur {source}, celles de ce nombre de morceaux en premier, "
-                           "surlignées : prendre l'année de la vôtre, puis prévisualiser."),
+        "editions_found": "{n} éditions sur {source}, celles de ce nombre de morceaux d'abord, surlignées.",
+        "editions_partly_unavailable": "Rien trouvé ; sans réponse de {names}, réessayez plus tard.",
         "editions_no_metadata": "Il faut un artiste de l'album et un album pour chercher.",
         "editions_release": "Édition",
         "editions_date": "Date",
@@ -816,8 +816,8 @@ TRANSLATIONS = {
         "lookup_unavailable": "The providers do not answer: try again later.",
         "lookup_no_metadata": "An artist and a title are needed to look up.",
         "editions_button": "Look the edition up",
-        "editions_found": ("{n} editions on {source}, those of this number of tracks first, highlighted: "
-                           "take the year of yours, then preview."),
+        "editions_found": "{n} editions on {source}, those of this number of tracks first, highlighted.",
+        "editions_partly_unavailable": "Nothing found; no answer from {names}, try again later.",
         "editions_no_metadata": "An album artist and an album are needed to look up.",
         "editions_release": "Edition",
         "editions_date": "Date",

@@ -3,6 +3,7 @@
 import pytest
 
 from music_librarian import editions, scan
+from music_librarian.editions.common import ProviderUnavailable
 from music_librarian.core.log import Log
 from music_librarian.media import fields
 
@@ -58,6 +59,17 @@ def test_editions_listed_and_nothing_written(d, asked):
 def test_nothing_found(d, monkeypatch):
     monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", lambda album: [])
     assert "Nothing found." in look_up(d)
+
+
+def test_nothing_found_but_a_provider_did_not_answer(d, monkeypatch):
+    def down(_album):
+        raise ProviderUnavailable("down")
+    monkeypatch.setenv("EDITION_PROVIDERS", "musicbrainz,itunes")
+    monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", down)
+    monkeypatch.setitem(editions.PROVIDERS, "itunes", lambda album: [])
+    assert "Nothing found; no answer from MusicBrainz, try again later." in look_up(d)
+    monkeypatch.setitem(editions.PROVIDERS, "itunes", down)
+    assert "The providers do not answer: try again later." in look_up(d)
 
 
 def test_outside_the_library(d, asked):

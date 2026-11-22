@@ -3,7 +3,7 @@
 import logging
 import os
 
-from music_librarian.editions import musicbrainz
+from music_librarian.editions import discogs, itunes, musicbrainz
 from music_librarian.editions.common import ProviderUnavailable
 from music_librarian.lyrics.matching import fold_name
 
@@ -12,9 +12,9 @@ log = logging.getLogger(__name__)
 # A provider takes the album ({"artist", "title", "mbid", "barcode"}) and returns its editions:
 # {"title", "artist", "date", "country", "label", "catalog", "barcode", "tracks", "format", "url",
 # "exact"}, exact when the album's MBID or barcode named it.
-PROVIDERS = {"musicbrainz": musicbrainz.fetch}
-NAMES = {"musicbrainz": "MusicBrainz"}
-DEFAULT_PROVIDER_ORDER = "musicbrainz"
+PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "itunes": itunes.fetch}
+NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "itunes": "iTunes"}
+DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,itunes"
 
 
 def enabled_providers():
@@ -51,19 +51,22 @@ def ranked(editions, album):
 
 
 def look_up(album):
-    """(the editions of `album` ranked, the provider that answered or why none did: "no metadata",
-    "none", "unavailable")."""
+    """(the editions of `album` ranked; the provider that answered, or why none did: "no metadata",
+    "none" when every provider answered without any, "partly unavailable" when the others did, or
+    "unavailable"; the names of the providers that did not answer, in order)."""
     if not (album.get("mbid") or album.get("barcode") or (album.get("artist") and album.get("title"))):
-        return [], "no metadata"
+        return [], "no metadata", []
     providers = enabled_providers()
-    unreachable = 0
+    unreachable = []
     for name, provider in providers:
         try:
             found = provider(album)
         except ProviderUnavailable as exc:
-            unreachable += 1
+            unreachable.append(name)
             log.warning("editions: %s unreachable (%s)", name, exc)
             continue
         if found:
-            return ranked(found, album), name
-    return [], "unavailable" if providers and unreachable == len(providers) else "none"
+            return ranked(found, album), name, unreachable
+    if not unreachable:
+        return [], "none", []
+    return [], "unavailable" if len(unreachable) == len(providers) else "partly unavailable", unreachable

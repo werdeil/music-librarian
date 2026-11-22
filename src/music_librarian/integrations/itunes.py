@@ -17,6 +17,12 @@ INTERVAL = 3.0
 _RELEASE_SUFFIX = re.compile(r"\s+-\s+(single|ep)$", re.IGNORECASE)
 
 
+def same_album(result, artist, album):
+    """True when an iTunes album result is `album` by `artist`, Apple's single and EP suffixes aside."""
+    title = _RELEASE_SUFFIX.sub("", result.get("collectionName") or "")
+    return (fold_name(result.get("artistName")), fold_name(title)) == (fold_name(artist), fold_name(album))
+
+
 class Unavailable(Exception):
     """The API could not be reached or refused the request."""
 
@@ -49,10 +55,8 @@ class Client:
 
     def album_genre(self, artist, album):
         """Apple's primary genre of this album, or None when no result has this artist and title."""
-        want = (fold_name(artist), fold_name(album))
         for result in self.search(artist, album):
-            title = _RELEASE_SUFFIX.sub("", result.get("collectionName") or "")
-            if (fold_name(result.get("artistName")), fold_name(title)) == want:
+            if same_album(result, artist, album):
                 return result.get("primaryGenreName") or None
         return None
 

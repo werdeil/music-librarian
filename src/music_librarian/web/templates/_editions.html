@@ -24,5 +24,5 @@
 </table>
 </div>
 {% else %}
-<p class="muted">{{ t[('editions_' if why == 'no_metadata' else 'lookup_') ~ why] }}</p>
+<p class="muted">{{ t[('editions_' if why in ('no_metadata', 'partly_unavailable') else 'lookup_') ~ why].format(names=unreachable) }}</p>
 {% endif %}
