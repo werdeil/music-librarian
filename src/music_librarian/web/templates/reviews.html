@@ -55,6 +55,10 @@
 {{ card('mixed', t.tile_mixed, t.unit_mixed,
         url_for('album_page', folder=first_mixed, list='mixed', at=0) if first_mixed else none, t.start_fixing,
         links=[(url_for('mixed_albums'), t.mixed_list_link)] if first_mixed else []) }}
+{% elif kind == 'dates' %}
+{{ card('dates', t.tile_dates, t.unit_dates,
+        url_for('album_page', folder=first_dated, list='dates', at=0) if first_dated else none, t.start_fixing,
+        links=[(url_for('dated_albums'), t.mixed_list_link)] if first_dated else []) }}
 {% endif %}
 {% endfor %}
 </div>

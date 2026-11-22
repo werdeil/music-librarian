@@ -125,44 +125,60 @@ def multiple_line(path, root, field, values):
     return f"MULTIPLE {field}: {shown(values)!r}  {relative(path, root)}"
 
 
-def plan(scan, root, state_dir, log, stats):
-    """[(path, field, values, value to write)] under `scan`, through the metadata cache; the fields
-    whose values differ are logged as MULTIPLE."""
-    writes = []
+def snapshots(scan, root, state_dir, log, stats):
+    """(path, snapshot) of each music file under `scan`, through the metadata cache, counted as
+    scanned; an unreadable one is logged and counted as skipped instead."""
     with MetadataCache(state_dir) as cache:
         for p in collect(scan):
             if is_junk(p) or p.suffix.lower() not in AUDIO_EXT:
                 continue
-            values = from_snapshot(cache.snapshot(p))
-            if values is None:
+            snap = cache.snapshot(p)
+            if snap is None:
                 log(f"SKIPPED  (unreadable)  {relative(p, root)}")
                 stats["skipped"] += 1
                 continue
             stats["scanned"] += 1
-            for field, old, new, differ in findings(values):
-                if new is not None:
-                    log(f"REPEAT   {field}: {shown(old)!r} → {new!r}  {relative(p, root)}")
-                    writes.append((p, field, old, new))
-                if differ:
-                    log(multiple_line(p, root, field, [new] if new is not None else old))
-                    stats["to decide"] += 1
+            yield p, snap
+
+
+def plan(scan, root, state_dir, log, stats):
+    """[(path, field, values, value to write)] under `scan`, through the metadata cache; the fields
+    whose values differ are logged as MULTIPLE."""
+    writes = []
+    for p, snap in snapshots(scan, root, state_dir, log, stats):
+        for field, old, new, differ in findings(from_snapshot(snap)):
+            if new is not None:
+                log(f"REPEAT   {field}: {shown(old)!r} → {new!r}  {relative(p, root)}")
+                writes.append((p, field, old, new))
+            if differ:
+                log(multiple_line(p, root, field, [new] if new is not None else old))
+                stats["to decide"] += 1
     return writes
 
 
-def repeats_pass(opts, log):
-    """A repeats pass over `opts` (a split.library.CreditOptions), without taking the lock: the
-    caller holds it when `opts.apply`."""
+def tag_pass(opts, log, what, planned, summary):
+    """A pass over `opts` (a split.library.CreditOptions) writing the tags `planned` (scan, root,
+    state_dir, log, stats) returns for credit_tags.rewrite_tags, without taking the lock: the caller
+    holds it when `opts.apply`. `what` heads its first line, `summary` (title, stats shown) ends it."""
     started = time.time()
-    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] repeated values: {', '.join(map(str, opts.scan))}")
+    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] {what}: {', '.join(map(str, opts.scan))}")
     stats = defaultdict(int)
-    writes = plan(opts.scan, opts.root, opts.state_dir, log, stats)
+    writes = planned(opts.scan, opts.root, opts.state_dir, log, stats)
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped = opts.apply and credit_tags.rewrite_tags(writes, journal, log, stats)
     journal.close()
 
     stats["tags to rewrite"] = len(writes)
-    log("\n--- Repeats summary ---")
-    for k in ("scanned", "tags to rewrite", "rewritten", "to decide", "skipped", "errors"):
+    title, shown_stats = summary
+    log(f"\n--- {title} summary ---")
+    for k in shown_stats:
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
     return finish(journal, opts.root, log, stats, stopped)
+
+
+def repeats_pass(opts, log):
+    """A repeats pass over `opts` (a split.library.CreditOptions), as tag_pass runs it."""
+    return tag_pass(opts, log, "repeated values", plan,
+                    ("Repeats", ("scanned", "tags to rewrite", "rewritten", "to decide", "skipped",
+                                 "errors")))

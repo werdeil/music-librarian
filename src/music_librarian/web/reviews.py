@@ -34,14 +34,14 @@ from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
                                          names_of, resolve, suggest)
 from music_librarian.web.common import timed
-from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_files, part, with_mixed,
-                                         without_lyrics)
+from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_files, part, with_dates,
+                                         with_mixed, without_lyrics)
 
 
 LATER = "review-later.json"
 SWITCHED_OFF = "reviews-off.json"
 REVIEWS = ("split", "dedupe", "genres")
-KINDS = (*REVIEWS, "lyrics", "mixed")
+KINDS = (*REVIEWS, "lyrics", "mixed", "dates")
 
 
 def quiet(_msg):
@@ -313,17 +313,18 @@ class SwitchedOff:
 
 def register(app, ctx, index, later):
     """Add the review pages to the app; return the function that counts the questions awaiting
-    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n, "mixed": n} without the reviews
-    switched off, n None until its queue (for the lyrics and the mixed albums, the album list of
-    `index`, a library.Index) is first built (counted once per request), and the queues, Refreshed
-    values. `later` is the Postponed the questions put off are kept in."""
+    an answer, {"split": n, "dedupe": n, "genres": n, "lyrics": n, "mixed": n, "dates": n} without the
+    reviews switched off, n None until its queue (for the lyrics, the mixed albums and the years, the
+    album list of `index`, a library.Index) is first built (counted once per request), and the
+    queues, Refreshed values. `later` is the Postponed the questions put off are kept in."""
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
     switched_off = SwitchedOff(ctx.state_dir)
     counts = dict(split=lambda _albums: reviews.credit()[1], dedupe=lambda _albums: reviews.group()[1],
                   genres=lambda _albums: genre_review.item()[1],
                   lyrics=lambda albums: None if albums is None else sum(a.without_lyrics for a in albums),
-                  mixed=lambda albums: None if albums is None else sum(bool(a.mixed) for a in albums))
+                  mixed=lambda albums: None if albums is None else sum(bool(a.mixed) for a in albums),
+                  dates=lambda albums: None if albums is None else sum(bool(a.dates) for a in albums))
 
     def everything():
         if "waiting" not in g:
@@ -342,6 +343,7 @@ def register(app, ctx, index, later):
         albums = index.get()
         bare = without_lyrics(albums, later.times("lyrics")) if albums else []
         mixed = with_mixed(albums) if albums else []
+        dated = with_dates(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         off = switched_off.get()
         order = sorted(KINDS, key=lambda kind: (kind in off, not left.get(kind), -(left.get(kind) or 0)))
@@ -349,6 +351,7 @@ def register(app, ctx, index, later):
                                genre_list=genre_review.mapping() is not None,
                                lyrics_albums=len(bare), first_bare=bare[0].folder if bare else None,
                                mixed_albums=len(mixed), first_mixed=mixed[0].folder if mixed else None,
+                               dated_albums=len(dated), first_dated=dated[0].folder if dated else None,
                                list_path=genre_review.path,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),

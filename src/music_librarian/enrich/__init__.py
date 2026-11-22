@@ -12,6 +12,8 @@ Each tool only handles what is missing or off:
   - lyrics:     enrich/lyrics.py, only the files without lyrics (this is what
                 catches lyrics published after the import; --no-lyrics to leave
                 them, the slowest tool as it looks each file up online);
+  - dates:      dates.py, a whole date cut down to its year, the original and
+                recording dates removed (--no-dates to leave them);
   - repeats:    repeats.py, the fields holding a value twice or several values,
                 before split, which leaves those alone (--no-repeats to leave them);
   - split:      split/, the credits holding several names, decisions taken in
@@ -27,7 +29,7 @@ The lock is held: no organize or import while tags are being rewritten.
 
 A dry run reads only the metadata cache and the library's folders, never the
 network nor ffmpeg, each tool once over the whole library: what is decided
-locally (genres from the list, covers, repeats, split, dedupe) is shown change by change,
+locally (genres from the list, covers, dates, repeats, split, dedupe) is shown change by change,
 what needs a lookup or a measure (iTunes genres, ReplayGain, lyrics) is counted,
 with the time the pass applied would take, tool by tool.
 
@@ -54,7 +56,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_librarian import dedupe, repeats, scan, split
+from music_librarian import dates, dedupe, repeats, scan, split
 from music_librarian.core import arguments
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, STOP, Locked, handle_stop_signals, locked
 from music_librarian.core.log import Log, count
@@ -107,6 +109,7 @@ class Options:
     state_dir: Path = field(default_factory=state_path)
     batch: int = BATCH
     rescan: bool = False
+    dates: bool = True
     repeats: bool = True
     split: bool = True
     dedupe: bool = True
@@ -131,6 +134,8 @@ def main(argv=None):
     ap.add_argument("--no-replaygain", action="store_true", help="without measuring the missing gains")
     ap.add_argument("--no-covers", action="store_true", help="without embedding folder.jpg")
     ap.add_argument("--no-lyrics", action="store_true", help="without looking the lyrics up")
+    ap.add_argument("--no-dates", action="store_true",
+                    help="without cutting the dates down to their year nor removing the other dates")
     ap.add_argument("--no-repeats", action="store_true",
                     help="without rewriting the fields holding a value twice")
     ap.add_argument("--no-split", action="store_true", help="without splitting the credits")
@@ -140,7 +145,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     opts = Options(root=args.root, apply=args.apply, state_dir=state_path(args.state_dir),
                    batch=args.batch, rescan=args.rescan,
-                   repeats=not args.no_repeats, split=not args.no_split,
+                   dates=not args.no_dates, repeats=not args.no_repeats, split=not args.no_split,
                    dedupe=not args.no_dedupe,
                    left_out=frozenset(name for name in TOOLS if getattr(args, f"no_{name}")))
     log = Log(args.syslog)
@@ -280,8 +285,8 @@ def enrich_all(opts, log):
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] enriching {opts.root}: "
         f"{count(len(dirs), 'folder')}, {count(len(batches), 'batch', 'batches')}")
     steps = [name for name, _cmd in enrichers() if name not in opts.left_out]
-    steps += [name for name, wanted in (("repeats", opts.repeats), ("split", opts.split),
-                                        ("dedupe", opts.dedupe)) if wanted]
+    steps += [name for name, wanted in (("dates", opts.dates), ("repeats", opts.repeats),
+                                        ("split", opts.split), ("dedupe", opts.dedupe)) if wanted]
     failed, estimated = [], {}
     for name, cmd in enrichers():
         if name in opts.left_out:
@@ -296,6 +301,7 @@ def enrich_all(opts, log):
         if outcome[1]:
             estimated[name] = outcome[1]
     for name, wanted, tag_pass, pass_options in (
+            ("dates", opts.dates, dates.dates_pass, CreditOptions),
             ("repeats", opts.repeats, repeats.repeats_pass, CreditOptions),
             ("split", opts.split, split.split_pass, split.Options),
             ("dedupe", opts.dedupe, dedupe.dedupe_pass, dedupe.Options)):

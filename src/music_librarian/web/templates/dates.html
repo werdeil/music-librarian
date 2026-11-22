@@ -1,0 +1,8 @@
+{% extends "_work_page.html" %}
+{% set list_name, endpoint = 'dates', 'dated_albums' %}
+{% block heading %}{{ t.dates_title }}{% endblock %}
+{% block intro %}{{ t.dates_page_intro }}{% endblock %}
+{% block count %}{{ count }}{% endblock %}
+{% block unit %}{{ t.unit_dates }}{% endblock %}
+{% block empty %}{{ t.dates_none }}{% endblock %}
+{% block detail %}{% for name in album.dates %}{{ t['dates_' ~ name] }}{{ ', ' if not loop.last }}{% endfor %}{% endblock %}

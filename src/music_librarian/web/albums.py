@@ -7,8 +7,9 @@ from urllib.parse import parse_qsl, urlencode
 from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.datastructures import MultiDict
 
-from music_librarian import cover, repeats, tag
+from music_librarian import cover, editions, repeats, tag
 from music_librarian.core import runs
+from music_librarian.core.files import AUDIO_EXT, is_junk
 from music_librarian.core.lock import EXIT_LOCKED
 from music_librarian.enrich import lyrics as enrich_lyrics
 from music_librarian.lyrics import INSTRUMENTAL, awaited
@@ -104,6 +105,8 @@ def register(app, ctx, index, later):
             return library.with_repeats(everything)
         if name == "mixed":
             return library.with_mixed(everything)
+        if name == "dates":
+            return library.with_dates(everything)
         return library.without_lyrics(everything, later.times("lyrics"))
 
     def warm(*rels):
@@ -173,6 +176,9 @@ def register(app, ctx, index, later):
             counted = catalog.album(rel) if catalog else None
             if not sorted_out or (counted and counted.without_lyrics):
                 index.settle(rel, sorted_out)
+            found = library.reread_album(tracks)
+            if counted and any(getattr(counted, name) != value for name, value in found.items()):
+                index.note(rel, found)
             work = in_work_list(rel, sorted_out)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                spread=library.spread(tracks),
@@ -221,6 +227,16 @@ def register(app, ctx, index, later):
         albums = library.with_mixed(everything)
         shown, page, pages = paged(albums, library.PAGE)
         return render_template("mixed.html", albums=shown, offset=(page - 1) * library.PAGE,
+                               count=len(albums), page=page, pages=pages)
+
+    @app.get("/library/dates")
+    def dated_albums():
+        everything = index.get()
+        if everything is None:
+            return render_template("dates.html", building=True)
+        albums = library.with_dates(everything)
+        shown, page, pages = paged(albums, library.PAGE)
+        return render_template("dates.html", albums=shown, offset=(page - 1) * library.PAGE,
                                count=len(albums), page=page, pages=pages)
 
     @app.get("/library/repeats")
@@ -322,6 +338,23 @@ def register(app, ctx, index, later):
             key = "lookup_instrumental" if text == INSTRUMENTAL else "lookup_found"
             message = t[key].format(source=PROVIDERS.get(source, source))
         return jsonify(text=text, message=message)
+
+    @app.post("/library/album/editions")
+    def look_up_editions():
+        """The editions the providers know of an album of the dashboard, looked up with the album artist
+        and album typed in its form, as an HTML fragment for its page. Writes nothing."""
+        folder = library.album_folder(ctx.root, request.form.get("folder", ""))
+        if folder is None:
+            abort(404)
+        if ctx.requests is None:
+            abort(403)
+        snapshots = [tags.read_snapshot(p) for p in sorted(folder.iterdir())
+                     if p.is_file() and p.suffix.lower() in AUDIO_EXT and not is_junk(p)]
+        album = editions.album_of(snapshots, {"artist": request.form.get("albumartist", ""),
+                                              "title": request.form.get("album", "")})
+        found, source = editions.look_up(album)
+        return render_template("_editions.html", editions=found, source=editions.NAMES.get(source),
+                               why=None if found else source.replace(" ", "_"))
 
     def track_meta(rel, path):
         """The track's metadata as the album list holds it, read from the file when it holds none."""

@@ -1610,6 +1610,15 @@ table.tracks .lyrics-row input[type="checkbox"] {
     color: var(--text-muted);
 }
 
+.editions tr.edition-match td {
+    color: var(--text-bright);
+    font-weight: 600;
+}
+
+.edition-exact {
+    color: var(--ok);
+}
+
 .environment {
     margin-top: 1.8rem;
     color: var(--text-muted);

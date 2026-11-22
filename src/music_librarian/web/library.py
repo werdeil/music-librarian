@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclass_field, replace
 from pathlib import Path
 
-from music_librarian import repeats
+from music_librarian import dates, repeats
 from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.lyrics import INSTRUMENTAL, awaited, is_instrumental
 from music_librarian.media import fields, metadata_cache, tags
@@ -47,6 +47,7 @@ class Album:  # pylint: disable=too-many-instance-attributes  # one per column t
     changed: float = 0  # the folder's mtime: when a track was last added, removed or renamed in it
     awaited: int = 0
     mixed: tuple = ()   # the album fields whose tracks differ
+    dates: tuple = ()   # what is wrong with its tracks' years, as dates.problems() tells
 
 
 SORTS = {
@@ -88,6 +89,14 @@ def with_awaited(catalog, marked):
               if a.folder in names else a for a in catalog.albums]
     tracks = [flagged.get(id(t), t) for t in catalog.tracks] if flagged else catalog.tracks
     return Catalog(albums, tracks, catalog.bare, dict(names), catalog.started)
+
+
+def with_reread(catalog, reread):
+    """The catalog with the albums of `reread` ({folder: {Album field: value}}) holding those values."""
+    if not reread:
+        return catalog
+    albums = [replace(a, **reread[a.folder]) if a.folder in reread else a for a in catalog.albums]
+    return Catalog(albums, catalog.tracks, catalog.bare, catalog.awaited, catalog.started)
 
 
 def with_settled(catalog, settled):
@@ -149,6 +158,20 @@ def album_values(track):
     return {"albumartist": first(track, "albumartist", "album artist"), "album": first(track, "album"),
             "year": first(track, "date", "year"), "genre": first(track, "genre"),
             "disctotal": total, "compilation": "1" if first(track, "compilation") == "1" else ""}
+
+
+def as_tags(values):
+    """A track's fields.read_all() values as the cached tags that album_values() reads."""
+    return {"albumartist": values["albumartist"], "album": values["album"], "date": values["year"],
+            "genre": values["genre"], "discnumber": values["disc"], "disctotal": values["disctotal"],
+            "compilation": values["compilation"]}
+
+
+def reread_album(tracks):
+    """{Album field: value} of the album fields that tracks_of() `tracks`, read from the files, give
+    as the album list builds them from the cache: mixed, dates."""
+    held = [as_tags(values) for _, values in tracks if values]
+    return {"mixed": mixed_fields(held), "dates": dates.problems([first(t, "date", "year") for t in held])}
 
 
 def mixed_fields(held):
@@ -292,13 +315,15 @@ class Index:
     """The albums of the metadata cache, one per folder holding tracks, and their tracks, rebuilt
     when the cache changes. A file gone from the library since it was cached is left out. The
     awaited tracks are laid over the last build whenever their file changes, without a rebuild, and
-    so are the albums whose page found no track left to sort out (see settle)."""
+    so are the albums whose page found no track left to sort out (see settle), and the album fields
+    their page found differing and the problems it found with their years (see reread)."""
 
     def __init__(self, root: Path, state_dir: Path):
         self.root, self.state_dir = root, state_dir
         self.albums = Refreshed(lambda: (cache_stamp(state_dir),), self._build)
         self.marked, self.lock = None, threading.Lock()   # (build, what is laid over, Catalog laid over)
         self.settled = {}   # {folder: time.monotonic() its page found nothing to sort out}
+        self.reread = {}   # {folder: (time.monotonic() its page read its files, {Album field: value})}
 
     def settle(self, rel, settled):
         """Note whether the page of the album `rel`, read from its files, found no track left to sort
@@ -308,6 +333,12 @@ class Index:
                 self.settled[rel] = time.monotonic()
             else:
                 self.settled.pop(rel, None)
+
+    def note(self, rel, found):
+        """Note what the page of the album `rel` found reading its files, {Album field: value} (mixed,
+        dates): until a build started after the note, the album holds those values."""
+        with self.lock:
+            self.reread[rel] = time.monotonic(), found
 
     def get(self):
         """The albums, [] without a cache, None until they are first built."""
@@ -322,10 +353,13 @@ class Index:
         stamp = awaited_stamp(self.state_dir)
         with self.lock:
             self.settled = {rel: at for rel, at in self.settled.items() if at > built.started}
-            over = stamp, frozenset(self.settled)
+            self.reread = {rel: seen for rel, seen in self.reread.items() if seen[0] > built.started}
+            reread = {rel: found for rel, (_, found) in self.reread.items()}
+            over = stamp, frozenset(self.settled), tuple(sorted((rel, tuple(sorted(found.items())))
+                                                                for rel, found in reread.items()))
             if self.marked is None or self.marked[0] is not built or self.marked[1] != over:
                 laid = with_awaited(built, awaited.Awaited(self.state_dir))
-                self.marked = built, over, with_settled(laid, over[1])
+                self.marked = built, over, with_reread(with_settled(laid, over[1]), reread)
             return self.marked[2]
 
     def _build(self):
@@ -359,7 +393,8 @@ class Index:
             year = next((y[:4] for t in held if (y := first(t, "date", "year"))), "")
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
-                                year, folder_changed(folder), mixed=mixed_fields(held)))
+                                year, folder_changed(folder), mixed=mixed_fields(held),
+                                dates=dates.problems([first(t, "date", "year") for t in held])))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
@@ -481,6 +516,11 @@ def album_repeats(repeated):
 def with_mixed(albums):
     """The albums whose tracks differ on an album field, those differing on the most fields first."""
     return sorted((a for a in albums if a.mixed), key=lambda a: (-len(a.mixed), a.folder))
+
+
+def with_dates(albums):
+    """The albums whose tracks' years break the rule of dates, those with the most problems first."""
+    return sorted((a for a in albums if a.dates), key=lambda a: (-len(a.dates), a.folder))
 
 
 def with_repeats(albums):

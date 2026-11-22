@@ -10,10 +10,11 @@ import os
 import re
 
 import mutagen
-from mutagen.id3 import APIC, TXXX, USLT
+from mutagen.id3 import APIC, ID3, TDOR, TXXX, USLT
+from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC, Picture
 from mutagen.easymp4 import EasyMP4Tags
-from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
+from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm, MP4Tags
 from mutagen.mp3 import MP3
 from mutagen.aiff import AIFF
 from mutagen.wave import WAVE
@@ -47,6 +48,10 @@ class ReplayGainTagError(Exception):
 
 class GenreTagError(Exception):
     """A user-facing failure while writing the genre."""
+
+
+class DateTagError(Exception):
+    """A user-facing failure while reading or writing the dates other than the year."""
 
 
 def lrc_to_plain(text):
@@ -366,6 +371,91 @@ def replace_replaygain(path, pairs):
         raise ReplayGainTagError(f"write failed: {exc}") from exc
 
 
+# the dates other than the year: a FLAC tag, an MP4 freeform or a TXXX of these names, TDOR and TRDA,
+# and a FLAC YEAR beside a DATE
+_OTHER_DATES = {"originaldate", "originalyear", "recordingdate"}
+
+
+def _other_date_keys(audio):
+    """{name as other_dates() shows it: the key it is held under} in the opened file `audio`."""
+    t = audio.tags
+    if t is None:
+        return {}
+    if isinstance(audio, MP4):
+        return {k[len(_MP4_FREEFORM):]: k for k in t.keys()
+                if k.startswith(_MP4_FREEFORM) and k[len(_MP4_FREEFORM):].lower() in _OTHER_DATES}
+    if isinstance(audio, MP3):
+        return {k: k for k in t.keys()
+                if k == "TDOR" or (k.startswith("TXXX:") and k[5:].lower() in _OTHER_DATES)}
+    if isinstance(audio, FLAC):
+        names = {k.lower() for k in t.keys()}
+        return {k: k for k in names if k in _OTHER_DATES or (k == "year" and "date" in names)}
+    return None
+
+
+def _other_date_values(audio, key):
+    if isinstance(audio, MP4):
+        return _freeform_text(audio.tags[key])
+    if isinstance(audio, MP3):
+        return [str(v) for v in audio.tags[key].text]
+    return list(audio.tags[key])
+
+
+def other_dates(path):
+    """["NAME=value"] of the dates `path` holds besides the year, by name: TDOR, TXXX:<name> and
+    TRDA in MP3, the freeform name in MP4, the tag's in FLAC. Raises DateTagError."""
+    audio = mutagen.File(path)
+    keys = None if audio is None else _other_date_keys(audio)
+    if keys is None:
+        raise DateTagError("unsupported format for dates")
+    out = [f"{name}={v}" for name, key in keys.items() for v in _other_date_values(audio, key) if v.strip()]
+    if isinstance(audio, MP3) and audio.tags is not None and audio.tags.version < (2, 4, 0):
+        out += [f"TRDA={v}" for f in _untranslated(path).getall("TRDA") for v in f.text if str(v).strip()]
+    return sorted(out, key=str.lower)
+
+
+def replace_other_dates(path, pairs):
+    """Remove every date other_dates() reads from `path`, then write `pairs` [(name, value)] back.
+    TRDA cannot be written back, ID3v2.4 having no such frame: the rest is, then DateTagError raised."""
+    try:
+        audio = mutagen.File(path)
+        keys = None if audio is None else _other_date_keys(audio)
+        if keys is None:
+            raise DateTagError("unsupported format for dates")
+        if audio.tags is None:
+            audio.add_tags()
+        for key in keys.values():
+            del audio.tags[key]
+        lost = [value for name, value in pairs if name == "TRDA"]
+        held = {}
+        for name, value in pairs:
+            if name != "TRDA":
+                held.setdefault(name, []).append(value)
+        for name, values in held.items():
+            _write_other_date(audio, name, values)
+        audio.save()
+    except DateTagError:
+        raise
+    except Exception as exc:
+        raise DateTagError(f"write failed: {exc}") from exc
+    if lost:
+        raise DateTagError(f"TRDA {', '.join(lost)} cannot be written back: ID3v2.4 has no such frame")
+
+
+def _write_other_date(audio, name, values):
+    bare = name[5:] if name.startswith("TXXX:") else name
+    flac_year = name == "year" and isinstance(audio, FLAC)
+    if bare.lower() not in _OTHER_DATES and name != "TDOR" and not flac_year:
+        raise DateTagError(f"not a date other than the year: {name!r}")
+    if isinstance(audio, MP3):
+        audio.tags.add(TDOR(encoding=3, text=values) if name == "TDOR"
+                       else TXXX(encoding=3, desc=bare, text=values))
+    elif isinstance(audio, MP4):
+        audio.tags[_MP4_FREEFORM + name] = [MP4FreeForm(v.encode()) for v in values]
+    else:
+        audio[name] = values
+
+
 def _mp4_compilation(tags, key):
     cpil = tags.get("cpil")
     if isinstance(cpil, list):
@@ -383,13 +473,73 @@ if "composer" not in EasyMP4Tags.Get:
 
 # lyrics and embedded pictures are kept as a flag and a hash, never as text
 _BULKY = {"lyrics", "unsyncedlyrics", "metadata_block_picture", "coverart"}
+# the names the library's own fields are read under: a freeform or TXXX tag never fills one
+_OWN = {"title", "artist", "albumartist", "album artist", "album", "tracknumber", "tracktotal",
+        "totaltracks", "discnumber", "disctotal", "totaldiscs", "discsubtitle", "setsubtitle",
+        "grouping", "date", "year", "genre", "composer", "compilation", "musicbrainz_albumartistid",
+        "musicbrainz_artistid"}
+
+
+def _written_by(easy_set, blank):
+    """The frames or atoms the setters of an easy view write."""
+    out = set()
+    for key, setter in easy_set.items():
+        tags = blank()
+        try:
+            setter(tags, key, ["1"])
+        except Exception:
+            continue
+        out |= set(tags.keys())
+    return out
+
+
+_EASY_ATOMS = _written_by(EasyMP4Tags.Set, MP4Tags)
+_EASY_FRAMES = _written_by(EasyID3.Set, ID3)
+
+
+def _freeform_text(values):
+    out = []
+    for v in values:
+        try:
+            out.append(bytes(v).decode("utf-8"))
+        except UnicodeDecodeError:
+            pass
+    return out
+
+
+def _untranslated(path):
+    try:
+        return ID3(path, translate=False)
+    except Exception:
+        return ID3()
+
+
+def _raw_tags(path, audio):
+    """{name: [values]} of the freeform MP4 atoms and the MP3 TXXX and TRDA frames the easy view
+    leaves out, each under its name in lower case, TRDA as "trda"."""
+    found = []
+    if isinstance(audio, MP4) and audio.tags:
+        found = [(key.split(":", 2)[2], _freeform_text(values)) for key, values in audio.tags.items()
+                 if key.startswith("----:") and key not in _EASY_ATOMS and key.count(":") >= 2]
+    elif isinstance(audio, MP3) and audio.tags:
+        found = [(frame.desc, [str(v) for v in frame.text]) for key, frame in audio.tags.items()
+                 if key.startswith("TXXX:") and key not in _EASY_FRAMES]
+        if audio.tags.version < (2, 4, 0):   # mutagen drops TRDA when it reads a tag as ID3v2.4
+            found += [("trda", [str(v) for v in f.text]) for f in _untranslated(path).getall("TRDA")]
+    out = {}
+    for name, values in found:
+        name, values = name.lower(), [v for v in values if v.strip()]
+        if name and name not in _OWN and name not in _BULKY and values:
+            out.setdefault(name, []).extend(values)
+    return out
 
 
 def read_snapshot(path):
     """Everything the tools check in one read, or None if the file is unreadable.
 
-    {"tags": {easy key: [str]}, "duration": seconds or None, "lyrics": bool,
-     "replaygain": bool, "cover": SHA-1 hex of the embedded cover or None,
+    {"tags": {easy key, or the lower-case name of a freeform MP4 or TXXX tag: [str]},
+     "duration": seconds or None, "lyrics": bool, "replaygain": bool,
+     "cover": SHA-1 hex of the embedded cover or None,
      "leading_mdat": bool, true for an MP4 file whose moov atom comes after mdat}
     """
     try:
@@ -406,6 +556,8 @@ def read_snapshot(path):
         found.pop("grouping", None)
         if audio.tags and audio.tags.get("GRP1"):
             found["grouping"] = [str(v) for v in audio.tags["GRP1"].text]
+    for name, values in _raw_tags(path, audio).items():
+        found[name] = found.get(name, []) + [v for v in values if v not in found.get(name, [])]
     return {
         "tags": found,
         "duration": getattr(getattr(audio, "info", None), "length", None),

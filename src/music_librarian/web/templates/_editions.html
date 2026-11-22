@@ -1,0 +1,28 @@
+{% if editions %}
+<p class="muted">{{ t.editions_found.format(n=editions | length, source=source) }}</p>
+<div class="table-wrap">
+<table class="editions">
+    <thead><tr><th>{{ t.field_year }}</th><th>{{ t.editions_release }}</th><th>{{ t.editions_date }}</th>
+        <th>{{ t.editions_country }}</th><th>{{ t.editions_label }}</th><th>{{ t.editions_tracks }}</th>
+        <th>{{ t.format }}</th><th></th></tr></thead>
+    <tbody>
+    {% for e in editions %}
+        <tr{% if e.matches %} class="edition-match"{% endif %}>
+            <td>{{ e.year }}</td>
+            <td><a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title }}</a>
+                <span class="muted">{{ e.artist }}</span>
+                {% if e.exact %}<span class="edition-exact" title="{{ t.editions_exact }}">✓</span>{% endif %}</td>
+            <td>{{ e.date }}</td>
+            <td>{{ e.country }}</td>
+            <td>{{ e.label }}{% if e.catalog %} <span class="muted">{{ e.catalog }}</span>{% endif %}</td>
+            <td>{{ e.tracks or '' }}</td>
+            <td>{{ e.format }}</td>
+            <td>{% if e.year %}<button type="button" data-pick-year="{{ e.year }}">{{ t.editions_pick.format(year=e.year) }}</button>{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">{{ t[('editions_' if why == 'no_metadata' else 'lookup_') ~ why] }}</p>
+{% endif %}

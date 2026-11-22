@@ -12,6 +12,7 @@ import pytest
 from music_librarian import scan
 from music_librarian.core.log import Log
 from music_librarian.dedupe import aliases
+from music_librarian.media import fields
 from music_librarian.split import decisions
 from music_librarian.web import app as web
 from music_librarian.web import library, reviews
@@ -32,6 +33,8 @@ def lib(tmp_path, make_track):
     for i in range(2):
         make_track(root / f"Beyoncé/Lemonade/0{i} T.m4a", title="T", artist="Beyoncé", albumartist="Beyoncé")
     make_track(root / "Beyonce/Single/01 T.mp3", title="T", artist="Beyonce", albumartist="Beyonce")
+    for track in root.rglob("*.*"):
+        fields.write(str(track), "year", ["1978"])
     scan.run(root, tmp_path / "state", Log())
     return root
 

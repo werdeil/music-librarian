@@ -180,7 +180,8 @@ def create_app(ctx: Context, build_now=False):
         return dict(todo=todo, switched_off=set(reviews.KINDS) - set(todo),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,
-                    first_mixed=next((a.folder for a in library.with_mixed(everything or [])), None))
+                    first_mixed=next((a.folder for a in library.with_mixed(everything or [])), None),
+                    first_dated=next((a.folder for a in library.with_dates(everything or [])), None))
 
     @app.get("/tiles")
     def tiles_fragment():

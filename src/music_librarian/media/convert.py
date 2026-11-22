@@ -43,7 +43,11 @@ NUMBERS = {"tracknumber", "tracktotal", "totaltracks", "discnumber", "disctotal"
 def copy_tags(flac: FLAC, mp4: MP4):
     t = flac.tags or {}
     keys = {k.lower(): t[k] for k in t.keys()}
+    if "date" not in keys and "year" in keys:
+        mp4.tags["\xa9day"] = list(keys["year"])
     for k, v in keys.items():
+        if k == "year":
+            continue
         if k in MP4_TEXT:
             mp4.tags[MP4_TEXT[k]] = list(mp4.tags.get(MP4_TEXT[k], [])) + list(v)
         elif k not in NUMBERS and not k.startswith("replaygain_"):
