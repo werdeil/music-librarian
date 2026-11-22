@@ -7,6 +7,7 @@ import pytest
 from music_librarian import deezer, enrich, importer, organize, watch
 from music_librarian.core.log import Log
 from music_librarian.web import app as web
+from music_librarian.web import deezer as web_deezer
 from music_librarian.web.passes import Requests, passes
 
 EN, FR = {"Accept-Language": "en"}, {"Accept-Language": "fr"}
@@ -130,3 +131,80 @@ def test_the_license_token_is_never_written(tmp_path, monkeypatch, capsys):
     for path in written:
         assert b"dummy-license-secret" not in path.read_bytes(), path
         assert b"dummy-arl-value" not in path.read_bytes(), path
+
+
+ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+KEY = "dummy-extension-key"
+
+
+@pytest.fixture
+def extension(monkeypatch, configured):  # pylint: disable=unused-argument
+    monkeypatch.setenv("DEEZER_EXTENSION_KEY", KEY)
+    monkeypatch.setenv("DEEZER_EXTENSION_ORIGIN", ORIGIN)
+
+
+def ext(client, method, path, key=KEY, origin=ORIGIN, headers=None, **kwargs):
+    headers = {"Origin": origin, **({"Authorization": f"Bearer {key}"} if key else {}), **(headers or {})}
+    return client.open(path, method=method, headers=headers, **kwargs)
+
+
+@pytest.mark.usefixtures("configured")
+def test_the_extension_routes_are_off_without_a_key(ctx):
+    client = web.create_app(ctx).test_client()
+    assert ext(client, "GET", "/deezer/ext/health").status_code == 404
+    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"}).status_code == 404
+
+
+@pytest.mark.usefixtures("extension")
+def test_the_extension_needs_its_origin_and_its_key(ctx):
+    client = web.create_app(ctx).test_client()
+    assert ext(client, "GET", "/deezer/ext/health", origin="https://evil.example").status_code == 403
+    assert ext(client, "GET", "/deezer/ext/health", key=None).status_code == 401
+    assert ext(client, "GET", "/deezer/ext/health", key="wrong").status_code == 401
+    answer = ext(client, "GET", "/deezer/ext/health")
+    assert answer.status_code == 200 and answer.json == {"status": "ok", "enabled": True, "apply": True}
+    assert answer.headers["Access-Control-Allow-Origin"] == ORIGIN
+    assert ext(client, "GET", "/deezer/ext/health", headers={"Host": "evil.example.com"}).status_code == 403
+
+
+@pytest.mark.usefixtures("extension")
+def test_a_preflight_is_answered_for_the_origin_only(ctx):
+    client = web.create_app(ctx).test_client()
+    answer = ext(client, "OPTIONS", "/deezer/ext/request", key=None)
+    assert answer.status_code == 204
+    assert answer.headers["Access-Control-Allow-Origin"] == ORIGIN
+    assert "Authorization" in answer.headers["Access-Control-Allow-Headers"]
+    elsewhere = ext(client, "OPTIONS", "/deezer/ext/request", key=None, origin="https://evil.example")
+    assert elsewhere.status_code == 403
+
+
+@pytest.mark.usefixtures("extension")
+def test_the_extension_queues_a_download_and_follows_it(ctx):
+    client = web.create_app(ctx).test_client()
+    answer = ext(client, "POST", "/deezer/ext/request",
+                 json={"kind": "playlist", "id": "908622995",
+                       "license_token": "dummy-token-from-the-browser"})
+    assert answer.status_code == 201
+    (asked,) = ctx.requests.pending()
+    assert answer.json == {"id": asked.id}
+    assert asked.options == {"kind": "playlist", "ids": ["908622995"], "complete_only": False} and asked.apply
+    assert asked.license_token == "dummy-token-from-the-browser"
+    state = ext(client, "GET", f"/deezer/ext/request/{asked.id}")
+    assert state.json == {"state": "queued", "code": None, "done": 0, "total": 0, "step": ""}
+    assert ext(client, "GET", "/deezer/ext/request/999").status_code == 404
+
+
+@pytest.mark.usefixtures("extension")
+def test_the_extension_is_refused_what_the_dashboard_is(ctx):
+    client = web.create_app(ctx).test_client()
+    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "track", "id": "1"}).status_code == 400
+    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "x"}).status_code == 400
+    ctx.apply = False
+    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"}).status_code == 403
+    assert not ctx.requests.pending()
+
+
+def test_tracks_done():
+    lines = ["[APPLY] inbox: /x", "ALBUM    A - B (3 tracks)", "DOWNLOAD One as FLAC", "SKIPPED  Two: no",
+             "PLAYLIST Mix (1 track)", "WARNING  cover"]
+    assert web_deezer.tracks_done(lines) == (2, 4)

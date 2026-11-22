@@ -1,6 +1,7 @@
 # Lint and tests on every pull request and every push to main.
-#   lint  : pylint (rules and exceptions documented in pyproject.toml), and ESLint
-#           on the dashboard's scripts (eslint.config.mjs);
+#   lint  : pylint (rules and exceptions documented in pyproject.toml), ESLint on the
+#           dashboard's scripts (eslint.config.mjs), and the Chrome extension's manifest,
+#           locales and scripts (extensions/chrome);
 #   tests : pytest on the GitHub runner (Ubuntu's ffmpeg), fast;
 #   image : the tests rerun in the container (the Dockerfile's test stage),
 #           then the image build, which checks the tools (a file really gets
@@ -37,6 +38,10 @@ jobs:
         with:
           node-version: "24"
       - run: npx --yes eslint@9 src/music_librarian/web/static/*.js
+      - name: Chrome extension
+        run: |
+          node .github/scripts/check-extension.mjs extensions/chrome
+          npx --yes eslint@9 --config extensions/chrome/eslint.config.mjs --max-warnings 0 extensions/chrome
 
   tests:
     runs-on: ubuntu-latest

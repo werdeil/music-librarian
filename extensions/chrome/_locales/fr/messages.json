@@ -1,0 +1,148 @@
+{
+  "extName": {
+    "message": "Deezer vers music-librarian"
+  },
+  "extDescription": {
+    "message": "Envoyez des albums et playlists Deezer dans l'Inbox de music-librarian"
+  },
+  "disconnected": {
+    "message": "Déconnecté"
+  },
+  "connected": {
+    "message": "Connecté"
+  },
+  "sectionDownload": {
+    "message": "Télécharger"
+  },
+  "labelDeezerUrl": {
+    "message": "URL Deezer (album ou playlist)"
+  },
+  "labelContentId": {
+    "message": "ID (album ou playlist)"
+  },
+  "btnDownload": {
+    "message": "Télécharger"
+  },
+  "sectionLicenseToken": {
+    "message": "License Token"
+  },
+  "tokenNone": {
+    "message": "Aucun token détecté localement"
+  },
+  "tokenFound": {
+    "message": "Token détecté : $token$",
+    "placeholders": {
+      "token": {
+        "content": "$1"
+      }
+    }
+  },
+  "tokenNoneFallback": {
+    "message": "Aucun token local (le DEEZER_LICENSE_TOKEN du serveur sera utilisé)"
+  },
+  "btnRefresh": {
+    "message": "Actualiser"
+  },
+  "btnRefreshing": {
+    "message": "Actualisation..."
+  },
+  "tokenRefreshed": {
+    "message": "Token actualisé avec succès !"
+  },
+  "tokenCaptureError": {
+    "message": "Erreur : Impossible de capturer le token. Assurez-vous que vous êtes sur Deezer."
+  },
+  "sectionServer": {
+    "message": "Serveur"
+  },
+  "labelServerUrl": {
+    "message": "Adresse du tableau de bord music-librarian"
+  },
+  "btnSave": {
+    "message": "Enregistrer"
+  },
+  "settingsSaved": {
+    "message": "Paramètres enregistrés !"
+  },
+  "errorMissingServerUrl": {
+    "message": "Veuillez entrer l'URL du serveur"
+  },
+  "idExtracted": {
+    "message": "ID extrait : $type$ $id$",
+    "placeholders": {
+      "type": {
+        "content": "$1"
+      },
+      "id": {
+        "content": "$2"
+      }
+    }
+  },
+  "errorInvalidUrl": {
+    "message": "URL invalide. Format attendu : /album/ID ou /playlist/ID"
+  },
+  "errorMissingId": {
+    "message": "Veuillez entrer un ID valide"
+  },
+  "btnDownloading": {
+    "message": "Téléchargement en cours..."
+  },
+  "errorServer": {
+    "message": "Erreur serveur : $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadComplete": {
+    "message": "Téléchargement terminé ! $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorDownload": {
+    "message": "Erreur : $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorUnknown": {
+    "message": "Erreur inconnue"
+  },
+  "errorConnection": {
+    "message": "Erreur de connexion : $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelServerKey": {
+    "message": "Clé (DEEZER_EXTENSION_KEY)"
+  },
+  "errorMissingKey": {
+    "message": "Veuillez entrer la clé définie dans DEEZER_EXTENSION_KEY"
+  },
+  "errorPermission": {
+    "message": "L'accès au tableau de bord n'a pas été autorisé"
+  },
+  "errorWrongKey": {
+    "message": "Le tableau de bord a refusé la clé"
+  },
+  "statusQueued": {
+    "message": "En file sur le tableau de bord, en attente de watch…"
+  },
+  "downloadPartial": {
+    "message": "Téléchargé, certaines pistes indisponibles. $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  }
+}
