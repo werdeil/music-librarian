@@ -1,8 +1,8 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import pytest
 
-from music_librarian.deezer.api import (GET_URL, Album, Api, Playlist, Track, app_state, disc_total,
-                                        pick_best, stream_url)
+from music_librarian.deezer.api import (GET_URL, GW, Album, Api, Playlist, TokenExpired, Track, app_state,
+                                        disc_total, pick_best, stream_url, user_license_token)
 from music_librarian.deezer.client import DeezerError
 
 ALBUM_API = "https://api.deezer.com/album/302127"
@@ -154,3 +154,32 @@ def test_stream_of_a_track_and_its_failures(api, http):
         api({GET_URL: none}).stream(Track("1", track_token="t"))
     with pytest.raises(DeezerError, match="no media available"):
         api({GET_URL: none}).stream(Track("1", track_token="t", fallback=Track("2", track_token="u")))
+
+
+def test_the_license_token_of_the_arl(deezer, http):
+    client = deezer({GW: http.answer({"results": {"USER": {"USER_ID": 42, "OPTIONS": {
+        "license_token": "dummy-fresh-token"}}}})})
+    assert user_license_token(client) == "dummy-fresh-token"
+    sent = client.session.sent[0]
+    assert sent["params"]["method"] == "deezer.getUserData" and sent["cookies"] == {"arl": "dummy-arl"}
+
+
+@pytest.mark.parametrize("answer, message", [
+    ({"results": {"USER": {"USER_ID": 0, "OPTIONS": {"license_token": "anonymous"}}}}, "the arl is refused"),
+    ({"results": {"USER": {"USER_ID": 42, "OPTIONS": {}}}}, "no license token"),
+    ({"results": {}}, "the arl is refused"),
+])
+def test_no_license_token_from_the_arl(deezer, http, answer, message):
+    with pytest.raises(DeezerError, match=message):
+        user_license_token(deezer({GW: http.answer(answer)}))
+
+
+def test_an_expired_token_without_renewal(api, http):
+    expired = http.answer({"errors": [{"code": 1001, "message": "License token is expired."}]}, 403)
+    with pytest.raises(TokenExpired, match="error 1001: License token is expired."):
+        api({GET_URL: expired}).resolve("dummy-track-token-1")
+    renewed = Api(api({GET_URL: [expired, http.answer({"data": [{"media": [MEDIA]}]})]}).client,
+                  "dummy-old-token", renew=lambda: "dummy-new-token")
+    assert renewed.resolve("dummy-track-token-1") == ("FLAC", "https://stream/ak")
+    assert [s["json"]["license_token"] for s in renewed.client.session.sent] == ["dummy-old-token",
+                                                                                 "dummy-new-token"]

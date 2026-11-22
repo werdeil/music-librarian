@@ -99,7 +99,6 @@ EN = {
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",
     "deezer_short_link": "Short links are not followed: open {value}, then give the deezer.com address.",
-    "deezer_no_token": "Set DEEZER_LICENSE_TOKEN to download from here.",
     "deezer_placeholder": "https://www.deezer.com/album/302127",
     "deezer_id_is": "An id names:",
     "upload_js": {"selected": "Files: {n} · {size} MB",

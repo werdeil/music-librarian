@@ -14,9 +14,6 @@ function applyI18n() {
 let currentContentType = 'album';
 let selectedUrl = '';
 
-const tokenStatusEl = document.getElementById('tokenStatus');
-const tokenStatusText = document.getElementById('tokenStatusText');
-const refreshTokenBtn = document.getElementById('refreshTokenBtn');
 const connectionStatus = document.getElementById('connectionStatus');
 
 const deezerUrlEl = document.getElementById('deezerUrl');
@@ -35,14 +32,12 @@ const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 document.addEventListener('DOMContentLoaded', () => {
     applyI18n();
     loadSettings();
-    updateTokenStatus();
     setupEventListeners();
     checkServerConnection();
     extractCurrentPageInfo();
 });
 
 function setupEventListeners() {
-    refreshTokenBtn.addEventListener('click', refreshToken);
     extractBtn.addEventListener('click', extractUrlId);
     downloadBtn.addEventListener('click', startDownload);
     saveSettingsBtn.addEventListener('click', saveSettings);
@@ -72,40 +67,6 @@ function extractUrlId() {
     } else {
         showStatus(msg('errorInvalidUrl'), 'error');
     }
-}
-
-function updateTokenStatus() {
-    chrome.storage.local.get(['licenseToken'], (result) => {
-        const token = result.licenseToken;
-        
-        if (token) {
-            tokenStatusEl.classList.add('active');
-            const displayToken = token.substring(0, 20) + '...';
-            tokenStatusText.textContent = '✅ ' + msg('tokenFound', displayToken);
-        } else {
-            tokenStatusEl.classList.remove('active');
-            tokenStatusText.textContent = '⚠️ ' + msg('tokenNoneFallback');
-        }
-    });
-}
-
-function refreshToken() {
-    refreshTokenBtn.textContent = '⏳ ' + msg('btnRefreshing');
-    refreshTokenBtn.disabled = true;
-    
-    chrome.runtime.sendMessage({ action: 'getTokenFromTab' }, (response) => {
-        refreshTokenBtn.disabled = false;
-        refreshTokenBtn.textContent = '🔄 ' + msg('btnRefresh');
-        
-        if (response && response.token) {
-            chrome.storage.local.set({ licenseToken: response.token }, () => {
-                updateTokenStatus();
-                showStatus(msg('tokenRefreshed'), 'success');
-            });
-        } else {
-            showStatus(msg('tokenCaptureError'), 'error');
-        }
-    });
 }
 
 const DEFAULT_SERVER = 'http://localhost:8080';
@@ -164,40 +125,35 @@ function startDownload() {
         return;
     }
 
-    chrome.storage.local.get(['licenseToken'], (result) => {
-        getServer(async (serverUrl, key) => {
-            if (!key) {
-                showStatus(msg('errorMissingKey'), 'error');
-                return;
+    getServer(async (serverUrl, key) => {
+        if (!key) {
+            showStatus(msg('errorMissingKey'), 'error');
+            return;
+        }
+        const body = { kind: currentContentType, id: contentId };
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = '⏳ ' + msg('btnDownloading');
+        setProgress(0);
+        progressContainer.style.display = 'block';
+        try {
+            const response = await fetch(`${serverUrl}/deezer/ext/request`, {
+                method: 'POST', headers: authHeaders(key), body: JSON.stringify(body)
+            });
+            const answer = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                finish(msg('errorWrongKey'), 'error');
+            } else if (response.status === 403) {
+                finish(msg('errorDashboardOff'), 'error');
+            } else if (!response.ok) {
+                finish(msg('errorDownload', answer.error || msg('errorServer', response.status.toString())),
+                       'error');
+            } else {
+                showStatus(msg('statusQueued'), 'info');
+                follow(serverUrl, key, answer.id);
             }
-            const body = { kind: currentContentType, id: contentId };
-            if (result.licenseToken) {
-                body.license_token = result.licenseToken;
-            }
-            downloadBtn.disabled = true;
-            downloadBtn.textContent = '⏳ ' + msg('btnDownloading');
-            setProgress(0);
-            progressContainer.style.display = 'block';
-            try {
-                const response = await fetch(`${serverUrl}/deezer/ext/request`, {
-                    method: 'POST', headers: authHeaders(key), body: JSON.stringify(body)
-                });
-                const answer = await response.json().catch(() => ({}));
-                if (response.status === 401) {
-                    finish(msg('errorWrongKey'), 'error');
-                } else if (response.status === 403) {
-                    finish(msg('errorDashboardOff'), 'error');
-                } else if (!response.ok) {
-                    finish(msg('errorDownload', answer.error || msg('errorServer', response.status.toString())),
-                           'error');
-                } else {
-                    showStatus(msg('statusQueued'), 'info');
-                    follow(serverUrl, key, answer.id);
-                }
-            } catch (error) {
-                finish(msg('errorConnection', error.message), 'error');
-            }
-        });
+        } catch (error) {
+            finish(msg('errorConnection', error.message), 'error');
+        }
     });
 }
 

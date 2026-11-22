@@ -23,35 +23,6 @@
   "btnDownload": {
     "message": "Download"
   },
-  "sectionLicenseToken": {
-    "message": "License Token"
-  },
-  "tokenNone": {
-    "message": "No token detected locally"
-  },
-  "tokenFound": {
-    "message": "Token detected: $token$",
-    "placeholders": {
-      "token": {
-        "content": "$1"
-      }
-    }
-  },
-  "tokenNoneFallback": {
-    "message": "No local token (the server's DEEZER_LICENSE_TOKEN will be used)"
-  },
-  "btnRefresh": {
-    "message": "Refresh"
-  },
-  "btnRefreshing": {
-    "message": "Refreshing..."
-  },
-  "tokenRefreshed": {
-    "message": "Token refreshed successfully!"
-  },
-  "tokenCaptureError": {
-    "message": "Error: Unable to capture the token. Make sure you are on Deezer."
-  },
   "sectionServer": {
     "message": "Server"
   },

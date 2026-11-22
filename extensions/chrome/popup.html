@@ -181,33 +181,6 @@
             margin-bottom: 10px;
         }
 
-        .token-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px;
-            background: var(--field);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-        }
-
-        .token-status .indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--error);
-            flex-shrink: 0;
-        }
-
-        .token-status.active .indicator {
-            background: var(--ok);
-        }
-
-        .token-status .text {
-            flex: 1;
-            font-size: 12px;
-        }
-
         .loading {
             display: inline-block;
             animation: spin 1s linear infinite;
@@ -340,17 +313,6 @@
             </div>
         </div>
         <div id="settingsView" style="display: none;">
-            <div class="section">
-                <div class="section-title" data-i18n="sectionLicenseToken"></div>
-                <div id="tokenStatus" class="token-status">
-                    <div class="indicator"></div>
-                    <div class="text">
-                        <span id="tokenStatusText" data-i18n="tokenNone"></span>
-                    </div>
-                </div>
-                <button id="refreshTokenBtn" class="secondary" style="margin-top: 10px;" data-i18n="btnRefresh" data-i18n-prefix="🔄 "></button>
-            </div>
-            <div class="section_separator"></div>
             <div class="section">
                 <div class="section-title" data-i18n="sectionServer"></div>
                 

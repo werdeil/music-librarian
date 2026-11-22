@@ -55,12 +55,11 @@ def test_nothing_shown_without_configuration(ctx):
 
 
 @pytest.mark.usefixtures("configured")
-def test_without_a_license_token_the_form_is_off(ctx, monkeypatch):
+def test_no_license_token_is_needed(ctx, monkeypatch):
     monkeypatch.delenv("DEEZER_LICENSE_TOKEN")
     client, page, token = dashboard(ctx)
-    assert "Set DEEZER_LICENSE_TOKEN to download from here." in page
-    assert "data-opens-dialog disabled" in page and 'name="item"' not in page
-    assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 403
+    assert "data-opens-dialog disabled" not in page and 'name="item"' in page
+    assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 302
 
 
 @pytest.mark.usefixtures("configured")
@@ -106,7 +105,7 @@ def test_not_an_album_or_a_playlist(ctx):
 
 
 @pytest.mark.usefixtures("configured")
-def test_the_license_token_is_never_written(tmp_path, monkeypatch, capsys):
+def test_a_queued_download_writes_no_secret(tmp_path, monkeypatch, capsys):
     inbox, root, state = tmp_path / "Inbox", tmp_path / "Music", tmp_path / "state"
     inbox.mkdir()
     root.mkdir()
@@ -123,18 +122,17 @@ def test_the_license_token_is_never_written(tmp_path, monkeypatch, capsys):
     runners = passes(import_opts, organize.Options(root=root, state_dir=state),
                      enrich.Options(root=root, state_dir=state), Log())
     requests = Requests(runners, watch.safe)
-    requests.submit("deezer", {"kind": "album", "ids": ["302127"], "complete_only": False}, True,
-                    license_token="dummy-license-secret")
+    requests.submit("deezer", {"kind": "album", "ids": ["302127"], "complete_only": False}, True)
     requests.tick(Log())
     printed = capsys.readouterr().out
-    assert seen[0].license_token == "dummy-license-secret" and seen[0].inbox == inbox.resolve()
+    assert seen[0].inbox == inbox.resolve() and seen[0].apply
     assert "DRY" not in printed and "inbox:" in printed
-    assert "dummy-license-secret" not in printed and "dummy-license-secret" not in repr(requests.known)
     written = [p for p in state.rglob("*") if p.is_file()]
     assert written
-    for path in written:
-        assert b"dummy-license-secret" not in path.read_bytes(), path
-        assert b"dummy-arl-value" not in path.read_bytes(), path
+    for secret in ("dummy-arl-value", "dummy-env-token"):
+        assert secret not in printed
+        for path in written:
+            assert secret.encode() not in path.read_bytes(), path
 
 
 ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
@@ -186,13 +184,11 @@ def test_a_preflight_is_answered_for_the_origin_only(ctx):
 def test_the_extension_queues_a_download_and_follows_it(ctx):
     client = web.create_app(ctx).test_client()
     answer = ext(client, "POST", "/deezer/ext/request",
-                 json={"kind": "playlist", "id": "908622995",
-                       "license_token": "dummy-token-from-the-browser"})
+                 json={"kind": "playlist", "id": "908622995"})
     assert answer.status_code == 201
     (asked,) = ctx.requests.pending()
     assert answer.json == {"id": asked.id}
     assert asked.options == {"kind": "playlist", "ids": ["908622995"], "complete_only": False} and asked.apply
-    assert asked.license_token == "dummy-token-from-the-browser"
     state = ext(client, "GET", f"/deezer/ext/request/{asked.id}")
     assert state.json == {"state": "queued", "code": None, "done": 0, "total": 0, "step": ""}
     assert ext(client, "GET", "/deezer/ext/request/999").status_code == 404

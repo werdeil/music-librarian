@@ -16,7 +16,6 @@ def test_load():
     cfg = config.load({**GOOD, "DEEZER_LICENSE_TOKEN": "dummy-token"})
     assert (cfg.arl, cfg.pre_key, cfg.iv, cfg.license_token) == (
         "dummy-arl", b"AAAAAAAAAAAAAAAA", bytes.fromhex("0001020304050607"), "dummy-token")
-    assert config.load(GOOD, license_token="from-request").license_token == "from-request"
     assert config.load(GOOD).license_token == ""
 
 

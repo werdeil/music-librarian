@@ -23,7 +23,7 @@ from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.deezer import config, crypto, download, tags
+from music_librarian.deezer import config, crypto, download, license_token, tags
 from music_librarian.deezer.api import FORMATS, Album, Api, disc_total
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
@@ -45,7 +45,6 @@ class Options:  # pylint: disable=too-many-instance-attributes  # one per comman
     complete_only: bool = False
     state_dir: Path = field(default_factory=state_path)
     syslog: bool = False
-    license_token: str = field(default="", repr=False)
 
     def __post_init__(self):
         self.inbox = Path(self.inbox).resolve()
@@ -120,17 +119,28 @@ def run(opts: Options, log, cfg=None, client=None):
             log(f"ERROR    the Deezer download is off: set {', '.join(config.REQUIRED)} (see docs/deezer.md)")
             return EXIT_FAILED
         try:
-            cfg = config.load(license_token=opts.license_token)
+            cfg = config.load()
         except config.ConfigError as exc:
             log(f"ERROR    {exc}")
             return EXIT_FAILED
-    if opts.apply and not cfg.license_token:
-        log(f"ERROR    no license token to download with: set {config.LICENSE_TOKEN} (see docs/deezer.md)")
-        return EXIT_FAILED
     if opts.apply and crypto.missing():
         log(f"ERROR    {crypto.missing()}")
         return EXIT_FAILED
-    api = Api(client or Client(cfg.arl), cfg.license_token)
+    client = client or Client(cfg.arl)
+
+    def renew():
+        token = license_token.fresh(client, opts.state_dir)
+        log("TOKEN    license token renewed from the arl")
+        return token
+
+    token = license_token.read(opts.state_dir) or cfg.license_token
+    if opts.apply and not token:
+        try:
+            token = renew()
+        except DeezerError as exc:
+            log(f"ERROR    {exc}")
+            return EXIT_FAILED
+    api = Api(client, token, renew=renew)
     tally = Tally()
     with Staging(opts.inbox) if opts.apply else _NoStaging() as staging:
         for item in opts.ids:

@@ -30,15 +30,8 @@ def enabled(env=None):
     return all(_value(env, name) for name in REQUIRED)
 
 
-def has_license_token(env=None):
-    """Whether DEEZER_LICENSE_TOKEN is set: a download asked from the dashboard has no other."""
-    env = os.environ if env is None else env
-    return bool(_value(env, LICENSE_TOKEN))
-
-
-def load(env=None, license_token=None):
-    """The settings, `license_token` (a request's own) taking the place of DEEZER_LICENSE_TOKEN.
-    Raises ConfigError."""
+def load(env=None):
+    """The settings. Raises ConfigError."""
     env = os.environ if env is None else env
     missing = [name for name in REQUIRED if not _value(env, name)]
     if missing:
@@ -50,4 +43,4 @@ def load(env=None, license_token=None):
     if not re.fullmatch(r"[0-9A-Fa-f]{16}", iv):
         raise ConfigError(f"{IV} must be 16 hexadecimal characters")
     return Config(arl=_value(env, ARL), pre_key=pre_key, iv=bytes.fromhex(iv),
-                  license_token=(license_token or "").strip() or _value(env, LICENSE_TOKEN))
+                  license_token=_value(env, LICENSE_TOKEN))

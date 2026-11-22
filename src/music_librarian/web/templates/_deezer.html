@@ -1,9 +1,8 @@
 {# The overview's Deezer download, shown only when it is configured: a button beside the upload's. #}
-{% set deezer_off = not ctx.apply or not deezer_token %}
+{% set deezer_off = not ctx.apply %}
 <form method="post" action="{{ url_for('deezer_download') }}" class="deezer">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <button type="button" data-opens-dialog{% if deezer_off %} disabled{% endif %}>{{ m.icon('upload') }}{{ t.deezer_title }}</button>
-    {% if ctx.apply and not deezer_token %}<span class="muted">{{ t.deezer_no_token }}</span>{% endif %}
     {% if not deezer_off %}
     <dialog class="pass-dialog deezer-dialog">
         <h3>{{ t.deezer_title }}</h3>

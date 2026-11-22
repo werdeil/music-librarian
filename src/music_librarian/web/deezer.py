@@ -1,7 +1,6 @@
 """A Deezer download asked from the overview's Inbox or from the Chrome extension: queued for watch as
 any pass, applied at once as an upload is, refused while watch runs without --apply or the download is
-off (deezer/config.py). The Inbox's form also needs DEEZER_LICENSE_TOKEN; the extension needs it, or
-sends a token of its own.
+off (deezer/config.py).
 
 The extension's routes (/deezer/ext/…) answer only a request bearing DEEZER_EXTENSION_KEY from the
 origin DEEZER_EXTENSION_ORIGIN, and 404 while either is unset. They only queue a download and tell how
@@ -36,7 +35,7 @@ def register(app, ctx):
 
     @app.post("/deezer")
     def deezer_download():
-        if ctx.requests is None or not ctx.apply or not config.enabled() or not config.has_license_token():
+        if ctx.requests is None or not ctx.apply or not config.enabled():
             abort(403)
         value = request.form.get("item", "")
         kind = kind_of(value, request.form.get("kind", "album"))
@@ -116,11 +115,8 @@ def register_extension(app, ctx):
             item = deezer.item_id(body["kind"], str(body.get("id", "")))
         except ValueError:
             return jsonify(error="not an album or a playlist id"), 400
-        token = body.get("license_token") if isinstance(body.get("license_token"), str) else ""
-        if not token.strip() and not config.has_license_token():
-            return jsonify(error="no license token: open Deezer in the browser first"), 400
         asked = ctx.requests.submit("deezer", {"kind": body["kind"], "ids": [item], "complete_only": False},
-                                    True, license_token=token.strip())
+                                    True)
         return jsonify(id=asked.id), 201
 
     def _state(request_id):

@@ -31,7 +31,7 @@ This page describes the feature as it is being built. The command, the dashboard
 | `DEEZER_ARL` | The `arl` cookie of a logged-in Deezer session. Required. |
 | `DEEZER_PRE_KEY` | The 16-byte key the per-track Blowfish key is derived from. Required. |
 | `DEEZER_IV` | The Blowfish IV, 16 hexadecimal characters. Required. |
-| `DEEZER_LICENSE_TOKEN` | The license token `get_url` and the playlist API ask for. Needed to download, unless the request carries its own, as the extension's does; a dry run goes without it. |
+| `DEEZER_LICENSE_TOKEN` | Optional. The license token `get_url` asks for is read from the account the arl logs in, kept in the state folder (`deezer-license-token`, readable by its owner only) and read again once Deezer calls it expired; this variable only gives the first one. |
 | `DEEZER_EXTENSION_KEY` | The key the extension sends as `Authorization: Bearer …`. Without it, the extension's routes answer 404. |
 | `DEEZER_EXTENSION_ORIGIN` | The extension's origin, `chrome-extension://<id>`, the only one its routes accept. |
 

@@ -175,7 +175,6 @@ def create_app(ctx: Context, build_now=False):
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
             passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
             env=environment(ctx), deezer_enabled=deezer_config.enabled(),
-            deezer_token=deezer_config.has_license_token(),
             upload=dict(extensions=sorted(uploads.SENT_EXT), junk=sorted(JUNK_NAMES),
                         max_file=uploads.MAX_FILE))
 
