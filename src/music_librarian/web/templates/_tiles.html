@@ -12,7 +12,7 @@
     dict(key='lyrics', value=todo.lyrics, label=t.tile_lyrics, href=url_for('album_page', folder=first_bare, list='lyrics', at=0)
          if first_bare else url_for('missed_lyrics')),
 ] %}
-{% set entries = entries + [dict(key='deezer_arl', value=todo.deezer_arl, label=t.tile_deezer_arl,
+{% set entries = entries + [dict(key='deezer_arl', value=todo.deezer_arl, label=t.tile_deezer_arl_missing if deezer_arl_missing else t.tile_deezer_arl,
                                  href=url_for('deezer_settings_page'))] %}
 {% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}
 {% set ns = namespace(todo=[], ok=[], aside=[]) %}

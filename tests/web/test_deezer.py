@@ -301,3 +301,32 @@ def test_a_malformed_key_does_not_break_the_overview(ctx, monkeypatch):
     kept.mark_refused(ctx.state_dir, "dummy-arl-value")
     assert client.get("/tiles", headers=EN).status_code == 200
     assert client.get("/deezer/settings", headers=EN).status_code == 200
+
+
+@pytest.mark.usefixtures("configured")
+def test_the_environment_tells_the_deezer_state(ctx):
+    client, page, _token = dashboard(ctx)
+    environment = page[page.index('class="environment"'):]
+    assert "arl from DEEZER_ARL" in environment and "no extension key" in environment
+    assert 'href="/deezer/settings"' in environment
+    inbox = page[page.index('<div class="inbox-actions">'):page.index('class="environment"')]
+    assert "/deezer/settings" not in inbox
+    kept.new_extension_key(ctx.state_dir)
+    kept.mark_refused(ctx.state_dir, "dummy-arl-value")
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    assert "refused by Deezer" in page and "extension key made" in page
+
+
+def test_a_missing_arl_asks_for_one(ctx, monkeypatch):
+    monkeypatch.setenv("DEEZER_PRE_KEY", "AAAAAAAAAAAAAAAA")
+    monkeypatch.setenv("DEEZER_IV", "0001020304050607")
+    monkeypatch.delenv("DEEZER_ARL", raising=False)
+    client, page, _token = dashboard(ctx)
+    assert "data-opens-dialog disabled" in page and "no arl" in page
+    tiles = client.get("/tiles", headers=EN).get_data(as_text=True)
+    assert "Deezer arl to set" in tiles and 'href="/deezer/settings"' in tiles
+
+
+def test_the_environment_without_deezer(ctx):
+    page = dashboard(ctx)[1]
+    assert "<dt>Deezer</dt><dd>off</dd>" in page

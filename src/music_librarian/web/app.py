@@ -81,7 +81,19 @@ def environment(ctx: Context):
                 genre_lookup=lookup.country if lookup else None,
                 lyrion_db=ctx.lyrion.db if ctx.lyrion else None,
                 lyrion_url=without_login(scan.url) if scan else None,
-                lyrion_rescans=bool(ctx.lyrion and ctx.lyrion.rescans))
+                lyrion_rescans=bool(ctx.lyrion and ctx.lyrion.rescans), deezer=deezer_state(ctx))
+
+
+def deezer_state(ctx: Context):
+    """What the overview shows of the Deezer download: None while its keys are not set, else where
+    its arl comes from ("kept", "env" or None), whether Deezer refused it, and whether the extension
+    has a key."""
+    if ctx.requests is None or not deezer_config.keys_set():
+        return None
+    current = deezer_config.arl(state_dir=ctx.state_dir)
+    source = "kept" if deezer_kept.arl(ctx.state_dir) else "env" if current else None
+    return dict(arl=source, refused=bool(current) and deezer_kept.refused(ctx.state_dir, current) is not None,
+                extension=bool(deezer_kept.extension_key(ctx.state_dir)))
 
 
 def create_app(ctx: Context, build_now=False):
@@ -182,23 +194,20 @@ def create_app(ctx: Context, build_now=False):
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""
         everything = index.get()
+        downloads = deezer_state(ctx)
         todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
                     repeats=None if everything is None else sum(a.repeated for a in everything),
-                    deezer_arl=int(deezer_refused()))
+                    deezer_arl=int(bool(downloads and (downloads["refused"] or not downloads["arl"]))))
         bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
         switched_off = set(reviews.KINDS) - set(todo)
         if not todo["deezer_arl"]:
             switched_off.add("deezer_arl")
         return dict(todo=todo, switched_off=switched_off,
+                    deezer_arl_missing=bool(downloads and not downloads["arl"]),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,
                     first_mixed=next((a.folder for a in library.with_mixed(everything or [])), None),
                     first_dated=next((a.folder for a in library.with_dates(everything or [])), None))
-
-    def deezer_refused():
-        """Whether Deezer refused the arl the download goes with."""
-        current = deezer_config.arl(state_dir=ctx.state_dir)
-        return bool(current) and deezer_kept.refused(ctx.state_dir, current) is not None
 
     @app.get("/tiles")
     def tiles_fragment():
