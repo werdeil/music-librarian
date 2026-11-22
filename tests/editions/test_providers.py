@@ -42,12 +42,19 @@ ITUNES = {"collectionType": "Album", "collectionName": "The Car", "artistName": 
 def test_itunes(web, monkeypatch):
     asked, answers = web
     monkeypatch.setenv("ITUNES_COUNTRY", "FR")
+    near = [{**ITUNES, "collectionName": "The Car (Deluxe Edition)", "collectionViewUrl": "deluxe"},
+            {**ITUNES, "collectionName": "The Car - EP", "collectionViewUrl": "ep"},
+            {**ITUNES, "collectionName": "AM", "collectionViewUrl": "other album"},
+            {**ITUNES, "artistName": "The Cars", "collectionViewUrl": "other artist"},
+            {**ITUNES, "collectionName": "Cars", "artistName": "Pixar", "collectionViewUrl": "film"}]
     answers["/search"] = {"results": [ITUNES, {"collectionType": "Compilation"}]}
     found = itunes.fetch(ALBUM)
     assert found == [{"title": "The Car", "artist": "Arctic Monkeys", "date": "2022-10-21", "country": "FRA",
                       "label": "℗ 2022 Domino", "catalog": "", "barcode": "", "tracks": 10,
                       "format": "Digital", "url": "https://music.apple.com/fr/album/1", "exact": False}]
     assert asked[0][1]["term"] == "Arctic Monkeys The Car" and asked[0][1]["country"] == "fr"
+    answers["/search"] = {"results": [ITUNES, *near]}
+    assert [e["url"] for e in itunes.fetch(ALBUM)] == ["https://music.apple.com/fr/album/1", "deluxe", "ep"]
     answers["/lookup"] = {"results": [ITUNES]}
     assert itunes.fetch({**ALBUM, "barcode": "123"})[0]["exact"]
 

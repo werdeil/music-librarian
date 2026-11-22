@@ -3,6 +3,7 @@ files it."""
 import os
 
 from music_librarian.editions.common import edition as an_edition, get_json
+from music_librarian.integrations.itunes import same_album
 
 SEARCH = "https://itunes.apple.com/search"
 LOOKUP = "https://itunes.apple.com/lookup"
@@ -28,7 +29,8 @@ def _albums(answer):
 
 def fetch(album):
     """The editions of `album` ({"artist", "title", "barcode"}) in the store of $ITUNES_COUNTRY: the one
-    its barcode names, else those of its artist and title. Raises ProviderUnavailable."""
+    its barcode names, else those of its very artist and title, the search giving any album near its
+    words. Raises ProviderUnavailable."""
     if album.get("barcode"):
         found = _albums(get_json(LOOKUP, {"upc": album["barcode"], "country": _country(), "entity": "album"},
                                  _last, INTERVAL))
@@ -39,4 +41,4 @@ def fetch(album):
     term = f"{album['artist']} {album['title']}"
     found = get_json(SEARCH, {"term": term, "entity": "album", "country": _country(), "limit": 25},
                      _last, INTERVAL)
-    return [edition(r) for r in _albums(found)]
+    return [edition(r) for r in _albums(found) if same_album(r, album["artist"], album["title"])]
