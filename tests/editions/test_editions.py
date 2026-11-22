@@ -27,23 +27,31 @@ def test_ranked():
                                                          ("1980", True), ("1970", False)]
 
 
-@pytest.mark.parametrize("answers, expected", [
-    ([[edition(date="2011")]], (["2011"], "musicbrainz")),
-    ([[]], ([], "none")),
-    ([ProviderUnavailable("down")], ([], "unavailable")),
+DOWN = ProviderUnavailable("down")
+
+
+@pytest.mark.parametrize("brainz, store, expected", [
+    ([edition(date="2011")], None, (["2011"], "musicbrainz", [])),
+    ([], [], ([], "none", [])),
+    (DOWN, [], ([], "partly unavailable", ["musicbrainz"])),
+    (DOWN, DOWN, ([], "unavailable", ["musicbrainz", "itunes"])),
+    (DOWN, [edition(date="2011")], (["2011"], "itunes", ["musicbrainz"])),
 ])
-def test_look_up(monkeypatch, answers, expected):
-    def provider(_album):
-        answer = answers.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        return answer
-    monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", provider)
-    found, source = editions.look_up({"artist": "A", "title": "B", "tracks": 1})
-    assert ([e["year"] for e in found], source) == expected
+def test_look_up(monkeypatch, brainz, store, expected):
+    def provider(answer):
+        def ask(_album):
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        return ask
+    monkeypatch.setenv("EDITION_PROVIDERS", "musicbrainz,itunes")
+    monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", provider(brainz))
+    monkeypatch.setitem(editions.PROVIDERS, "itunes", provider(store))
+    found, source, unreachable = editions.look_up({"artist": "A", "title": "B", "tracks": 1})
+    assert ([e["year"] for e in found], source, unreachable) == expected
 
 
 def test_nothing_to_look_up_with(monkeypatch):
     monkeypatch.setenv("EDITION_PROVIDERS", "nobody")
-    assert editions.look_up({"artist": "A", "title": "", "tracks": 1}) == ([], "no metadata")
-    assert editions.look_up({"artist": "A", "title": "B", "tracks": 1}) == ([], "none")
+    assert editions.look_up({"artist": "A", "title": "", "tracks": 1}) == ([], "no metadata", [])
+    assert editions.look_up({"artist": "A", "title": "B", "tracks": 1}) == ([], "none", [])

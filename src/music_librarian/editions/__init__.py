@@ -51,19 +51,22 @@ def ranked(editions, album):
 
 
 def look_up(album):
-    """(the editions of `album` ranked, the provider that answered or why none did: "no metadata",
-    "none", "unavailable")."""
+    """(the editions of `album` ranked; the provider that answered, or why none did: "no metadata",
+    "none" when every provider answered without any, "partly unavailable" when the others did, or
+    "unavailable"; the names of the providers that did not answer, in order)."""
     if not (album.get("mbid") or album.get("barcode") or (album.get("artist") and album.get("title"))):
-        return [], "no metadata"
+        return [], "no metadata", []
     providers = enabled_providers()
-    unreachable = 0
+    unreachable = []
     for name, provider in providers:
         try:
             found = provider(album)
         except ProviderUnavailable as exc:
-            unreachable += 1
+            unreachable.append(name)
             log.warning("editions: %s unreachable (%s)", name, exc)
             continue
         if found:
-            return ranked(found, album), name
-    return [], "unavailable" if providers and unreachable == len(providers) else "none"
+            return ranked(found, album), name, unreachable
+    if not unreachable:
+        return [], "none", []
+    return [], "unavailable" if len(unreachable) == len(providers) else "partly unavailable", unreachable
