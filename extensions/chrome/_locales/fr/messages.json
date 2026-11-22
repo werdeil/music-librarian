@@ -130,5 +130,11 @@
   },
   "kindPlaylist": {
     "message": "une playlist"
+  },
+  "permissionNeeded": {
+    "message": "Chrome n'autorise pas encore l'accès au tableau de bord : ouvrez les réglages et cliquez sur Enregistrer."
+  },
+  "badgeWrongKey": {
+    "message": "Clé refusée"
   }
 }

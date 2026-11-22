@@ -130,5 +130,11 @@
   },
   "kindPlaylist": {
     "message": "a playlist"
+  },
+  "permissionNeeded": {
+    "message": "Chrome does not allow access to the dashboard yet: open the settings and click Save."
+  },
+  "badgeWrongKey": {
+    "message": "Key refused"
   }
 }

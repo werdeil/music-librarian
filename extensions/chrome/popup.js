@@ -82,19 +82,40 @@ function authHeaders(key) {
     return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
+function setBadge(key, ok) {
+    connectionStatus.textContent = msg(key);
+    connectionStatus.classList.toggle('success', ok);
+}
+
 function checkServerConnection() {
     getServer((serverUrl, key) => {
-        fetch(`${serverUrl}/deezer/ext/health`, { method: 'GET', headers: authHeaders(key) })
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then((health) => {
-                const ready = health.enabled && health.apply;
-                connectionStatus.textContent = msg(ready ? 'connected' : 'connectedOff');
-                connectionStatus.classList.toggle('success', ready);
-            })
-            .catch(() => {
-                connectionStatus.textContent = msg('disconnected');
-                connectionStatus.classList.remove('success');
-            });
+        const pattern = hostPattern(serverUrl);
+        if (!key) {
+            setBadge('disconnected', false);
+            return;
+        }
+        chrome.permissions.contains({ origins: pattern ? [pattern] : [] }, (allowed) => {
+            if (!allowed) {
+                setBadge('disconnected', false);
+                showStatus(msg('permissionNeeded'), 'info');
+                return;
+            }
+            fetch(`${serverUrl}/deezer/ext/health`, { method: 'GET', headers: authHeaders(key) })
+                .then((res) => {
+                    if (res.status === 401) {
+                        setBadge('badgeWrongKey', false);
+                        return null;
+                    }
+                    return res.ok ? res.json() : Promise.reject();
+                })
+                .then((health) => {
+                    if (health) {
+                        const ready = health.enabled && health.apply;
+                        setBadge(ready ? 'connected' : 'connectedOff', ready);
+                    }
+                })
+                .catch(() => setBadge('disconnected', false));
+        });
     });
 }
 
@@ -226,7 +247,15 @@ function loadSettings() {
     });
 }
 
-// Access to the dashboard's host is asked when it is saved: it is a user gesture, as Chrome requires.
+function hostPattern(serverUrl) {
+    try {
+        return new URL(serverUrl).origin + '/*';
+    } catch (e) {
+        return null;
+    }
+}
+
+// Settings are kept before access is asked: Chrome's prompt can close the popup before its answer.
 function saveSettings() {
     const serverUrl = serverUrlEl.value.trim();
     const serverKey = serverKeyEl.value.trim();
@@ -239,22 +268,27 @@ function saveSettings() {
         showStatus(msg('errorMissingKey'), 'error');
         return;
     }
-    let origin;
-    try {
-        origin = new URL(serverUrl).origin;
-    } catch (e) {
+    const pattern = hostPattern(serverUrl);
+    if (!pattern) {
         showStatus(msg('errorMissingServerUrl'), 'error');
         return;
     }
-    chrome.permissions.request({ origins: [origin + '/*'] }, (granted) => {
-        if (!granted) {
-            showStatus(msg('errorPermission'), 'error');
-            return;
-        }
-        chrome.storage.local.set({ serverUrl, serverKey }, () => {
-            showStatus(msg('settingsSaved'), 'success');
-            checkServerConnection();
-        });
+    // asked first, in the click itself: Chrome refuses a request made after another asynchronous call
+    let asked;
+    try {
+        asked = chrome.permissions.request({ origins: [pattern] });
+    } catch (error) {
+        asked = Promise.reject(error);
+    }
+    chrome.storage.local.set({ serverUrl, serverKey }, () => {
+        showStatus(msg('settingsSaved'), 'success');
+        asked.then((granted) => {
+            if (granted) {
+                checkServerConnection();
+            } else {
+                showStatus(msg('errorPermission'), 'error');
+            }
+        }).catch((error) => showStatus(msg('errorPermission') + ' (' + error.message + ')', 'error'));
     });
 }
 
