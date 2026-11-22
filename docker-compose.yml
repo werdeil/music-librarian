@@ -67,7 +67,7 @@ services:
       # genres the list cannot align looked up on iTunes, off with GENRE_LOOKUP=none
       - GENRE_LOOKUP=${GENRE_LOOKUP:-itunes}
       - ITUNES_COUNTRY=${ITUNES_COUNTRY:-us}
-      - EDITION_PROVIDERS=${EDITION_PROVIDERS:-musicbrainz,discogs,deezer,itunes}
+      - EDITION_PROVIDERS=${EDITION_PROVIDERS:-musicbrainz,discogs,itunes}
       - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
     volumes:
       # Inbox and library under this single mount, at the same path as on the

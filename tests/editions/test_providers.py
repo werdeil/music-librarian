@@ -1,11 +1,10 @@
-"""Discogs, Deezer and iTunes as edition providers, on recorded answers."""
+"""Discogs and iTunes as edition providers, on recorded answers."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import pytest
 import requests
 
 from music_librarian import editions
-from music_librarian.editions import deezer, discogs, itunes
-from music_librarian.editions.common import ProviderUnavailable
+from music_librarian.editions import discogs, itunes
 
 
 class Answer:
@@ -28,7 +27,7 @@ def web(monkeypatch):
                 return payload if isinstance(payload, Answer) else Answer(200, payload)
         return Answer(404, {})
     monkeypatch.setattr(requests, "get", get)
-    for module in (deezer, discogs, itunes):
+    for module in (discogs, itunes):
         monkeypatch.setattr(module, "INTERVAL", 0)
     return asked, answers
 
@@ -59,25 +58,6 @@ def test_itunes(web, monkeypatch):
     assert itunes.fetch({**ALBUM, "barcode": "123"})[0]["exact"]
 
 
-def test_deezer(web):
-    asked, answers = web
-    answers["search/album"] = {"data": [{"id": 7}, {"id": 8}]}
-    answers["album/7"] = {"id": 7, "title": "The Car", "artist": {"name": "Arctic Monkeys"},
-                          "release_date": "2022-10-21", "label": "Domino", "upc": "887828",
-                          "nb_tracks": 10, "link": "https://www.deezer.com/album/7"}
-    answers["album/8"] = {"error": {"type": "DataException", "message": "no data", "code": 800}}
-    found = deezer.fetch(ALBUM)
-    assert [(e["date"], e["label"], e["barcode"], e["tracks"]) for e in found] == \
-        [("2022-10-21", "Domino", "887828", 10)]
-    assert asked[0][1]["q"] == 'artist:"Arctic Monkeys" album:"The Car"'
-    answers["album/upc:887828"] = answers.pop("album/7")
-    assert deezer.fetch({**ALBUM, "barcode": "887828"})[0]["exact"]
-    answers.clear()
-    answers["search/album"] = {"error": {"type": "Exception", "message": "Quota limit exceeded", "code": 4}}
-    with pytest.raises(ProviderUnavailable):
-        deezer.fetch(ALBUM)
-
-
 def test_discogs(web, monkeypatch):
     asked, answers = web
     assert discogs.fetch(ALBUM) == [] and not asked                      # without a token
@@ -97,6 +77,6 @@ def test_discogs(web, monkeypatch):
 def test_providers_in_their_order(monkeypatch):
     monkeypatch.delenv("EDITION_PROVIDERS")
     assert [name for name, _ in editions.enabled_providers()] == \
-        ["musicbrainz", "discogs", "deezer", "itunes"]
+        ["musicbrainz", "discogs", "itunes"]
     monkeypatch.setenv("EDITION_PROVIDERS", "itunes, deezer")
-    assert [name for name, _ in editions.enabled_providers()] == ["itunes", "deezer"]
+    assert [name for name, _ in editions.enabled_providers()] == ["itunes"]

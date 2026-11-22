@@ -3,7 +3,7 @@
 import logging
 import os
 
-from music_librarian.editions import deezer, discogs, itunes, musicbrainz
+from music_librarian.editions import discogs, itunes, musicbrainz
 from music_librarian.editions.common import ProviderUnavailable
 from music_librarian.lyrics.matching import fold_name
 
@@ -12,10 +12,9 @@ log = logging.getLogger(__name__)
 # A provider takes the album ({"artist", "title", "mbid", "barcode"}) and returns its editions:
 # {"title", "artist", "date", "country", "label", "catalog", "barcode", "tracks", "format", "url",
 # "exact"}, exact when the album's MBID or barcode named it.
-PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "deezer": deezer.fetch,
-             "itunes": itunes.fetch}
-NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "deezer": "Deezer", "itunes": "iTunes"}
-DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,deezer,itunes"
+PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "itunes": itunes.fetch}
+NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "itunes": "iTunes"}
+DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,itunes"
 
 
 def enabled_providers():
