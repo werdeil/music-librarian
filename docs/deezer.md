@@ -75,6 +75,7 @@ The badge then reads **Connected**, or **Connected, downloads off** when `watch`
 ## Troubleshooting
 
 - **`the Deezer download is off`**: one of `DEEZER_ARL`, `DEEZER_PRE_KEY`, `DEEZER_IV` is empty in the container (`docker compose exec music-librarian env | grep -c DEEZER_` counts them without showing them).
+- **`pycryptodome is not installed`**: the image was built before the download joined; rebuild it (`docker compose build`). The other commands run meanwhile.
 - **`no license token to download with`**: set `DEEZER_LICENSE_TOKEN`, or download from the extension, which sends its own.
 - **`SKIPPED  <title>: no playable format among FLAC/MP3_320/MP3_128 (…)`**: `get_url` gave no stream for the track. Between the brackets, `error <code>: <message>` is Deezer's own refusal (a license token expired or of another account, a track not streamable in your country or with your subscription), `HTTP <status>` an answer without a reason, `empty data` or `no media available` a track offered in none of the formats asked. The track is counted unavailable; the album is still dropped, unless `--complete-only`.
 - **`FALLBACK`**: the track has no rights of its own, and Deezer points at an equivalent recording, downloaded and decrypted in its place, as the web player does. Its tags stay the track's.
