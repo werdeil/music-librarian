@@ -44,6 +44,18 @@ function extractToken() {
     return null;
 }
 
+// A host is compared whole: a substring of the URL could sit in another site's path or query.
+function isTokenHost(url) {
+    let host;
+    try {
+        host = new URL(url, window.location.href).hostname;
+    } catch (e) {
+        return false;
+    }
+    return host === 'api.deezer.com' || host === 'media.deezer.com' || host === 'dzcdn.net' ||
+        host.endsWith('.dzcdn.net');
+}
+
 // Intercept fetch requests to capture license token
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
@@ -51,7 +63,7 @@ window.fetch = function(...args) {
     
     // Check if this is an API call (including media endpoint where tokens live)
     if (typeof resource === 'string' &&
-        (resource.includes('api.deezer.com') || resource.includes('media.deezer.com') || resource.includes('dzcdn.net'))) {
+        isTokenHost(resource)) {
         // attempt to inspect body for license_token before sending
         if (config && config.body) {
             try {
@@ -97,7 +109,7 @@ window.fetch = function(...args) {
 const originalOpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function(method, url, ...args) {
     if (typeof url === 'string' &&
-        (url.includes('api.deezer.com') || url.includes('media.deezer.com') || url.includes('dzcdn.net'))) {
+        isTokenHost(url)) {
         // intercept send to capture body tokens
         const originalSend = this.send;
         this.send = function(body) {
