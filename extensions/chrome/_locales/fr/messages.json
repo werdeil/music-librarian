@@ -144,5 +144,20 @@
         "content": "$1"
       }
     }
+  },
+  "connectedOff": {
+    "message": "Connecté, téléchargement désactivé"
+  },
+  "errorDashboardOff": {
+    "message": "Le tableau de bord ne peut pas télécharger : watch tourne sans --apply, ou le téléchargement Deezer est désactivé"
+  },
+  "labelContentKind": {
+    "message": "L'ID désigne"
+  },
+  "kindAlbum": {
+    "message": "un album"
+  },
+  "kindPlaylist": {
+    "message": "une playlist"
   }
 }

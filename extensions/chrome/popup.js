@@ -1,7 +1,5 @@
-// i18n helper
 const msg = (key, ...substitutions) => chrome.i18n.getMessage(key, substitutions);
 
-// Apply i18n to all elements with data-i18n attribute
 function applyI18n() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
@@ -13,11 +11,9 @@ function applyI18n() {
     });
 }
 
-// State
 let currentContentType = 'album';
 let selectedUrl = '';
 
-// UI Elements
 const tokenStatusEl = document.getElementById('tokenStatus');
 const tokenStatusText = document.getElementById('tokenStatusText');
 const refreshTokenBtn = document.getElementById('refreshTokenBtn');
@@ -26,6 +22,7 @@ const connectionStatus = document.getElementById('connectionStatus');
 const deezerUrlEl = document.getElementById('deezerUrl');
 const extractBtn = document.getElementById('extractBtn');
 const contentIdEl = document.getElementById('contentId');
+const contentKindEl = document.getElementById('contentKind');
 const downloadBtn = document.getElementById('downloadBtn');
 const downloadStatus = document.getElementById('downloadStatus');
 const progressContainer = document.getElementById('progressContainer');
@@ -35,7 +32,6 @@ const serverUrlEl = document.getElementById('serverUrl');
 const serverKeyEl = document.getElementById('serverKey');
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     applyI18n();
     loadSettings();
@@ -51,6 +47,10 @@ function setupEventListeners() {
     downloadBtn.addEventListener('click', startDownload);
     saveSettingsBtn.addEventListener('click', saveSettings);
     
+    contentKindEl.addEventListener('change', () => {
+        currentContentType = contentKindEl.value;
+    });
+
     deezerUrlEl.addEventListener('paste', () => {
         setTimeout(extractUrlId, 10);
     });
@@ -59,14 +59,14 @@ function setupEventListeners() {
 function extractUrlId() {
     const url = deezerUrlEl.value || selectedUrl;
     
-    // Pattern: /album/123456 ou /playlist/123456
     const match = url.match(/\/(album|playlist)\/(\d+)/);
     
     if (match) {
         const type = match[1];
         const id = match[2];
         
-        currentContentType = type; // Auto-detect type from URL
+        currentContentType = type;
+        contentKindEl.value = type;
         contentIdEl.value = id;
         showStatus(msg('idExtracted', type, id), 'success');
     } else {
@@ -111,7 +111,6 @@ function refreshToken() {
 const DEFAULT_SERVER = 'http://localhost:8080';
 const POLL_MS = 2000;
 
-// The dashboard's address and key, as saved in the settings.
 function getServer(callback) {
     chrome.storage.local.get(['serverUrl', 'serverKey'], (result) => {
         callback((result.serverUrl || DEFAULT_SERVER).replace(/\/+$/, ''), result.serverKey || '');
@@ -127,9 +126,9 @@ function checkServerConnection() {
         fetch(`${serverUrl}/deezer/ext/health`, { method: 'GET', headers: authHeaders(key) })
             .then(res => res.ok ? res.json() : Promise.reject())
             .then((health) => {
-                if (!health.enabled || !health.apply) return Promise.reject();
-                connectionStatus.textContent = msg('connected');
-                connectionStatus.classList.add('success');
+                const ready = health.enabled && health.apply;
+                connectionStatus.textContent = msg(ready ? 'connected' : 'connectedOff');
+                connectionStatus.classList.toggle('success', ready);
             })
             .catch(() => {
                 connectionStatus.textContent = msg('disconnected');
@@ -177,6 +176,8 @@ function startDownload() {
                 const answer = await response.json().catch(() => ({}));
                 if (response.status === 401) {
                     finish(msg('errorWrongKey'), 'error');
+                } else if (response.status === 403) {
+                    finish(msg('errorDashboardOff'), 'error');
                 } else if (!response.ok) {
                     finish(msg('errorDownload', answer.error || msg('errorServer', response.status.toString())),
                            'error');
@@ -191,7 +192,6 @@ function startDownload() {
     });
 }
 
-// The request's state, asked every POLL_MS until watch has run it.
 function follow(serverUrl, key, requestId) {
     const timer = setInterval(async () => {
         try {

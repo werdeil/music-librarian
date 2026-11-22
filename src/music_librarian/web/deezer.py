@@ -1,6 +1,7 @@
 """A Deezer download asked from the overview's Inbox or from the Chrome extension: queued for watch as
 any pass, applied at once as an upload is, refused while watch runs without --apply or the download is
-off (deezer/config.py).
+off (deezer/config.py). The Inbox's form also needs DEEZER_LICENSE_TOKEN; the extension needs it, or
+sends a token of its own.
 
 The extension's routes (/deezer/ext/…) answer only a request bearing DEEZER_EXTENSION_KEY from the
 origin DEEZER_EXTENSION_ORIGIN, and 404 while either is unset. They only queue a download and tell how

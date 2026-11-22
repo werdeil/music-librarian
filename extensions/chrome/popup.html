@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deezer Music Downloader</title>
+    <title data-i18n="extName">Deezer to music-librarian</title>
     <style>
         * {
             margin: 0;
@@ -263,7 +263,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎵 Deezer Music Download</h1>
+            <h1 data-i18n="extName" data-i18n-prefix="🎵 "></h1>
 
             <div style="display:flex; align-items:center; gap:8px;">
                 <div id="connectionStatus" class="status-badge" data-i18n="disconnected"></div>
@@ -272,7 +272,6 @@
         </div>
 
         <div id="mainView">
-            <!-- Download Section -->
             <div class="section">
                 <div class="section-title" data-i18n="sectionDownload"></div>
                 
@@ -292,6 +291,14 @@
                     <input type="text" id="contentId" placeholder="123456">
                 </div>
 
+                <div class="form-group">
+                    <label data-i18n="labelContentKind"></label>
+                    <select id="contentKind">
+                        <option value="album" data-i18n="kindAlbum"></option>
+                        <option value="playlist" data-i18n="kindPlaylist"></option>
+                    </select>
+                </div>
+
                 <button id="downloadBtn" style="margin-top: 10px;" data-i18n="btnDownload" data-i18n-prefix="⬇️ "></button>
                 
                 <div id="downloadStatus"></div>
@@ -303,7 +310,6 @@
             </div>
         </div>
         <div id="settingsView" style="display: none;">
-            <!-- License Token Section -->
             <div class="section">
                 <div class="section-title" data-i18n="sectionLicenseToken"></div>
                 <div id="tokenStatus" class="token-status">
@@ -315,7 +321,6 @@
                 <button id="refreshTokenBtn" class="secondary" style="margin-top: 10px;" data-i18n="btnRefresh" data-i18n-prefix="🔄 "></button>
             </div>
             <div class="section_separator"></div>
-            <!-- Settings Section -->
             <div class="section">
                 <div class="section-title" data-i18n="sectionServer"></div>
                 

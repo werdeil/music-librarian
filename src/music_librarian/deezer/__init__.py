@@ -174,6 +174,7 @@ def _album(opts, api, cfg, staging, album_id, tally, log):
 
 def _playlist(opts, api, cfg, staging, playlist_id, tally, log):
     playlist = api.playlist(playlist_id)
+    playlist.track_ids = list(dict.fromkeys(playlist.track_ids))
     name = playlist.title or playlist_id
     if not opts.apply:
         tracks = count(len(playlist.track_ids), "track")
@@ -182,7 +183,7 @@ def _playlist(opts, api, cfg, staging, playlist_id, tally, log):
         return
     log(f"PLAYLIST {name} ({count(len(playlist.track_ids), 'track')})")
     albums, folders, missing = {}, {}, []
-    for track_id in dict.fromkeys(playlist.track_ids):
+    for track_id in playlist.track_ids:
         if STOP.is_set():
             return
         try:

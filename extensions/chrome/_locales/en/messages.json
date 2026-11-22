@@ -144,5 +144,20 @@
         "content": "$1"
       }
     }
+  },
+  "connectedOff": {
+    "message": "Connected, downloads off"
+  },
+  "errorDashboardOff": {
+    "message": "The dashboard cannot download: watch runs without --apply, or the Deezer download is off"
+  },
+  "labelContentKind": {
+    "message": "The ID names"
+  },
+  "kindAlbum": {
+    "message": "an album"
+  },
+  "kindPlaylist": {
+    "message": "a playlist"
   }
 }
