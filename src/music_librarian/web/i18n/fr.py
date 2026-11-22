@@ -102,8 +102,9 @@ FR = {
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
     "deezer_short_link": "Les liens courts ne sont pas suivis : ouvrez {value}, puis donnez l'adresse "
                          "deezer.com.",
-    "deezer_arl_link": "arl",
-    "deezer_arl_title": "arl Deezer",
+    "deezer_arl_link": "réglages",
+    "deezer_settings_title": "Réglages Deezer",
+    "deezer_arl_title": "arl",
     "deezer_arl_source_kept": "Le téléchargement utilise l'arl défini ici, à la place de DEEZER_ARL.",
     "deezer_arl_source_env": "Le téléchargement utilise DEEZER_ARL.",
     "deezer_arl_source_none": "Aucun arl n'est encore défini.",
@@ -117,6 +118,14 @@ FR = {
     "deezer_arl_back": "Vue d'ensemble",
     "deezer_arl_saved": "Deezer accepte cet arl : il est gardé, et les prochains téléchargements "
                         "l'utilisent.",
+    "deezer_key_title": "Extension Chrome",
+    "deezer_key_help": "L'extension envoie cette clé avec chaque téléchargement : collez-la, avec l'adresse "
+                       "du tableau de bord, dans les réglages de l'extension. Une nouvelle clé remplace "
+                       "celle-ci, qui cesse alors de fonctionner.",
+    "deezer_key_field": "Clé",
+    "deezer_key_create": "Créer une clé",
+    "deezer_key_renew": "Créer une nouvelle clé",
+    "deezer_key_made": "Une nouvelle clé est créée : collez-la dans les réglages de l'extension.",
     "deezer_arl_malformed": "Ce n'est pas un arl : des lettres et des chiffres seulement, environ 192.",
     "deezer_arl_rejected": "Deezer a refusé cet arl : recopiez-le depuis une session connectée. Rien n'a "
                            "été gardé.",

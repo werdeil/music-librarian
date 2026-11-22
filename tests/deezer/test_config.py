@@ -13,10 +13,9 @@ def test_enabled_only_with_the_three_required_values():
 
 
 def test_load():
-    cfg = config.load({**GOOD, "DEEZER_LICENSE_TOKEN": "dummy-token"})
-    assert (cfg.arl, cfg.pre_key, cfg.iv, cfg.license_token) == (
-        "dummy-arl", b"AAAAAAAAAAAAAAAA", bytes.fromhex("0001020304050607"), "dummy-token")
-    assert config.load(GOOD).license_token == ""
+    cfg = config.load(GOOD)
+    assert (cfg.arl, cfg.pre_key, cfg.iv) == ("dummy-arl", b"AAAAAAAAAAAAAAAA",
+                                              bytes.fromhex("0001020304050607"))
 
 
 @pytest.mark.parametrize("name, value, message", [
@@ -33,8 +32,8 @@ def test_a_bad_value_is_named_never_shown(name, value, message):
 
 
 def test_the_settings_never_show_in_their_repr():
-    shown = repr(config.load({**GOOD, "DEEZER_LICENSE_TOKEN": "dummy-token"}))
-    for secret in ("dummy-arl", "AAAA", "dummy-token", "0001020304050607"):
+    shown = repr(config.load(GOOD))
+    for secret in ("dummy-arl", "AAAA", "0001020304050607"):
         assert secret not in shown
 
 

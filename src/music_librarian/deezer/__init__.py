@@ -3,7 +3,8 @@ deezer — download albums and playlists from Deezer into the Inbox, see docs/de
 
 The tracks are written to a hidden folder of the Inbox, then each album is moved into the Inbox once
 complete, for import to file it as any drop. A dry run reads Deezer's metadata only: it asks for no
-stream and downloads nothing. Off until DEEZER_ARL, DEEZER_PRE_KEY and DEEZER_IV are set.
+stream and downloads nothing. Off until DEEZER_PRE_KEY and DEEZER_IV are set, and an arl (DEEZER_ARL, or
+one set on the dashboard's Deezer settings).
 
   music-librarian deezer album 302127                       # what would be downloaded
   music-librarian deezer album https://www.deezer.com/fr/album/302127 --apply
@@ -116,7 +117,8 @@ def run(opts: Options, log, cfg=None, client=None):
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] inbox: {opts.inbox}")
     if cfg is None:
         if not config.enabled(state_dir=opts.state_dir):
-            log(f"ERROR    the Deezer download is off: set {', '.join(config.REQUIRED)} (see docs/deezer.md)")
+            log("ERROR    the Deezer download is off: set DEEZER_PRE_KEY and DEEZER_IV, and an arl "
+                "(DEEZER_ARL, or the dashboard's Deezer settings; see docs/deezer.md)")
             return EXIT_FAILED
         try:
             cfg = config.load(state_dir=opts.state_dir)
@@ -142,7 +144,7 @@ def run(opts: Options, log, cfg=None, client=None):
             log(f"WARNING  license token not kept in the state folder ({exc.strerror or exc})")
         return token
 
-    token = kept.token(opts.state_dir, cfg.arl) or cfg.license_token
+    token = kept.token(opts.state_dir, cfg.arl)
     if opts.apply and not token:
         try:
             token = renew()

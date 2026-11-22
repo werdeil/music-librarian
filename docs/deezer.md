@@ -15,11 +15,11 @@ This page describes the feature as it is being built. The command, the dashboard
 | # | Topic | Decision |
 |---|---|---|
 | D1 | Language | A rewrite in Python, no Go subprocess nor binary in the image. |
-| D2 | Activation | Off until `DEEZER_ARL`, `DEEZER_PRE_KEY` and `DEEZER_IV` are all set: the command then exits with a clear error, and the dashboard shows nothing of it. |
+| D2 | Activation | Off until `DEEZER_PRE_KEY` and `DEEZER_IV` are set and an arl is given (`DEEZER_ARL`, or the dashboard's Deezer settings): the command then exits with a clear error, and the dashboard shows nothing of it. |
 | D3 | Dry run | Without `--apply`, only the metadata is read (album, playlist, tracks): `get_url` is not called and nothing is downloaded; the format is shown as "best of FLAC/MP3_320/MP3_128". This is the one dry run that reaches the network. |
 | D4 | Missing tracks | An incomplete album is still dropped, its summary listing `unavailable: N tracks` with their titles. An album without any track is not dropped. `--complete-only` refuses an incomplete album. |
 | D5 | Lock | A download writes only to a hidden folder of the Inbox and does not take the `--apply` lock. From the dashboard and the extension it goes through the `Requests` queue of `watch`, and holds it while it runs. |
-| D6 | Extension | A route of its own, guarded by `DEEZER_EXTENSION_KEY`, with CORS open to `DEEZER_EXTENSION_ORIGIN` (`chrome-extension://<id>`) only. The route only queues a request. |
+| D6 | Extension | A route of its own, guarded by a key made on the dashboard's Deezer settings, with CORS open to `chrome-extension://` origins only. The route only queues a request. |
 | D7 | Tags | As deezer-music-download writes them: the same tags, the artists joined by `, `, Deezer's genre, `folder.jpg` dropped and embedded into every track. Without a genre from Deezer, none is written (the label is not used in its place). `enrich` then aligns the genre with the validated list, and `split` splits the artists it can vouch for. |
 | D8 | Git history | The history of deezer-music-download is not carried over; that repository is archived with a link to this page. |
 | D9 | Blowfish | `pycryptodome` (`Crypto.Cipher.Blowfish`), pinned in `requirements.txt` and `pyproject.toml`. |
@@ -28,12 +28,11 @@ This page describes the feature as it is being built. The command, the dashboard
 
 | Variable | Meaning |
 |---|---|
-| `DEEZER_ARL` | The `arl` cookie of a logged-in Deezer session. Required. |
 | `DEEZER_PRE_KEY` | The 16-byte key the per-track Blowfish key is derived from. Required. |
 | `DEEZER_IV` | The Blowfish IV, 16 hexadecimal characters. Required. |
-| `DEEZER_LICENSE_TOKEN` | Optional. The license token `get_url` asks for is read from the account the arl logs in, kept in the state folder (`deezer-license-token`, readable by its owner only) and read again once Deezer calls it expired; this variable only gives the first one. |
-| `DEEZER_EXTENSION_KEY` | The key the extension sends as `Authorization: Bearer …`. Without it, the extension's routes answer 404. |
-| `DEEZER_EXTENSION_ORIGIN` | The extension's origin, `chrome-extension://<id>`, the only one its routes accept. |
+| `DEEZER_ARL` | The `arl` cookie of a logged-in Deezer session. Optional: an arl set on the dashboard's Deezer settings takes its place. |
+
+The rest is kept in the state folder, each file readable by its owner only: the arl set on the dashboard, the license token `get_url` asks for, read from the arl and read again once Deezer calls it expired, and the Chrome extension's key, made on the dashboard's Deezer settings.
 
 A value that is malformed is reported by its name, never shown.
 

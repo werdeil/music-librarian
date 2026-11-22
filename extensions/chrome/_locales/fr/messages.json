@@ -94,10 +94,10 @@
     }
   },
   "labelServerKey": {
-    "message": "Clé (DEEZER_EXTENSION_KEY)"
+    "message": "Clé (réglages Deezer du tableau de bord)"
   },
   "errorMissingKey": {
-    "message": "Veuillez entrer la clé définie dans DEEZER_EXTENSION_KEY"
+    "message": "Veuillez entrer la clé affichée dans les réglages Deezer du tableau de bord"
   },
   "errorPermission": {
     "message": "L'accès au tableau de bord n'a pas été autorisé"

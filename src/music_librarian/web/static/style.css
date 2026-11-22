@@ -345,10 +345,15 @@ form.filters {
     gap: 0.6rem;
 }
 
-.deezer-arl input[type="password"] {
+.deezer-settings input[type="password"],
+.deezer-settings input[type="text"] {
     display: block;
     width: min(100%, 36rem);
     margin-top: 0.3rem;
+}
+
+.deezer-settings input[readonly] {
+    font-family: monospace;
 }
 
 .deezer-dialog input[type="text"] {

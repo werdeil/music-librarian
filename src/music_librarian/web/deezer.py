@@ -2,12 +2,11 @@
 any pass, applied at once as an upload is, refused while watch runs without --apply or the download is
 off (deezer/config.py).
 
-The extension's routes (/deezer/ext/…) answer only a request bearing DEEZER_EXTENSION_KEY from the
-origin DEEZER_EXTENSION_ORIGIN, and 404 while either is unset. They only queue a download and tell how
+The extension's routes (/deezer/ext/…) answer only a request bearing the key made on the Deezer settings
+page from a chrome-extension:// origin, and 404 before a key is made. They only queue a download and tell how
 far it has got: the extension polls GET /deezer/ext/request/<id>.
 """
 import hmac
-import os
 import re
 
 from flask import abort, jsonify, render_template, request
@@ -21,7 +20,7 @@ from music_librarian.web.common import refused, submit, when
 from music_librarian.web.history import progress
 from music_librarian.web.passes import CANCELLED, DONE
 
-EXTENSION_KEY, EXTENSION_ORIGIN = "DEEZER_EXTENSION_KEY", "DEEZER_EXTENSION_ORIGIN"
+EXTENSION_ORIGIN = "chrome-extension://"
 TOTAL = re.compile(r"^(?:ALBUM|PLAYLIST) .* \((\d+) tracks?\)$")
 TRACK_DONE = ("DOWNLOAD ", "SKIPPED  ")
 ARL_SHAPE = re.compile(r"^[0-9A-Za-z]{100,400}$")
@@ -42,14 +41,23 @@ def register(app, ctx):
         current = config.load(state_dir=ctx.state_dir).arl if config.enabled(state_dir=ctx.state_dir) else ""
         source = "kept" if kept.arl(ctx.state_dir) else "env" if current else None
         refused_at = kept.refused(ctx.state_dir, current) if current else None
-        return render_template("deezer_arl.html", source=source,
-                               refused=when(refused_at) if refused_at else None, **shown), status
+        return render_template("deezer_settings.html", source=source,
+                               refused=when(refused_at) if refused_at else None,
+                               key=kept.extension_key(ctx.state_dir), **shown), status
 
-    @app.get("/deezer/arl")
-    def deezer_arl_page():
+    @app.get("/deezer/settings")
+    def deezer_settings_page():
         return arl_page()
 
-    @app.post("/deezer/arl")
+    @app.post("/deezer/settings/key")
+    def deezer_key_create():
+        """Make a key for the Chrome extension, replacing the one before."""
+        if ctx.requests is None or not config.keys_set():
+            abort(404)
+        kept.new_extension_key(ctx.state_dir)
+        return arl_page(key_made=True)
+
+    @app.post("/deezer/settings/arl")
     def deezer_arl_save():
         """Check the arl sent with Deezer, then keep it in place of DEEZER_ARL, with its license token."""
         value = request.form.get("arl", "").strip()
@@ -83,13 +91,6 @@ def register(app, ctx):
         return submit(ctx, "deezer", options, True)
 
 
-def _extension():
-    """(key, origin) of the extension, both set, else None."""
-    key = os.environ.get(EXTENSION_KEY, "").strip()
-    origin = os.environ.get(EXTENSION_ORIGIN, "").strip().rstrip("/")
-    return (key, origin) if key and origin else None
-
-
 def tracks_done(lines):
     """(tracks gone through, tracks to go through) of a deezer pass's output so far."""
     total = sum(int(m[1]) for m in (TOTAL.match(line) for line in lines) if m)
@@ -108,13 +109,13 @@ def register_extension(app, ctx):
         return response
 
     def guarded(answer):
-        """`answer()`'s response, once the extension is configured, the origin its own and, but for a
-        preflight, the key its own."""
-        extension = _extension()
-        if extension is None:
+        """`answer()`'s response, once a key is made, from an extension's origin and, but for a
+        preflight, with the key."""
+        key = kept.extension_key(ctx.state_dir)
+        if not key:
             abort(404)
-        key, origin = extension
-        if request.headers.get("Origin", "").rstrip("/") != origin:
+        origin = request.headers.get("Origin", "").rstrip("/")
+        if not origin.startswith(EXTENSION_ORIGIN) or len(origin) == len(EXTENSION_ORIGIN):
             abort(403)
         if request.method == "OPTIONS":
             return cors(app.response_class(status=204), origin)

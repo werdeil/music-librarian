@@ -3,7 +3,7 @@
 <form method="post" action="{{ url_for('deezer_download') }}" class="deezer">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <button type="button" data-opens-dialog{% if deezer_off %} disabled{% endif %}>{{ m.icon('upload') }}{{ t.deezer_title }}</button>
-    <a href="{{ url_for('deezer_arl_page') }}">{{ t.deezer_arl_link }}</a>
+    <a href="{{ url_for('deezer_settings_page') }}">{{ t.deezer_arl_link }}</a>
     {% if not deezer_off %}
     <dialog class="pass-dialog deezer-dialog">
         <h3>{{ t.deezer_title }}</h3>

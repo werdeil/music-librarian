@@ -15,7 +15,7 @@ from music_librarian.web.passes import Requests, passes
 
 EN, FR = {"Accept-Language": "en"}, {"Accept-Language": "fr"}
 SETTINGS = {"DEEZER_ARL": "dummy-arl-value", "DEEZER_PRE_KEY": "AAAAAAAAAAAAAAAA",
-            "DEEZER_IV": "0001020304050607", "DEEZER_LICENSE_TOKEN": "dummy-env-token"}
+            "DEEZER_IV": "0001020304050607"}
 
 
 @pytest.fixture
@@ -58,8 +58,7 @@ def test_nothing_shown_without_configuration(ctx):
 
 
 @pytest.mark.usefixtures("configured")
-def test_no_license_token_is_needed(ctx, monkeypatch):
-    monkeypatch.delenv("DEEZER_LICENSE_TOKEN")
+def test_no_license_token_is_needed(ctx):
     client, page, token = dashboard(ctx)
     assert "data-opens-dialog disabled" not in page and 'name="item"' in page
     assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 302
@@ -132,7 +131,7 @@ def test_a_queued_download_writes_no_secret(tmp_path, monkeypatch, capsys):
     assert "DRY" not in printed and "inbox:" in printed
     written = [p for p in state.rglob("*") if p.is_file()]
     assert written
-    for secret in ("dummy-arl-value", "dummy-env-token"):
+    for secret in ("dummy-arl-value",):
         assert secret not in printed
         for path in written:
             assert secret.encode() not in path.read_bytes(), path
@@ -143,9 +142,9 @@ KEY = "dummy-extension-key"
 
 
 @pytest.fixture
-def extension(monkeypatch, configured):  # pylint: disable=unused-argument
-    monkeypatch.setenv("DEEZER_EXTENSION_KEY", KEY)
-    monkeypatch.setenv("DEEZER_EXTENSION_ORIGIN", ORIGIN)
+def extension(ctx, configured):  # pylint: disable=unused-argument
+    ctx.state_dir.mkdir(parents=True, exist_ok=True)
+    (ctx.state_dir / kept.KEY).write_text(KEY)
 
 
 def ext(client, method, path, key=KEY, origin=ORIGIN, headers=None, **kwargs):
@@ -219,14 +218,14 @@ ARL = "a1" * 96   # dummy, the shape of an arl
 @pytest.mark.usefixtures("configured")
 def test_the_arl_page(ctx):
     client, page, _token = dashboard(ctx)
-    assert 'href="/deezer/arl"' in page
-    shown = client.get("/deezer/arl", headers=EN).get_data(as_text=True)
+    assert 'href="/deezer/settings"' in page
+    shown = client.get("/deezer/settings", headers=EN).get_data(as_text=True)
     assert "The download goes with DEEZER_ARL." in shown and "dummy-arl-value" not in shown
     assert 'type="password" name="arl"' in shown
 
 
 def test_no_arl_page_without_the_keys(ctx):
-    assert web.create_app(ctx).test_client().get("/deezer/arl").status_code == 404
+    assert web.create_app(ctx).test_client().get("/deezer/settings").status_code == 404
 
 
 @pytest.mark.usefixtures("configured")
@@ -238,7 +237,7 @@ def test_an_arl_checked_then_kept(ctx, monkeypatch):
         return "dummy-fresh-token"
     monkeypatch.setattr(web_deezer, "user_license_token", user_license_token)
     client, _page, token = dashboard(ctx)
-    answer = client.post("/deezer/arl", data={"csrf": token, "arl": f"  {ARL}  "}, headers=EN)
+    answer = client.post("/deezer/settings/arl", data={"csrf": token, "arl": f"  {ARL}  "}, headers=EN)
     assert answer.status_code == 200
     shown = answer.get_data(as_text=True)
     assert "Deezer accepts this arl" in shown and "set here, in place of DEEZER_ARL" in shown
@@ -258,10 +257,10 @@ def test_an_arl_refused_is_not_kept(ctx, monkeypatch, value, error, status, mess
         raise error
     monkeypatch.setattr(web_deezer, "user_license_token", user_license_token)
     client, _page, token = dashboard(ctx)
-    answer = client.post("/deezer/arl", data={"csrf": token, "arl": value}, headers=EN)
+    answer = client.post("/deezer/settings/arl", data={"csrf": token, "arl": value}, headers=EN)
     assert answer.status_code == status and message in answer.get_data(as_text=True)
     assert kept.arl(ctx.state_dir) == ""
-    assert client.post("/deezer/arl", data={"arl": ARL}).status_code == 403   # the page's token
+    assert client.post("/deezer/settings/arl", data={"arl": ARL}).status_code == 403   # the page's token
 
 
 @pytest.mark.usefixtures("configured")
@@ -270,7 +269,25 @@ def test_a_refused_arl_shows_on_the_overview(ctx):
     assert "Deezer arl refused" not in page
     kept.mark_refused(ctx.state_dir, "dummy-arl-value")
     tiles = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert "Deezer arl refused" in tiles and 'href="/deezer/arl"' in tiles
-    assert "Deezer refused this arl on" in client.get("/deezer/arl", headers=EN).get_data(as_text=True)
+    assert "Deezer arl refused" in tiles and 'href="/deezer/settings"' in tiles
+    assert "Deezer refused this arl on" in client.get("/deezer/settings", headers=EN).get_data(as_text=True)
     kept.save_arl(ctx.state_dir, ARL)
     assert "Deezer arl refused" not in client.get("/tiles", headers=EN).get_data(as_text=True)
+
+
+@pytest.mark.usefixtures("configured")
+def test_a_key_for_the_extension_is_made_on_the_settings(ctx):
+    client, _page, token = dashboard(ctx)
+    page = client.get("/deezer/settings", headers=EN).get_data(as_text=True)
+    assert "Make a key" in page and "readonly" not in page
+    assert ext(client, "GET", "/deezer/ext/health").status_code == 404      # no key yet
+    made = client.post("/deezer/settings/key", data={"csrf": token}, headers=EN).get_data(as_text=True)
+    key = kept.extension_key(ctx.state_dir)
+    assert len(key) == 64 and f'value="{key}"' in made and "Make a new key" in made
+    assert (ctx.state_dir / kept.KEY).stat().st_mode & 0o777 == 0o600
+    assert ext(client, "GET", "/deezer/ext/health", key=key).status_code == 200
+    other = ext(client, "GET", "/deezer/ext/health", key=key, origin="chrome-extension://other")
+    assert other.status_code == 200
+    assert ext(client, "GET", "/deezer/ext/health", key=key, origin="chrome-extension://").status_code == 403
+    client.post("/deezer/settings/key", data={"csrf": token})
+    assert ext(client, "GET", "/deezer/ext/health", key=key).status_code == 401    # the old key stops

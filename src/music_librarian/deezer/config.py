@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from music_librarian.deezer import kept
 
-ARL, PRE_KEY, IV, LICENSE_TOKEN = "DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV", "DEEZER_LICENSE_TOKEN"
+ARL, PRE_KEY, IV = "DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV"
 REQUIRED = (ARL, PRE_KEY, IV)
 
 
@@ -19,7 +19,6 @@ class Config:
     arl: str = field(repr=False)
     pre_key: bytes = field(repr=False)
     iv: bytes = field(repr=False)
-    license_token: str = field(default="", repr=False)
 
 
 def _value(env, name):
@@ -56,5 +55,4 @@ def load(env=None, state_dir=None):
     iv = _value(env, IV)
     if not re.fullmatch(r"[0-9A-Fa-f]{16}", iv):
         raise ConfigError(f"{IV} must be 16 hexadecimal characters")
-    return Config(arl=_arl(env, state_dir), pre_key=pre_key, iv=bytes.fromhex(iv),
-                  license_token=_value(env, LICENSE_TOKEN))
+    return Config(arl=_arl(env, state_dir), pre_key=pre_key, iv=bytes.fromhex(iv))

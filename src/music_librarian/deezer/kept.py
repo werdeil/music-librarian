@@ -1,13 +1,15 @@
 """What the Deezer download keeps in the state folder, each file readable by its owner only: the arl
-set from the dashboard, which stands for DEEZER_ARL, the license token read from an arl, and the mark of
-an arl Deezer refused. The token and the mark hold a digest of their arl, and stand for it alone."""
+set from the dashboard, which stands for DEEZER_ARL, the license token read from an arl, the mark of an
+arl Deezer refused, and the Chrome extension's key. The token and the mark hold a digest of their arl,
+and stand for it alone."""
 import hashlib
 import os
+import secrets
 import tempfile
 import time
 from pathlib import Path
 
-ARL, TOKEN, REFUSED = "deezer-arl", "deezer-license-token", "deezer-arl-refused"
+ARL, TOKEN, REFUSED, KEY = "deezer-arl", "deezer-license-token", "deezer-arl-refused", "deezer-extension-key"
 
 
 def _digest(value):
@@ -75,3 +77,15 @@ def mark_refused(state_dir, of_arl):
 
 def forget_refused(state_dir):
     (Path(state_dir) / REFUSED).unlink(missing_ok=True)
+
+
+def extension_key(state_dir):
+    """The key the Chrome extension sends, "" before one is made."""
+    return _read(state_dir, KEY).strip()
+
+
+def new_extension_key(state_dir):
+    """Make a key for the Chrome extension, replacing the one before; return it. Raises OSError."""
+    value = secrets.token_hex(32)
+    _write(state_dir, KEY, value)
+    return value

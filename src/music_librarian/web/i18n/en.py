@@ -100,8 +100,9 @@ EN = {
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",
     "deezer_short_link": "Short links are not followed: open {value}, then give the deezer.com address.",
-    "deezer_arl_link": "arl",
-    "deezer_arl_title": "Deezer arl",
+    "deezer_arl_link": "settings",
+    "deezer_settings_title": "Deezer settings",
+    "deezer_arl_title": "arl",
     "deezer_arl_source_kept": "The download goes with the arl set here, in place of DEEZER_ARL.",
     "deezer_arl_source_env": "The download goes with DEEZER_ARL.",
     "deezer_arl_source_none": "No arl is set yet.",
@@ -114,6 +115,14 @@ EN = {
     "deezer_arl_save": "Check and keep",
     "deezer_arl_back": "Overview",
     "deezer_arl_saved": "Deezer accepts this arl: it is kept, and the next downloads go with it.",
+    "deezer_key_title": "Chrome extension",
+    "deezer_key_help": "The extension sends this key with each download: paste it, with the dashboard's "
+                       "address, into the extension's settings. A new key replaces this one, which then "
+                       "stops working.",
+    "deezer_key_field": "Key",
+    "deezer_key_create": "Make a key",
+    "deezer_key_renew": "Make a new key",
+    "deezer_key_made": "A new key is made: paste it into the extension's settings.",
     "deezer_arl_malformed": "This is not an arl: letters and digits only, about 192 of them.",
     "deezer_arl_rejected": "Deezer refused this arl: copy it again from a logged-in session. Nothing was "
                            "kept.",

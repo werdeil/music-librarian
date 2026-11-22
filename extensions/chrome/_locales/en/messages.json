@@ -94,10 +94,10 @@
     }
   },
   "labelServerKey": {
-    "message": "Key (DEEZER_EXTENSION_KEY)"
+    "message": "Key (from the dashboard's Deezer settings)"
   },
   "errorMissingKey": {
-    "message": "Please enter the key set in DEEZER_EXTENSION_KEY"
+    "message": "Please enter the key shown on the dashboard's Deezer settings"
   },
   "errorPermission": {
     "message": "Access to the dashboard was not allowed"

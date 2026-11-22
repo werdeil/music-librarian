@@ -13,7 +13,6 @@ from music_librarian.core import runs
 from music_librarian.core.lock import STOP
 from music_librarian.core.log import Buffer
 from music_librarian.deezer import download, kept, staging, tags
-from music_librarian.deezer.config import Config
 from music_librarian.deezer.api import GET_URL, GW
 from music_librarian.deezer.crypto import CHUNK, blowfish_key
 
@@ -286,14 +285,14 @@ def test_a_playlist_files_each_track_in_its_album(inbox, cfg, site, http, templa
 
 
 def test_without_configuration_a_clear_error(inbox, monkeypatch):
-    for name in ("DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV", "DEEZER_LICENSE_TOKEN"):
+    for name in ("DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV"):
         monkeypatch.delenv(name, raising=False)
     state = inbox.parent / "state"
     code = deezer.main(["album", "302127", "--inbox", str(inbox), "--state-dir", str(state)])
     assert code == 1
     run_row = runs.recent(state)[0]
     assert run_row["command"] == "deezer" and run_row["code"] == 1
-    assert "the Deezer download is off: set DEEZER_ARL, DEEZER_PRE_KEY, DEEZER_IV" in \
+    assert "the Deezer download is off: set DEEZER_PRE_KEY and DEEZER_IV, and an arl" in \
         "\n".join(runs.read_log(state, run_row["id"])[0])
 
 
@@ -303,7 +302,7 @@ def sent_tokens(client):
 
 def test_without_a_license_token_one_is_read_from_the_arl_and_kept(inbox, cfg, site):
     client = site()
-    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), client, apply=True)
+    code, out = run(inbox, cfg, client, apply=True)
     assert code == 0, out
     assert "TOKEN    license token renewed from the arl" in out and "dummy-fresh-token" not in out
     assert set(sent_tokens(client)) == {"dummy-fresh-token"}
@@ -313,12 +312,13 @@ def test_without_a_license_token_one_is_read_from_the_arl_and_kept(inbox, cfg, s
     assert b"dummy-arl" not in (state / kept.TOKEN).read_bytes()
     assert kept.token(state, "another-dummy-arl") == ""      # set aside once the arl changes
     again = site()
-    assert run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), again, "302127", apply=True)[0] == 0
+    assert run(inbox, cfg, again, "302127", apply=True)[0] == 0
     assert not [s for s in again.session.sent if s["url"] == GW]     # the kept token is used
 
 
 def test_an_expired_token_is_renewed_once(inbox, cfg, site):
     client = site()
+    kept.save_token(inbox.parent / "state", "dummy-arl", "dummy-token")
     site.expired.add("dummy-token")
     code, out = run(inbox, cfg, client, apply=True)
     assert code == 0, out
@@ -329,6 +329,7 @@ def test_an_expired_token_is_renewed_once(inbox, cfg, site):
 
 def test_an_expired_token_and_a_refused_arl_end_in_one_try(inbox, cfg, site):
     client = site()
+    kept.save_token(inbox.parent / "state", "dummy-arl", "dummy-token")
     site.expired.add("dummy-token")
     site.user["USER_ID"] = 0
     code, out = run(inbox, cfg, client, apply=True)
@@ -341,7 +342,7 @@ def test_a_token_that_cannot_be_kept_still_serves(inbox, cfg, site, monkeypatch)
     def full(*_args):
         raise OSError(28, "No space left on device")
     monkeypatch.setattr(kept, "save_token", full)
-    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), site(), apply=True)
+    code, out = run(inbox, cfg, site(), apply=True)
     assert code == 0, out
     assert "WARNING  license token not kept in the state folder (No space left on device)" in out
 
@@ -349,20 +350,20 @@ def test_a_token_that_cannot_be_kept_still_serves(inbox, cfg, site, monkeypatch)
 def test_a_refused_arl_is_said_once(inbox, cfg, site):
     client = site()
     site.user["USER_ID"] = 0
-    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), client, apply=True)
+    code, out = run(inbox, cfg, client, apply=True)
     assert code == 1
     assert "ERROR    the arl is refused by Deezer: take the arl cookie of a logged-in session again" in out
     assert not sent_tokens(client)
     state = inbox.parent / "state"
     assert kept.refused(state, "dummy-arl") and not kept.refused(state, "another-dummy-arl")
     site.user["USER_ID"] = 42
-    assert run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), site(), apply=True)[0] == 0
+    assert run(inbox, cfg, site(), apply=True)[0] == 0
     assert kept.refused(state, "dummy-arl") is None       # forgotten once Deezer takes it again
 
 
 def test_a_dry_run_reads_no_token(inbox, cfg, site):
     client = site()
-    assert run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), client)[0] == 0
+    assert run(inbox, cfg, client)[0] == 0
     assert not [s for s in client.session.sent if s["url"] == GW]
 
 

@@ -70,13 +70,11 @@ services:
       - ITUNES_COUNTRY=${ITUNES_COUNTRY:-us}
       - EDITION_PROVIDERS=${EDITION_PROVIDERS:-musicbrainz,discogs,itunes}
       - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
-      # the Deezer download, off until DEEZER_ARL, DEEZER_PRE_KEY and DEEZER_IV are set (docs/deezer.md)
-      - DEEZER_ARL=${DEEZER_ARL:-}
+      # the Deezer download, off until both keys are set and an arl is given, here or on the
+      # dashboard (docs/deezer.md)
       - DEEZER_PRE_KEY=${DEEZER_PRE_KEY:-}
       - DEEZER_IV=${DEEZER_IV:-}
-      - DEEZER_LICENSE_TOKEN=${DEEZER_LICENSE_TOKEN:-}
-      - DEEZER_EXTENSION_KEY=${DEEZER_EXTENSION_KEY:-}
-      - DEEZER_EXTENSION_ORIGIN=${DEEZER_EXTENSION_ORIGIN:-}
+      - DEEZER_ARL=${DEEZER_ARL:-}
     volumes:
       # Inbox and library under this single mount, at the same path as on the
       # host: moves stay renames and journal paths are valid on both sides.
