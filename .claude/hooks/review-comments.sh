@@ -6,10 +6,10 @@ set -euo pipefail
 
 input=$(cat)
 command=$(printf '%s' "$input" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("tool_input", {}).get("command", ""))')
-case "$command" in
-  *"git commit"*) ;;
-  *) exit 0 ;;
-esac
+if ! printf '%s' "$command" | grep -Eq \
+  '(^|[;&|(])[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?commit([[:space:]]|$)'; then
+  exit 0
+fi
 
 cd "${CLAUDE_PROJECT_DIR:-.}"
 
