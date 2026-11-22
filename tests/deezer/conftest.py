@@ -71,7 +71,8 @@ def page(state):
 
 class Session:
     """Answers each URL (without its query) with the responses queued for it, the last one repeated;
-    a queued exception is raised instead. `sent` keeps every request."""
+    a queued exception is raised instead, a function is called with the request's arguments.
+    `sent` keeps every request."""
 
     def __init__(self, routes=None):
         self.routes = {url: list(r) if isinstance(r, list) else [r] for url, r in (routes or {}).items()}
@@ -85,7 +86,7 @@ class Session:
         found = queue.pop(0) if len(queue) > 1 else queue[0]
         if isinstance(found, BaseException):
             raise found
-        return found
+        return found(**kwargs) if callable(found) else found
 
 
 @pytest.fixture

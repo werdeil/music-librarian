@@ -37,6 +37,22 @@ This page describes the feature as it is being built. The command, the dashboard
 
 A value that is malformed is reported by its name, never shown.
 
+## Command line
+
+```
+music-librarian deezer album ID|URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
+music-librarian deezer playlist ID|URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
+```
+
+An album or a playlist is given by its id or its address (`https://www.deezer.com/fr/album/302127`); a short `link.deezer.com` link is refused, its deezer.com address is to be given instead. The Inbox is `--inbox`, else `MUSIC_LIBRARIAN_INBOX`.
+
+- **A dry run** prints `PLAN` and the number of tracks of each album or playlist, and changes nothing.
+- **With `--apply`**, each track is announced `DOWNLOAD` with its format (`FLAC 24-bit/96kHz`), `FALLBACK` when its fallback recording is downloaded, `SKIPPED` with the reason when it is unavailable; each album moved into the Inbox is announced `ADDED`. A tag or cover that could not be written is a `WARNING`, the track kept.
+- **`--complete-only`** leaves out an album, or a playlist, with any track unavailable.
+- **The summary** (`--- Deezer summary ---`) counts the albums, the tracks, the unavailable ones by title, and the formats.
+
+Exit codes: 0 OK, 1 failed (not configured, an album or a playlist not found, not one of its tracks downloaded), 2 tracks unavailable, 4 stopped before the end, what was waiting removed. Each pass is kept in the run history.
+
 ## How a download runs
 
 1. **The request** comes from the command line, or from the dashboard or the extension through the `Requests` queue of `watch`.

@@ -1,8 +1,12 @@
-"""Library files: what counts as audio, as junk, and emptied folders."""
+"""Library files: what counts as audio, as junk, emptied folders, and the hidden folders of the Inbox
+left behind."""
+import shutil
+import time
 from pathlib import Path
 
 AUDIO_EXT = {".m4a", ".mp3", ".flac"}
 JUNK_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
+ABANDONED_HOURS = 24
 
 
 def is_junk(p: Path):
@@ -29,3 +33,15 @@ def relative(path, root):
         return str(Path(path).relative_to(root))
     except ValueError:
         return str(path)
+
+
+def last_change(folder: Path):
+    return max((p.stat().st_mtime for p in folder.rglob("*")), default=folder.stat().st_mtime)
+
+
+def drop_abandoned(inbox: Path, prefix):
+    """Remove the folders of the Inbox named `prefix`… that nothing was written to for ABANDONED_HOURS:
+    a batch or a download its process left unfinished."""
+    for folder in inbox.glob(prefix + "*"):
+        if folder.is_dir() and last_change(folder) < time.time() - ABANDONED_HOURS * 3600:
+            shutil.rmtree(folder, ignore_errors=True)
