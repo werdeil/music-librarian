@@ -1,6 +1,11 @@
+import subprocess
+import sys
+
 import pytest
 from Crypto.Cipher import Blowfish
 
+from music_librarian.deezer import crypto
+from music_librarian.deezer.client import DeezerError
 from music_librarian.deezer.crypto import CHUNK, blowfish_key, decrypt_stream
 
 PRE_KEY = b"AAAAAAAAAAAAAAAA"
@@ -57,3 +62,18 @@ def test_a_last_incomplete_chunk_is_kept_as_it_is():
 def test_an_invalid_iv_is_refused():
     with pytest.raises(ValueError):
         decrypt_stream([], blowfish_key("42", PRE_KEY), b"\x00" * 3)
+
+
+def test_without_pycryptodome_only_the_decryption_fails(monkeypatch):
+    monkeypatch.setitem(sys.modules, "Crypto.Cipher", None)
+    assert crypto.missing() == crypto.MISSING
+    with pytest.raises(DeezerError, match="pycryptodome is not installed"):
+        decrypt_stream([], blowfish_key("42", PRE_KEY), IV)
+
+
+def test_the_commands_start_without_pycryptodome():
+    blocked = ("import sys; sys.modules['Crypto'] = None; "
+               "from music_librarian import cli; cli.main(['--version'])")
+    done = subprocess.run([sys.executable, "-c", blocked], capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.startswith("music-librarian ")

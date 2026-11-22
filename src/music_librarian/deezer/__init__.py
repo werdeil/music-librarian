@@ -23,7 +23,7 @@ from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.deezer import config, download, tags
+from music_librarian.deezer import config, crypto, download, tags
 from music_librarian.deezer.api import FORMATS, Album, Api, disc_total
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
@@ -126,6 +126,9 @@ def run(opts: Options, log, cfg=None, client=None):
             return EXIT_FAILED
     if opts.apply and not cfg.license_token:
         log(f"ERROR    no license token to download with: set {config.LICENSE_TOKEN} (see docs/deezer.md)")
+        return EXIT_FAILED
+    if opts.apply and crypto.missing():
+        log(f"ERROR    {crypto.missing()}")
         return EXIT_FAILED
     api = Api(client or Client(cfg.arl), cfg.license_token)
     tally = Tally()
