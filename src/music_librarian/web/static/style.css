@@ -326,6 +326,48 @@ form.filters {
     margin-top: 0.8rem;
 }
 
+.deezer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: 36rem;
+    margin-top: 1.2rem;
+}
+
+.deezer h3 {
+    margin: 0;
+}
+
+.deezer input[type="text"] {
+    width: min(100%, 28rem);
+}
+
+.deezer fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.deezer-fields {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.deezer-kind {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.deezer-kind legend {
+    float: left;
+    color: var(--text-muted);
+}
+
 .drop-zone {
     margin-top: 0.8rem;
     padding: 1.4rem 1rem;

@@ -1,0 +1,21 @@
+{# The overview's Deezer form, shown only when the download is configured. #}
+<form method="post" action="{{ url_for('deezer_download') }}" class="deezer">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h3>{{ t.deezer_title }}</h3>
+    <p class="pass-sub">{{ t.deezer_help }}</p>
+    {% if not deezer_token %}<p class="muted">{{ t.deezer_no_token }}</p>{% endif %}
+    <fieldset class="deezer-fields"{% if not ctx.apply or not deezer_token %} disabled{% endif %}>
+        <label>{{ t.deezer_item }} <input type="text" name="item" required inputmode="url" autocomplete="off"
+            placeholder="{{ t.deezer_placeholder }}"></label>
+        <fieldset class="deezer-kind">
+            <legend>{{ t.deezer_id_is }}</legend>
+            <label><input type="radio" name="kind" value="album" checked> {{ t.deezer_album }}</label>
+            <label><input type="radio" name="kind" value="playlist"> {{ t.deezer_playlist }}</label>
+        </fieldset>
+        <label><input type="checkbox" name="complete_only" value="1"> {{ t.deezer_complete_only }}</label>
+        <div class="actions">
+            <button type="submit" class="primary">{{ m.icon('upload') }}{{ t.deezer_button }}</button>
+            {% if not ctx.apply %}<span class="muted">{{ t.upload_read_only }}</span>{% endif %}
+        </div>
+    </fieldset>
+</form>
