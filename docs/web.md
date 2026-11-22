@@ -105,7 +105,7 @@ The files are written to a hidden folder of the Inbox, `.upload-<id>`, which `wa
 
 ## Downloading from Deezer
 
-When the Deezer download is configured (see [deezer.md](deezer.md)), the overview's Inbox also offers **Download from Deezer**: an album or a playlist, by its deezer.com address or its id, queued as a `deezer` pass applied at once, whose run's page follows it; its tracks reach the Inbox once downloaded, and `watch` imports them. The form is disabled while `watch` runs without `--apply` or `DEEZER_LICENSE_TOKEN` is not set, and absent while the download is off.
+When the Deezer download is configured (see [deezer.md](deezer.md)), the overview's Inbox also offers **Download from Deezer**, a button beside **Add to the Inbox** whose dialog takes an album or a playlist, by its deezer.com address or its id, queued as a `deezer` pass applied at once, whose run's page follows it; its tracks reach the Inbox once downloaded, and `watch` imports them. The button is disabled while `watch` runs without `--apply` or `DEEZER_LICENSE_TOKEN` is not set, and absent while the download is off.
 
 The Chrome extension of `extensions/chrome` asks for a download through routes of its own, under `/deezer/ext/`. They answer 404 until `DEEZER_EXTENSION_KEY` and `DEEZER_EXTENSION_ORIGIN` are both set, then only a request from that origin (`chrome-extension://<id>`), with CORS for it alone, and bearing `Authorization: Bearer <key>` (a preflight excepted). They need no page token, but the host name check applies to them as to every route, and they only queue a download and tell how far it has got. The license token the extension sends goes with the request in memory, never into the run history.
 

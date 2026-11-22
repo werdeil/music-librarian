@@ -59,7 +59,7 @@ Exit codes: 0 OK, 1 failed (not configured, an album or a playlist not found, no
 
 ## On the dashboard
 
-Once the download is configured, the overview's Inbox shows **Download from Deezer**: a deezer.com address or an id (the radio buttons say whether a bare id names an album or a playlist) and **only if every track is available** (`--complete-only`). **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview. The form is disabled while `watch` runs without `--apply`, and until `DEEZER_LICENSE_TOKEN` is set, since the dashboard has no other token to give. A short link is refused with a word on what to give instead. Details of the routes in [web.md](web.md#downloading-from-deezer).
+Once the download is configured, the overview's Inbox shows a **Download from Deezer** button beside **Add to the Inbox**. Its dialog takes a deezer.com address or an id (the radio buttons say whether a bare id names an album or a playlist) and **only if every track is available** (`--complete-only`). **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview. The button is disabled while `watch` runs without `--apply`, and until `DEEZER_LICENSE_TOKEN` is set, since the dashboard has no other token to give. A short link is refused with a word on what to give instead. Details of the routes in [web.md](web.md#downloading-from-deezer).
 
 ## The Chrome extension
 
@@ -77,6 +77,7 @@ The badge then reads **Connected**, or **Connected, downloads off** when `watch`
 - **`the Deezer download is off`**: one of `DEEZER_ARL`, `DEEZER_PRE_KEY`, `DEEZER_IV` is empty in the container (`docker compose exec music-librarian env | grep -c DEEZER_` counts them without showing them).
 - **`pycryptodome is not installed`**: the image was built before the download joined; rebuild it (`docker compose build`). The other commands run meanwhile.
 - **`no license token to download with`**: set `DEEZER_LICENSE_TOKEN`, or download from the extension, which sends its own.
+- **`(error 1001: License token is expired.)`** after `no playable format`, on every track: the license token has expired. Take a fresh one as described above, set it in `DEEZER_LICENSE_TOKEN` and restart the container; a download from the extension sends a fresh one by itself.
 - **`SKIPPED  <title>: no playable format among FLAC/MP3_320/MP3_128 (…)`**: `get_url` gave no stream for the track. Between the brackets, `error <code>: <message>` is Deezer's own refusal (a license token expired or of another account, a track not streamable in your country or with your subscription), `HTTP <status>` an answer without a reason, `empty data` or `no media available` a track offered in none of the formats asked. The track is counted unavailable; the album is still dropped, unless `--complete-only`.
 - **`FALLBACK`**: the track has no rights of its own, and Deezer points at an equivalent recording, downloaded and decrypted in its place, as the web player does. Its tags stay the track's.
 - **`unavailable: N tracks (…)`** in the summary, exit code 2: those tracks were skipped; the album reached the Inbox without them.
