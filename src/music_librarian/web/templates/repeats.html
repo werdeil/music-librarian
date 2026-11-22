@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m with context %}
 {% block title %}{{ t.tracks_repeated_title }} · music-librarian{% endblock %}
 {% block content %}
 <section>
@@ -7,29 +8,13 @@
     {% if building %}
     {% include "_building.html" %}
     {% elif albums %}
-    <p class="muted">{{ t.tracks_repeated.format(n=tracks) }}</p>
-    <div class="table-wrap">
-    <table>
-        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.repeated_column }}</th></tr></thead>
-        <tbody>
-        {% for album in albums %}
-            <tr>
-                <td><a href="{{ url_for('album_page', folder=album.folder, list='repeats', at=offset + loop.index0) }}">{{ album.folder }}</a></td>
-                <td>{{ album.repeated }} / {{ album.tracks }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <p class="review-count"><span class="tile-value">{{ tracks }}</span> <span>{{ t.unit_repeats.format(albums=count) }}</span></p>
+    <div class="actions">
+        <a class="button primary" href="{{ url_for('album_page', folder=albums[0].folder, list='repeats', at=offset) }}">{{ t.start_fixing }}</a>
     </div>
-    {% if pages > 1 %}
-    <p class="actions">
-        {% if page > 1 %}<a class="button" href="{{ url_for('repeated_values', page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
-        <span class="muted">{{ page }} / {{ pages }}</span>
-        {% if page < pages %}<a class="button" href="{{ url_for('repeated_values', page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
-    </p>
-    {% endif %}
+    {% call(album) m.work_list(t, albums, 'repeats', offset, page, pages, 'repeated_values') %}{{ album.repeated }} / {{ album.tracks }}{% endcall %}
     {% else %}
-    <p class="muted">{{ t.repeats_none }}</p>
+    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.repeats_none }}</p>
     {% endif %}
 </section>
 {% endblock %}

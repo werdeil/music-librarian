@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m with context %}
 {% block title %}{{ t.tracks_without_lyrics_title }} · music-librarian{% endblock %}
 {% block content %}
 <section>
@@ -7,32 +8,17 @@
     {% if building %}
     {% include "_building.html" %}
     {% else %}
-    {% if awaited %}<p class="muted">{{ t.tracks_awaited.format(n=awaited) }}
-        · <a href="{{ url_for('library_page', c='awaited:yes', view='tracks') }}">{{ t.see }}</a></p>{% endif %}
     {% if albums %}
-    <p class="muted">{{ t.tracks_without_lyrics.format(n=tracks) }}</p>
-    <div class="table-wrap">
-    <table>
-        <thead><tr><th>{{ t.album_fields }}</th><th>{{ t.without_lyrics }}</th></tr></thead>
-        <tbody>
-        {% for album in albums %}
-            <tr>
-                <td><a href="{{ url_for('album_page', folder=album.folder, list='lyrics', at=offset + loop.index0) }}">{{ album.folder }}</a></td>
-                <td>{{ album.without_lyrics }} / {{ album.tracks }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    </div>
-    {% if pages > 1 %}
-    <p class="actions">
-        {% if page > 1 %}<a class="button" href="{{ url_for('missed_lyrics', page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
-        <span class="muted">{{ page }} / {{ pages }}</span>
-        {% if page < pages %}<a class="button" href="{{ url_for('missed_lyrics', page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
-    </p>
-    {% endif %}
+    <p class="review-count"><span class="tile-value">{{ tracks }}</span> <span>{{ t.unit_lyrics.format(albums=count) }}</span></p>
     {% else %}
-    <p class="muted">{{ t.lyrics_none_missing }}</p>
+    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.lyrics_none_missing }}</p>
+    {% endif %}
+    <div class="actions">
+        {% if albums %}<a class="button primary" href="{{ url_for('album_page', folder=albums[0].folder, list='lyrics', at=offset) }}">{{ t.start_fixing }}</a>{% endif %}
+        {% if awaited %}<a class="button" href="{{ url_for('library_page', c='awaited:yes', view='tracks') }}">{{ t.rules_awaited_link.format(n=awaited) }}</a>{% endif %}
+    </div>
+    {% if albums %}
+    {% call(album) m.work_list(t, albums, 'lyrics', offset, page, pages, 'missed_lyrics') %}{{ album.without_lyrics }} / {{ album.tracks }}{% endcall %}
     {% endif %}
     {% endif %}
 </section>

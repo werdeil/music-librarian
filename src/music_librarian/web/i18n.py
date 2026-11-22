@@ -334,37 +334,17 @@ TRANSLATIONS = {
         "cover_not_an_image": "Ce fichier n'est pas une image lisible.",
         "cover_too_large": "Image trop lourde : {mb} Mo au plus.",
         "tracks_without_lyrics_title": "Morceaux sans paroles",
-        "tracks_without_lyrics": "Morceaux sans paroles : {n}",
-        "without_lyrics": "Sans paroles",
-        "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles et ne sont pas encore "
-                              "classés, le plus d'abord : depuis la page de l'album, marquez chacun "
-                              "instrumental, ou paroles attendues pour qu'il quitte cette liste. enrich "
-                              "cherche chaque semaine les paroles de tous les morceaux qui n'en ont pas, "
-                              "attendus compris."),
+        "lyrics_page_intro": "À marquer instrumentaux ou paroles attendues, album par album.",
         "lyrics_none_missing": "Tous les morceaux sans paroles sont classés.",
-        "tracks_awaited": "Morceaux aux paroles attendues : {n}",
         "tile_lyrics": "Morceaux sans paroles",
         "tracks_repeated_title": "Valeurs répétées",
-        "tracks_repeated": "Morceaux aux valeurs répétées : {n}",
-        "repeated_column": "Morceaux concernés",
-        "repeats_page_intro": ("Les albums dont des morceaux ont un champ qui tient une valeur en double "
-                               "ou plusieurs valeurs : deux titres, un artiste nommé deux fois. enrich "
-                               "garde chaque semaine une seule fois une valeur répétée à l'identique ; "
-                               "des valeurs qui diffèrent se corrigent sur la page de l'album. Le titre et "
-                               "l'album ne prennent qu'une valeur, sans « ; » : organize ne range pas, et "
-                               "l'import refuse, un morceau qui en tient plusieurs."),
+        "repeats_page_intro": "Un champ tient une valeur en double, ou plusieurs valeurs.",
         "repeats_none": "Aucun morceau n'a de valeur répétée.",
         "tile_repeats": "Morceaux aux valeurs répétées",
         "tile_mixed": "Albums aux champs incohérents",
         "mixed_title": "Albums incohérents",
-        "mixed_page_intro": ("Les albums dont les morceaux ne s'accordent pas sur un champ d'album : "
-                             "artiste de l'album, album, année, genre, nombre de disques ou drapeau "
-                             "compilation, un morceau sans valeur comptant comme une valeur à part. Le "
-                             "genre n'est pas compté sur une compilation. Chaque champ se corrige sur la "
-                             "page de l'album, qui montre quels morceaux tiennent quelle valeur."),
-        "mixed_count": "Albums concernés : {n}",
+        "mixed_page_intro": "Des morceaux d'un même album ne s'accordent pas sur un de ses champs.",
         "mixed_list_link": "Voir la liste",
-        "mixed_column": "Champs en désaccord",
         "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
                              "valeurs, séparées par « ; » : garder la bonne seule. Le titre et l'album "
@@ -433,6 +413,7 @@ TRANSLATIONS = {
         "unit_genres": "genres à valider",
         "unit_lyrics": "morceaux à classer, sur {albums} albums",
         "unit_mixed": "albums à corriger",
+        "unit_repeats": "morceaux à corriger, sur {albums} albums",
         "start_fixing": "Corriger",
         "review_switch_on": "Activer : compter ces questions",
         "review_switch_off": "Désactiver : ne plus compter ces questions",
@@ -822,35 +803,17 @@ TRANSLATIONS = {
         "cover_not_an_image": "This file is not a readable image.",
         "cover_too_large": "Image too large: {mb} MB at most.",
         "tracks_without_lyrics_title": "Tracks without lyrics",
-        "tracks_without_lyrics": "Tracks without lyrics: {n}",
-        "without_lyrics": "Without lyrics",
-        "lyrics_page_intro": ("The albums whose tracks have no lyrics and are not sorted out yet, the "
-                              "most first: from the album's page, mark each instrumental, or lyrics "
-                              "awaited for it to leave this list. enrich looks up every week the lyrics "
-                              "of every track without them, awaited ones included."),
+        "lyrics_page_intro": "To mark instrumental or lyrics awaited, album by album.",
         "lyrics_none_missing": "Every track without lyrics is sorted out.",
-        "tracks_awaited": "Tracks whose lyrics are awaited: {n}",
         "tile_lyrics": "Tracks without lyrics",
         "tracks_repeated_title": "Repeated values",
-        "tracks_repeated": "Tracks with repeated values: {n}",
-        "repeated_column": "Tracks concerned",
-        "repeats_page_intro": ("The albums whose tracks have a field holding a value twice or several "
-                               "values: two titles, an artist named twice. enrich keeps a value "
-                               "repeated as is only once every week; values that differ are fixed on "
-                               "the album's page. The title and the album take one value, without "
-                               "\";\": organize does not file, and import refuses, a track holding several."),
+        "repeats_page_intro": "A field holds a value twice, or several values.",
         "repeats_none": "No track has a repeated value.",
         "tile_repeats": "Tracks with repeated values",
         "tile_mixed": "Albums with inconsistent fields",
         "mixed_title": "Inconsistent albums",
-        "mixed_page_intro": ("The albums whose tracks disagree on an album field: album artist, album, "
-                             "year, genre, number of discs or compilation flag, a track without a value "
-                             "counting as a value of its own. The genre is not counted on a compilation. "
-                             "Each field is fixed on the album's page, which shows which tracks hold "
-                             "which value."),
-        "mixed_count": "Albums concerned: {n}",
+        "mixed_page_intro": "Tracks of one album disagree on one of its fields.",
         "mixed_list_link": "See the list",
-        "mixed_column": "Fields in disagreement",
         "mixed_none": "The tracks of every album agree on its fields.",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
                              "by \"; \": keep only the right one. The title and the album take one "
@@ -919,6 +882,7 @@ TRANSLATIONS = {
         "unit_genres": "genres to validate",
         "unit_lyrics": "tracks to sort out, across {albums} albums",
         "unit_mixed": "albums to fix",
+        "unit_repeats": "tracks to fix, across {albums} albums",
         "start_fixing": "Fix",
         "review_switch_on": "Switch on: count these questions",
         "review_switch_off": "Switch off: stop counting these questions",
