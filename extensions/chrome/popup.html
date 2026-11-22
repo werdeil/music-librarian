@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="extName">Deezer to music-librarian</title>
+    <style>
+        :root {
+            /* the dashboard's colours (src/music_librarian/web/static/style.css) */
+            --base-bg: #212121;
+            --surface: #2b2b2b;
+            --field: #181818;
+            --border-color: #3a3a3a;
+            --text: #e0e0e0;
+            --text-bright: #f5f5f5;
+            --text-muted: #aaaaaa;
+            --accent: #4f86c6;
+            --ok: #8fd19e;
+            --error: #ffb7c0;
+            color-scheme: dark;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 400px;
+            font-family: Arial, sans-serif;
+            background: var(--base-bg);
+            color: var(--text);
+        }
+
+        .container {
+            padding: 16px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 10px;
+        }
+
+        .header img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            color: var(--text-bright);
+            flex: 1;
+        }
+
+        .status-badge {
+            background: var(--surface);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-badge.success {
+            color: var(--ok);
+            border-color: var(--ok);
+        }
+
+        .status-badge.error {
+            color: var(--error);
+            border-color: var(--error);
+        }
+
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .section_separator {
+            height: 1px;
+            margin: 10px 0;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 7px 8px;
+            color: var(--text-bright);
+            background: var(--field);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            font-family: monospace;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        button {
+            background: var(--accent);
+            color: #111;
+            border: 1px solid var(--accent);
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        button.secondary {
+            background: var(--surface);
+            color: var(--text-bright);
+            border-color: var(--border-color);
+        }
+
+        button.secondary:hover {
+            filter: none;
+            border-color: var(--accent);
+        }
+
+        .info-box {
+            background: var(--field);
+            border-left: 3px solid var(--accent);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .token-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--field);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .token-status .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--error);
+            flex-shrink: 0;
+        }
+
+        .token-status.active .indicator {
+            background: var(--ok);
+        }
+
+        .token-status .text {
+            flex: 1;
+            font-size: 12px;
+        }
+
+        .loading {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .loading { animation: none; }
+        }
+
+        .url-input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .url-input-group input {
+            flex: 1;
+        }
+
+        .url-input-group button {
+            flex: 0 0 auto;
+            width: auto;
+            padding: 7px 12px;
+        }
+
+        #downloadStatus {
+            min-height: 30px;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            background: var(--field);
+            display: none;
+        }
+
+        #downloadStatus.show {
+            display: block;
+        }
+
+        #downloadStatus.success {
+            color: var(--ok);
+            border-left: 3px solid var(--ok);
+        }
+
+        #downloadStatus.error {
+            color: var(--error);
+            border-left: 3px solid var(--error);
+        }
+
+        #downloadStatus.info {
+            color: var(--text-bright);
+            border-left: 3px solid var(--accent);
+        }
+
+        .progress {
+            width: 100%;
+            height: 18px;
+            background: var(--field);
+            border: 1px solid var(--border-color);
+            border-radius: 9px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #111;
+            font-size: 11px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="images/icon-48.png" alt="">
+            <h1 data-i18n="extName"></h1>
+
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div id="connectionStatus" class="status-badge" data-i18n="disconnected"></div>
+                <button id="settingsToggle" class="secondary" style="width:auto; padding:6px 10px;">⚙️</button>
+            </div>
+        </div>
+
+        <div id="mainView">
+            <div class="section">
+                <div class="section-title" data-i18n="sectionDownload"></div>
+                
+                <div class="form-group">
+                    <label data-i18n="labelDeezerUrl"></label>
+                    <div class="url-input-group">
+                        <input 
+                            type="text" 
+                            id="deezerUrl" 
+                            placeholder="https://www.deezer.com/album/123456"
+                        >
+                        <button id="extractBtn" class="secondary" style="width: auto; padding: 8px 12px;">📋</button>
+                    </div>                </div>
+
+                <div class="form-group">
+                    <label data-i18n="labelContentId"></label>
+                    <input type="text" id="contentId" placeholder="123456">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="labelContentKind"></label>
+                    <select id="contentKind">
+                        <option value="album" data-i18n="kindAlbum"></option>
+                        <option value="playlist" data-i18n="kindPlaylist"></option>
+                    </select>
+                </div>
+
+                <button id="downloadBtn" style="margin-top: 10px;" data-i18n="btnDownload" data-i18n-prefix="⬇️ "></button>
+                
+                <div id="downloadStatus"></div>
+                <div id="progressContainer" style="display: none; margin-top: 10px;">
+                    <div class="progress">
+                        <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="settingsView" style="display: none;">
+            <div class="section">
+                <div class="section-title" data-i18n="sectionLicenseToken"></div>
+                <div id="tokenStatus" class="token-status">
+                    <div class="indicator"></div>
+                    <div class="text">
+                        <span id="tokenStatusText" data-i18n="tokenNone"></span>
+                    </div>
+                </div>
+                <button id="refreshTokenBtn" class="secondary" style="margin-top: 10px;" data-i18n="btnRefresh" data-i18n-prefix="🔄 "></button>
+            </div>
+            <div class="section_separator"></div>
+            <div class="section">
+                <div class="section-title" data-i18n="sectionServer"></div>
+                
+                <div class="form-group">
+                    <label data-i18n="labelServerUrl"></label>
+                    <input type="text" id="serverUrl" placeholder="http://nas.local:8080">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="labelServerKey"></label>
+                    <input type="password" id="serverKey" autocomplete="off">
+                </div>
+
+                <button id="saveSettingsBtn" class="secondary" data-i18n="btnSave" data-i18n-prefix="💾 "></button>
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -96,6 +96,7 @@ def create_app(ctx: Context, build_now=False):
     albums.register(app, ctx, index, later)
     uploads.register(app, ctx)
     deezer.register(app, ctx)
+    deezer.register_extension(app, ctx)
     orphans_waiting, orphans = playcounts.register(app, ctx)
     built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues

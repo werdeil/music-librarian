@@ -1,0 +1,163 @@
+{
+  "extName": {
+    "message": "Deezer to music-librarian"
+  },
+  "extDescription": {
+    "message": "Send Deezer albums and playlists to music-librarian's Inbox"
+  },
+  "disconnected": {
+    "message": "Disconnected"
+  },
+  "connected": {
+    "message": "Connected"
+  },
+  "sectionDownload": {
+    "message": "Download"
+  },
+  "labelDeezerUrl": {
+    "message": "Deezer URL (album or playlist)"
+  },
+  "labelContentId": {
+    "message": "ID (album or playlist)"
+  },
+  "btnDownload": {
+    "message": "Download"
+  },
+  "sectionLicenseToken": {
+    "message": "License Token"
+  },
+  "tokenNone": {
+    "message": "No token detected locally"
+  },
+  "tokenFound": {
+    "message": "Token detected: $token$",
+    "placeholders": {
+      "token": {
+        "content": "$1"
+      }
+    }
+  },
+  "tokenNoneFallback": {
+    "message": "No local token (the server's DEEZER_LICENSE_TOKEN will be used)"
+  },
+  "btnRefresh": {
+    "message": "Refresh"
+  },
+  "btnRefreshing": {
+    "message": "Refreshing..."
+  },
+  "tokenRefreshed": {
+    "message": "Token refreshed successfully!"
+  },
+  "tokenCaptureError": {
+    "message": "Error: Unable to capture the token. Make sure you are on Deezer."
+  },
+  "sectionServer": {
+    "message": "Server"
+  },
+  "labelServerUrl": {
+    "message": "music-librarian dashboard address"
+  },
+  "btnSave": {
+    "message": "Save"
+  },
+  "settingsSaved": {
+    "message": "Settings saved!"
+  },
+  "errorMissingServerUrl": {
+    "message": "Please enter the server URL"
+  },
+  "idExtracted": {
+    "message": "ID extracted: $type$ $id$",
+    "placeholders": {
+      "type": {
+        "content": "$1"
+      },
+      "id": {
+        "content": "$2"
+      }
+    }
+  },
+  "errorInvalidUrl": {
+    "message": "Invalid URL. Expected format: /album/ID or /playlist/ID"
+  },
+  "errorMissingId": {
+    "message": "Please enter a valid ID"
+  },
+  "btnDownloading": {
+    "message": "Downloading..."
+  },
+  "errorServer": {
+    "message": "Server error: $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadComplete": {
+    "message": "Download complete! $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorDownload": {
+    "message": "Error: $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorUnknown": {
+    "message": "Unknown error"
+  },
+  "errorConnection": {
+    "message": "Connection error: $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelServerKey": {
+    "message": "Key (DEEZER_EXTENSION_KEY)"
+  },
+  "errorMissingKey": {
+    "message": "Please enter the key set in DEEZER_EXTENSION_KEY"
+  },
+  "errorPermission": {
+    "message": "Access to the dashboard was not allowed"
+  },
+  "errorWrongKey": {
+    "message": "The dashboard refused the key"
+  },
+  "statusQueued": {
+    "message": "Queued on the dashboard, waiting for watch…"
+  },
+  "downloadPartial": {
+    "message": "Downloaded, some tracks unavailable. $details$",
+    "placeholders": {
+      "details": {
+        "content": "$1"
+      }
+    }
+  },
+  "connectedOff": {
+    "message": "Connected, downloads off"
+  },
+  "errorDashboardOff": {
+    "message": "The dashboard cannot download: watch runs without --apply, or the Deezer download is off"
+  },
+  "labelContentKind": {
+    "message": "The ID names"
+  },
+  "kindAlbum": {
+    "message": "an album"
+  },
+  "kindPlaylist": {
+    "message": "a playlist"
+  }
+}

@@ -9,6 +9,8 @@ from flask import abort, request
 from music_librarian.web.common import texts
 
 LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal")
+# the Chrome extension's routes have no page to take a token from: their key guards them (web/deezer.py)
+WITHOUT_TOKEN = "/deezer/ext/"
 
 
 def host_name(host):
@@ -43,7 +45,7 @@ def register(app, ctx):
 
     @app.before_request
     def same_origin_forms():
-        if request.method != "POST":
+        if request.method != "POST" or request.path.startswith(WITHOUT_TOKEN):
             return
         # a file's body is never read as a form: its token comes in a header
         sent = request.headers.get("X-CSRF-Token")
