@@ -119,7 +119,7 @@ def register_extension(app, ctx):
             abort(404)
         origin = request.headers.get("Origin", "").rstrip("/")
         if not origin.startswith(EXTENSION_ORIGIN) or len(origin) == len(EXTENSION_ORIGIN):
-            abort(403)
+            return jsonify(error=f"refused origin {origin or '(none)'}: only a Chrome extension may ask"), 403
         if request.method == "OPTIONS":
             return cors(app.response_class(status=204), origin)
         sent = request.headers.get("Authorization", "")
@@ -143,8 +143,9 @@ def register_extension(app, ctx):
 
     def _queue():
         if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
-            return jsonify(error="the dashboard cannot download: watch runs without --apply, "
-                                 "or the Deezer download is off"), 403
+            reason = ("watch runs without --apply" if ctx.requests is None or not ctx.apply
+                      else "the Deezer download is off: no arl, or DEEZER_PRE_KEY and DEEZER_IV not set")
+            return jsonify(error=f"the dashboard cannot download: {reason}"), 403
         body = request.get_json(silent=True)
         if not isinstance(body, dict) or body.get("kind") not in deezer.KINDS:
             return jsonify(error="expected {\"kind\": \"album\"|\"playlist\", \"id\": …}"), 400

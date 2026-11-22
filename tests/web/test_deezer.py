@@ -162,7 +162,8 @@ def test_the_extension_routes_are_off_without_a_key(ctx):
 @pytest.mark.usefixtures("extension")
 def test_the_extension_needs_its_origin_and_its_key(ctx):
     client = web.create_app(ctx).test_client()
-    assert ext(client, "GET", "/deezer/ext/health", origin="https://evil.example").status_code == 403
+    refused = ext(client, "GET", "/deezer/ext/health", origin="https://evil.example")
+    assert refused.status_code == 403 and "refused origin https://evil.example" in refused.json["error"]
     assert ext(client, "GET", "/deezer/ext/health", key=None).status_code == 401
     assert ext(client, "GET", "/deezer/ext/health", key="wrong").status_code == 401
     answer = ext(client, "GET", "/deezer/ext/health")
@@ -202,7 +203,8 @@ def test_the_extension_is_refused_what_the_dashboard_is(ctx):
     assert ext(client, "POST", "/deezer/ext/request", json={"kind": "track", "id": "1"}).status_code == 400
     assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "x"}).status_code == 400
     ctx.apply = False
-    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"}).status_code == 403
+    refused = ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"})
+    assert refused.status_code == 403 and "watch runs without --apply" in refused.json["error"]
     assert not ctx.requests.pending()
 
 

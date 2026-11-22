@@ -164,7 +164,7 @@ function startDownload() {
             if (response.status === 401) {
                 finish(msg('errorWrongKey'), 'error');
             } else if (response.status === 403) {
-                finish(msg('errorDashboardOff'), 'error');
+                finish(answer.error ? msg('errorDownload', answer.error) : msg('errorDashboardOff'), 'error');
             } else if (!response.ok) {
                 finish(msg('errorDownload', answer.error || msg('errorServer', response.status.toString())),
                        'error');
