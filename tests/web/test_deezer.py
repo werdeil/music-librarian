@@ -36,9 +36,13 @@ def dashboard(ctx, headers=None):
 
 
 @pytest.mark.usefixtures("configured")
-def test_the_form_is_shown_once_configured(ctx):
+def test_a_button_beside_the_upload_opens_the_form(ctx):
     _client, page, _token = dashboard(ctx)
     assert "Download from Deezer" in page and 'action="/deezer"' in page
+    actions = page[page.index('<div class="inbox-actions">'):]
+    assert actions.index("data-upload-open") < actions.index("data-opens-dialog>") \
+        < actions.index('class="pass-dialog deezer-dialog"')
+    assert 'class="pass-dialog deezer-dialog"' in page and 'name="item"' in page
     _client, page, _token = dashboard(ctx, FR)
     assert "Télécharger depuis Deezer" in page
 
@@ -55,7 +59,7 @@ def test_without_a_license_token_the_form_is_off(ctx, monkeypatch):
     monkeypatch.delenv("DEEZER_LICENSE_TOKEN")
     client, page, token = dashboard(ctx)
     assert "Set DEEZER_LICENSE_TOKEN to download from here." in page
-    assert '<fieldset class="deezer-fields" disabled>' in page
+    assert "data-opens-dialog disabled" in page and 'name="item"' not in page
     assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 403
 
 
@@ -73,7 +77,7 @@ def test_refused_without_token_or_without_apply(ctx):
     assert client.post("/deezer", data={"item": "302127"}).status_code == 403
     ctx.apply = False
     client, page, token = dashboard(ctx)
-    assert "Read-only: watch runs without --apply." in page
+    assert "Read-only: watch runs without --apply." in page and "data-opens-dialog disabled" in page
     assert client.post("/deezer", data={"csrf": token, "item": "302127"}).status_code == 403
     assert not ctx.requests.pending()
 

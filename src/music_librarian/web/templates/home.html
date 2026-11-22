@@ -20,6 +20,7 @@
         <p class="muted">{{ t.inbox_empty }}</p>
     {% endif %}
     {% if ctx.requests and inbox is not none %}
+    <div class="inbox-actions">
     <div class="upload" data-upload="{{ url_for('inbox_upload_start') }}" data-csrf="{{ csrf }}"
          data-extensions="{{ upload.extensions | join(' ') }}" data-junk="{{ upload.junk | join('/') }}"
          data-max-file="{{ upload.max_file }}" data-texts="{{ t.upload_js | tojson | forceescape }}">
@@ -47,6 +48,7 @@
         </dialog>
     </div>
     {% if deezer_enabled %}{% include "_deezer.html" %}{% endif %}
+    </div>
     {% endif %}
 </section>
 
