@@ -13,8 +13,21 @@ from music_librarian import enrich, importer, scan
 from music_librarian.core import runs
 from music_librarian.media import convert, fields
 
-TODAY = date.today().isoformat()
+FROZEN = date.today()
+TODAY = FROZEN.isoformat()
 JPEG = b"\xff\xd8\xff\xe0" + b"pochette" * 10 + b"\xff\xd9"
+
+
+class Frozen(date):
+    @classmethod
+    def today(cls):
+        return FROZEN
+
+
+@pytest.fixture(autouse=True)
+def frozen_day(monkeypatch):
+    """The day of the _done/ folders, the same for the whole run, across midnight too."""
+    monkeypatch.setattr(importer, "date", Frozen)
 
 
 @pytest.fixture
