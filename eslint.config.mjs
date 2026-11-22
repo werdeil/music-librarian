@@ -16,6 +16,7 @@ export default [
                 URLSearchParams: "readonly",
                 FormData: "readonly",
                 DOMParser: "readonly",
+                XMLHttpRequest: "readonly",
                 encodeURIComponent: "readonly",
             },
         },

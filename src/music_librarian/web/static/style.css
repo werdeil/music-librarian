@@ -318,6 +318,49 @@ form.filters {
     padding-left: 1.2rem;
 }
 
+.upload {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+
+.drop-zone {
+    margin-top: 0.8rem;
+    padding: 1.4rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+}
+
+.drop-zone.over {
+    color: var(--text-bright);
+    border-color: var(--accent);
+}
+
+.upload-items {
+    max-height: 10rem;
+    margin: 0.8rem 0 0;
+    padding-left: 1.2rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+.upload-items:empty {
+    display: none;
+}
+
+.upload-dialog progress {
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+.upload-dialog [data-upload-status] {
+    overflow-wrap: anywhere;
+}
+
 dl.facts,
 dl.summary {
     display: grid;

@@ -15,11 +15,12 @@ from flask import Flask, g, jsonify, render_template, request, url_for
 
 from music_librarian import __version__
 from music_librarian.core import runs
+from music_librarian.core.files import JUNK_NAMES
 from music_librarian.importer import ERRORS, list_items
 from music_librarian.integrations import itunes
 from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
-from music_librarian.web import albums, history, library, playcounts, reviews, security
+from music_librarian.web import albums, history, library, playcounts, reviews, security, uploads
 from music_librarian.web.common import place, server_timing, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -92,6 +93,7 @@ def create_app(ctx: Context, build_now=False):
     waiting, queues = reviews.register(app, ctx, index, later)
     history.register(app, ctx)
     albums.register(app, ctx, index, later)
+    uploads.register(app, ctx)
     orphans_waiting, orphans = playcounts.register(app, ctx)
     built_in_background = (index.albums, *queues, *orphans)
     credit_queue, genre_queue = queues
@@ -169,7 +171,8 @@ def create_app(ctx: Context, build_now=False):
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox, waiting_items=inbox[0] if inbox else [],
             passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
-            env=environment(ctx))
+            env=environment(ctx), upload=dict(extensions=sorted(uploads.SENT_EXT), junk=sorted(JUNK_NAMES),
+                                              max_file=uploads.MAX_FILE))
 
     def to_do(inbox):
         """What the To do tiles show, `inbox` as inbox_state() returns it."""

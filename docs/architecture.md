@@ -69,6 +69,7 @@ src/music_librarian/
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
+    ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
     ├── i18n.py      the strings shown, in French and English
     └── templates/, static/
 ```
