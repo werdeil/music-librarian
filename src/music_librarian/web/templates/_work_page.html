@@ -1,0 +1,41 @@
+{#- A work list's page: its pages extend it, naming `list_name` and `endpoint` and filling the blocks. -#}
+{% extends "base.html" %}
+{% block title %}{{ self.heading() }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{% block heading %}{% endblock %}</h2>
+    <p class="muted">{% block intro %}{% endblock %}</p>
+    {% if building %}
+    {% include "_building.html" %}
+    {% else %}
+    {% if albums %}
+    <p class="review-count"><span class="tile-value">{% block count %}{% endblock %}</span> <span>{% block unit %}{% endblock %}</span></p>
+    {% else %}
+    <p class="review-clear"><span aria-hidden="true">✓</span> {% block empty %}{% endblock %}</p>
+    {% endif %}
+    <div class="actions">
+        {% if albums %}<a class="button primary" href="{{ url_for('album_page', folder=albums[0].folder, list=list_name, at=offset) }}">{{ t.start_fixing }}</a>{% endif %}
+        {% block actions %}{% endblock %}
+    </div>
+    {% if albums %}
+    <ul class="work-rows">
+    {% for album in albums %}
+        <li><a href="{{ url_for('album_page', folder=album.folder, list=list_name, at=offset + loop.index0) }}">
+            <img src="{{ cover_url(album.folder) }}" alt="" width="44" height="44" loading="lazy">
+            <span class="work-album"><span class="work-title">{{ album.title or album.folder }}</span>
+                <span class="muted">{{ t.field_compilation if album.compilation else album.artist }}</span></span>
+            <span class="work-detail muted">{% block detail scoped %}{% endblock %}</span>
+        </a></li>
+    {% endfor %}
+    </ul>
+    {% if pages > 1 %}
+    <p class="actions">
+        {% if page > 1 %}<a class="button" href="{{ url_for(endpoint, page=page - 1) }}">{{ t.page_previous }}</a>{% endif %}
+        <span class="muted">{{ page }} / {{ pages }}</span>
+        {% if page < pages %}<a class="button" href="{{ url_for(endpoint, page=page + 1) }}">{{ t.page_next }}</a>{% endif %}
+    </p>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

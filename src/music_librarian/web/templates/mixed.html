@@ -1,20 +1,8 @@
-{% extends "base.html" %}
-{% import "_macros.html" as m with context %}
-{% block title %}{{ t.mixed_title }} · music-librarian{% endblock %}
-{% block content %}
-<section>
-    <h2>{{ t.mixed_title }}</h2>
-    <p class="muted">{{ t.mixed_page_intro }}</p>
-    {% if building %}
-    {% include "_building.html" %}
-    {% elif albums %}
-    <p class="review-count"><span class="tile-value">{{ count }}</span> <span>{{ t.unit_mixed }}</span></p>
-    <div class="actions">
-        <a class="button primary" href="{{ url_for('album_page', folder=albums[0].folder, list='mixed', at=offset) }}">{{ t.start_fixing }}</a>
-    </div>
-    {% call(album) m.work_list(t, albums, 'mixed', offset, page, pages, 'mixed_albums') %}{% for name in album.mixed %}{{ t['field_' ~ name] }}{{ ', ' if not loop.last }}{% endfor %}{% endcall %}
-    {% else %}
-    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.mixed_none }}</p>
-    {% endif %}
-</section>
-{% endblock %}
+{% extends "_work_page.html" %}
+{% set list_name, endpoint = 'mixed', 'mixed_albums' %}
+{% block heading %}{{ t.mixed_title }}{% endblock %}
+{% block intro %}{{ t.mixed_page_intro }}{% endblock %}
+{% block count %}{{ count }}{% endblock %}
+{% block unit %}{{ t.unit_mixed }}{% endblock %}
+{% block empty %}{{ t.mixed_none }}{% endblock %}
+{% block detail %}{% for name in album.mixed %}{{ t['field_' ~ name] }}{{ ', ' if not loop.last }}{% endfor %}{% endblock %}

@@ -1,25 +1,9 @@
-{% extends "base.html" %}
-{% import "_macros.html" as m with context %}
-{% block title %}{{ t.tracks_without_lyrics_title }} · music-librarian{% endblock %}
-{% block content %}
-<section>
-    <h2>{{ t.tracks_without_lyrics_title }}</h2>
-    <p class="muted">{{ t.lyrics_page_intro }}</p>
-    {% if building %}
-    {% include "_building.html" %}
-    {% else %}
-    {% if albums %}
-    <p class="review-count"><span class="tile-value">{{ tracks }}</span> <span>{{ t.unit_lyrics.format(albums=count) }}</span></p>
-    {% else %}
-    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.lyrics_none_missing }}</p>
-    {% endif %}
-    <div class="actions">
-        {% if albums %}<a class="button primary" href="{{ url_for('album_page', folder=albums[0].folder, list='lyrics', at=offset) }}">{{ t.start_fixing }}</a>{% endif %}
-        {% if awaited %}<a class="button" href="{{ url_for('library_page', c='awaited:yes', view='tracks') }}">{{ t.rules_awaited_link.format(n=awaited) }}</a>{% endif %}
-    </div>
-    {% if albums %}
-    {% call(album) m.work_list(t, albums, 'lyrics', offset, page, pages, 'missed_lyrics') %}{{ album.without_lyrics }} / {{ album.tracks }}{% endcall %}
-    {% endif %}
-    {% endif %}
-</section>
-{% endblock %}
+{% extends "_work_page.html" %}
+{% set list_name, endpoint = 'lyrics', 'missed_lyrics' %}
+{% block heading %}{{ t.tracks_without_lyrics_title }}{% endblock %}
+{% block intro %}{{ t.lyrics_page_intro }}{% endblock %}
+{% block count %}{{ tracks }}{% endblock %}
+{% block unit %}{{ t.unit_lyrics.format(albums=count) }}{% endblock %}
+{% block empty %}{{ t.lyrics_none_missing }}{% endblock %}
+{% block actions %}{% if awaited %}<a class="button" href="{{ url_for('library_page', c='awaited:yes', view='tracks') }}">{{ t.rules_awaited_link.format(n=awaited) }}</a>{% endif %}{% endblock %}
+{% block detail %}{{ album.without_lyrics }} / {{ album.tracks }}{% endblock %}
