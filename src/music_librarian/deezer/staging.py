@@ -10,11 +10,15 @@ from music_librarian.importer import free_name
 
 PREFIX = ".deezer-"
 UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+MAX_BYTES = 200   # a name takes 255 bytes at most, room left for an extension or a " (2)"
 
 
 def clean(name, fallback="Unknown"):
-    """`name` without the characters a folder or file name cannot hold, nor a leading dot."""
-    return UNSAFE.sub("-", name).strip().lstrip(".").strip() or fallback
+    """`name` without the characters a folder or file name cannot hold, nor a leading dot, cut to
+    MAX_BYTES of UTF-8."""
+    name = UNSAFE.sub("-", name).strip().lstrip(".").strip()
+    name = name.encode()[:MAX_BYTES].decode(errors="ignore").strip()
+    return name or fallback
 
 
 class Staging:
@@ -33,13 +37,13 @@ class Staging:
         self.close()
 
     def album(self, name):
-        """The folder of the album `name` in waiting, made if needed."""
+        """A new folder for the album `name` in waiting, `name (2)` when another album has its name."""
         if self.folder is None:
             self.inbox.mkdir(parents=True, exist_ok=True)
             self.folder = self.inbox / f"{PREFIX}{secrets.token_hex(8)}"
             self.folder.mkdir()
-        path = self.folder / clean(name)
-        path.mkdir(exist_ok=True)
+        path = free_name(self.folder, clean(name))
+        path.mkdir()
         return path
 
     def publish(self, path: Path):

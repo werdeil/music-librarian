@@ -27,6 +27,7 @@ from music_librarian.deezer import config, download, tags
 from music_librarian.deezer.api import FORMATS, Album, Api, disc_total
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
+from music_librarian.importer import free_name
 
 EXIT_FAILED, EXIT_MISSING = 1, 2
 KINDS = ("album", "playlist")
@@ -57,12 +58,13 @@ class Tally:
     failed: int = 0
     unavailable: list = field(default_factory=list)
     formats: Counter = field(default_factory=Counter)
+    no_cover: set = field(default_factory=set)
 
 
 def item_id(kind, value):
     """The id of an album or a playlist given as its id or its deezer.com address. Raises ValueError."""
     value = value.strip()
-    if value.isdigit():
+    if value.isascii() and value.isdigit():
         return value
     if SHORT_URL.match(value):
         raise ValueError(f"{value}: short links are not followed, open it and give the deezer.com address")
@@ -131,7 +133,7 @@ def run(opts: Options, log, cfg=None, client=None):
             pass_one = _album if opts.kind == "album" else _playlist
             try:
                 pass_one(opts, api, cfg, staging, item, tally, log)
-            except DeezerError as exc:
+            except (DeezerError, OSError) as exc:
                 log(f"ERROR    {opts.kind} {item}: {exc}")
                 tally.failed += 1
     return _summary(opts, tally, log)
@@ -177,7 +179,7 @@ def _playlist(opts, api, cfg, staging, playlist_id, tally, log):
         return
     log(f"PLAYLIST {name} ({count(len(playlist.track_ids), 'track')})")
     albums, folders, missing = {}, {}, []
-    for track_id in playlist.track_ids:
+    for track_id in dict.fromkeys(playlist.track_ids):
         if STOP.is_set():
             return
         try:
@@ -196,7 +198,9 @@ def _playlist(opts, api, cfg, staging, playlist_id, tally, log):
                 albums[track.album_id] = Album(track.album_id, title=track.album)
         album = albums[track.album_id]
         folder_name = f"{album.artist or ', '.join(track.artists)} - {album.title or track.album}"
-        folder = folders.setdefault(track.album_id, staging.album(folder_name))
+        if track.album_id not in folders:
+            folders[track.album_id] = staging.album(folder_name)
+        folder = folders[track.album_id]
         if not _track(api, cfg, folder, track, album, (), tally, log):
             missing.append(tags.title(track))
             if opts.complete_only:
@@ -213,7 +217,7 @@ def _publish(opts, staging, folders, name, missing, tally, log):
         log(f"ERROR    {name}: not one track downloaded")
         tally.failed += 1
     elif missing and opts.complete_only:
-        log(f"SKIPPED  {name}: {count(len(missing), 'track')} unavailable, left out (--complete-only)")
+        log(f"SKIPPED  {name}: left out at the first track unavailable, {missing[0]} (--complete-only)")
         downloaded = []
     for folder in folders:
         if folder in downloaded:
@@ -235,15 +239,17 @@ def _track(api, cfg, folder, track, album, tracks, tally, log):
     if stream.fallback:
         log(f"FALLBACK {title}: no rights of its own, recording {stream.song_id} downloaded instead")
     cover = folder / "folder.jpg"
-    if not cover.exists() and tags.cover_url(album, track):
+    if not cover.exists() and folder not in tally.no_cover and tags.cover_url(album, track):
         try:
             download.cover(api.client, tags.cover_url(album, track), cover)
         except DeezerError as exc:
             log(f"WARNING  cover of {album.title or track.album}: {exc}")
+            tally.no_cover.add(folder)
     ext = "flac" if stream.format.upper().startswith("FLAC") else "mp3"
     number = int(track.track_number) if track.track_number.isdigit() else 0
-    disc = f"{track.disc_number}-" if disc_total(album, tracks) > 1 and track.disc_number else ""
-    path = folder / f"{disc}{number:02d} - {clean(title, 'Untitled')}.{ext}"
+    several = disc_total(album, tracks) > 1 or track.disc_number not in ("", "1")
+    disc = f"{track.disc_number}-" if several and track.disc_number else ""
+    path = free_name(folder, f"{disc}{number:02d} - {clean(title, 'Untitled')}.{ext}", is_dir=False)
     try:
         download.fetch(api.client, stream.url, stream.song_id, path, cfg)
     except DeezerError as exc:

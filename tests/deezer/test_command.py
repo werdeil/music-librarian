@@ -87,6 +87,8 @@ def test_item_ids():
     assert deezer.item_id("album", "https://www.deezer.com/fr/album/302127?utm=x") == "302127"
     assert deezer.item_id("playlist", "deezer.com/playlist/908622995") == "908622995"
     assert deezer.item_id("album", "https://www.deezer.com/en-gb/album/1/") == "1"
+    with pytest.raises(ValueError):
+        deezer.item_id("album", "١٢٣")
     for value, message in (("https://www.deezer.com/fr/playlist/1", "not of an album"),
                            ("https://link.deezer.com/s/abc", "short links are not followed"),
                            ("https://example.com/album/1", "neither an id")):
@@ -149,7 +151,8 @@ def test_complete_only_leaves_an_incomplete_album_out(inbox, cfg, site):
     site.unavailable.add("dummy-track-token-2")
     code, out = run(inbox, cfg, client, apply=True, complete_only=True)
     assert code == 2
-    assert "SKIPPED  Alpha - Fake Album: 1 track unavailable, left out (--complete-only)" in out
+    assert "SKIPPED  Alpha - Fake Album: left out at the first track unavailable, Second (Live) " \
+           "(--complete-only)" in out
     assert not any(inbox.iterdir())
 
 
@@ -182,6 +185,55 @@ def test_a_stop_removes_the_album_in_waiting(inbox, cfg, site, monkeypatch):
     assert code == 4
     assert "--- Deezer summary (stopped) ---" in out
     assert not any(inbox.iterdir())
+
+
+def test_two_albums_of_one_name_and_tracks_of_one_title(inbox, cfg, site, http, templates):
+    flac = templates[".flac"].read_bytes()
+    def intro(song_id, album_id, disc):
+        return http.page({"DATA": {"SNG_ID": song_id, "SNG_TITLE": "Intro", "ALB_ID": album_id,
+                                   "ALB_TITLE": "Hits", "TRACK_NUMBER": "1", "DISK_NUMBER": disc,
+                                   "TRACK_TOKEN": f"dummy-track-token-{song_id[-1]}"}})
+    page, other = intro("107", "555", "1"), intro("108", "556", "2")
+    hits = {"title": "Hits", "artist": {"name": "Various Artists"}}
+    client = site({
+        "https://api.deezer.com/playlist/9": http.answer(
+            {"title": "Mix", "tracks": {"data": [{"id": 107}, {"id": 108}, {"id": 107}]}}),
+        "https://www.deezer.com/de/track/107": page, "https://www.deezer.com/de/track/108": other,
+        "https://api.deezer.com/album/555": http.answer({"id": 555, **hits}),
+        "https://api.deezer.com/album/556": http.answer({"id": 556, **hits}),
+        "https://stream/dummy-track-token-7": lambda **_kw: http.Response(pieces=[encrypt(flac, "107", cfg)]),
+        "https://stream/dummy-track-token-8": lambda **_kw: http.Response(pieces=[encrypt(flac, "108", cfg)]),
+    })
+    code, out = run(inbox, cfg, client, "9", kind="playlist", apply=True)
+    assert code == 0, out
+    assert sorted(p.name for p in inbox.iterdir()) == ["Various Artists - Hits", "Various Artists - Hits (2)"]
+    assert [p.name for p in (inbox / "Various Artists - Hits (2)").iterdir()] == ["2-01 - Intro.flac"]
+    assert "tracks: 2" in out
+
+
+def test_a_local_error_fails_the_item_with_a_summary(inbox, cfg, site, monkeypatch):
+    def full(*_args, **_kwargs):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(download, "fetch", full)
+    code, out = run(inbox, cfg, site(), apply=True)
+    assert code == 1
+    assert "ERROR    album 302127: [Errno 28] No space left on device" in out
+    assert "--- Deezer summary ---" in out
+    assert not any(inbox.iterdir())
+
+
+def test_a_cover_that_fails_is_tried_once(inbox, cfg, site, http):
+    client = site({COVER: http.Response(404)})
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 0
+    assert out.count("WARNING  cover of Fake Album") == 1
+    assert [s["url"] for s in client.session.sent].count(COVER) == 1
+
+
+def test_a_long_name_is_cut():
+    assert len(staging.clean("é" * 300).encode()) <= staging.MAX_BYTES
+    assert staging.clean(".hidden/name") == "hidden-name"
+    assert staging.clean("...") == "Unknown"
 
 
 def test_an_album_not_found(inbox, cfg, site, http):

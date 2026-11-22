@@ -36,12 +36,24 @@ def relative(path, root):
 
 
 def last_change(folder: Path):
-    return max((p.stat().st_mtime for p in folder.rglob("*")), default=folder.stat().st_mtime)
+    """The latest mtime of what `folder` holds, a file moved away meanwhile left out; the folder's own
+    when it holds nothing."""
+    found = []
+    for path in folder.rglob("*"):
+        try:
+            found.append(path.stat().st_mtime)
+        except FileNotFoundError:
+            pass
+    return max(found, default=folder.stat().st_mtime)
 
 
 def drop_abandoned(inbox: Path, prefix):
     """Remove the folders of the Inbox named `prefix`… that nothing was written to for ABANDONED_HOURS:
     a batch or a download its process left unfinished."""
     for folder in inbox.glob(prefix + "*"):
-        if folder.is_dir() and last_change(folder) < time.time() - ABANDONED_HOURS * 3600:
+        try:
+            abandoned = folder.is_dir() and last_change(folder) < time.time() - ABANDONED_HOURS * 3600
+        except FileNotFoundError:
+            continue
+        if abandoned:
             shutil.rmtree(folder, ignore_errors=True)
