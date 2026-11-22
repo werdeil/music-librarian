@@ -124,6 +124,9 @@ def run(opts: Options, log, cfg=None, client=None):
         except config.ConfigError as exc:
             log(f"ERROR    {exc}")
             return EXIT_FAILED
+    if opts.apply and not cfg.license_token:
+        log(f"ERROR    no license token to download with: set {config.LICENSE_TOKEN} (see docs/deezer.md)")
+        return EXIT_FAILED
     api = Api(client or Client(cfg.arl), cfg.license_token)
     tally = Tally()
     with Staging(opts.inbox) if opts.apply else _NoStaging() as staging:

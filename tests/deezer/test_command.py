@@ -12,6 +12,7 @@ from music_librarian.core import runs
 from music_librarian.core.lock import STOP
 from music_librarian.core.log import Buffer
 from music_librarian.deezer import download, staging, tags
+from music_librarian.deezer.config import Config
 from music_librarian.deezer.api import GET_URL
 from music_librarian.deezer.crypto import CHUNK, blowfish_key
 
@@ -287,6 +288,14 @@ def test_without_configuration_a_clear_error(inbox, monkeypatch):
     assert run_row["command"] == "deezer" and run_row["code"] == 1
     assert "the Deezer download is off: set DEEZER_ARL, DEEZER_PRE_KEY, DEEZER_IV" in \
         "\n".join(runs.read_log(state, run_row["id"])[0])
+
+
+def test_no_download_without_a_license_token(inbox, cfg, site):
+    client = site()
+    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), client, apply=True)
+    assert code == 1
+    assert "ERROR    no license token to download with: set DEEZER_LICENSE_TOKEN" in out
+    assert not client.session.sent
 
 
 def test_a_malformed_value_is_named_not_shown(inbox, monkeypatch):
