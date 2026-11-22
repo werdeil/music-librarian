@@ -53,6 +53,14 @@ src/music_librarian/
 │                    sizes), convert.py (FLAC → ALAC and its checks), atoms.py (where moov sits in
 │                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files),
 │                    tool.py (ffmpeg and ffprobe killed past a time limit)
+├── deezer/          deezer: albums and playlists downloaded into the Inbox, see deezer.md
+│   ├── config.py    the DEEZER_* settings, never shown
+│   ├── client.py    every request to Deezer, 500 ms apart, with the arl cookie
+│   ├── api.py       albums, playlists and tracks from the API and the pages' state, get_url
+│   ├── crypto.py    the stream's Blowfish key and decryption
+│   ├── download.py  a stream to a file, 10 attempts, and the cover
+│   ├── tags.py      the tags and cover deezer-music-download wrote
+│   └── staging.py   the hidden folder of the Inbox the albums wait in
 ├── playcounts/      playcounts: Lyrion's orphan play counts given back to tracks, see lyrion.md
 │   ├── history.py   the orphans, the backfill and the DPSV, read and written in persist.db
 │   ├── matching.py  how much an orphan's path looks like a track's
@@ -70,6 +78,7 @@ src/music_librarian/
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
+    ├── deezer.py    the Deezer form of the Inbox, and the Chrome extension's routes
     ├── i18n/        the strings shown, one module per language (`fr.py`, `en.py`)
     └── templates/, static/
 ```
@@ -87,6 +96,7 @@ src/music_librarian/
 | by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
 | by hand, or the dashboard's Lyrion page | `playcounts`, `playcounts --review` | gives Lyrion's orphan play counts back to the library's tracks, asking about those no journal settles |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
+| by hand, the dashboard's Inbox or the Chrome extension | `deezer album\|playlist ID` | downloads into a hidden folder of the Inbox, then moves each album into it, for the next `import` |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
 The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. With `--listen`, a fourth job comes first, `Requests`: the passes asked for from the dashboard, which its thread only queues; a request cuts the pause between two ticks short, so it starts within half a second unless a pass is running. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
@@ -176,9 +186,9 @@ Each pass is kept in the state folder, whichever way it was started: one row in 
 ## Conventions
 
 - Everything is a dry run without `--apply`.
-- `organize`, `import`, `enrich`, `split`, `dedupe` and `playcounts` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
-- Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself, and `import` and `enrich` call `split_pass` and `dedupe_pass` the same way.
+- `organize`, `import`, `enrich`, `split`, `dedupe`, `playcounts` and `deezer` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
+- Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself, and `import` and `enrich` call `split_pass` and `dedupe_pass` the same way. `deezer` takes no lock: it writes only to a hidden folder of the Inbox, then moves into it.
 - A stop request (SIGTERM from `docker stop`, or Ctrl-C) lets the current file operation finish, then stops. A second Ctrl-C stops at once.
-- Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed.
+- Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed; `deezer` also gives 1 when it could not download at all.
 - Imports inside the package are absolute: `from music_librarian.core.lock import STOP`.
 - The tests mirror the package under `tests/`.
