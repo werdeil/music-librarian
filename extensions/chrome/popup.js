@@ -46,6 +46,10 @@ function setupEventListeners() {
         currentContentType = contentKindEl.value;
     });
 
+    contentIdEl.addEventListener('input', () => {
+        contentKindEl.disabled = false;
+    });
+
     deezerUrlEl.addEventListener('paste', () => {
         setTimeout(extractUrlId, 10);
     });
@@ -62,6 +66,7 @@ function extractUrlId() {
         
         currentContentType = type;
         contentKindEl.value = type;
+        contentKindEl.disabled = true;
         contentIdEl.value = id;
         showStatus(msg('idExtracted', type, id), 'success');
     } else {

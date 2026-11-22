@@ -26,12 +26,6 @@ TRACK_DONE = ("DOWNLOAD ", "SKIPPED  ")
 ARL_SHAPE = re.compile(r"^[0-9A-Za-z]{100,400}$")
 
 
-def kind_of(value, kind):
-    """The kind a deezer.com address names, else `kind` (for a bare id)."""
-    found = deezer.URL.match(value.strip())
-    return found[1].lower() if found else kind
-
-
 def register(app, ctx):
     """Add the route of the overview's Deezer form."""
 
@@ -81,7 +75,7 @@ def register(app, ctx):
         if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
             abort(403)
         value = request.form.get("item", "")
-        kind = kind_of(value, request.form.get("kind", "album"))
+        kind = deezer.kind_of(value) or request.form.get("kind", "album")
         if kind not in deezer.KINDS:
             abort(400)
         if deezer.SHORT_URL.match(value.strip()):
@@ -147,14 +141,16 @@ def register_extension(app, ctx):
                       else "the Deezer download is off: no arl, or DEEZER_PRE_KEY and DEEZER_IV not set")
             return jsonify(error=f"the dashboard cannot download: {reason}"), 403
         body = request.get_json(silent=True)
-        if not isinstance(body, dict) or body.get("kind") not in deezer.KINDS:
-            return jsonify(error="expected {\"kind\": \"album\"|\"playlist\", \"id\": …}"), 400
+        value = str(body.get("id", "")) if isinstance(body, dict) else ""
+        kind = deezer.kind_of(value) or (body.get("kind") if isinstance(body, dict) else None)
+        if kind not in deezer.KINDS:
+            return jsonify(error="expected {\"id\": a deezer.com address, or an id with \"kind\": "
+                                 "\"album\"|\"playlist\"}"), 400
         try:
-            item = deezer.item_id(body["kind"], str(body.get("id", "")))
-        except ValueError:
-            return jsonify(error="not an album or a playlist id"), 400
-        asked = ctx.requests.submit("deezer", {"kind": body["kind"], "ids": [item], "complete_only": False},
-                                    True)
+            item = deezer.item_id(kind, value)
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        asked = ctx.requests.submit("deezer", {"kind": kind, "ids": [item], "complete_only": False}, True)
         return jsonify(id=asked.id), 201
 
     def _state(request_id):

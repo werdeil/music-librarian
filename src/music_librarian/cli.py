@@ -12,7 +12,7 @@ music-librarian — single entry point.
   music-librarian tag PATH... --set F=V       rewrite tags, then file the tracks again (tag.py)
   music-librarian cover FOLDER IMAGE          put an album's cover and embed it (cover.py)
   music-librarian playcounts [options]        give Lyrion's orphan play counts back to tracks (playcounts/)
-  music-librarian deezer album|playlist ID... download from Deezer into the Inbox (deezer/)
+  music-librarian deezer URL...            download from Deezer into the Inbox (deezer/)
 
 Everything is a dry run without --apply. `music-librarian <command> --help` for the options,
 `music-librarian --version` for the version.

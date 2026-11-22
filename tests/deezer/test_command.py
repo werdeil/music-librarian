@@ -103,6 +103,18 @@ def test_item_ids():
             deezer.item_id("album", value)
 
 
+def test_an_address_names_its_kind():
+    assert deezer.items(["https://www.deezer.com/fr/album/1", "deezer.com/album/2"]) == ("album", ["1", "2"])
+    assert deezer.items(["playlist", "9", "https://www.deezer.com/playlist/8"]) == ("playlist", ["9", "8"])
+    for values, message in ((["302127"], "an id alone needs album or playlist"),
+                            (["https://link.deezer.com/s/abc"], "short links are not followed"),
+                            (["deezer.com/album/1", "deezer.com/playlist/2"], "separate passes"),
+                            (["album", "deezer.com/playlist/2"], "not of an album"),
+                            (["album"], "no id nor address")):
+        with pytest.raises(ValueError, match=message):
+            deezer.items(values)
+
+
 def test_a_dry_run_reads_the_metadata_only(inbox, cfg, site):
     client = site()
     before = tree(inbox)

@@ -370,6 +370,10 @@ form.filters {
     margin-top: 0.7rem;
 }
 
+.deezer-kind.muted-group {
+    opacity: 0.5;
+}
+
 .pass-dialog .deezer-kind label {
     margin-top: 0;
 }

@@ -39,11 +39,11 @@ A value that is malformed is reported by its name, never shown.
 ## Command line
 
 ```
-music-librarian deezer album ID|URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
-music-librarian deezer playlist ID|URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
+music-librarian deezer URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
+music-librarian deezer album|playlist ID|URL... [--apply] [--complete-only] [--inbox INBOX] [--state-dir DIR]
 ```
 
-An album or a playlist is given by its id or its address (`https://www.deezer.com/fr/album/302127`); a short `link.deezer.com` link is refused, its deezer.com address is to be given instead. The Inbox is `--inbox`, else `MUSIC_LIBRARIAN_INBOX`.
+An album or a playlist is given by its address (`https://www.deezer.com/fr/album/302127`), which names its kind, or by its id after `album` or `playlist`; albums and playlists are asked for in separate passes. A short `link.deezer.com` link is refused, its deezer.com address is to be given instead. The dashboard and the extension ask for the kind of a bare id only. The Inbox is `--inbox`, else `MUSIC_LIBRARIAN_INBOX`.
 
 - **A dry run** prints `PLAN` and the number of tracks of each album or playlist, and changes nothing.
 - **With `--apply`**, each track is announced `DOWNLOAD` with its format (`FLAC 24-bit/96kHz`), `FALLBACK` when its fallback recording is downloaded, `SKIPPED` with the reason when it is unavailable; each album moved into the Inbox is announced `ADDED`. A tag or cover that could not be written is a `WARNING`, the track kept.

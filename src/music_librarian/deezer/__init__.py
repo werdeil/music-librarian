@@ -7,7 +7,7 @@ stream and downloads nothing. Off until DEEZER_PRE_KEY and DEEZER_IV are set, an
 one set on the dashboard's Deezer settings).
 
   music-librarian deezer album 302127                       # what would be downloaded
-  music-librarian deezer album https://www.deezer.com/fr/album/302127 --apply
+  music-librarian deezer https://www.deezer.com/fr/album/302127 --apply
   music-librarian deezer playlist 908622995 --apply --complete-only
 
 Exit codes: 0 = OK, 1 = failed (not configured, an album or a playlist not found or not one
@@ -61,6 +61,30 @@ class Tally:
     no_cover: set = field(default_factory=set)
 
 
+def kind_of(value):
+    """The kind a deezer.com address names, None for anything else."""
+    found = URL.match(value.strip())
+    return found[1].lower() if found else None
+
+
+def items(values):
+    """(kind, ids) of the command line's items: album or playlist, needed before a bare id only, then
+    ids or addresses. Raises ValueError."""
+    kind, values = (values[0], values[1:]) if values and values[0] in KINDS else (None, values)
+    if not values:
+        raise ValueError("no id nor address given")
+    if kind is None:
+        named = {kind_of(value) for value in values}
+        if None in named:
+            bare = next(value for value in values if kind_of(value) is None)
+            item_id("album", bare)
+            raise ValueError(f"{bare}: an id alone needs album or playlist before it")
+        if len(named) > 1:
+            raise ValueError("albums and playlists are asked for in separate passes")
+        kind = named.pop()
+    return kind, [item_id(kind, value) for value in values]
+
+
 def item_id(kind, value):
     """The id of an album or a playlist given as its id or its deezer.com address. Raises ValueError."""
     value = value.strip()
@@ -82,8 +106,8 @@ def _a(kind):
 
 def parser():
     ap = arguments.parser("deezer", "Download albums or playlists from Deezer into the Inbox.")
-    ap.add_argument("kind", choices=KINDS, help="what the ids name")
-    ap.add_argument("items", nargs="+", metavar="ID|URL", help="ids or deezer.com addresses")
+    ap.add_argument("items", nargs="+", metavar="[album|playlist] ID|URL",
+                    help="deezer.com addresses, or ids after album or playlist")
     inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
                     help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
@@ -97,10 +121,10 @@ def parser():
 
 def options(args, ap):
     try:
-        ids = [item_id(args.kind, value) for value in args.items]
+        kind, ids = items(args.items)
     except ValueError as exc:
         ap.error(str(exc))
-    return Options(kind=args.kind, ids=ids, inbox=args.inbox, apply=args.apply,
+    return Options(kind=kind, ids=ids, inbox=args.inbox, apply=args.apply,
                    complete_only=args.complete_only, state_dir=state_path(args.state_dir), syslog=args.syslog)
 
 

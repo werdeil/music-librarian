@@ -195,6 +195,8 @@ def test_the_extension_queues_a_download_and_follows_it(ctx):
     state = ext(client, "GET", f"/deezer/ext/request/{asked.id}")
     assert state.json == {"state": "queued", "code": None, "done": 0, "total": 0, "step": ""}
     assert ext(client, "GET", "/deezer/ext/request/999").status_code == 404
+    answer = ext(client, "POST", "/deezer/ext/request", json={"id": "https://www.deezer.com/fr/album/302127"})
+    assert answer.status_code == 201 and ctx.requests.pending()[1].options["kind"] == "album"
 
 
 @pytest.mark.usefixtures("extension")
@@ -202,6 +204,7 @@ def test_the_extension_is_refused_what_the_dashboard_is(ctx):
     client = web.create_app(ctx).test_client()
     assert ext(client, "POST", "/deezer/ext/request", json={"kind": "track", "id": "1"}).status_code == 400
     assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "x"}).status_code == 400
+    assert ext(client, "POST", "/deezer/ext/request", json={"id": "302127"}).status_code == 400
     ctx.apply = False
     refused = ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"})
     assert refused.status_code == 403 and "watch runs without --apply" in refused.json["error"]
