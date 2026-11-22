@@ -29,6 +29,11 @@ def _arl(env, state_dir):
     return (kept.arl(state_dir) if state_dir is not None else "") or _value(env, ARL)
 
 
+def arl(env=None, state_dir=None):
+    """The arl the download goes with, "" without one; the keys are not checked."""
+    return _arl(os.environ if env is None else env, state_dir)
+
+
 def keys_set(env=None):
     """Whether DEEZER_PRE_KEY and DEEZER_IV are set: the download waits for an arl only."""
     env = os.environ if env is None else env

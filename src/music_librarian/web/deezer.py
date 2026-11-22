@@ -38,7 +38,7 @@ def register(app, ctx):
     def arl_page(status=200, **shown):
         if ctx.requests is None or not config.keys_set():
             abort(404)
-        current = config.load(state_dir=ctx.state_dir).arl if config.enabled(state_dir=ctx.state_dir) else ""
+        current = config.arl(state_dir=ctx.state_dir)
         source = "kept" if kept.arl(ctx.state_dir) else "env" if current else None
         refused_at = kept.refused(ctx.state_dir, current) if current else None
         return render_template("deezer_settings.html", source=source,
@@ -69,8 +69,11 @@ def register(app, ctx):
             return arl_page(400, error="deezer_arl_rejected")
         except DeezerError:
             return arl_page(502, error="deezer_arl_unreachable")
-        kept.save_arl(ctx.state_dir, value)
-        kept.save_token(ctx.state_dir, value, token)
+        try:
+            kept.save_arl(ctx.state_dir, value)
+            kept.save_token(ctx.state_dir, value, token)
+        except OSError:
+            return arl_page(500, error="deezer_arl_not_kept")
         return arl_page(saved=True)
 
     @app.post("/deezer")

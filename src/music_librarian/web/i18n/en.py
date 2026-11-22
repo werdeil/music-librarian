@@ -123,6 +123,7 @@ EN = {
     "deezer_key_create": "Make a key",
     "deezer_key_renew": "Make a new key",
     "deezer_key_made": "A new key is made: paste it into the extension's settings.",
+    "deezer_arl_not_kept": "The state folder could not be written: nothing was kept.",
     "deezer_arl_malformed": "This is not an arl: letters and digits only, about 192 of them.",
     "deezer_arl_rejected": "Deezer refused this arl: copy it again from a logged-in session. Nothing was "
                            "kept.",

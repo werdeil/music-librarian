@@ -126,6 +126,7 @@ FR = {
     "deezer_key_create": "Créer une clé",
     "deezer_key_renew": "Créer une nouvelle clé",
     "deezer_key_made": "Une nouvelle clé est créée : collez-la dans les réglages de l'extension.",
+    "deezer_arl_not_kept": "Le dossier d'état n'a pas pu être écrit : rien n'a été gardé.",
     "deezer_arl_malformed": "Ce n'est pas un arl : des lettres et des chiffres seulement, environ 192.",
     "deezer_arl_rejected": "Deezer a refusé cet arl : recopiez-le depuis une session connectée. Rien n'a "
                            "été gardé.",

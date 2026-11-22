@@ -197,9 +197,8 @@ def create_app(ctx: Context, build_now=False):
 
     def deezer_refused():
         """Whether Deezer refused the arl the download goes with."""
-        if not deezer_config.enabled(state_dir=ctx.state_dir):
-            return False
-        return deezer_kept.refused(ctx.state_dir, deezer_config.load(state_dir=ctx.state_dir).arl) is not None
+        current = deezer_config.arl(state_dir=ctx.state_dir)
+        return bool(current) and deezer_kept.refused(ctx.state_dir, current) is not None
 
     @app.get("/tiles")
     def tiles_fragment():

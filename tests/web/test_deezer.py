@@ -291,3 +291,13 @@ def test_a_key_for_the_extension_is_made_on_the_settings(ctx):
     assert ext(client, "GET", "/deezer/ext/health", key=key, origin="chrome-extension://").status_code == 403
     client.post("/deezer/settings/key", data={"csrf": token})
     assert ext(client, "GET", "/deezer/ext/health", key=key).status_code == 401    # the old key stops
+
+
+
+@pytest.mark.usefixtures("configured")
+def test_a_malformed_key_does_not_break_the_overview(ctx, monkeypatch):
+    monkeypatch.setenv("DEEZER_IV", "short")
+    client, _page, _token = dashboard(ctx)
+    kept.mark_refused(ctx.state_dir, "dummy-arl-value")
+    assert client.get("/tiles", headers=EN).status_code == 200
+    assert client.get("/deezer/settings", headers=EN).status_code == 200
