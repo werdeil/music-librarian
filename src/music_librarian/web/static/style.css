@@ -326,6 +326,31 @@ form.filters {
     margin-top: 0.8rem;
 }
 
+.deezer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: 36rem;
+    margin-top: 1.2rem;
+}
+
+.deezer h3 {
+    margin: 0;
+}
+
+.deezer input[type="text"] {
+    width: min(100%, 28rem);
+}
+
+.deezer fieldset {
+    display: flex;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
 .drop-zone {
     margin-top: 0.8rem;
     padding: 1.4rem 1rem;

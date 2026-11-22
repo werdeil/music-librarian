@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 
-from music_librarian import dedupe, enrich, importer, organize, playcounts, scan, split, tag
+from music_librarian import deezer, dedupe, enrich, importer, organize, playcounts, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
@@ -24,7 +24,8 @@ UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
 UPLOAD_DAYS = 7
 
 # the options each command takes from the dashboard: booleans, but undo's journal, tag's edits
-# ([[path relative to the root, field, value, values seen]]) and cover ([album folder, upload name])
+# ([[path relative to the root, field, value, values seen]]) and cover ([album folder, upload name]),
+# and deezer's kind and ids; they are kept in the run history, so a license token is not one of them
 OPTIONS = {
     "import": (),
     "organize": ("since",),
@@ -37,11 +38,12 @@ OPTIONS = {
     "tag": ("edits", "cover"),
     "genres": (),
     "playcounts": ("no_backfill", "dpsv"),
+    "deezer": ("kind", "ids", "complete_only"),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
 FORMS = {command: names for command, names in OPTIONS.items()
-         if command not in ("undo", "tag")}
+         if command not in ("undo", "tag", "deezer")}
 
 
 def box(name):
@@ -61,7 +63,8 @@ def boxes_ticked(command, options):
 
 @dataclass
 class Request:
-    """A pass asked for: `run_id` is set once it is recorded, `code` once it ends."""
+    """A pass asked for: `run_id` is set once it is recorded, `code` once it ends. `license_token`,
+    a Deezer download's own, stays in memory: it is neither an option nor shown."""
     id: int
     command: str
     options: dict = field(default_factory=dict)
@@ -69,6 +72,7 @@ class Request:
     state: str = QUEUED
     run_id: int | None = None
     code: int | None = None
+    license_token: str = field(default="", repr=False)
 
 
 class Requests:
@@ -83,8 +87,8 @@ class Requests:
         self.known = {}
         self.lock = threading.Lock()
 
-    def submit(self, command, options, apply):
-        request = Request(next(self.ids), command, dict(options), apply)
+    def submit(self, command, options, apply, license_token=""):
+        request = Request(next(self.ids), command, dict(options), apply, license_token=license_token)
         self.known[request.id] = request
         for old in list(self.known)[:-KEPT]:
             del self.known[old]
@@ -222,7 +226,14 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
             return playcounts.run(opts, log)
         return kept("playcounts", give, log, r)
 
+    def run_deezer(r, log):
+        opts = deezer.Options(kind=r.options.get("kind", "album"), ids=list(r.options.get("ids") or []),
+                              inbox=import_opts.inbox, apply=r.apply,
+                              complete_only=bool(r.options.get("complete_only")), state_dir=state_dir,
+                              license_token=r.license_token)
+        return kept("deezer", lambda: deezer.run(opts, log), log, r)
+
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
             "undo": run_undo, "tag": run_tag, "genres": run_genres,
-            "playcounts": run_playcounts}
+            "playcounts": run_playcounts, "deezer": run_deezer}
