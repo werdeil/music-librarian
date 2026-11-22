@@ -27,7 +27,7 @@ def test_fields():
 def test_the_year_alone_from_the_album_else_the_track():
     assert tags.year(ALBUM, TRACK) == "2020"
     assert tags.year(Album("1"), TRACK) == "2001"
-    assert tags.year(Album("1", release_date="0000-00-00"), Track("1")) == "0000"
+    assert tags.year(Album("1", release_date="0000-00-00"), TRACK) == "2001"
     assert tags.year(Album("1"), Track("1", physical_release_date="unknown")) == ""
 
 

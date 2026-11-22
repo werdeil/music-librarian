@@ -211,8 +211,7 @@ class Api:
                               params={"access_token": self._license_token})
         except DeezerError:
             data = {}
-        tracks = (data.get("tracks") or {}).get("data") or []
-        ids = [_text(t.get("id")) for t in tracks if isinstance(t, dict) and _text(t.get("id"))]
+        ids = self._api_track_ids(data.get("tracks") or {}, playlist_id)
         if ids:
             return Playlist(playlist_id, _text(data.get("title")), ids)
         state = self._page("playlist", playlist_id)
@@ -222,6 +221,19 @@ class Api:
         ids = [_text(t.get("id") or t.get("SNG_ID")) for t in found if isinstance(t, dict)]
         title = _text(data.get("title")) or _playlist_title(state)
         return Playlist(playlist_id, title, [i for i in ids if i])
+
+    def _api_track_ids(self, tracks, playlist_id):
+        """The ids of a playlist's tracks, the pages after the first followed through `next`."""
+        ids, seen = [], set()
+        while isinstance(tracks, dict):
+            ids += [_text(t.get("id")) for t in tracks.get("data") or []
+                    if isinstance(t, dict) and _text(t.get("id"))]
+            following = tracks.get("next")
+            if not following or not str(following).startswith(API + "/") or following in seen:
+                break
+            seen.add(following)
+            tracks = self._json(following, f"playlist {playlist_id}")
+        return ids
 
     def resolve(self, track_token):
         """(format, url) of the best stream get_url offers for a track token. Raises DeezerError."""

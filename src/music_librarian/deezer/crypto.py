@@ -13,9 +13,13 @@ def blowfish_key(song_id, pre_key):
 
 
 def decrypt_stream(chunks, key, iv):
-    """The plain bytes of an encrypted stream given in pieces of any size. Raises ValueError for an
-    IV that is not 8 bytes long."""
+    """The plain bytes of an encrypted stream given in pieces of any size, as an iterator.
+    Raises ValueError at once for a key or an IV Blowfish refuses."""
     Blowfish.new(key, Blowfish.MODE_CBC, iv)
+    return _decrypt(chunks, key, iv)
+
+
+def _decrypt(chunks, key, iv):
     buf = bytearray()
     index = 0
     for piece in chunks:

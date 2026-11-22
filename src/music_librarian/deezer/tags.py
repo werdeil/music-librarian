@@ -27,10 +27,11 @@ def artist(track):
 
 
 def year(album, track):
-    """The year of the album's release date, else of the track's physical release; "" without one."""
+    """The year of the album's release date, else of the track's physical release; "" without one.
+    Deezer gives 0000 for a date it does not know."""
     for date in (album.release_date, track.physical_release_date):
         found = re.match(r"\s*(\d{4})", date or "")
-        if found:
+        if found and found.group(1) != "0000":
             return found.group(1)
     return ""
 

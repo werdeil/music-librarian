@@ -50,6 +50,13 @@ def test_ten_reads_cut_short_give_up(deezer, http, cfg, tmp_path):
     assert not dest.exists()
 
 
+def test_a_local_error_is_not_taken_for_a_cut_stream(deezer, http, cfg, tmp_path):
+    client = deezer({URL: http.Response(pieces=[b"x" * 10])})
+    with pytest.raises(OSError):
+        download.fetch(client, URL, "101", tmp_path / "missing" / "x.flac", cfg)
+    assert len(client.session.sent) == 1
+
+
 def test_a_refused_stream_fails_at_once(deezer, http, cfg, tmp_path):
     client = deezer({URL: http.Response(403)})
     with pytest.raises(DeezerError, match="HTTP 403"):

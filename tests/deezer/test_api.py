@@ -92,6 +92,14 @@ def test_playlist_of_the_api_sends_the_license_token(api, http):
     assert session_api.client.session.sent[0]["params"] == {"access_token": "dummy-token"}
 
 
+def test_playlist_of_the_api_over_several_pages(api, http):
+    following = "https://api.deezer.com/playlist/9/tracks?index=2"
+    playlist = api({"https://api.deezer.com/playlist/9": http.answer(
+                        {"title": "Mix", "tracks": {"data": [{"id": 1}, {"id": 2}], "next": following}}),
+                    following: http.answer({"data": [{"id": 3}], "total": 3})}).playlist("9")
+    assert playlist.track_ids == ["1", "2", "3"]
+
+
 def test_playlist_falls_back_on_its_page(api, http):
     playlist = api({"https://api.deezer.com/playlist/908622995": http.answer({"tracks": {"data": []}}),
                     "https://www.deezer.com/de/playlist/908622995": http.fixture("playlist.html")}

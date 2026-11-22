@@ -11,8 +11,6 @@ from music_librarian.deezer.client import DeezerError
 ATTEMPTS = 10
 PAUSE = 0.5
 PIECE = 64 * 1024
-# a stream cut short surfaces as one of these while its body is read
-READ_ERRORS = (requests.RequestException, OSError)
 
 
 def fetch(client, url, song_id, dest, cfg, attempts=ATTEMPTS, sleep=time.sleep):
@@ -27,10 +25,10 @@ def fetch(client, url, song_id, dest, cfg, attempts=ATTEMPTS, sleep=time.sleep):
                 if response.status_code != 200:
                     raise DeezerError(f"stream: HTTP {response.status_code}")
                 try:
-                    return _write(response.iter_content(PIECE), dest, key, cfg.iv)
-                except READ_ERRORS as exc:
+                    return _write(_pieces(response), dest, key, cfg.iv)
+                except _CutShort as exc:
                     if attempt == attempts:
-                        cause = type(exc).__name__
+                        cause = type(exc.__cause__).__name__
                         raise DeezerError(f"stream cut short {attempts} times ({cause})") from exc
                     sleep(PAUSE)
             finally:
@@ -40,6 +38,23 @@ def fetch(client, url, song_id, dest, cfg, attempts=ATTEMPTS, sleep=time.sleep):
         if os.path.exists(dest):
             os.remove(dest)
         raise
+
+
+class _CutShort(Exception):
+    """The stream's body could not be read to its end."""
+
+
+def _pieces(response):
+    """The stream's body; a read cut short raises _CutShort, a local error (a full disk) does not."""
+    pieces = response.iter_content(PIECE)
+    while True:
+        try:
+            piece = next(pieces)
+        except StopIteration:
+            return
+        except requests.RequestException as exc:
+            raise _CutShort from exc
+        yield piece
 
 
 def _write(pieces, dest, key, iv):

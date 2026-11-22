@@ -56,4 +56,4 @@ def test_a_last_incomplete_chunk_is_kept_as_it_is():
 
 def test_an_invalid_iv_is_refused():
     with pytest.raises(ValueError):
-        list(decrypt_stream([b"x" * CHUNK], blowfish_key("42", PRE_KEY), b"\x00" * 3))
+        decrypt_stream([], blowfish_key("42", PRE_KEY), b"\x00" * 3)
