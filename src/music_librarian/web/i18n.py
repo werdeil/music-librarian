@@ -16,7 +16,18 @@ TRANSLATIONS = {
         "tile_building": "calcul en cours",
         "tile_all_clear": "Rien à traiter",
         "tile_up_to_date": "À jour :",
-        "folders": "dossiers",
+        "environment": "Environnement",
+        "env_mode": "Mode",
+        "env_applies": "passes appliquées",
+        "env_dry_runs": "aperçus seulement",
+        "env_rescans": "scan après chaque passe",
+        "env_no_rescan": "sans scan automatique",
+        "env_none": "aucun",
+        "env_lyrics": "Paroles",
+        "env_genres": "Genres",
+        "env_genre_count": "liste validée, {n} genres",
+        "env_no_genre_list": "pas de liste validée",
+        "env_itunes": "recherche iTunes ({country})",
         "cancel_button": "Annuler",
         "stop_button": "Arrêter",
         "check_button": "Marquer vérifié",
@@ -33,7 +44,6 @@ TRANSLATIONS = {
         "rules_awaited_link": "Paroles attendues ({n})",
         "rules_awaited_intro": ("Les morceaux dont aucun fournisseur n'a encore les paroles, marqués depuis "
                                 "la page de leur album : enrich les cherche toujours à chaque passage."),
-        "lyrics_waiting": "Albums à classer : {albums} · morceaux : {n}",
         "rules_genres_intro": ("Chaque genre validé, les noms qui le désignent et les pistes de la "
                                "bibliothèque qu'il regroupe : import et enrich écrivent ces genres."),
         "rules_aliases_intro": ("Les orthographes réécrites sous un autre nom, et les artistes reconnus "
@@ -157,7 +167,6 @@ TRANSLATIONS = {
         "sort_recent": "Ajoutés ou modifiés récemment",
         "only_all": "Tous",
         "only_lyrics": "Sans paroles",
-        "only_awaited": "Paroles attendues",
         "only_repeats": "Valeurs répétées",
         "only_compilations": "Compilations",
         "only_composer": "Sans compositeur",
@@ -267,8 +276,8 @@ TRANSLATIONS = {
         "work_lyrics": "Sans paroles",
         "work_position": "Album {i} sur {n}",
         "work_left": "Albums restants : {n}",
-        "work_previous": "← Précédent",
-        "work_next": "Suivant →",
+        "work_previous": "Précédent",
+        "work_next": "Suivant",
         "work_last": "Dernier de la liste",
         "album_preview": "À appliquer",
         "album_preview_none": "Rien à écrire : voir ci-dessous ce qui est laissé de côté.",
@@ -288,6 +297,7 @@ TRANSLATIONS = {
         "follow_problems": "Terminé avec des problèmes",
         "follow_undo": "Défaire",
         "follow_details": "voir le détail",
+        "close": "Fermer",
         "album_gone": "Ce dossier n'est plus dans la bibliothèque : il a peut-être été déplacé.",
         "bad_value": "Valeur refusée : {error}",
         "host_refused": ("Refusé : ce dashboard ne répond pas au nom {host}. Si c'est bien le sien, "
@@ -315,7 +325,8 @@ TRANSLATIONS = {
         "lookup_unavailable": "Les fournisseurs ne répondent pas : réessayez plus tard.",
         "lookup_no_metadata": "Il faut un artiste et un titre pour chercher.",
         "replaygain": "ReplayGain",
-        "replaygain_unknown": "sans gain de piste",
+        "replaygain_short": "Gain",
+        "replaygain_unknown": "sans gain",
         "replaygain_click": "Cliquer pour supprimer le ReplayGain de ce morceau",
         "track_unreadable": "Ce morceau est illisible.",
         "cover": "Pochette",
@@ -323,37 +334,17 @@ TRANSLATIONS = {
         "cover_not_an_image": "Ce fichier n'est pas une image lisible.",
         "cover_too_large": "Image trop lourde : {mb} Mo au plus.",
         "tracks_without_lyrics_title": "Morceaux sans paroles",
-        "tracks_without_lyrics": "Morceaux sans paroles : {n}",
-        "without_lyrics": "Sans paroles",
-        "lyrics_page_intro": ("Les albums dont des morceaux n'ont pas de paroles et ne sont pas encore "
-                              "classés, le plus d'abord : depuis la page de l'album, marquez chacun "
-                              "instrumental, ou paroles attendues pour qu'il quitte cette liste. enrich "
-                              "cherche chaque semaine les paroles de tous les morceaux qui n'en ont pas, "
-                              "attendus compris."),
+        "lyrics_page_intro": "À marquer instrumentaux ou paroles attendues, album par album.",
         "lyrics_none_missing": "Tous les morceaux sans paroles sont classés.",
-        "tracks_awaited": "Morceaux aux paroles attendues : {n}",
         "tile_lyrics": "Morceaux sans paroles",
         "tracks_repeated_title": "Valeurs répétées",
-        "tracks_repeated": "Morceaux aux valeurs répétées : {n}",
-        "repeated_column": "Morceaux concernés",
-        "repeats_page_intro": ("Les albums dont des morceaux ont un champ qui tient une valeur en double "
-                               "ou plusieurs valeurs : deux titres, un artiste nommé deux fois. enrich "
-                               "garde chaque semaine une seule fois une valeur répétée à l'identique ; "
-                               "des valeurs qui diffèrent se corrigent sur la page de l'album. Le titre et "
-                               "l'album ne prennent qu'une valeur, sans « ; » : organize ne range pas, et "
-                               "l'import refuse, un morceau qui en tient plusieurs."),
+        "repeats_page_intro": "Un champ tient une valeur en double, ou plusieurs valeurs.",
         "repeats_none": "Aucun morceau n'a de valeur répétée.",
         "tile_repeats": "Morceaux aux valeurs répétées",
         "tile_mixed": "Albums aux champs incohérents",
         "mixed_title": "Albums incohérents",
-        "mixed_page_intro": ("Les albums dont les morceaux ne s'accordent pas sur un champ d'album : "
-                             "artiste de l'album, album, année, genre, nombre de disques ou drapeau "
-                             "compilation, un morceau sans valeur comptant comme une valeur à part. Le "
-                             "genre n'est pas compté sur une compilation. Chaque champ se corrige sur la "
-                             "page de l'album, qui montre quels morceaux tiennent quelle valeur."),
-        "mixed_count": "Albums concernés : {n}",
+        "mixed_page_intro": "Des morceaux d'un même album ne s'accordent pas sur un de ses champs.",
         "mixed_list_link": "Voir la liste",
-        "mixed_column": "Champs en désaccord",
         "mixed_none": "Les morceaux de chaque album s'accordent sur ses champs.",
         "repeated_warning": ("Des champs marqués ci-dessous tiennent une valeur en double ou plusieurs "
                              "valeurs, séparées par « ; » : garder la bonne seule. Le titre et l'album "
@@ -361,24 +352,19 @@ TRANSLATIONS = {
         "repeated_differ": "Plusieurs valeurs : garder la bonne seule, sans « ; » dans un titre ou un album",
         "repeated_same": "Une valeur en double : enrich n'en garde qu'une",
         "genre_review": "Genres hors de la liste validée",
-        "genres_waiting": "Genres en attente de réponse : {n}",
         "no_genre_list": "Pas de liste de genres validés : copiez d'abord genres.example.txt vers {path}.",
         "itunes_hint": "iTunes classe ces albums en « {genre} ».",
         "alias_button": "En faire un nom de ce genre",
         "new_genre_button": "En faire un genre validé",
         "tile_orphans": "Lectures Lyrion orphelines",
         "orphans_awaiting": "Orphelins en attente de réponse",
-        "lyrion_intro": ("Les lectures et notes que Lyrion garde sur des fichiers disparus, à rendre aux "
-                         "pistes de la bibliothèque, ou à supprimer : chaque réponse est enregistrée "
-                         "aussitôt, et le passage playcounts l'écrit dans persist.db."),
         "lyrion_off": "Lyrion n'est pas configuré : renseignez LYRION_PERSIST_DB et LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "La base de Lyrion est illisible : {error}",
         "lyrion_scan_title": "Scan de Lyrion",
-        "lyrion_scan_auto": ("Une passe qui déplace ou ajoute des morceaux demande un scan à Lyrion dès "
-                             "qu'elle finit ; les tags modifiés sans déplacement attendent son scan "
-                             "programmé."),
-        "lyrion_scan_manual": ("Lyrion découvre les fichiers déplacés à son prochain scan : LYRION_RESCAN "
-                               "en demande un après chaque passe qui en déplace."),
+        "lyrion_scan_auto": "Demandé de lui-même après chaque passe qui déplace ou ajoute des morceaux.",
+        "lyrion_scan_manual": "Pas de scan automatique : LYRION_RESCAN est désactivé.",
+        "lyrion_write_title": "Écrire dans Lyrion",
+        "orphans_hint": "Lectures et notes que Lyrion garde sur des fichiers disparus.",
         "lyrion_scan_button": "Lancer un scan",
         "lyrion_scan_started": "Scan demandé : Lyrion lit les fichiers nouveaux et modifiés.",
         "lyrion_scan_running": "Lyrion est déjà en train de scanner.",
@@ -413,24 +399,24 @@ TRANSLATIONS = {
         "orphan_ignore_button": "Ignorer",
         "orphan_delete_button": "Supprimer",
         "back_to_lyrion": "Retour à Lyrion",
-        "playcounts_intro": ("Écrit dans persist.db les orphelins réglés, après une copie de sauvegarde. "
-                             "L'aperçu ne change rien."),
         "opt_backfill": "recopier les lectures du plugin là où Lyrion n'en compte aucune, et l'inverse",
         "opt_dpsv": "recalculer la DPSV de toutes les pistes, approximative dès qu'il y a des sauts (--dpsv)",
         "reviews": "Revues",
         "questions_waiting": "Questions en attente de réponse",
-        "reviews_intro": ("Les questions de split et de dedupe, et les genres que la liste validée ne "
-                          "connaît pas, une à la fois : chaque réponse est enregistrée aussitôt dans le "
-                          "fichier de décisions, d'alias ou de genres, et vaut pour les passages suivants. "
-                          "Les morceaux sans paroles se classent album par album, instrumentaux ou "
-                          "paroles attendues, et les albums incohérents se corrigent un par un."),
         "split_review": "Crédits à plusieurs noms",
         "dedupe_review": "Un artiste écrit de plusieurs façons",
-        "credits_waiting": "Crédits en attente de réponse : {n}",
-        "groups_waiting": "Groupes en attente de réponse : {n}",
         "start_review": "Répondre",
         "apply_answers": "Aperçu de ces réponses",
         "review_done": "Plus aucune question.",
+        "unit_split": "crédits à trancher",
+        "unit_dedupe": "groupes à trancher",
+        "unit_genres": "genres à valider",
+        "unit_lyrics": "morceaux à classer, sur {albums} albums",
+        "unit_mixed": "albums à corriger",
+        "unit_repeats": "morceaux à corriger, sur {albums} albums",
+        "start_fixing": "Corriger",
+        "review_switch_on": "Activer : compter ces questions",
+        "review_switch_off": "Désactiver : ne plus compter ces questions",
         "question_of": "Question {i} sur {n}",
         "example": "ex.",
         "split_into": "Découpé :",
@@ -502,7 +488,18 @@ TRANSLATIONS = {
         "tile_building": "being worked out",
         "tile_all_clear": "Nothing to handle",
         "tile_up_to_date": "Up to date:",
-        "folders": "folders",
+        "environment": "Environment",
+        "env_mode": "Mode",
+        "env_applies": "passes applied",
+        "env_dry_runs": "previews only",
+        "env_rescans": "scan after each pass",
+        "env_no_rescan": "no automatic scan",
+        "env_none": "none",
+        "env_lyrics": "Lyrics",
+        "env_genres": "Genres",
+        "env_genre_count": "validated list, {n} genres",
+        "env_no_genre_list": "no validated list",
+        "env_itunes": "iTunes lookup ({country})",
         "cancel_button": "Cancel",
         "stop_button": "Stop",
         "check_button": "Mark checked",
@@ -519,7 +516,6 @@ TRANSLATIONS = {
         "rules_awaited_link": "Lyrics awaited ({n})",
         "rules_awaited_intro": ("The tracks whose lyrics no provider carries yet, marked from their album's "
                                 "page: enrich still looks them up on every pass."),
-        "lyrics_waiting": "Albums to sort out: {albums} · tracks: {n}",
         "rules_genres_intro": ("Each validated genre, the names that stand for it and the tracks of the "
                                "library it gathers: import and enrich write these genres."),
         "rules_aliases_intro": ("The spellings rewritten as another name, and the artists known to differ: "
@@ -640,7 +636,6 @@ TRANSLATIONS = {
         "sort_recent": "Recently added or changed",
         "only_all": "All",
         "only_lyrics": "Without lyrics",
-        "only_awaited": "Lyrics awaited",
         "only_repeats": "Repeated values",
         "only_compilations": "Compilations",
         "only_composer": "Without composer",
@@ -750,8 +745,8 @@ TRANSLATIONS = {
         "work_lyrics": "Without lyrics",
         "work_position": "Album {i} of {n}",
         "work_left": "Albums left: {n}",
-        "work_previous": "← Previous",
-        "work_next": "Next →",
+        "work_previous": "Previous",
+        "work_next": "Next",
         "work_last": "Last of the list",
         "album_preview": "To apply",
         "album_preview_none": "Nothing to write: see below what is left alone.",
@@ -771,6 +766,7 @@ TRANSLATIONS = {
         "follow_problems": "Ended with problems",
         "follow_undo": "Undo",
         "follow_details": "see the details",
+        "close": "Close",
         "album_gone": "This folder is no longer in the library: it may have been moved.",
         "bad_value": "Value refused: {error}",
         "host_refused": ("Refused: this dashboard does not answer to the name {host}. If it is its name, "
@@ -798,7 +794,8 @@ TRANSLATIONS = {
         "lookup_unavailable": "The providers do not answer: try again later.",
         "lookup_no_metadata": "An artist and a title are needed to look up.",
         "replaygain": "ReplayGain",
-        "replaygain_unknown": "no track gain",
+        "replaygain_short": "Gain",
+        "replaygain_unknown": "no gain",
         "replaygain_click": "Click to delete this track's ReplayGain",
         "track_unreadable": "This track cannot be read.",
         "cover": "Cover",
@@ -806,35 +803,17 @@ TRANSLATIONS = {
         "cover_not_an_image": "This file is not a readable image.",
         "cover_too_large": "Image too large: {mb} MB at most.",
         "tracks_without_lyrics_title": "Tracks without lyrics",
-        "tracks_without_lyrics": "Tracks without lyrics: {n}",
-        "without_lyrics": "Without lyrics",
-        "lyrics_page_intro": ("The albums whose tracks have no lyrics and are not sorted out yet, the "
-                              "most first: from the album's page, mark each instrumental, or lyrics "
-                              "awaited for it to leave this list. enrich looks up every week the lyrics "
-                              "of every track without them, awaited ones included."),
+        "lyrics_page_intro": "To mark instrumental or lyrics awaited, album by album.",
         "lyrics_none_missing": "Every track without lyrics is sorted out.",
-        "tracks_awaited": "Tracks whose lyrics are awaited: {n}",
         "tile_lyrics": "Tracks without lyrics",
         "tracks_repeated_title": "Repeated values",
-        "tracks_repeated": "Tracks with repeated values: {n}",
-        "repeated_column": "Tracks concerned",
-        "repeats_page_intro": ("The albums whose tracks have a field holding a value twice or several "
-                               "values: two titles, an artist named twice. enrich keeps a value "
-                               "repeated as is only once every week; values that differ are fixed on "
-                               "the album's page. The title and the album take one value, without "
-                               "\";\": organize does not file, and import refuses, a track holding several."),
+        "repeats_page_intro": "A field holds a value twice, or several values.",
         "repeats_none": "No track has a repeated value.",
         "tile_repeats": "Tracks with repeated values",
         "tile_mixed": "Albums with inconsistent fields",
         "mixed_title": "Inconsistent albums",
-        "mixed_page_intro": ("The albums whose tracks disagree on an album field: album artist, album, "
-                             "year, genre, number of discs or compilation flag, a track without a value "
-                             "counting as a value of its own. The genre is not counted on a compilation. "
-                             "Each field is fixed on the album's page, which shows which tracks hold "
-                             "which value."),
-        "mixed_count": "Albums concerned: {n}",
+        "mixed_page_intro": "Tracks of one album disagree on one of its fields.",
         "mixed_list_link": "See the list",
-        "mixed_column": "Fields in disagreement",
         "mixed_none": "The tracks of every album agree on its fields.",
         "repeated_warning": ("The fields marked below hold a value twice or several values, separated "
                              "by \"; \": keep only the right one. The title and the album take one "
@@ -842,23 +821,19 @@ TRANSLATIONS = {
         "repeated_differ": "Several values: keep only the right one, without \";\" in a title or an album",
         "repeated_same": "A value twice: enrich keeps it only once",
         "genre_review": "Genres outside the validated list",
-        "genres_waiting": "Genres awaiting an answer: {n}",
         "no_genre_list": "No validated genre list: copy genres.example.txt to {path} first.",
         "itunes_hint": "iTunes files these albums under \u201c{genre}\u201d.",
         "alias_button": "Make it a name of this genre",
         "new_genre_button": "Make it a validated genre",
         "tile_orphans": "Orphan Lyrion play counts",
         "orphans_awaiting": "Orphans awaiting an answer",
-        "lyrion_intro": ("The play counts and ratings Lyrion keeps on files gone, to give back to the "
-                         "library's tracks or to delete: each answer is recorded at once, and the "
-                         "playcounts pass writes it to persist.db."),
         "lyrion_off": "Lyrion is not set up: set LYRION_PERSIST_DB and LYRION_MUSIC_ROOT.",
         "lyrion_unreadable": "Lyrion's database is unreadable: {error}",
         "lyrion_scan_title": "Lyrion's scan",
-        "lyrion_scan_auto": ("A pass that moves or adds tracks asks Lyrion for a scan as soon as it ends; "
-                             "tags changed without a move wait for its scheduled scan."),
-        "lyrion_scan_manual": ("Lyrion finds the moved files on its next scan: LYRION_RESCAN asks for one "
-                               "after each pass that moves some."),
+        "lyrion_scan_auto": "Asked for on its own after each pass that moves or adds tracks.",
+        "lyrion_scan_manual": "No automatic scan: LYRION_RESCAN is off.",
+        "lyrion_write_title": "Write to Lyrion",
+        "orphans_hint": "Plays and ratings Lyrion keeps on files that are gone.",
         "lyrion_scan_button": "Start a scan",
         "lyrion_scan_started": "Scan asked for: Lyrion reads the new and changed files.",
         "lyrion_scan_running": "Lyrion is already scanning.",
@@ -893,24 +868,24 @@ TRANSLATIONS = {
         "orphan_ignore_button": "Ignore",
         "orphan_delete_button": "Delete",
         "back_to_lyrion": "Back to Lyrion",
-        "playcounts_intro": ("Writes the settled orphans to persist.db, after a backup copy. The preview "
-                             "changes nothing."),
         "opt_backfill": "copy the plugin's plays where Lyrion counts none, and the reverse",
         "opt_dpsv": "compute the DPSV of every track again, an estimate once a track was skipped (--dpsv)",
         "reviews": "Reviews",
         "questions_waiting": "Questions awaiting an answer",
-        "reviews_intro": ("The questions of split and dedupe, and the genres the validated list does "
-                          "not know, one at a time: each answer is saved at once in the decisions, "
-                          "aliases or genres file, and holds for the passes to come. The tracks without "
-                          "lyrics are sorted out album by album, instrumental or lyrics awaited, and "
-                          "the inconsistent albums are fixed one by one."),
         "split_review": "Credits holding several names",
         "dedupe_review": "One artist spelled several ways",
-        "credits_waiting": "Credits awaiting an answer: {n}",
-        "groups_waiting": "Groups awaiting an answer: {n}",
         "start_review": "Answer",
         "apply_answers": "Preview these answers",
         "review_done": "No question left.",
+        "unit_split": "credits to settle",
+        "unit_dedupe": "groups to settle",
+        "unit_genres": "genres to validate",
+        "unit_lyrics": "tracks to sort out, across {albums} albums",
+        "unit_mixed": "albums to fix",
+        "unit_repeats": "tracks to fix, across {albums} albums",
+        "start_fixing": "Fix",
+        "review_switch_on": "Switch on: count these questions",
+        "review_switch_off": "Switch off: stop counting these questions",
         "question_of": "Question {i} of {n}",
         "example": "e.g.",
         "split_into": "Split:",

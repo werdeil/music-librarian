@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
 import os
+import re
 import socket
 import sqlite3
 from datetime import datetime, time
@@ -11,6 +12,7 @@ import pytest
 
 from music_librarian.core import runs
 from music_librarian.core.log import Log
+from music_librarian.integrations import lyrion
 from music_librarian.web import app as web
 from music_librarian.web import history, library
 from music_librarian.web.i18n import TRANSLATIONS
@@ -113,8 +115,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert "Nothing to handle" in page and 'class="tile tile-' not in page and "Up to date:" not in page
-    assert page.count('class="tile-line tile-none"') == 1 and "tile-info" not in page
-    assert "(no validated list)" in page
+    assert '>Genres outside the list</a> (no validated list)' in page and "tile-building" not in page
 
 
 def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):
@@ -137,17 +138,35 @@ def test_history_in_pages_of_fifty(client, ctx):
     for _ in range(history.HISTORY_PAGE + 5):
         record(ctx, "scan", code=2)
     page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)
-    assert page.count('<td><code>scan</code></td>') == history.HISTORY_PAGE and "1 / 2" in page
+    assert page.count('<td>scan</td>') == history.HISTORY_PAGE and "1 / 2" in page
     assert 'href="/runs?problems=1&amp;page=2"' in page
     page = client.get("/runs?problems=1&page=2", headers=EN).get_data(as_text=True)
-    assert page.count('<td><code>scan</code></td>') == 5 and "Previous" in page
+    assert page.count('<td>scan</td>') == 5 and "Previous" in page
     assert '<h1 class="visually-hidden">History</h1>' in page
 
 
-def test_folders_folded_in_the_footer(client, ctx):
+def test_environment_at_the_bottom_of_the_overview(client, ctx, monkeypatch):
+    monkeypatch.setenv("LYRICS_PROVIDERS", "netease,nowhere")
+    monkeypatch.setenv("GENRE_LOOKUP", "itunes")
     page = client.get("/", headers=EN).get_data(as_text=True)
-    footer = page[page.index("<footer>"):]
-    assert "<summary>folders</summary>" in footer and str(ctx.inbox) in footer
+    env = page[page.index("<summary>Environment</summary>"):page.index("<footer>")]
+    assert str(ctx.root) in env and str(ctx.inbox) in env and str(ctx.state_dir) in env
+    assert "<dd>previews only</dd>" in env and "<dt>Lyrion</dt><dd>none</dd>" in env
+    assert "<dd>netease</dd>" in env and "no validated list · iTunes lookup (US)" in env
+    assert str(ctx.state_dir) not in client.get("/runs", headers=EN).get_data(as_text=True)
+
+
+def test_environment_names_lyrion_without_its_login(tmp_path, lyrion_db):
+    inbox = tmp_path / "Inbox"
+    inbox.mkdir()
+    db = lyrion.Lyrion(lyrion_db, "/music", tmp_path / "Music", tmp_path / "backups",
+                       scan=lyrion.Scan("http://me:secret@lms.local:9000/"), rescans=True)
+    ctx = web.Context(root=tmp_path / "Music", inbox=inbox, state_dir=tmp_path / "state", lyrion=db)
+    page = web.create_app(ctx).test_client().get("/", headers=EN).get_data(as_text=True)
+    env = page[page.index("<summary>Environment</summary>"):]
+    shown = re.findall(r'<code class="path">([^<]*)</code>', env)
+    assert shown[-2:] == [str(lyrion_db), "http://lms.local:9000"] and "scan after each pass" in env
+    assert "secret" not in page
 
 
 def test_history_filters(client, ctx):
@@ -162,6 +181,11 @@ def test_history_filters(client, ctx):
     assert 'name="command" value="enrich"' in page and "data-autosubmit>" in page
     page = client.get("/runs?command=scan&problems=1", headers=EN).get_data(as_text=True)
     assert "No run matches" in page
+    record(ctx, "organize")
+    page = client.get("/runs", headers=EN).get_data(as_text=True)
+    assert 'All <span class="muted">(3)</span>' in page and 'organize <span class="muted">(2)</span>' in page
+    page = client.get("/runs?problems=1", headers=EN).get_data(as_text=True)          # counts follow it
+    assert 'All <span class="muted">(1)</span>' in page and 'organize <span class="muted">(0)</span>' in page
 
 
 def test_run_page(client, ctx):
@@ -390,3 +414,14 @@ def test_lists_built_at_startup_only_when_asked(ctx, monkeypatch, build_now, sta
 def test_every_response_says_how_long_the_app_took(client):
     timing = client.get("/").headers["Server-Timing"]
     assert "reviews;dur=" in timing and timing.split(", ")[-1].startswith("total;dur=")
+
+
+def test_progress_of_a_running_pass(ctx):
+    run_id = unfinished(ctx, "tag", os.getpid())
+    runs.log_path(ctx.state_dir, run_id).write_text(
+        "TAG      A/B/01 T.m4a\nMOVE     A/B/01 T.m4a\n         → C/B/01 T.m4a\n", encoding="utf-8")
+    with web.create_app(ctx).test_request_context():
+        shown = history.progress(ctx.state_dir, runs.get(ctx.state_dir, run_id))
+        assert (shown["step"], shown["url"]) == ("MOVE     A/B/01 T.m4a", f"/runs/{run_id}")
+        assert shown["duration"].startswith("1 min")                      # started 90 s ago
+        assert history.progress(ctx.state_dir, None) is None

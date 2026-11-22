@@ -87,6 +87,7 @@ def register(app, ctx, index, later):
         run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
         journal = history.run_journal(ctx, run)
         return dict(asked=asked, run=history.shown(run) if run else None,
+                    progress=history.progress(ctx.state_dir, run),
                     done=asked.state in (DONE, CANCELLED), journal=journal.name if journal else None,
                     locked=asked.state == DONE and asked.code == EXIT_LOCKED,
                     poll=url_for("request_state", request_id=asked.id, folder=rel, **place()))
@@ -208,7 +209,8 @@ def register(app, ctx, index, later):
         shown, page, pages = paged(albums, library.PAGE)
         warm(*[a.folder for a in shown[:AHEAD]])
         return render_template("lyrics.html", albums=shown, offset=(page - 1) * library.PAGE,
-                               tracks=sum(a.without_lyrics for a in albums), page=page, pages=pages,
+                               tracks=sum(a.without_lyrics for a in albums), count=len(albums),
+                               page=page, pages=pages,
                                awaited=sum(a.awaited for a in everything))
 
     @app.get("/library/mixed")
@@ -229,7 +231,8 @@ def register(app, ctx, index, later):
         albums = library.with_repeats(everything)
         shown, page, pages = paged(albums, library.PAGE)
         return render_template("repeats.html", albums=shown, offset=(page - 1) * library.PAGE,
-                               tracks=sum(a.repeated for a in albums), page=page, pages=pages)
+                               tracks=sum(a.repeated for a in albums), count=len(albums),
+                               page=page, pages=pages)
 
     @app.post("/library/album")
     def edit_album():

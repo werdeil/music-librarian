@@ -3,6 +3,7 @@ page, the history, a run's page and output followed live, and a running pass sto
 import json
 import os
 import socket
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -58,6 +59,16 @@ def shown(run):
     end = run["ended"] if run["ended"] is not None else datetime.now().timestamp()
     return dict(run, status=status, when=when(run["started"]), problem=status in PROBLEMS,
                 duration=None if status == runs.INTERRUPTED else duration(end - run["started"]))
+
+
+def progress(state_dir, run):
+    """How far a running pass has got: its last log line that is not a continuation, its
+    duration so far and its page; None before it is recorded."""
+    if run is None:
+        return None
+    lines, _ = runs.read_log(state_dir, run["id"])
+    step = next((line.strip() for line in reversed(lines) if line.strip() and not line[0].isspace()), "")
+    return dict(step=step, duration=shown(run)["duration"], url=url_for("run_page", run_id=run["id"]))
 
 
 def journal_of(run):
@@ -136,9 +147,12 @@ def register(app, ctx):
         if asked is None:
             abort(404)
         done = asked.state in (DONE, CANCELLED)
+        if not done:
+            run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
+            return jsonify(done=False, progress=progress(ctx.state_dir, run))
         folder = request.args.get("folder")
         album = None
-        if done and folder is not None:
+        if folder is not None:
             run = runs.get(ctx.state_dir, asked.run_id) if asked.run_id is not None else None
             journal = run_journal(ctx, run)
             moved = moved_to(journal, ctx.root, folder) if journal else folder
@@ -200,15 +214,18 @@ def register(app, ctx):
     def history():
         command = request.args.get("command") or None
         problems = request.args.get("problems") == "1"
-        shown_runs = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP, command)]
+        kept = [shown(r) for r in runs.recent(ctx.state_dir, runs.KEEP)]
         if problems:
-            shown_runs = [r for r in shown_runs if r["problem"] and not r["checked"]]
+            kept = [r for r in kept if r["problem"] and not r["checked"]]
+        counts = Counter(r["command"] for r in kept)
+        shown_runs = [r for r in kept if command in (None, r["command"])]
         commands = sorted(runs.latest(ctx.state_dir))
         page_runs, page, pages = paged(shown_runs, HISTORY_PAGE)
         queued = [] if problems or page > 1 or not ctx.requests else \
             [r for r in reversed(ctx.requests.pending()) if command in (None, r.command)]
         return render_template("runs.html", runs=page_runs,
                                queued=queued, commands=commands, command=command, problems=problems,
+                               counts=counts, total=len(kept),
                                page=page, pages=pages)
 
     @app.post("/runs/<int:run_id>/checked")

@@ -75,7 +75,7 @@ def test_dashboard_served_while_watching(inbox_dir, calls, ticks, capsys):
 
     assert ticks(inbox_dir, [fetch], "--listen", "127.0.0.1:0") == 0
     assert '"status":"ok"' in pages["/health"].replace(" ", "")
-    assert "<code>import</code>" in pages["/"] and "<code>import</code>" in pages["/runs"]
+    assert "<code>import</code>" in pages["/"] and "<td>import</td>" in pages["/runs"]
 
 
 def test_listen_format(inbox_dir):

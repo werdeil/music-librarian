@@ -435,8 +435,10 @@
                     row.classList.toggle("to-sort", !box.checked);
                     shown.textContent = box.checked ? box.dataset.shownAwaited : box.dataset.shownToSort;
                     if (later) {
-                        later.textContent = document.querySelector("tr.to-sort") ? later.dataset.later
-                            : later.dataset.sortedOut;
+                        var sortedOut = !document.querySelector("tr.to-sort");
+                        later.querySelector("[data-label]").textContent = sortedOut ? later.dataset.sortedOut
+                            : later.dataset.later;
+                        later.querySelector(".icon-after").classList.toggle("hidden", !sortedOut);
                     }
                 })
                 .catch(function () {
@@ -459,11 +461,26 @@
         return;
     }
 
+    function shown(progress) {
+        var duration = panel.querySelector("[data-follow-duration]");
+        var details = panel.querySelector("[data-follow-details]");
+        var step = panel.querySelector("[data-follow-step]");
+        if (!progress || !duration) {
+            return;
+        }
+        duration.textContent = progress.duration || "";
+        details.href = progress.url;
+        details.hidden = false;
+        step.textContent = progress.step;
+        step.hidden = !progress.step;
+    }
+
     function poll() {
         fetch(panel.dataset.follow)
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 if (!data.done) {
+                    shown(data.progress);
                     setTimeout(poll, POLL_MS);
                 } else if (data.album) {
                     window.location.replace(data.album);
@@ -681,6 +698,19 @@
             } else {
                 typed.value = "";
             }
+        });
+    });
+}());
+
+// Closing the panel of a pass that ended drops it at once; the address loses the request alike.
+(function () {
+    "use strict";
+
+    document.querySelectorAll(".panel-close").forEach(function (link) {
+        link.addEventListener("click", function (event) {
+            event.preventDefault();
+            link.closest(".panel").remove();
+            window.history.replaceState(window.history.state, "", link.href);
         });
     });
 }());

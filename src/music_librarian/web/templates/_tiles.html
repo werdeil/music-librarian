@@ -1,28 +1,35 @@
 {% set entries = [
-    dict(value=todo.split, label=t.tile_split, href=url_for('review_split')),
-    dict(value=todo.dedupe, label=t.tile_dedupe, href=url_for('review_dedupe')),
-    dict(value=todo.genres if genre_list else None, label=t.tile_genres, href=url_for('review_genres'),
+    dict(key='split', value=todo.split, label=t.tile_split, href=url_for('review_split')),
+    dict(key='dedupe', value=todo.dedupe, label=t.tile_dedupe, href=url_for('review_dedupe')),
+    dict(key='genres', value=todo.genres if genre_list else None, label=t.tile_genres, href=url_for('review_genres'),
          note=None if genre_list else t.tile_no_genre_list),
     dict(value=todo.failed, label=t.tile_failed, href=url_for('history', command='import', problems='1')),
     dict(value=todo.repeats, label=t.tile_repeats, href=url_for('repeated_values')),
-    dict(value=todo.mixed, label=t.tile_mixed, href=url_for('album_page', folder=first_mixed, list='mixed', at=0)
+    dict(key='mixed', value=todo.mixed, label=t.tile_mixed, href=url_for('album_page', folder=first_mixed, list='mixed', at=0)
          if first_mixed else url_for('mixed_albums')),
-    dict(value=todo.lyrics, label=t.tile_lyrics, href=url_for('album_page', folder=first_bare, list='lyrics', at=0)
+    dict(key='lyrics', value=todo.lyrics, label=t.tile_lyrics, href=url_for('album_page', folder=first_bare, list='lyrics', at=0)
          if first_bare else url_for('missed_lyrics')),
 ] %}
 {% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}
 {% set ns = namespace(todo=[], ok=[], aside=[]) %}
-{% for e in entries %}
+{% for e in entries if e.key not in switched_off %}
     {% if e.value is none %}{% set ns.aside = ns.aside + [e] %}
     {% elif e.value %}{% set ns.todo = ns.todo + [e] %}
     {% else %}{% set ns.ok = ns.ok + [e] %}{% endif %}
 {% endfor %}
 
-{% if ns.todo %}
+{% set building = ns.aside | rejectattr('note') | list %}
+{% if ns.todo or building %}
 <div class="tiles">
 {% for e in ns.todo | sort(attribute='value', reverse=True) %}
     <a class="tile tile-todo" href="{{ e.href }}">
         <span class="tile-value">{{ e.value }}</span>
+        <span class="tile-label">{{ e.label }}</span>
+    </a>
+{% endfor %}
+{% for e in building %}
+    <a class="tile tile-building" href="{{ e.href }}">
+        <span class="tile-value"><span class="spinner" aria-hidden="true"></span><span class="visually-hidden">{{ t.tile_building }}</span></span>
         <span class="tile-label">{{ e.label }}</span>
     </a>
 {% endfor %}
@@ -31,15 +38,9 @@
 <p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
 {% endif %}
 
-{% if ns.aside %}
-<p class="tile-aside">
-{% for e in ns.aside %}
-    <a class="tile-line tile-none" href="{{ e.href }}">
-        <span class="tile-value">—</span>
-        <span class="tile-label">{{ e.label }}</span> <span class="tile-note">({{ e.note or t.tile_building }})</span></a>
+{% for e in ns.aside if e.note %}
+<p class="tile-aside muted"><a class="tile-line" href="{{ e.href }}">{{ e.label }}</a> ({{ e.note }})</p>
 {% endfor %}
-</p>
-{% endif %}
 
 {% if ns.ok and ns.todo %}
 <p class="tile-ok-line muted"><span aria-hidden="true">✓</span> {{ t.tile_up_to_date }}
