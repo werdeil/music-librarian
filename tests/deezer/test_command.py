@@ -103,16 +103,17 @@ def test_item_ids():
             deezer.item_id("album", value)
 
 
-def test_an_address_names_its_kind():
-    assert deezer.items(["https://www.deezer.com/fr/album/1", "deezer.com/album/2"]) == ("album", ["1", "2"])
-    assert deezer.items(["playlist", "9", "https://www.deezer.com/playlist/8"]) == ("playlist", ["9", "8"])
-    for values, message in ((["302127"], "an id alone needs album or playlist"),
-                            (["https://link.deezer.com/s/abc"], "short links are not followed"),
-                            (["deezer.com/album/1", "deezer.com/playlist/2"], "separate passes"),
-                            (["album", "deezer.com/playlist/2"], "not of an album"),
-                            (["album"], "no id nor address")):
+def test_an_id_names_an_album_and_a_playlist_needs_its_address():
+    assert deezer.items(["302127", "https://www.deezer.com/fr/album/1"]) == ("album", ["302127", "1"])
+    playlists = ["https://www.deezer.com/playlist/9", "deezer.com/playlist/8"]
+    assert deezer.items(playlists) == ("playlist", ["9", "8"])
+    for values, message in ((["https://link.deezer.com/s/abc"], "short links are not followed"),
+                            (["302127", "deezer.com/playlist/2"], "separate passes"),
+                            ([], "no id nor address")):
         with pytest.raises(ValueError, match=message):
             deezer.items(values)
+    with pytest.raises(ValueError, match="an id alone names an album"):
+        deezer.item_id("playlist", "908622995")
 
 
 def test_a_dry_run_reads_the_metadata_only(inbox, cfg, site):
@@ -300,7 +301,7 @@ def test_without_configuration_a_clear_error(inbox, monkeypatch):
     for name in ("DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV"):
         monkeypatch.delenv(name, raising=False)
     state = inbox.parent / "state"
-    code = deezer.main(["album", "302127", "--inbox", str(inbox), "--state-dir", str(state)])
+    code = deezer.main(["302127", "--inbox", str(inbox), "--state-dir", str(state)])
     assert code == 1
     run_row = runs.recent(state)[0]
     assert run_row["command"] == "deezer" and run_row["code"] == 1

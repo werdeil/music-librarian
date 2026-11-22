@@ -15,10 +15,7 @@
     "message": "Download"
   },
   "labelDeezerUrl": {
-    "message": "Deezer URL (album or playlist)"
-  },
-  "labelContentId": {
-    "message": "ID (album or playlist)"
+    "message": "Album (address or id) or playlist (address)"
   },
   "btnDownload": {
     "message": "Download"
@@ -39,7 +36,7 @@
     "message": "Please enter the server URL"
   },
   "idExtracted": {
-    "message": "ID extracted: $type$ $id$",
+    "message": "To download: $type$ $id$",
     "placeholders": {
       "type": {
         "content": "$1"
@@ -50,10 +47,10 @@
     }
   },
   "errorInvalidUrl": {
-    "message": "Invalid URL. Expected format: /album/ID or /playlist/ID"
+    "message": "Expected an album id, or the deezer.com address of an album or a playlist"
   },
   "errorMissingId": {
-    "message": "Please enter a valid ID"
+    "message": "Enter an album id, or the deezer.com address of an album or a playlist"
   },
   "btnDownloading": {
     "message": "Downloading..."
@@ -122,14 +119,11 @@
   "errorDashboardOff": {
     "message": "The dashboard cannot download: watch runs without --apply, or the Deezer download is off"
   },
-  "labelContentKind": {
-    "message": "The ID names"
-  },
   "kindAlbum": {
-    "message": "an album"
+    "message": "album"
   },
   "kindPlaylist": {
-    "message": "a playlist"
+    "message": "playlist"
   },
   "permissionNeeded": {
     "message": "Chrome does not allow access to the dashboard yet: open the settings and click Save."

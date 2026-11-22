@@ -87,13 +87,13 @@ def test_refused_without_token_or_without_apply(ctx):
 def test_a_download_is_queued_with_its_options(ctx):
     client, _page, token = dashboard(ctx)
     answer = client.post("/deezer", data={"csrf": token, "item": "https://www.deezer.com/fr/playlist/9?x=1",
-                                          "kind": "album", "complete_only": "1"})
+                                          "complete_only": "1"})
     assert answer.status_code == 302
     (asked,) = ctx.requests.pending()
     assert (asked.command, asked.apply, asked.options) == (
         "deezer", True, {"kind": "playlist", "ids": ["9"], "complete_only": True})
     assert answer.location.endswith(f"/requests/{asked.id}")
-    client.post("/deezer", data={"csrf": token, "item": "302127", "kind": "album"})
+    client.post("/deezer", data={"csrf": token, "item": "302127"})
     assert ctx.requests.pending()[1].options == {"kind": "album", "ids": ["302127"], "complete_only": False}
 
 
@@ -187,7 +187,7 @@ def test_a_preflight_is_answered_for_the_origin_only(ctx):
 def test_the_extension_queues_a_download_and_follows_it(ctx):
     client = web.create_app(ctx).test_client()
     answer = ext(client, "POST", "/deezer/ext/request",
-                 json={"kind": "playlist", "id": "908622995"})
+                 json={"id": "https://www.deezer.com/fr/playlist/908622995"})
     assert answer.status_code == 201
     (asked,) = ctx.requests.pending()
     assert answer.json == {"id": asked.id}
@@ -202,9 +202,8 @@ def test_the_extension_queues_a_download_and_follows_it(ctx):
 @pytest.mark.usefixtures("extension")
 def test_the_extension_is_refused_what_the_dashboard_is(ctx):
     client = web.create_app(ctx).test_client()
-    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "track", "id": "1"}).status_code == 400
-    assert ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "x"}).status_code == 400
-    assert ext(client, "POST", "/deezer/ext/request", json={"id": "302127"}).status_code == 400
+    assert ext(client, "POST", "/deezer/ext/request", json={"id": "x"}).status_code == 400
+    assert ext(client, "POST", "/deezer/ext/request", json=["302127"]).status_code == 400
     ctx.apply = False
     refused = ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"})
     assert refused.status_code == 403 and "watch runs without --apply" in refused.json["error"]

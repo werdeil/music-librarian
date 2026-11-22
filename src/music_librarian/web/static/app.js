@@ -123,25 +123,6 @@
     });
 }());
 
-// The kind of a Deezer download is asked for a bare id only: an address names it.
-(function () {
-    "use strict";
-
-    document.querySelectorAll("[data-kind-of]").forEach(function (group) {
-        var item = group.closest("form").elements.namedItem(group.dataset.kindOf);
-
-        function update() {
-            var bare = /^\s*\d*\s*$/.test(item.value);
-            group.querySelectorAll("input").forEach(function (radio) { radio.disabled = !bare; });
-            group.classList.toggle("muted-group", !bare);
-        }
-
-        item.addEventListener("input", update);
-        group.closest("form").addEventListener("reset", function () { setTimeout(update); });
-        update();
-    });
-}());
-
 // The parts of a page kept up to date (the passes running, the To do tiles); an open panel stays open.
 (function () {
     "use strict";

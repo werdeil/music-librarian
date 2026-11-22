@@ -99,11 +99,9 @@ EN = {
     "upload_twice": "File sent twice: {name}",
     "upload_added": "Added to the Inbox: {n}. watch imports them within a minute.",
     "deezer_title": "Download from Deezer",
-    "deezer_help": "An album or a playlist, by its deezer.com address or its id: its tracks reach the "
-                   "Inbox once downloaded, and watch imports them.",
+    "deezer_help": "An album by its deezer.com address or its id, or a playlist by its deezer.com address: "
+                   "its tracks reach the Inbox once downloaded, and watch imports them.",
     "deezer_item": "Address or id",
-    "deezer_album": "Album",
-    "deezer_playlist": "Playlist",
     "deezer_complete_only": "only if every track is available",
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",
@@ -137,7 +135,6 @@ EN = {
                            "kept.",
     "deezer_arl_unreachable": "Deezer could not be reached to check this arl. Nothing was kept.",
     "deezer_placeholder": "https://www.deezer.com/album/302127",
-    "deezer_id_is": "An id names:",
     "upload_js": {"selected": "Files: {n} · {size} MB",
                   "folder_one": "{name}: 1 file", "folder_many": "{name}: {n} files",
                   "skipped": "Skipped, neither music, cover nor lyrics: {n}",

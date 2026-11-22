@@ -362,22 +362,6 @@ form.filters {
     margin-top: 0.3rem;
 }
 
-.deezer-kind {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4rem 1rem;
-    margin-top: 0.7rem;
-}
-
-.deezer-kind.muted-group {
-    opacity: 0.5;
-}
-
-.pass-dialog .deezer-kind label {
-    margin-top: 0;
-}
-
 .drop-zone {
     margin-top: 0.8rem;
     padding: 1.4rem 1rem;

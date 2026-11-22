@@ -9,11 +9,6 @@
         <p class="pass-sub">{{ t.deezer_help }}</p>
         <label>{{ t.deezer_item }} <input type="text" name="item" required inputmode="url" autocomplete="off"
             autofocus placeholder="{{ t.deezer_placeholder }}"></label>
-        <div class="deezer-kind" role="radiogroup" aria-labelledby="deezer-kind" data-kind-of="item">
-            <span id="deezer-kind" class="muted">{{ t.deezer_id_is }}</span>
-            <label><input type="radio" name="kind" value="album" checked> {{ t.deezer_album }}</label>
-            <label><input type="radio" name="kind" value="playlist"> {{ t.deezer_playlist }}</label>
-        </div>
         <label><input type="checkbox" name="complete_only" value="1"> {{ t.deezer_complete_only }}</label>
         <div class="actions">
             <button type="submit" class="primary">{{ m.icon('upload') }}{{ t.deezer_button }}</button>

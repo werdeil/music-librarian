@@ -75,9 +75,7 @@ def register(app, ctx):
         if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
             abort(403)
         value = request.form.get("item", "")
-        kind = deezer.kind_of(value) or request.form.get("kind", "album")
-        if kind not in deezer.KINDS:
-            abort(400)
+        kind = deezer.kind_of(value) or "album"
         if deezer.SHORT_URL.match(value.strip()):
             return refused("deezer_short_link", value=value)
         try:
@@ -142,10 +140,7 @@ def register_extension(app, ctx):
             return jsonify(error=f"the dashboard cannot download: {reason}"), 403
         body = request.get_json(silent=True)
         value = str(body.get("id", "")) if isinstance(body, dict) else ""
-        kind = deezer.kind_of(value) or (body.get("kind") if isinstance(body, dict) else None)
-        if kind not in deezer.KINDS:
-            return jsonify(error="expected {\"id\": a deezer.com address, or an id with \"kind\": "
-                                 "\"album\"|\"playlist\"}"), 400
+        kind = deezer.kind_of(value) or "album"
         try:
             item = deezer.item_id(kind, value)
         except ValueError as exc:

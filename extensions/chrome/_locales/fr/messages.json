@@ -15,10 +15,7 @@
     "message": "Télécharger"
   },
   "labelDeezerUrl": {
-    "message": "URL Deezer (album ou playlist)"
-  },
-  "labelContentId": {
-    "message": "ID (album ou playlist)"
+    "message": "Album (adresse ou identifiant) ou playlist (adresse)"
   },
   "btnDownload": {
     "message": "Télécharger"
@@ -39,7 +36,7 @@
     "message": "Veuillez entrer l'URL du serveur"
   },
   "idExtracted": {
-    "message": "ID extrait : $type$ $id$",
+    "message": "À télécharger : $type$ $id$",
     "placeholders": {
       "type": {
         "content": "$1"
@@ -50,10 +47,10 @@
     }
   },
   "errorInvalidUrl": {
-    "message": "URL invalide. Format attendu : /album/ID ou /playlist/ID"
+    "message": "Attendu : un identifiant d'album, ou l'adresse deezer.com d'un album ou d'une playlist"
   },
   "errorMissingId": {
-    "message": "Veuillez entrer un ID valide"
+    "message": "Entrez un identifiant d'album, ou l'adresse deezer.com d'un album ou d'une playlist"
   },
   "btnDownloading": {
     "message": "Téléchargement en cours..."
@@ -122,14 +119,11 @@
   "errorDashboardOff": {
     "message": "Le tableau de bord ne peut pas télécharger : watch tourne sans --apply, ou le téléchargement Deezer est désactivé"
   },
-  "labelContentKind": {
-    "message": "L'ID désigne"
-  },
   "kindAlbum": {
-    "message": "un album"
+    "message": "album"
   },
   "kindPlaylist": {
-    "message": "une playlist"
+    "message": "playlist"
   },
   "permissionNeeded": {
     "message": "Chrome n'autorise pas encore l'accès au tableau de bord : ouvrez les réglages et cliquez sur Enregistrer."

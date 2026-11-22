@@ -154,10 +154,6 @@
             filter: brightness(1.1);
         }
 
-        select:disabled {
-            opacity: 0.5;
-        }
-
         button:disabled {
             opacity: 0.6;
             cursor: default;
@@ -197,21 +193,6 @@
 
         @media (prefers-reduced-motion: reduce) {
             .loading { animation: none; }
-        }
-
-        .url-input-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .url-input-group input {
-            flex: 1;
-        }
-
-        .url-input-group button {
-            flex: 0 0 auto;
-            width: auto;
-            padding: 7px 12px;
         }
 
         #downloadStatus {
@@ -284,26 +265,7 @@
                 
                 <div class="form-group">
                     <label data-i18n="labelDeezerUrl"></label>
-                    <div class="url-input-group">
-                        <input 
-                            type="text" 
-                            id="deezerUrl" 
-                            placeholder="https://www.deezer.com/album/123456"
-                        >
-                        <button id="extractBtn" class="secondary" style="width: auto; padding: 8px 12px;">📋</button>
-                    </div>                </div>
-
-                <div class="form-group">
-                    <label data-i18n="labelContentId"></label>
-                    <input type="text" id="contentId" placeholder="123456">
-                </div>
-
-                <div class="form-group">
-                    <label data-i18n="labelContentKind"></label>
-                    <select id="contentKind">
-                        <option value="album" data-i18n="kindAlbum"></option>
-                        <option value="playlist" data-i18n="kindPlaylist"></option>
-                    </select>
+                    <input type="text" id="deezerUrl" placeholder="https://www.deezer.com/album/302127">
                 </div>
 
                 <button id="downloadBtn" style="margin-top: 10px;" data-i18n="btnDownload" data-i18n-prefix="⬇️ "></button>

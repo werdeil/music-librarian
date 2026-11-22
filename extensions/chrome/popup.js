@@ -11,15 +11,9 @@ function applyI18n() {
     });
 }
 
-let currentContentType = 'album';
-let selectedUrl = '';
-
 const connectionStatus = document.getElementById('connectionStatus');
 
 const deezerUrlEl = document.getElementById('deezerUrl');
-const extractBtn = document.getElementById('extractBtn');
-const contentIdEl = document.getElementById('contentId');
-const contentKindEl = document.getElementById('contentKind');
 const downloadBtn = document.getElementById('downloadBtn');
 const downloadStatus = document.getElementById('downloadStatus');
 const progressContainer = document.getElementById('progressContainer');
@@ -38,37 +32,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    extractBtn.addEventListener('click', extractUrlId);
     downloadBtn.addEventListener('click', startDownload);
     saveSettingsBtn.addEventListener('click', saveSettings);
-    
-    contentKindEl.addEventListener('change', () => {
-        currentContentType = contentKindEl.value;
-    });
-
-    contentIdEl.addEventListener('input', () => {
-        contentKindEl.disabled = false;
-    });
-
-    deezerUrlEl.addEventListener('paste', () => {
-        setTimeout(extractUrlId, 10);
-    });
+    deezerUrlEl.addEventListener('input', showWhat);
 }
 
-function extractUrlId() {
-    const url = deezerUrlEl.value || selectedUrl;
-    
-    const match = url.match(/\/(album|playlist)\/(\d+)/);
-    
-    if (match) {
-        const type = match[1];
-        const id = match[2];
-        
-        currentContentType = type;
-        contentKindEl.value = type;
-        contentKindEl.disabled = true;
-        contentIdEl.value = id;
-        showStatus(msg('idExtracted', type, id), 'success');
+// An id alone names an album; a playlist is given by its address only.
+function described(value) {
+    const text = value.trim();
+    if (/^\d+$/.test(text)) {
+        return { kind: 'album', id: text };
+    }
+    const match = text.match(/\/(album|playlist)\/(\d+)/);
+    return match ? { kind: match[1], id: match[2] } : null;
+}
+
+function showWhat() {
+    if (!deezerUrlEl.value.trim()) {
+        downloadStatus.classList.remove('show');
+        return;
+    }
+    const what = described(deezerUrlEl.value);
+    if (what) {
+        showStatus(msg('idExtracted', msg(what.kind === 'album' ? 'kindAlbum' : 'kindPlaylist'), what.id), 'info');
     } else {
         showStatus(msg('errorInvalidUrl'), 'error');
     }
@@ -138,16 +124,16 @@ function extractCurrentPageInfo() {
         const tab = tabs[0];
         if (isDeezerPage(tab.url)) {
             deezerUrlEl.value = tab.url;
-            extractUrlId();
+            showWhat();
         }
     });
 }
 
 function startDownload() {
-    const contentId = contentIdEl.value.trim();
+    const value = deezerUrlEl.value.trim();
 
-    if (!contentId) {
-        showStatus(msg('errorMissingId'), 'error');
+    if (!described(value)) {
+        showStatus(msg(value ? 'errorInvalidUrl' : 'errorMissingId'), 'error');
         return;
     }
 
@@ -156,7 +142,7 @@ function startDownload() {
             showStatus(msg('errorMissingKey'), 'error');
             return;
         }
-        const body = { kind: currentContentType, id: contentId };
+        const body = { id: value };
         downloadBtn.disabled = true;
         downloadBtn.textContent = '⏳ ' + msg('btnDownloading');
         setProgress(0);

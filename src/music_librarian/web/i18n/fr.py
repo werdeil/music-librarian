@@ -100,11 +100,10 @@ FR = {
     "upload_twice": "Fichier envoyé deux fois : {name}",
     "upload_added": "Ajoutés à l'Inbox : {n}. watch les importe dans la minute.",
     "deezer_title": "Télécharger depuis Deezer",
-    "deezer_help": "Un album ou une playlist, par son adresse deezer.com ou son identifiant : ses pistes "
-                   "arrivent dans l'Inbox une fois téléchargées, et watch les importe.",
+    "deezer_help": "Un album par son adresse deezer.com ou son identifiant, ou une playlist par son "
+                   "adresse deezer.com : ses pistes arrivent dans l'Inbox une fois téléchargées, et watch "
+                   "les importe.",
     "deezer_item": "Adresse ou identifiant",
-    "deezer_album": "Album",
-    "deezer_playlist": "Playlist",
     "deezer_complete_only": "seulement si toutes les pistes sont disponibles",
     "deezer_button": "Télécharger",
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
@@ -140,7 +139,6 @@ FR = {
                            "été gardé.",
     "deezer_arl_unreachable": "Deezer n'a pas pu être joint pour vérifier cet arl. Rien n'a été gardé.",
     "deezer_placeholder": "https://www.deezer.com/fr/album/302127",
-    "deezer_id_is": "Un identifiant désigne :",
     "upload_js": {"selected": "Fichiers : {n} · {size} Mo",
                   "folder_one": "{name} : 1 fichier", "folder_many": "{name} : {n} fichiers",
                   "skipped": "Ignorés, ni musique, ni pochette, ni paroles : {n}",

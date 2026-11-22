@@ -6,9 +6,9 @@ complete, for import to file it as any drop. A dry run reads Deezer's metadata o
 stream and downloads nothing. Off until DEEZER_PRE_KEY and DEEZER_IV are set, and an arl (DEEZER_ARL, or
 one set on the dashboard's Deezer settings).
 
-  music-librarian deezer album 302127                       # what would be downloaded
+  music-librarian deezer 302127                                       # what would be downloaded
   music-librarian deezer https://www.deezer.com/fr/album/302127 --apply
-  music-librarian deezer playlist 908622995 --apply --complete-only
+  music-librarian deezer https://www.deezer.com/fr/playlist/908622995 --apply --complete-only
 
 Exit codes: 0 = OK, 1 = failed (not configured, an album or a playlist not found or not one
 track downloaded), 2 = tracks unavailable, 4 = stopped before the end.
@@ -31,7 +31,6 @@ from music_librarian.deezer.staging import Staging, clean
 from music_librarian.importer import free_name
 
 EXIT_FAILED, EXIT_MISSING = 1, 2
-KINDS = ("album", "playlist")
 URL = re.compile(r"^(?:https?://)?(?:www\.)?deezer\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(album|playlist)/(\d+)"
                  r"(?:[/?#].*)?$", re.IGNORECASE)
 SHORT_URL = re.compile(r"^(?:https?://)?(?:link\.deezer\.com|deezer\.page\.link)/", re.IGNORECASE)
@@ -68,27 +67,24 @@ def kind_of(value):
 
 
 def items(values):
-    """(kind, ids) of the command line's items: album or playlist, needed before a bare id only, then
-    ids or addresses. Raises ValueError."""
-    kind, values = (values[0], values[1:]) if values and values[0] in KINDS else (None, values)
+    """(kind, ids) of the command line's items: album ids or addresses, or playlist addresses, never
+    both. Raises ValueError."""
     if not values:
         raise ValueError("no id nor address given")
-    if kind is None:
-        named = {kind_of(value) for value in values}
-        if None in named:
-            bare = next(value for value in values if kind_of(value) is None)
-            item_id("album", bare)
-            raise ValueError(f"{bare}: an id alone needs album or playlist before it")
-        if len(named) > 1:
-            raise ValueError("albums and playlists are asked for in separate passes")
-        kind = named.pop()
+    named = {kind_of(value) or "album" for value in values}
+    if len(named) > 1:
+        raise ValueError("albums and playlists are asked for in separate passes")
+    kind = named.pop()
     return kind, [item_id(kind, value) for value in values]
 
 
 def item_id(kind, value):
-    """The id of an album or a playlist given as its id or its deezer.com address. Raises ValueError."""
+    """The id of an album given as its id or its deezer.com address, or of a playlist given as its
+    address. Raises ValueError."""
     value = value.strip()
     if value.isascii() and value.isdigit():
+        if kind != "album":
+            raise ValueError(f"{value}: an id alone names an album, give the playlist's deezer.com address")
         return value
     if SHORT_URL.match(value):
         raise ValueError(f"{value}: short links are not followed, open it and give the deezer.com address")
@@ -106,8 +102,8 @@ def _a(kind):
 
 def parser():
     ap = arguments.parser("deezer", "Download albums or playlists from Deezer into the Inbox.")
-    ap.add_argument("items", nargs="+", metavar="[album|playlist] ID|URL",
-                    help="deezer.com addresses, or ids after album or playlist")
+    ap.add_argument("items", nargs="+", metavar="ID|URL",
+                    help="album ids or deezer.com addresses, playlist deezer.com addresses")
     inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
                     help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
