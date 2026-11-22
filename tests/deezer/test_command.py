@@ -1,6 +1,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import hashlib
 import os
+import sys
 import time
 
 import pytest
@@ -296,6 +297,16 @@ def test_no_download_without_a_license_token(inbox, cfg, site):
     assert code == 1
     assert "ERROR    no license token to download with: set DEEZER_LICENSE_TOKEN" in out
     assert not client.session.sent
+
+
+def test_no_download_without_pycryptodome(inbox, cfg, site, monkeypatch):
+    monkeypatch.setitem(sys.modules, "Crypto.Cipher", None)
+    client = site()
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 1
+    assert "ERROR    pycryptodome is not installed: rebuild the image" in out
+    assert not client.session.sent
+    assert run(inbox, cfg, site())[0] == 0   # a dry run needs no decryption
 
 
 def test_a_malformed_value_is_named_not_shown(inbox, monkeypatch):
