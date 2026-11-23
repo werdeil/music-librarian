@@ -3,11 +3,12 @@ deezer — download albums and playlists from Deezer into the Inbox, see docs/de
 
 The tracks are written to a hidden folder of the Inbox, then each album is moved into the Inbox once
 complete, for import to file it as any drop. A dry run reads Deezer's metadata only: it asks for no
-stream and downloads nothing. Off until DEEZER_ARL, DEEZER_PRE_KEY and DEEZER_IV are set.
+stream and downloads nothing. Off until DEEZER_PRE_KEY and DEEZER_IV are set, and an arl (DEEZER_ARL, or
+one set on the dashboard's Deezer settings).
 
-  music-librarian deezer album 302127                       # what would be downloaded
-  music-librarian deezer album https://www.deezer.com/fr/album/302127 --apply
-  music-librarian deezer playlist 908622995 --apply --complete-only
+  music-librarian deezer 302127                                       # what would be downloaded
+  music-librarian deezer https://www.deezer.com/fr/album/302127 --apply
+  music-librarian deezer https://www.deezer.com/fr/playlist/908622995 --apply --complete-only
 
 Exit codes: 0 = OK, 1 = failed (not configured, an album or a playlist not found or not one
 track downloaded), 2 = tracks unavailable, 4 = stopped before the end.
@@ -23,14 +24,13 @@ from music_librarian.core.lock import EXIT_STOPPED, STOP
 from music_librarian.core.log import Log, count
 from music_librarian.core.runs import recorded
 from music_librarian.core.state import state_path
-from music_librarian.deezer import config, crypto, download, tags
-from music_librarian.deezer.api import FORMATS, Album, Api, disc_total
+from music_librarian.deezer import config, crypto, download, kept, tags
+from music_librarian.deezer.api import FORMATS, Album, Api, ArlRefused, disc_total, user_license_token
 from music_librarian.deezer.client import Client, DeezerError
 from music_librarian.deezer.staging import Staging, clean
 from music_librarian.importer import free_name
 
 EXIT_FAILED, EXIT_MISSING = 1, 2
-KINDS = ("album", "playlist")
 URL = re.compile(r"^(?:https?://)?(?:www\.)?deezer\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(album|playlist)/(\d+)"
                  r"(?:[/?#].*)?$", re.IGNORECASE)
 SHORT_URL = re.compile(r"^(?:https?://)?(?:link\.deezer\.com|deezer\.page\.link)/", re.IGNORECASE)
@@ -45,7 +45,6 @@ class Options:  # pylint: disable=too-many-instance-attributes  # one per comman
     complete_only: bool = False
     state_dir: Path = field(default_factory=state_path)
     syslog: bool = False
-    license_token: str = field(default="", repr=False)
 
     def __post_init__(self):
         self.inbox = Path(self.inbox).resolve()
@@ -61,10 +60,31 @@ class Tally:
     no_cover: set = field(default_factory=set)
 
 
+def kind_of(value):
+    """The kind a deezer.com address names, None for anything else."""
+    found = URL.match(value.strip())
+    return found[1].lower() if found else None
+
+
+def items(values):
+    """(kind, ids) of the command line's items: album ids or addresses, or playlist addresses, never
+    both. Raises ValueError."""
+    if not values:
+        raise ValueError("no id nor address given")
+    named = {kind_of(value) or "album" for value in values}
+    if len(named) > 1:
+        raise ValueError("albums and playlists are asked for in separate passes")
+    kind = named.pop()
+    return kind, [item_id(kind, value) for value in values]
+
+
 def item_id(kind, value):
-    """The id of an album or a playlist given as its id or its deezer.com address. Raises ValueError."""
+    """The id of an album given as its id or its deezer.com address, or of a playlist given as its
+    address. Raises ValueError."""
     value = value.strip()
     if value.isascii() and value.isdigit():
+        if kind != "album":
+            raise ValueError(f"{value}: an id alone names an album, give the playlist's deezer.com address")
         return value
     if SHORT_URL.match(value):
         raise ValueError(f"{value}: short links are not followed, open it and give the deezer.com address")
@@ -82,8 +102,8 @@ def _a(kind):
 
 def parser():
     ap = arguments.parser("deezer", "Download albums or playlists from Deezer into the Inbox.")
-    ap.add_argument("kind", choices=KINDS, help="what the ids name")
-    ap.add_argument("items", nargs="+", metavar="ID|URL", help="ids or deezer.com addresses")
+    ap.add_argument("items", nargs="+", metavar="ID|URL",
+                    help="album ids or deezer.com addresses, playlist deezer.com addresses")
     inbox_env = os.environ.get("MUSIC_LIBRARIAN_INBOX")
     ap.add_argument("--inbox", type=Path, default=inbox_env, required=not inbox_env,
                     help="drop folder (default: $MUSIC_LIBRARIAN_INBOX)")
@@ -97,10 +117,10 @@ def parser():
 
 def options(args, ap):
     try:
-        ids = [item_id(args.kind, value) for value in args.items]
+        kind, ids = items(args.items)
     except ValueError as exc:
         ap.error(str(exc))
-    return Options(kind=args.kind, ids=ids, inbox=args.inbox, apply=args.apply,
+    return Options(kind=kind, ids=ids, inbox=args.inbox, apply=args.apply,
                    complete_only=args.complete_only, state_dir=state_path(args.state_dir), syslog=args.syslog)
 
 
@@ -116,21 +136,42 @@ def run(opts: Options, log, cfg=None, client=None):
     only writes to a hidden folder of the Inbox, then moves into it."""
     log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] inbox: {opts.inbox}")
     if cfg is None:
-        if not config.enabled():
-            log(f"ERROR    the Deezer download is off: set {', '.join(config.REQUIRED)} (see docs/deezer.md)")
+        if not config.enabled(state_dir=opts.state_dir):
+            log("ERROR    the Deezer download is off: set DEEZER_PRE_KEY and DEEZER_IV, and an arl "
+                "(DEEZER_ARL, or the dashboard's Deezer settings; see docs/deezer.md)")
             return EXIT_FAILED
         try:
-            cfg = config.load(license_token=opts.license_token)
+            cfg = config.load(state_dir=opts.state_dir)
         except config.ConfigError as exc:
             log(f"ERROR    {exc}")
             return EXIT_FAILED
-    if opts.apply and not cfg.license_token:
-        log(f"ERROR    no license token to download with: set {config.LICENSE_TOKEN} (see docs/deezer.md)")
-        return EXIT_FAILED
     if opts.apply and crypto.missing():
         log(f"ERROR    {crypto.missing()}")
         return EXIT_FAILED
-    api = Api(client or Client(cfg.arl), cfg.license_token)
+    client = client or Client(cfg.arl)
+
+    def renew():
+        try:
+            token = user_license_token(client)
+        except ArlRefused:
+            kept.mark_refused(opts.state_dir, cfg.arl)
+            raise
+        kept.forget_refused(opts.state_dir)
+        log("TOKEN    license token renewed from the arl")
+        try:
+            kept.save_token(opts.state_dir, cfg.arl, token)
+        except OSError as exc:
+            log(f"WARNING  license token not kept in the state folder ({exc.strerror or exc})")
+        return token
+
+    token = kept.token(opts.state_dir, cfg.arl)
+    if opts.apply and not token:
+        try:
+            token = renew()
+        except DeezerError as exc:
+            log(f"ERROR    {exc}")
+            return EXIT_FAILED
+    api = Api(client, token, renew=renew)
     tally = Tally()
     with Staging(opts.inbox) if opts.apply else _NoStaging() as staging:
         for item in opts.ids:

@@ -181,33 +181,6 @@
             margin-bottom: 10px;
         }
 
-        .token-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px;
-            background: var(--field);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-        }
-
-        .token-status .indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--error);
-            flex-shrink: 0;
-        }
-
-        .token-status.active .indicator {
-            background: var(--ok);
-        }
-
-        .token-status .text {
-            flex: 1;
-            font-size: 12px;
-        }
-
         .loading {
             display: inline-block;
             animation: spin 1s linear infinite;
@@ -220,21 +193,6 @@
 
         @media (prefers-reduced-motion: reduce) {
             .loading { animation: none; }
-        }
-
-        .url-input-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .url-input-group input {
-            flex: 1;
-        }
-
-        .url-input-group button {
-            flex: 0 0 auto;
-            width: auto;
-            padding: 7px 12px;
         }
 
         #downloadStatus {
@@ -307,26 +265,7 @@
                 
                 <div class="form-group">
                     <label data-i18n="labelDeezerUrl"></label>
-                    <div class="url-input-group">
-                        <input 
-                            type="text" 
-                            id="deezerUrl" 
-                            placeholder="https://www.deezer.com/album/123456"
-                        >
-                        <button id="extractBtn" class="secondary" style="width: auto; padding: 8px 12px;">📋</button>
-                    </div>                </div>
-
-                <div class="form-group">
-                    <label data-i18n="labelContentId"></label>
-                    <input type="text" id="contentId" placeholder="123456">
-                </div>
-
-                <div class="form-group">
-                    <label data-i18n="labelContentKind"></label>
-                    <select id="contentKind">
-                        <option value="album" data-i18n="kindAlbum"></option>
-                        <option value="playlist" data-i18n="kindPlaylist"></option>
-                    </select>
+                    <input type="text" id="deezerUrl" placeholder="https://www.deezer.com/album/302127">
                 </div>
 
                 <button id="downloadBtn" style="margin-top: 10px;" data-i18n="btnDownload" data-i18n-prefix="⬇️ "></button>
@@ -340,17 +279,6 @@
             </div>
         </div>
         <div id="settingsView" style="display: none;">
-            <div class="section">
-                <div class="section-title" data-i18n="sectionLicenseToken"></div>
-                <div id="tokenStatus" class="token-status">
-                    <div class="indicator"></div>
-                    <div class="text">
-                        <span id="tokenStatusText" data-i18n="tokenNone"></span>
-                    </div>
-                </div>
-                <button id="refreshTokenBtn" class="secondary" style="margin-top: 10px;" data-i18n="btnRefresh" data-i18n-prefix="🔄 "></button>
-            </div>
-            <div class="section_separator"></div>
             <div class="section">
                 <div class="section-title" data-i18n="sectionServer"></div>
                 

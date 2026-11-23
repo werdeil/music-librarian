@@ -7,6 +7,8 @@ from music_librarian.deezer.client import DeezerError
 API = "https://api.deezer.com"
 SITE = "https://www.deezer.com/de"
 GET_URL = "https://media.deezer.com/v1/get_url"
+GW = "https://www.deezer.com/ajax/gw-light.php"
+TOKEN_EXPIRED = "1001"
 FORMATS = ("FLAC", "MP3_320", "MP3_128")
 # The pages carry their data as a script assigning it; Deezer has no public API for the track tokens.
 STATE_START, STATE_END = "window.__DZR_APP_STATE__ = ", "</script>"
@@ -152,13 +154,41 @@ def disc_total(album, tracks):
     return album.nb_discs or max((_number(t.disc_number) for t in tracks), default=0)
 
 
+class TokenExpired(DeezerError):
+    """get_url refused the license token as expired."""
+
+
+class ArlRefused(DeezerError):
+    """Deezer takes the arl for no account."""
+
+
+def user_license_token(client):
+    """The license token of the account whose arl `client` sends, as the web player gets it before it
+    plays. Raises ArlRefused when Deezer takes the arl for no account, DeezerError otherwise."""
+    params = {"method": "deezer.getUserData", "input": "3", "api_version": "1.0", "api_token": "null"}
+    response = client.get(GW, params=params)
+    if response.status_code != 200:
+        raise DeezerError(f"user data: HTTP {response.status_code}")
+    try:
+        user = (response.json().get("results") or {}).get("USER") or {}
+    except (ValueError, AttributeError) as exc:
+        raise DeezerError("user data: not JSON") from exc
+    if str(user.get("USER_ID") or "0") == "0":
+        raise ArlRefused("the arl is refused by Deezer: take the arl cookie of a logged-in session again")
+    token = _text((user.get("OPTIONS") or {}).get("license_token"))
+    if not token:
+        raise DeezerError("user data: no license token")
+    return token
+
+
 class Api:
     """Deezer's metadata and streams, through `client` (client.Client); `license_token` is the one
-    get_url and the playlist API ask for."""
+    get_url and the playlist API ask for, and `renew()`, when given, a fresh one once it expires."""
 
-    def __init__(self, client, license_token=""):
+    def __init__(self, client, license_token="", renew=None):
         self.client = client
         self._license_token = license_token
+        self._renew = renew
 
     def __repr__(self):
         return "Api()"
@@ -236,7 +266,19 @@ class Api:
         return ids
 
     def resolve(self, track_token):
-        """(format, url) of the best stream get_url offers for a track token. Raises DeezerError."""
+        """(format, url) of the best stream get_url offers for a track token, the license token renewed
+        when it has expired; a renewal that fails is not tried again. Raises DeezerError."""
+        try:
+            return self._resolve(track_token)
+        except TokenExpired:
+            renew, self._renew = self._renew, None
+            if renew is None:
+                raise
+            self._license_token = renew()
+            self._renew = renew
+            return self._resolve(track_token)
+
+    def _resolve(self, track_token):
         body = {"license_token": self._license_token,
                 "media": [{"type": "FULL", "formats": [{"cipher": "BF_CBC_STRIPE", "format": f}
                                                        for f in FORMATS]}],
@@ -244,7 +286,8 @@ class Api:
         try:
             media = self._media(self.client.post(GET_URL, json=body))
         except DeezerError as exc:
-            raise DeezerError(f"no playable format among {'/'.join(FORMATS)} ({exc})") from exc
+            kind = TokenExpired if isinstance(exc, TokenExpired) else DeezerError
+            raise kind(f"no playable format among {'/'.join(FORMATS)} ({exc})") from exc
         best = pick_best(media)
         return str(best.get("format")), stream_url(best)
 
@@ -257,13 +300,16 @@ class Api:
         if response.status_code != 200:
             errors = (answer or {}).get("errors") if isinstance(answer, dict) else None
             if errors:
-                raise DeezerError(f"error {errors[0].get('code')}: {errors[0].get('message')}")
+                kind = TokenExpired if str(errors[0].get("code")) == TOKEN_EXPIRED else DeezerError
+                raise kind(f"error {errors[0].get('code')}: {errors[0].get('message')}")
             raise DeezerError(f"HTTP {response.status_code}")
         data = (answer or {}).get("data") if isinstance(answer, dict) else None
         if not data:
             raise DeezerError("empty data")
         if data[0].get("errors"):
-            raise DeezerError(data[0]["errors"][0].get("message") or "error")
+            error = data[0]["errors"][0]
+            kind = TokenExpired if str(error.get("code")) == TOKEN_EXPIRED else DeezerError
+            raise kind(error.get("message") or "error")
         if not data[0].get("media"):
             raise DeezerError("no media available")
         return data[0]["media"]

@@ -20,6 +20,7 @@
         <p class="muted">{{ t.inbox_empty }}</p>
     {% endif %}
     {% if ctx.requests and inbox is not none %}
+    <div class="inbox-actions">
     <div class="upload" data-upload="{{ url_for('inbox_upload_start') }}" data-csrf="{{ csrf }}"
          data-extensions="{{ upload.extensions | join(' ') }}" data-junk="{{ upload.junk | join('/') }}"
          data-max-file="{{ upload.max_file }}" data-texts="{{ t.upload_js | tojson | forceescape }}">
@@ -46,7 +47,8 @@
             </div>
         </dialog>
     </div>
-    {% if deezer_enabled %}{% include "_deezer.html" %}{% endif %}
+    {% if deezer_keys %}{% include "_deezer.html" %}{% endif %}
+    </div>
     {% endif %}
 </section>
 
@@ -131,6 +133,11 @@
         <dt>{{ t.env_lyrics }}</dt><dd>{{ env.providers | join(', ') if env.providers else t.env_none }}</dd>
         <dt>{{ t.env_genres }}</dt><dd>{{ t.env_genre_count.format(n=env.genres) if env.genres is not none else t.env_no_genre_list }}
             {%- if env.genre_lookup %} · {{ t.env_itunes.format(country=env.genre_lookup | upper) }}{% endif %}</dd>
+        <dt>Deezer</dt><dd>{% if env.deezer %}{{ t['env_deezer_arl_' ~ (env.deezer.arl or 'none')] }}
+            {%- if env.deezer.refused %} · <span class="warning">{{ t.env_deezer_refused }}</span>{% endif %}
+            · {{ t.env_deezer_extension if env.deezer.extension else t.env_deezer_no_extension }}
+            · <a href="{{ url_for('deezer_settings_page') }}">{{ t.deezer_arl_link }}</a>
+            {%- else %}{{ t.env_deezer_off }}{% endif %}</dd>
     </dl>
 </details>
 {% endblock %}

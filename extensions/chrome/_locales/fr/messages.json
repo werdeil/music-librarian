@@ -15,42 +15,10 @@
     "message": "Télécharger"
   },
   "labelDeezerUrl": {
-    "message": "URL Deezer (album ou playlist)"
-  },
-  "labelContentId": {
-    "message": "ID (album ou playlist)"
+    "message": "Album (adresse ou identifiant) ou playlist (adresse)"
   },
   "btnDownload": {
     "message": "Télécharger"
-  },
-  "sectionLicenseToken": {
-    "message": "License Token"
-  },
-  "tokenNone": {
-    "message": "Aucun token détecté localement"
-  },
-  "tokenFound": {
-    "message": "Token détecté : $token$",
-    "placeholders": {
-      "token": {
-        "content": "$1"
-      }
-    }
-  },
-  "tokenNoneFallback": {
-    "message": "Aucun token local (le DEEZER_LICENSE_TOKEN du serveur sera utilisé)"
-  },
-  "btnRefresh": {
-    "message": "Actualiser"
-  },
-  "btnRefreshing": {
-    "message": "Actualisation..."
-  },
-  "tokenRefreshed": {
-    "message": "Token actualisé avec succès !"
-  },
-  "tokenCaptureError": {
-    "message": "Erreur : Impossible de capturer le token. Assurez-vous que vous êtes sur Deezer."
   },
   "sectionServer": {
     "message": "Serveur"
@@ -68,7 +36,7 @@
     "message": "Veuillez entrer l'URL du serveur"
   },
   "idExtracted": {
-    "message": "ID extrait : $type$ $id$",
+    "message": "À télécharger : $type$ $id$",
     "placeholders": {
       "type": {
         "content": "$1"
@@ -79,10 +47,10 @@
     }
   },
   "errorInvalidUrl": {
-    "message": "URL invalide. Format attendu : /album/ID ou /playlist/ID"
+    "message": "Attendu : un identifiant d'album, ou l'adresse deezer.com d'un album ou d'une playlist"
   },
   "errorMissingId": {
-    "message": "Veuillez entrer un ID valide"
+    "message": "Entrez un identifiant d'album, ou l'adresse deezer.com d'un album ou d'une playlist"
   },
   "btnDownloading": {
     "message": "Téléchargement en cours..."
@@ -123,10 +91,10 @@
     }
   },
   "labelServerKey": {
-    "message": "Clé (DEEZER_EXTENSION_KEY)"
+    "message": "Clé (réglages Deezer du tableau de bord)"
   },
   "errorMissingKey": {
-    "message": "Veuillez entrer la clé définie dans DEEZER_EXTENSION_KEY"
+    "message": "Veuillez entrer la clé affichée dans les réglages Deezer du tableau de bord"
   },
   "errorPermission": {
     "message": "L'accès au tableau de bord n'a pas été autorisé"
@@ -151,13 +119,16 @@
   "errorDashboardOff": {
     "message": "Le tableau de bord ne peut pas télécharger : watch tourne sans --apply, ou le téléchargement Deezer est désactivé"
   },
-  "labelContentKind": {
-    "message": "L'ID désigne"
-  },
   "kindAlbum": {
-    "message": "un album"
+    "message": "album"
   },
   "kindPlaylist": {
-    "message": "une playlist"
+    "message": "playlist"
+  },
+  "permissionNeeded": {
+    "message": "Chrome n'autorise pas encore l'accès au tableau de bord : ouvrez les réglages et cliquez sur Enregistrer."
+  },
+  "badgeWrongKey": {
+    "message": "Clé refusée"
   }
 }

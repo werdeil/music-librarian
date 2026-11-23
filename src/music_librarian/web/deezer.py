@@ -1,62 +1,88 @@
 """A Deezer download asked from the overview's Inbox or from the Chrome extension: queued for watch as
 any pass, applied at once as an upload is, refused while watch runs without --apply or the download is
-off (deezer/config.py). The Inbox's form also needs DEEZER_LICENSE_TOKEN; the extension needs it, or
-sends a token of its own.
+off (deezer/config.py).
 
-The extension's routes (/deezer/ext/…) answer only a request bearing DEEZER_EXTENSION_KEY from the
-origin DEEZER_EXTENSION_ORIGIN, and 404 while either is unset. They only queue a download and tell how
+The extension's routes (/deezer/ext/…) answer only a request bearing the key made on the Deezer settings
+page from a chrome-extension:// origin, and 404 before a key is made. They only queue a download and tell how
 far it has got: the extension polls GET /deezer/ext/request/<id>.
 """
 import hmac
-import os
 import re
 
-from flask import abort, jsonify, request
+from flask import abort, jsonify, render_template, request
 
 from music_librarian import deezer
 from music_librarian.core import runs
-from music_librarian.deezer import config
-from music_librarian.web.common import refused, submit
+from music_librarian.deezer import config, kept
+from music_librarian.deezer.api import ArlRefused, user_license_token
+from music_librarian.deezer.client import Client, DeezerError
+from music_librarian.web.common import refused, submit, when
 from music_librarian.web.history import progress
 from music_librarian.web.passes import CANCELLED, DONE
 
-EXTENSION_KEY, EXTENSION_ORIGIN = "DEEZER_EXTENSION_KEY", "DEEZER_EXTENSION_ORIGIN"
+EXTENSION_ORIGIN = "chrome-extension://"
 TOTAL = re.compile(r"^(?:ALBUM|PLAYLIST) .* \((\d+) tracks?\)$")
 TRACK_DONE = ("DOWNLOAD ", "SKIPPED  ")
-
-
-def kind_of(value, kind):
-    """The kind a deezer.com address names, else `kind` (for a bare id)."""
-    found = deezer.URL.match(value.strip())
-    return found[1].lower() if found else kind
+ARL_SHAPE = re.compile(r"^[0-9A-Za-z]{100,400}$")
 
 
 def register(app, ctx):
     """Add the route of the overview's Deezer form."""
 
+    def arl_page(status=200, **shown):
+        if ctx.requests is None or not config.keys_set():
+            abort(404)
+        current = config.arl(state_dir=ctx.state_dir)
+        source = "kept" if kept.arl(ctx.state_dir) else "env" if current else None
+        refused_at = kept.refused(ctx.state_dir, current) if current else None
+        return render_template("deezer_settings.html", source=source,
+                               refused=when(refused_at) if refused_at else None,
+                               key=kept.extension_key(ctx.state_dir), **shown), status
+
+    @app.get("/deezer/settings")
+    def deezer_settings_page():
+        return arl_page()
+
+    @app.post("/deezer/settings/key")
+    def deezer_key_create():
+        """Make a key for the Chrome extension, replacing the one before."""
+        if ctx.requests is None or not config.keys_set():
+            abort(404)
+        kept.new_extension_key(ctx.state_dir)
+        return arl_page(key_made=True)
+
+    @app.post("/deezer/settings/arl")
+    def deezer_arl_save():
+        """Check the arl sent with Deezer, then keep it in place of DEEZER_ARL, with its license token."""
+        value = request.form.get("arl", "").strip()
+        if not ARL_SHAPE.match(value):
+            return arl_page(400, error="deezer_arl_malformed")
+        try:
+            token = user_license_token(Client(value))
+        except ArlRefused:
+            return arl_page(400, error="deezer_arl_rejected")
+        except DeezerError:
+            return arl_page(502, error="deezer_arl_unreachable")
+        try:
+            kept.save_arl(ctx.state_dir, value)
+            kept.save_token(ctx.state_dir, value, token)
+        except OSError:
+            return arl_page(500, error="deezer_arl_not_kept")
+        return arl_page(saved=True)
+
     @app.post("/deezer")
     def deezer_download():
-        if ctx.requests is None or not ctx.apply or not config.enabled() or not config.has_license_token():
+        if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
             abort(403)
         value = request.form.get("item", "")
-        kind = kind_of(value, request.form.get("kind", "album"))
-        if kind not in deezer.KINDS:
-            abort(400)
+        kind = deezer.kind_of(value) or "album"
         if deezer.SHORT_URL.match(value.strip()):
             return refused("deezer_short_link", value=value)
         try:
             item = deezer.item_id(kind, value)
         except ValueError:
             return refused("deezer_refused", value=value)
-        options = {"kind": kind, "ids": [item], "complete_only": bool(request.form.get("complete_only"))}
-        return submit(ctx, "deezer", options, True)
-
-
-def _extension():
-    """(key, origin) of the extension, both set, else None."""
-    key = os.environ.get(EXTENSION_KEY, "").strip()
-    origin = os.environ.get(EXTENSION_ORIGIN, "").strip().rstrip("/")
-    return (key, origin) if key and origin else None
+        return submit(ctx, "deezer", {"kind": kind, "ids": [item]}, True)
 
 
 def tracks_done(lines):
@@ -77,14 +103,14 @@ def register_extension(app, ctx):
         return response
 
     def guarded(answer):
-        """`answer()`'s response, once the extension is configured, the origin its own and, but for a
-        preflight, the key its own."""
-        extension = _extension()
-        if extension is None:
+        """`answer()`'s response, once a key is made, from an extension's origin and, but for a
+        preflight, with the key."""
+        key = kept.extension_key(ctx.state_dir)
+        if not key:
             abort(404)
-        key, origin = extension
-        if request.headers.get("Origin", "").rstrip("/") != origin:
-            abort(403)
+        origin = request.headers.get("Origin", "").rstrip("/")
+        if not origin.startswith(EXTENSION_ORIGIN) or len(origin) == len(EXTENSION_ORIGIN):
+            return jsonify(error=f"refused origin {origin or '(none)'}: only a Chrome extension may ask"), 403
         if request.method == "OPTIONS":
             return cors(app.response_class(status=204), origin)
         sent = request.headers.get("Authorization", "")
@@ -95,7 +121,8 @@ def register_extension(app, ctx):
 
     @app.route("/deezer/ext/health", methods=["GET", "OPTIONS"])
     def deezer_ext_health():
-        return guarded(lambda: (jsonify(status="ok", enabled=config.enabled(), apply=ctx.apply), 200))
+        return guarded(lambda: (jsonify(status="ok", enabled=config.enabled(state_dir=ctx.state_dir),
+                                       apply=ctx.apply), 200))
 
     @app.route("/deezer/ext/request", methods=["POST", "OPTIONS"])
     def deezer_ext_request():
@@ -106,21 +133,21 @@ def register_extension(app, ctx):
         return guarded(lambda: _state(request_id))
 
     def _queue():
-        if ctx.requests is None or not ctx.apply or not config.enabled():
-            return jsonify(error="the dashboard cannot download: watch runs without --apply, "
-                                 "or the Deezer download is off"), 403
+        if ctx.requests is None or not ctx.apply or not config.enabled(state_dir=ctx.state_dir):
+            reason = ("watch runs without --apply" if ctx.requests is None or not ctx.apply
+                      else "the Deezer download is off: no arl, or DEEZER_PRE_KEY and DEEZER_IV not set")
+            return jsonify(error=f"the dashboard cannot download: {reason}"), 403
         body = request.get_json(silent=True)
-        if not isinstance(body, dict) or body.get("kind") not in deezer.KINDS:
-            return jsonify(error="expected {\"kind\": \"album\"|\"playlist\", \"id\": …}"), 400
+        value = str(body.get("id", "")) if isinstance(body, dict) else ""
+        kind = deezer.kind_of(value) or "album"
+        if deezer.SHORT_URL.match(value.strip()):
+            return jsonify(error="short links are not followed: give the deezer.com address"), 400
         try:
-            item = deezer.item_id(body["kind"], str(body.get("id", "")))
+            item = deezer.item_id(kind, value)
         except ValueError:
-            return jsonify(error="not an album or a playlist id"), 400
-        token = body.get("license_token") if isinstance(body.get("license_token"), str) else ""
-        if not token.strip() and not config.has_license_token():
-            return jsonify(error="no license token: open Deezer in the browser first"), 400
-        asked = ctx.requests.submit("deezer", {"kind": body["kind"], "ids": [item], "complete_only": False},
-                                    True, license_token=token.strip())
+            return jsonify(error="expected an album id, or the deezer.com address of an album or a "
+                                 "playlist"), 400
+        asked = ctx.requests.submit("deezer", {"kind": kind, "ids": [item]}, True)
         return jsonify(id=asked.id), 201
 
     def _state(request_id):

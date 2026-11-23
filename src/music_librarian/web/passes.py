@@ -37,7 +37,7 @@ OPTIONS = {
     "tag": ("edits", "cover"),
     "genres": (),
     "playcounts": ("no_backfill", "dpsv"),
-    "deezer": ("kind", "ids", "complete_only"),
+    "deezer": ("kind", "ids"),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
@@ -62,8 +62,7 @@ def boxes_ticked(command, options):
 
 @dataclass
 class Request:
-    """A pass asked for: `run_id` is set once it is recorded, `code` once it ends. `license_token`,
-    a Deezer download's own, stays in memory: it is neither an option nor shown."""
+    """A pass asked for: `run_id` is set once it is recorded, `code` once it ends."""
     id: int
     command: str
     options: dict = field(default_factory=dict)
@@ -71,7 +70,6 @@ class Request:
     state: str = QUEUED
     run_id: int | None = None
     code: int | None = None
-    license_token: str = field(default="", repr=False)
 
 
 class Requests:
@@ -86,8 +84,8 @@ class Requests:
         self.known = {}
         self.lock = threading.Lock()
 
-    def submit(self, command, options, apply, license_token=""):
-        request = Request(next(self.ids), command, dict(options), apply, license_token=license_token)
+    def submit(self, command, options, apply):
+        request = Request(next(self.ids), command, dict(options), apply)
         self.known[request.id] = request
         for old in list(self.known)[:-KEPT]:
             del self.known[old]
@@ -227,9 +225,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_deezer(r, log):
         opts = deezer.Options(kind=r.options.get("kind", "album"), ids=list(r.options.get("ids") or []),
-                              inbox=import_opts.inbox, apply=r.apply,
-                              complete_only=bool(r.options.get("complete_only")), state_dir=state_dir,
-                              license_token=r.license_token)
+                              inbox=import_opts.inbox, apply=r.apply, state_dir=state_dir)
         return kept("deezer", lambda: deezer.run(opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,

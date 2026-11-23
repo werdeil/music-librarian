@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t.deezer_settings_title }} · music-librarian{% endblock %}
+{% block content %}
+<section class="deezer-settings">
+    <h2>{{ t.deezer_settings_title }}</h2>
+    <h3>{{ t.deezer_arl_title }}</h3>
+    {% if saved %}<p class="status-ok">{{ t.deezer_arl_saved }}</p>{% endif %}
+    {% if error %}<p class="warning">{{ t[error] }}</p>{% endif %}
+    {% if refused and not saved %}<p class="warning">{{ t.deezer_arl_refused.format(when=refused) }}</p>{% endif %}
+    <p>{{ t['deezer_arl_source_' ~ (source or 'none')] }}</p>
+    <p class="muted">{{ t.deezer_arl_help }}</p>
+    <form method="post" action="{{ url_for('deezer_arl_save') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>{{ t.deezer_arl_field }}
+            <input type="password" name="arl" required autocomplete="off" spellcheck="false"></label>
+        <div class="actions">
+            <button type="submit" class="primary">{{ m.icon('apply') }}{{ t.deezer_arl_save }}</button>
+        </div>
+    </form>
+
+    <h3>{{ t.deezer_key_title }}</h3>
+    {% if key_made %}<p class="status-ok">{{ t.deezer_key_made }}</p>{% endif %}
+    <p class="muted">{{ t.deezer_key_help }}</p>
+    {% if key %}
+    <label>{{ t.deezer_key_field }}
+        <input type="text" value="{{ key }}" readonly spellcheck="false"></label>
+    {% endif %}
+    <form method="post" action="{{ url_for('deezer_key_create') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="actions">
+            <button type="submit">{{ m.icon('apply') }}{{ t.deezer_key_renew if key else t.deezer_key_create }}</button>
+        </div>
+    </form>
+    <p><a href="{{ url_for('home') }}">{{ t.deezer_arl_back }}</a></p>
+</section>
+{% endblock %}
