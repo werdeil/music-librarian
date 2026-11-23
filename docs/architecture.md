@@ -54,7 +54,8 @@ src/music_librarian/
 │                    an MP4 file), faststart.py (moov moved ahead of mdat in existing MP4 files),
 │                    tool.py (ffmpeg and ffprobe killed past a time limit)
 ├── deezer/          deezer: albums and playlists downloaded into the Inbox, see deezer.md
-│   ├── config.py    the DEEZER_* settings, never shown
+│   ├── config.py    the DEEZER_* settings and the arl kept, never shown
+│   ├── kept.py      what the state folder keeps: the arl, its license token, its refusal, the extension's key
 │   ├── client.py    every request to Deezer, 500 ms apart, with the arl cookie
 │   ├── api.py       albums, playlists and tracks from the API and the pages' state, get_url
 │   ├── crypto.py    the stream's Blowfish key and decryption
@@ -78,7 +79,7 @@ src/music_librarian/
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
-    ├── deezer.py    the Deezer form of the Inbox, and the Chrome extension's routes
+    ├── deezer.py    the Deezer dialog of the Inbox, the Deezer settings, and the Chrome extension's routes
     ├── i18n/        the strings shown, one module per language (`fr.py`, `en.py`)
     └── templates/, static/
 ```
@@ -96,7 +97,7 @@ src/music_librarian/
 | by hand, or an album's page of the dashboard | `cover FOLDER IMAGE` | puts an image as the album's `folder.jpg`, then embeds it into its tracks |
 | by hand, or the dashboard's Lyrion page | `playcounts`, `playcounts --review` | gives Lyrion's orphan play counts back to the library's tracks, asking about those no journal settles |
 | by hand | `undo JOURNAL` | replays a pass backwards, moves and tag changes alike |
-| by hand, the dashboard's Inbox or the Chrome extension | `deezer album\|playlist ID` | downloads into a hidden folder of the Inbox, then moves each album into it, for the next `import` |
+| by hand, the dashboard's Inbox or the Chrome extension | `deezer ID\|URL` | downloads into a hidden folder of the Inbox, then moves each album into it, for the next `import` |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
 The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. With `--listen`, a fourth job comes first, `Requests`: the passes asked for from the dashboard, which its thread only queues; a request cuts the pause between two ticks short, so it starts within half a second unless a pass is running. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
