@@ -37,7 +37,7 @@ OPTIONS = {
     "tag": ("edits", "cover"),
     "genres": (),
     "playcounts": ("no_backfill", "dpsv"),
-    "deezer": ("kind", "ids", "complete_only"),
+    "deezer": ("kind", "ids"),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
@@ -225,8 +225,7 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
 
     def run_deezer(r, log):
         opts = deezer.Options(kind=r.options.get("kind", "album"), ids=list(r.options.get("ids") or []),
-                              inbox=import_opts.inbox, apply=r.apply,
-                              complete_only=bool(r.options.get("complete_only")), state_dir=state_dir)
+                              inbox=import_opts.inbox, apply=r.apply, state_dir=state_dir)
         return kept("deezer", lambda: deezer.run(opts, log), log, r)
 
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,

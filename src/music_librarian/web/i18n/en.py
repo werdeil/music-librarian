@@ -102,7 +102,6 @@ EN = {
     "deezer_help": "An album by its deezer.com address or its id, or a playlist by its deezer.com address: "
                    "its tracks reach the Inbox once downloaded, and watch imports them.",
     "deezer_item": "Address or id",
-    "deezer_complete_only": "only if every track is available",
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",
     "deezer_short_link": "Short links are not followed: open {value}, then give the deezer.com address.",

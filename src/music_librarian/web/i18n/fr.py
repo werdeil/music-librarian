@@ -104,7 +104,6 @@ FR = {
                    "adresse deezer.com : ses pistes arrivent dans l'Inbox une fois téléchargées, et watch "
                    "les importe.",
     "deezer_item": "Adresse ou identifiant",
-    "deezer_complete_only": "seulement si toutes les pistes sont disponibles",
     "deezer_button": "Télécharger",
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
     "deezer_short_link": "Les liens courts ne sont pas suivis : ouvrez {value}, puis donnez l'adresse "

@@ -86,15 +86,14 @@ def test_refused_without_token_or_without_apply(ctx):
 @pytest.mark.usefixtures("configured")
 def test_a_download_is_queued_with_its_options(ctx):
     client, _page, token = dashboard(ctx)
-    answer = client.post("/deezer", data={"csrf": token, "item": "https://www.deezer.com/fr/playlist/9?x=1",
-                                          "complete_only": "1"})
+    answer = client.post("/deezer", data={"csrf": token, "item": "https://www.deezer.com/fr/playlist/9?x=1"})
     assert answer.status_code == 302
     (asked,) = ctx.requests.pending()
     assert (asked.command, asked.apply, asked.options) == (
-        "deezer", True, {"kind": "playlist", "ids": ["9"], "complete_only": True})
+        "deezer", True, {"kind": "playlist", "ids": ["9"]})
     assert answer.location.endswith(f"/requests/{asked.id}")
     client.post("/deezer", data={"csrf": token, "item": "302127"})
-    assert ctx.requests.pending()[1].options == {"kind": "album", "ids": ["302127"], "complete_only": False}
+    assert ctx.requests.pending()[1].options == {"kind": "album", "ids": ["302127"]}
 
 
 @pytest.mark.usefixtures("configured")
@@ -124,7 +123,7 @@ def test_a_queued_download_writes_no_secret(tmp_path, monkeypatch, capsys):
     runners = passes(import_opts, organize.Options(root=root, state_dir=state),
                      enrich.Options(root=root, state_dir=state), Log())
     requests = Requests(runners, watch.safe)
-    requests.submit("deezer", {"kind": "album", "ids": ["302127"], "complete_only": False}, True)
+    requests.submit("deezer", {"kind": "album", "ids": ["302127"]}, True)
     requests.tick(Log())
     printed = capsys.readouterr().out
     assert seen[0].inbox == inbox.resolve() and seen[0].apply
@@ -191,7 +190,7 @@ def test_the_extension_queues_a_download_and_follows_it(ctx):
     assert answer.status_code == 201
     (asked,) = ctx.requests.pending()
     assert answer.json == {"id": asked.id}
-    assert asked.options == {"kind": "playlist", "ids": ["908622995"], "complete_only": False} and asked.apply
+    assert asked.options == {"kind": "playlist", "ids": ["908622995"]} and asked.apply
     state = ext(client, "GET", f"/deezer/ext/request/{asked.id}")
     assert state.json == {"state": "queued", "code": None, "done": 0, "total": 0, "step": ""}
     assert ext(client, "GET", "/deezer/ext/request/999").status_code == 404

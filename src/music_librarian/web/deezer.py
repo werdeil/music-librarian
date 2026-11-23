@@ -82,8 +82,7 @@ def register(app, ctx):
             item = deezer.item_id(kind, value)
         except ValueError:
             return refused("deezer_refused", value=value)
-        options = {"kind": kind, "ids": [item], "complete_only": bool(request.form.get("complete_only"))}
-        return submit(ctx, "deezer", options, True)
+        return submit(ctx, "deezer", {"kind": kind, "ids": [item]}, True)
 
 
 def tracks_done(lines):
@@ -145,7 +144,7 @@ def register_extension(app, ctx):
             item = deezer.item_id(kind, value)
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
-        asked = ctx.requests.submit("deezer", {"kind": kind, "ids": [item], "complete_only": False}, True)
+        asked = ctx.requests.submit("deezer", {"kind": kind, "ids": [item]}, True)
         return jsonify(id=asked.id), 201
 
     def _state(request_id):
