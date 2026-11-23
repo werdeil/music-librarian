@@ -20,6 +20,7 @@ Everything is a dry run unless `--apply` is passed, and every move is journaled 
 - **`undo JOURNAL`** replays a run's journal in reverse, moves and tag changes alike.
 - **The dashboard**, served by `watch --listen` (on port 8080 with the compose file), shows the passes running and the recent ones with their output followed live, the schedule, the Inbox and the review questions awaiting an answer, in English or French. It also adds folders or files to the Inbox from the browser, imported by `watch` as any copy, lists the failed imports with their reason to put each back into the Inbox or set it aside, runs any command, as a dry run first, then applies it or undoes an applied pass from its page, stops a pass running or cancels one still queued, searches the library's albums or tracks field by field (a field empty, filled or holding a value, a year between two others, the tracks without lyrics or embedded cover…), browses the library to edit an album's tags in a form, its tracks' lyrics included, each looked up online on demand or marked awaited, its year taken from the editions of the album MusicBrainz, Discogs or iTunes list on demand, run as `tag`, its fields holding a value twice or several values marked, and lists those albums, delete a track's ReplayGain, or replace the album's cover with an image in any format picked by a click on it, with the same form, and asks the questions of `split --review` and `dedupe --review`, and about the genres the validated list does not know, one page at a time, beside the tracks without lyrics left to sort out and the albums whose tracks disagree on an album field (album artist, year, number of discs…) and the albums with a track without a year, or a year that is not alone; it applies only when `watch` itself runs with `--apply`; details in [docs/web.md](docs/web.md).
 - Optionally, for a [Lyrion Music Server](https://lyrion.org) (formerly Logitech Media Server) library, play counts and ratings follow moved files instead of being orphaned: the moves are carried over into its `persist.db`. The Alternative Play Count plugin must be installed, since its table is updated too (see [docs/lyrion.md](docs/lyrion.md)).
+- **`deezer ID|URL…`** downloads albums (by their id or deezer.com address) and playlists (by their address) from Deezer into the Inbox, for `import` to file them as any drop: off until it is configured, for personal use with a paid account. A dry run reads the metadata only; with `--apply`, each album reaches the Inbox once complete, its unavailable tracks listed. The dashboard's Inbox and a Chrome extension ask for one too; see [Downloading from Deezer](#downloading-from-deezer) below.
 - **`playcounts`**, with Lyrion too, gives the play counts and ratings left on files renamed outside a pass back to the tracks of the library: those a journal names at once, the others once picked with `--review` among the tracks whose path looks most like theirs. The history of a file deleted for good can be deleted instead. It also copies the plugin's plays to the tracks Lyrion counts none for, and Lyrion's to the tracks the plugin counts none for. The dashboard's **Lyrion** page lists these orphans, takes the answers and queues the pass.
 
 ## Running it
@@ -75,6 +76,8 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` to look up the genres the list cannot align (on in the compose file), and the store asked (default `us`) |
 | `MUSIC_LIBRARIAN_LISTEN` | Address of the dashboard, `[HOST:]PORT` (`watch --listen`; the compose file sets `8080`, and `WEB_PORT` the host's port) |
+| `DEEZER_PRE_KEY`, `DEEZER_IV` | The Deezer download's decryption key and IV, both needed for it, with an arl (see below) |
+| `DEEZER_ARL` | The `arl` cookie of a logged-in Deezer session; optional, the dashboard's Deezer settings take one in its place |
 | `MUSIC_LIBRARIAN_WEB_HOSTS` | Names the dashboard is reached by, comma-separated, besides an IP address, a name without a dot and the local suffixes `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` (`watch --web-hosts`) |
 
 The compose file reads its own variables from `.env`; `.env.example` documents them.
@@ -89,9 +92,13 @@ With a validated genre list, `import` and `enrich` rewrite each track's genre to
 
 With `GENRE_LOOKUP=itunes`, an album whose genre the list cannot align, or that has none, is searched on the [iTunes Search API](https://performance-partners.apple.com/search-api), free and without a key: when the list knows Apple's genre for that album (the example maps Apple's names), its tracks take it, logged as `ITUNES`. Otherwise Apple's genre is shown next to `UNKNOWN`, so it can be added to the list. Answers are kept in `state/genre_lookup.json`; an album Apple does not have is searched again after 30 days. Choose the store with `ITUNES_COUNTRY` (`fr` for French genre names).
 
+### Downloading from Deezer
+
+`deezer` is a Python rewrite of [deezer-music-download](https://github.com/werdeil/deezer-music-download), meant for personal use with a paid Deezer account: downloading may go against Deezer's terms of use, so it is off by default and no key comes with it. Set `DEEZER_PRE_KEY` and `DEEZER_IV` (the stream decryption's key and IV, to be found on your own), then give the `arl` cookie of your Deezer session on the dashboard (the overview's environment, Deezer, **settings**), which checks it with Deezer, or in `DEEZER_ARL`. The license token Deezer asks for is read from the arl, and read again once it expires. Then `docker compose run --rm music-librarian deezer <album id or address> --apply` drops the album into the Inbox. Where to find the values, the dashboard's dialog and settings, the Chrome extension of [`extensions/chrome`](extensions/chrome) and what its messages mean are in [docs/deezer.md](docs/deezer.md).
+
 ## Security
 
-The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass, and can run any command on the library or add files to the Inbox. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale. Another website cannot reach it through a name of its own (DNS rebinding): the dashboard answers only to an IP address, a local name and the names of `MUSIC_LIBRARIAN_WEB_HOSTS`; details in [docs/web.md](docs/web.md#security).
+The dashboard has no authentication, by design: anyone who can reach its port sees the library's paths, the Inbox and the output of every pass, and can run any command on the library or add files to the Inbox, or download from Deezer when that is configured. Keep it on the home network: no port forwarding, no public reverse proxy. For remote access, join the network through a VPN such as WireGuard or Tailscale. Another website cannot reach it through a name of its own (DNS rebinding): the dashboard answers only to an IP address, a local name and the names of `MUSIC_LIBRARIAN_WEB_HOSTS`; details in [docs/web.md](docs/web.md#security).
 
 ## Documentation
 
@@ -100,6 +107,7 @@ The dashboard has no authentication, by design: anyone who can reach its port se
 - [Splitting credits](docs/splitting.md): which composer and artist credits are split, and the decisions file
 - [Unifying artist names](docs/dedupe.md): which names are grouped, and the aliases file
 - [Lyrion history: carry-over and orphan play counts](docs/lyrion.md)
+- [Downloading from Deezer](docs/deezer.md): configuration, command line, dashboard, Chrome extension and troubleshooting
 - [Architecture](docs/architecture.md): the package layout and how each command runs, step by step
 
 ## Development

@@ -2,8 +2,6 @@
 
 `music-librarian deezer` downloads an album or a playlist from Deezer into the Inbox, where `import` converts it to ALAC, files it, enriches it, splits its credits and unifies its artists like any other drop. It can be asked for from the command line, from the dashboard and from a Chrome extension, both through the queue of `watch`. It is a rewrite in Python of [deezer-music-download](https://github.com/werdeil/deezer-music-download), whose Deezer API calls, stream decryption and tag writing it ports as they are; the filing and the conversion stay those of music-librarian.
 
-This page describes the feature as it is being built. The command, the dashboard form and the extension land one pull request at a time; until then, only what is merged works.
-
 ## Limits
 
 - **For personal use, with a paid Deezer account.** Downloading may break Deezer's terms of use: the feature is off by default, and it is up to whoever turns it on to check that their use is allowed.
@@ -34,7 +32,13 @@ This page describes the feature as it is being built. The command, the dashboard
 
 The rest is kept in the state folder, each file readable by its owner only: the arl set on the dashboard, the license token `get_url` asks for, read from the arl and read again once Deezer calls it expired, and the Chrome extension's key, made on the dashboard's Deezer settings.
 
-A value that is malformed is reported by its name, never shown.
+A value that is malformed is reported by its name, never shown. With the compose file, set them in `.env`: they reach the container empty otherwise, which leaves the download off.
+
+### Finding the values
+
+- **`arl`**: log in on deezer.com in a browser, then read the cookie named `arl` of `www.deezer.com` in its developer tools (Application, Cookies). Paste it on the dashboard's Deezer settings, which checks it with Deezer before keeping it, or set it in `DEEZER_ARL`. It lasts several months; a new login gives a new one.
+- **The license token** `get_url` asks for: nothing to find. It is read from the arl (`deezer.getUserData`) before the first download, kept in the state folder, and read again once Deezer calls it expired.
+- **`pre_key` and `iv`**: the key every track's Blowfish key is derived from, and the IV of the decryption. They are the same for every account and live in the code of Deezer's web player; this project does not publish them.
 
 ## Command line
 
@@ -50,6 +54,35 @@ An album is given by its id or its address (`https://www.deezer.com/fr/album/302
 - **The summary** (`--- Deezer summary ---`) counts the albums, the tracks, the unavailable ones by title, and the formats.
 
 Exit codes: 0 OK, 1 failed (not configured, an album or a playlist not found, not one of its tracks downloaded), 2 tracks unavailable, 4 stopped before the end, what was waiting removed. Each pass is kept in the run history.
+
+## On the dashboard
+
+Once `DEEZER_PRE_KEY` and `DEEZER_IV` are set, the overview's Inbox shows a **Download from Deezer** button beside **Add to the Inbox**. Its dialog takes an album, by its deezer.com address or its id, or a playlist, by its address. **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview, and an incomplete album is dropped with its unavailable tracks listed. The button is disabled while `watch` runs without `--apply` or no arl is given. A short link is refused with a word on what to give instead.
+
+The overview's environment, folded at the bottom, holds a Deezer line: where the arl comes from, whether Deezer refused it, whether the extension has its key, and a link to the **Deezer settings**. That page takes a new arl, checks it with Deezer and keeps it; it also makes the extension's key. A missing or refused arl raises a To do tile that opens it. Details of the routes in [web.md](web.md#downloading-from-deezer).
+
+## The Chrome extension
+
+The extension, in [`extensions/chrome`](../extensions/chrome), sends the album or the playlist of the Deezer page you are on to the dashboard, then shows how many of its tracks are done.
+
+1. On the dashboard's Deezer settings, click **Make a key**, and copy it.
+2. In Chrome, open `chrome://extensions`, turn on the developer mode, then **Load unpacked** and pick the `extensions/chrome` folder.
+3. In the extension's popup, open the settings (⚙️), type the dashboard's address (`https://nas.local:8443`) and the key, and click **Save**: Chrome asks for access to that address, which the extension needs to reach it.
+
+The badge then reads **Connected**, **Connected, downloads off** when `watch` runs without `--apply` or no arl is given, or **Key refused** when the key is not the dashboard's latest. On a Deezer album or playlist page, its address fills the popup's field, which also takes an album id; the line below says what will be downloaded, and **Download** queues the pass. When the dashboard refuses, the popup shows its reason. The extension's routes answer only a `chrome-extension://` origin bearing the key, and only queue: see [web.md](web.md#downloading-from-deezer).
+
+## Troubleshooting
+
+- **`the Deezer download is off`**: `DEEZER_PRE_KEY` or `DEEZER_IV` is empty in the container, or no arl is given (`docker compose exec music-librarian env | grep -c DEEZER_` counts the variables without showing them).
+- **`the arl is refused by Deezer`**: the arl expired or its session was logged out. The overview shows a To do tile: take the `arl` cookie of a logged-in session again and paste it on the Deezer settings.
+- **`pycryptodome is not installed`**: the image was built before the download joined; rebuild it (`docker compose build`). The other commands run meanwhile.
+- **`TOKEN    license token renewed from the arl`**: Deezer called the license token expired, and a fresh one was read from the arl; the download goes on. When every track still fails with `error 1001`, the arl itself is no longer valid: give a new one.
+- **`SKIPPED  <title>: no playable format among FLAC/MP3_320/MP3_128 (…)`**: `get_url` gave no stream for the track. Between the brackets, `error <code>: <message>` is Deezer's own refusal (a track not streamable in your country or with your subscription), `HTTP <status>` an answer without a reason, `empty data` or `no media available` a track offered in none of the formats asked. The track is counted unavailable; the album is still dropped, unless `--complete-only`.
+- **`FALLBACK`**: the track has no rights of its own, and Deezer points at an equivalent recording, downloaded and decrypted in its place, as the web player does. Its tags stay the track's.
+- **`unavailable: N tracks (…)`** in the summary, exit code 2: those tracks were skipped; the album reached the Inbox without them.
+- **`WARNING  cover of …`** or **`WARNING  <title>: tags not written`**: the track was downloaded; `enrich` embeds `folder.jpg` later, and `import` refuses an item whose tags lack what filing needs, sending it to `_failed/`.
+- **The extension's `wrong key`** (badge **Key refused**): a new key was made on the Deezer settings since; copy it into the popup's settings again.
+- **`no app state in the page`**, **`no SONGS in the page`**: Deezer changed its pages. The pages the tests read are in `tests/deezer/fixtures/`, to compare with what Deezer serves now.
 
 ## How a download runs
 
