@@ -460,7 +460,12 @@ def register(app, ctx, index, later):
     @app.get("/reviews/split")
     def review_split():
         item, left = reviews.credit(request.args.get("from", 0, type=int))
-        return render_template("review_split.html", item=item, left=left, done=done_of(request.args),
+        done = done_of(request.args)
+        if isinstance(done, dict):
+            decision = done.get("decision", "")
+            done["names"] = {SPLIT: fragments(done.get("credit", "")), KEEP: [done.get("credit", "")]}.get(
+                decision) or names_of(decision)
+        return render_template("review_split.html", item=item, left=left, done=done,
                                rules=len(decisions.entries(reviews.decisions)))
 
     @app.post("/reviews/split")

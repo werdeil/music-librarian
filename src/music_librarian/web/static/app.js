@@ -741,6 +741,39 @@
     });
 }());
 
+// A dedupe question's answer: each other spelling shows the one it will be written as.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-unify]").forEach(function (form) {
+        function show() {
+            var checked = form.querySelector("input[name=target]:checked");
+            var target = form.elements.other.value.trim() || (checked ? checked.value : "");
+            form.querySelectorAll("[data-name]").forEach(function (row) {
+                row.hidden = !target || row.dataset.name === target;
+                row.querySelector("[data-target]").textContent = target;
+            });
+        }
+        form.addEventListener("input", show);
+        form.addEventListener("change", show);
+    });
+}());
+
+// A genre question's answers: what the genre becomes follows the genre picked or typed.
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-becomes]").forEach(function (form) {
+        var source = form.querySelector("[data-source]");
+        var target = form.querySelector("[data-target]");
+        function show() {
+            target.textContent = source.value.trim() || "…";
+        }
+        source.addEventListener("input", show);
+        source.addEventListener("change", show);
+    });
+}());
+
 // A dedupe question's own spelling: typing it picks it, picking a listed one empties it.
 (function () {
     "use strict";

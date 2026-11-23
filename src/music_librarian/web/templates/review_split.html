@@ -19,7 +19,8 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="credit" value="{{ done.credit }}">
         <input type="hidden" name="before" value="{{ done.before or '' }}">
-        <span class="muted">{{ t.recorded }}</span> <code>{{ done.credit }} =&gt; {{ done.decision }}</code>
+        <span class="muted">{{ t.recorded }}</span>
+        <span class="parts" title="{{ done.credit }} =&gt; {{ done.decision }}"><span class="part">{{ done.credit }}</span><span class="arrow">→</span>{% for name in done.names %}<span class="part known">{{ name }}</span>{% endfor %}</span>
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
@@ -27,15 +28,15 @@
     {% include "_building.html" %}
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
-    <div class="split-now">
+    <div class="review-now">
         <p class="step">{{ t.split_now }}</p>
         <p class="parts"><span class="part whole">{{ item.credit }}</span></p>
         <p class="muted">{% for field in item.fields %}{{ t['field_' ~ field] }} · {% endfor %}{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         {% if item.protected %}<p class="warning">{{ t.protected_note }}</p>{% endif %}
     </div>
     <p class="step">{{ t.split_becomes }}</p>
-    <div class="split-choices">
-        <form method="post" action="{{ url_for('answer_split') }}" class="split-choice{{ ' suggested' if item.suggested == 'split' }}" data-joints>
+    <div class="review-choices">
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice{{ ' suggested' if item.suggested == 'split' }}" data-joints>
             {{ hidden(item) }}
             <input type="hidden" name="names" value="{{ item.parts | join('; ') }}">
             <h3>{{ t.split_button }}{{ badge(item, 'split') }}</h3>
@@ -49,14 +50,14 @@
             <p class="muted hint" data-hint hidden>{{ t.join_hint }}</p>
             {{ submit(item, 'split', t.split_button) }}
         </form>
-        <form method="post" action="{{ url_for('answer_split') }}" class="split-choice{{ ' suggested' if item.suggested == 'keep' }}">
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice{{ ' suggested' if item.suggested == 'keep' }}">
             {{ hidden(item) }}
             <h3>{{ t.keep_button }}{{ badge(item, 'keep') }}</h3>
             <p class="parts"><span class="part">{{ item.credit }}</span></p>
             <p class="muted">{{ t.names_count.format(n=1) }}</p>
             {{ submit(item, 'keep', t.keep_button) }}
         </form>
-        <form method="post" action="{{ url_for('answer_split') }}" class="split-choice" data-typed-names>
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice" data-typed-names>
             {{ hidden(item) }}
             <h3>{{ t.names_button }}</h3>
             <input name="names" value="{{ item.parts | join('; ') }}" placeholder="{{ t.names_placeholder }}" aria-label="{{ t.names_button }}" required>
@@ -65,7 +66,7 @@
             {{ submit(item, 'names', t.names_button) }}
         </form>
     </div>
-    <form method="post" action="{{ url_for('review_later', review='split') }}" class="split-later">
+    <form method="post" action="{{ url_for('review_later', review='split') }}" class="review-later">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="later" value="{{ item.later }}">
         <button type="submit">{{ t.later }}</button>

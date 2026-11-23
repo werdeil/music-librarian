@@ -88,7 +88,20 @@ def test_split_question_shows_the_tags_today_and_each_answer(d):
     assert '<span class="part whole">Brian May/Roger Taylor</span>' in now and "Composer · Tracks: 3" in now
     assert 'data-joint="/" aria-pressed="false"' in text and "Names: 2" in text and "Names: 1" in text
     assert 'name="names" value="Brian May; Roger Taylor" placeholder' in text
-    assert 'class="split-choice suggested" data-joints' in text
+    assert 'class="review-choice suggested" data-joints' in text
+
+
+def test_split_recorded_shows_the_names_written(d):
+    response = d.client.post("/reviews/split", data={"csrf": d.token, "credit": "Brian May/Roger Taylor",
+                                                     "choice": "split"})
+    recorded = page(d, response.location).split('class="recorded"')[1].split("</form>")[0]
+    assert '<span class="part known">Brian May</span><span class="part known">Roger Taylor</span>' in recorded
+
+
+def test_dedupe_question_shows_what_each_spelling_becomes(d):
+    text = page(d, "/reviews/dedupe")
+    assert '<li data-name="Beyonce"><span class="part">Beyonce</span><span class="arrow">→</span>' in text
+    assert '<li data-name="Beyoncé" hidden>' in text and "this group is not asked about again" in text
 
 
 def test_pieces_keep_each_separator():

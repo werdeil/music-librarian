@@ -1013,12 +1013,12 @@ form.inline {
     color: var(--text-muted);
 }
 
-.split-now {
+.review-now {
     padding: 0.2rem 1rem 0.4rem;
     border-left: 3px solid var(--border-color);
 }
 
-.split-now .step {
+.review-now .step {
     margin-top: 0.6rem;
 }
 
@@ -1042,13 +1042,13 @@ form.inline {
     font-size: 1.15rem;
 }
 
-.split-choices {
+.review-choices {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
     gap: 1rem;
 }
 
-.split-choice {
+.review-choice {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -1057,21 +1057,21 @@ form.inline {
     border-radius: 8px;
 }
 
-.split-choice.suggested {
+.review-choice.suggested {
     border-color: var(--accent);
 }
 
-.split-choice h3,
-.split-choice p {
+.review-choice h3,
+.review-choice p {
     margin: 0;
 }
 
-.split-choice .parts {
+.review-choice .parts {
     flex: 1;
     align-content: flex-start;
 }
 
-.split-choice > button[type="submit"] {
+.review-choice > button[type="submit"] {
     align-self: flex-start;
 }
 
@@ -1123,11 +1123,55 @@ form.inline {
     border-bottom-left-radius: 0;
 }
 
-.split-choice input[name="names"] {
+.review-choice input[name="names"] {
     width: 100%;
 }
 
-.split-later {
+.arrow {
+    padding: 0 0.4rem;
+    color: var(--text-muted);
+}
+
+.spellings,
+.becomes {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0.4rem 0;
+    padding: 0;
+    list-style: none;
+}
+
+.spellings li,
+.becomes li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.6rem;
+}
+
+.becomes li {
+    gap: 0;
+}
+
+.review-choice .names-choice {
+    margin: 0;
+}
+
+.review-choice .names-choice legend {
+    padding: 0;
+    margin-bottom: 0.3rem;
+}
+
+.review-choice select,
+.review-choice input[name="name"] {
+    max-width: 100%;
+}
+
+.recorded .parts {
+    font-size: var(--fs-sm);
+}
+
+.review-later {
     margin-top: 1rem;
 }
 
