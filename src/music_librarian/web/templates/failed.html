@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ t.failed_title }} · music-librarian{% endblock %}
+{% block content %}
+<section>
+    <h2>{{ t.failed_title }}</h2>
+    <p class="muted">{{ t.failed_intro }}</p>
+    {% if retried %}<p class="status-ok">{{ t.failed_retried.format(name=retried) }}</p>{% endif %}
+    {% if dismissed %}<p class="status-ok">{{ t.failed_dismissed.format(name=dismissed) }}</p>{% endif %}
+    {% if not ctx.apply %}<p class="muted">{{ t.upload_read_only }}</p>{% endif %}
+    {% if items %}
+    <p class="review-count"><span class="tile-value">{{ items | length }}</span> <span>{{ t.failed_unit }}</span></p>
+    <ul class="failed-rows">
+    {% for item in items %}
+        <li>
+            <span class="failed-item"><span class="work-title">{{ item.name }}</span>
+                <span class="muted">{{ t.failed_folder if item.folder else t.failed_file }}{% if item.reason %} · {{ item.reason }}{% endif %}
+                {%- if item.run %} · <a href="{{ url_for('run_page', run_id=item.run) }}">{{ t.see }}</a>{% endif %}</span></span>
+            {% if ctx.requests %}
+            <form method="post" class="actions">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <input type="hidden" name="name" value="{{ item.name }}">
+                <button type="submit" formaction="{{ url_for('failed_retry') }}"{% if not ctx.apply %} disabled{% endif %}>{{ m.icon('import') }}{{ t.failed_retry }}</button>
+                <button type="submit" formaction="{{ url_for('failed_dismiss') }}"{% if not ctx.apply %} disabled{% endif %}>{{ m.icon('cancel') }}{{ t.failed_dismiss }}</button>
+            </form>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+    {% else %}
+    <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.failed_none }}</p>
+    {% endif %}
+</section>
+{% endblock %}

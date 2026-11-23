@@ -86,6 +86,19 @@ FR = {
     "inbox_missing": "Inbox introuvable : {path}",
     "inbox_waiting": "En attente d'import :",
     "inbox_empty": "L'Inbox est vide.",
+    "failed_title": "Imports en échec",
+    "failed_intro": "Ce que l'import a laissé dans _failed/ de l'Inbox, avec la raison donnée par son "
+                    "passage. Réessayer le remet dans l'Inbox, où watch l'importe de nouveau dans la "
+                    "minute, une fois la cause corrigée ; écarter le range dans le dossier du jour de "
+                    "_done/, que l'import purge au bout de quelques jours.",
+    "failed_unit": "éléments dans _failed/",
+    "failed_folder": "dossier",
+    "failed_file": "fichier",
+    "failed_retry": "Réessayer",
+    "failed_dismiss": "Écarter",
+    "failed_retried": "Remis dans l'Inbox : {name}. watch l'importe dans la minute.",
+    "failed_dismissed": "Écarté dans _done/ : {name}.",
+    "failed_none": "Aucun import en échec.",
     "upload_button": "Ajouter à l'Inbox",
     "upload_help": "Un dossier par album, ou des morceaux isolés (FLAC, ALAC, MP3), avec leurs "
                    "pochettes, livrets et paroles : watch les importe comme toute copie dans l'Inbox.",

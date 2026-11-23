@@ -85,6 +85,19 @@ EN = {
     "inbox_missing": "Inbox not found: {path}",
     "inbox_waiting": "Waiting to be imported:",
     "inbox_empty": "The Inbox is empty.",
+    "failed_title": "Failed imports",
+    "failed_intro": "What the import left in _failed/ of the Inbox, with the reason its run gave. Retry "
+                    "puts it back in the Inbox, where watch imports it again within a minute, once the "
+                    "cause is fixed; set aside moves it to today's folder of _done/, which the import "
+                    "purges after a few days.",
+    "failed_unit": "items in _failed/",
+    "failed_folder": "folder",
+    "failed_file": "file",
+    "failed_retry": "Retry",
+    "failed_dismiss": "Set aside",
+    "failed_retried": "Back in the Inbox: {name}. watch imports it within a minute.",
+    "failed_dismissed": "Set aside in _done/: {name}.",
+    "failed_none": "No failed import.",
     "upload_button": "Add to the Inbox",
     "upload_help": "A folder per album, or loose tracks (FLAC, ALAC, MP3), with their covers, booklets "
                    "and lyrics: watch imports them as any copy into the Inbox.",
