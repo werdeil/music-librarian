@@ -2,6 +2,10 @@
 {% import "_apply_answers.html" as a %}
 {% from "_macros.html" import icon %}
 {% block title %}{{ t.genre_review }} · music-librarian{% endblock %}
+{% macro hidden(item) %}
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="genre" value="{{ item.genre }}">
+{%- endmacro %}
 {% block content %}
 <p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
@@ -12,7 +16,7 @@
         <input type="hidden" name="genre" value="{{ done.genre }}">
         <input type="hidden" name="alias" value="{{ done.alias or '' }}">
         <span class="muted">{{ t.recorded }}</span>
-        <code>{{ done.genre }}{% if done.alias %}: {{ done.alias }}{% endif %}</code>
+        <span class="parts">{% if done.alias %}<span class="part">{{ done.alias }}</span><span class="arrow">→</span>{% endif %}<span class="part known">{{ done.genre }}</span></span>
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
@@ -22,29 +26,40 @@
     {% include "_building.html" %}
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
-    <div class="question">
-        <p class="credit">{{ item.genre }}</p>
+    <div class="review-now">
+        <p class="step">{{ t.split_now }}</p>
+        <p class="parts"><span class="part whole">{{ item.genre }}</span></p>
         <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         {% if item.apple %}<p>{{ t.itunes_hint.format(genre=item.apple) }}</p>{% endif %}
     </div>
-    <form method="post" action="{{ url_for('answer_genre') }}" class="answer">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="genre" value="{{ item.genre }}">
-        <input type="hidden" name="later" value="{{ item.later }}">
-        <span class="names">
-            <select name="validated" aria-label="{{ t.alias_button }}" required>
+    <p class="step">{{ t.split_becomes }}</p>
+    <div class="review-choices">
+        <form method="post" action="{{ url_for('answer_genre') }}" class="review-choice{{ ' suggested' if item.suggested }}" data-becomes>
+            {{ hidden(item) }}
+            <h3>{{ t.alias_title }}{% if item.suggested %} <span class="badge">{{ t.suggested }}</span>{% endif %}</h3>
+            <select name="validated" aria-label="{{ t.alias_title }}" required data-source>
             {% if not item.suggested %}<option value="" selected disabled>{{ t.pick_genre }}</option>{% endif %}
             {% for genre in item.validated %}
                 <option value="{{ genre }}"{% if genre == item.suggested %} selected{% endif %}>{{ genre }}</option>
             {% endfor %}
             </select>
+            <p class="parts"><span class="part">{{ item.genre }}</span><span class="arrow">→</span><span class="part known" data-target>{{ item.suggested or '…' }}</span></p>
+            <p class="muted">{{ t.alias_note }}</p>
             <button type="submit" name="choice" value="alias"{% if item.suggested %} class="primary" autofocus{% endif %}>{{ t.alias_button }}</button>
-        </span>
-        <span class="names">
-            <input name="name" value="{{ item.genre }}" aria-label="{{ t.new_genre_button }}">
-            <button type="submit" name="choice" value="new" formnovalidate>{{ t.new_genre_button }}</button>
-        </span>
-        <button type="submit" formaction="{{ url_for('review_later', review='genres') }}" formnovalidate>{{ t.later }}</button>
+        </form>
+        <form method="post" action="{{ url_for('answer_genre') }}" class="review-choice" data-becomes>
+            {{ hidden(item) }}
+            <h3>{{ t.new_genre_title }}</h3>
+            <input name="name" value="{{ item.genre }}" aria-label="{{ t.new_genre_title }}" data-source>
+            <p class="parts"><span class="part">{{ item.genre }}</span><span class="arrow">→</span><span class="part known" data-target>{{ item.genre }}</span></p>
+            <p class="muted">{{ t.new_genre_note }}</p>
+            <button type="submit" name="choice" value="new">{{ t.new_genre_button }}</button>
+        </form>
+    </div>
+    <form method="post" action="{{ url_for('review_later', review='genres') }}" class="review-later">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="later" value="{{ item.later }}">
+        <button type="submit">{{ t.later }}</button>
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>

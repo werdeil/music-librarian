@@ -47,6 +47,9 @@ def test_overview_and_question(d):
     text = page(d, "/reviews/genres")
     assert "Hip Hop" in text and "Tracks: 2" in text and "iTunes files these albums under" in text
     assert '<option value="Rap / Hip-hop" selected>' in text and "Question 1 of 2" in text
+    becomes = ('<span class="part">Hip Hop</span><span class="arrow">→</span>'
+               '<span class="part known" data-target>')
+    assert becomes + "Rap / Hip-hop</span>" in text and becomes + "Hip Hop</span>" in text
     text = page(d, "/reviews/genres?from=1")
     assert "Zydeco" in text and "Question 2 of 2" in text      # the known Rock is not counted
 
@@ -56,7 +59,9 @@ def test_alias_then_undo(d):
                                                       "validated": "Rap / Hip-hop", "position": "0"})
     assert genres.load(d.state / "genres.txt")[genres.key("Hip Hop")] == "Rap / Hip-hop"
     text = page(d, response.location)
-    assert "Rap / Hip-hop: Hip Hop" in text and "Zydeco" in text
+    recorded = ('<span class="part">Hip Hop</span><span class="arrow">→</span>'
+                '<span class="part known">Rap / Hip-hop</span>')
+    assert recorded in text and "Zydeco" in text
     d.client.post("/reviews/genres/undo", data={"csrf": d.token, "genre": "Rap / Hip-hop",
                                                 "alias": "Hip Hop", "position": "0"})
     assert (d.state / "genres.txt").read_text(encoding="utf-8") == "Rock\nRap / Hip-hop: rap\n"
@@ -116,7 +121,8 @@ def test_validated_genres_page_without_a_list(d):
 
 def test_later_puts_the_genre_last(d):
     text = page(d, "/reviews/genres")
-    assert 'name="later" value="Hip Hop"' in text and 'formaction="/reviews/genres/later"' in text
+    assert 'action="/reviews/genres/later" class="review-later"' in text
+    assert 'name="later" value="Hip Hop"' in text
     d.client.post("/reviews/genres/later", data={"csrf": d.token, "later": "Hip Hop"})
     text = page(d, "/reviews/genres")
     assert "Zydeco" in text and "Question 2 of 2" in text

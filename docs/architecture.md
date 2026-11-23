@@ -80,6 +80,7 @@ src/music_librarian/
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
     ├── deezer.py    the Deezer dialog of the Inbox, the Deezer settings, and the Chrome extension's routes
+    ├── failed.py    the items in the Inbox's _failed/, with their reason, put back into the Inbox or set aside
     ├── i18n/        the strings shown, one module per language (`fr.py`, `en.py`)
     └── templates/, static/
 ```

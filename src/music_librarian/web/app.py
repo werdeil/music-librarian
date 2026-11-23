@@ -16,12 +16,13 @@ from flask import Flask, g, jsonify, render_template, request, url_for
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.core.files import JUNK_NAMES
-from music_librarian.importer import ERRORS, list_items
+from music_librarian.importer import list_items
 from music_librarian.integrations import itunes
 from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
 from music_librarian.deezer import config as deezer_config, kept as deezer_kept
-from music_librarian.web import albums, deezer, history, library, playcounts, reviews, security, uploads
+from music_librarian.web import (albums, deezer, failed, history, library, playcounts, reviews, security,
+                                 uploads)
 from music_librarian.web.common import place, server_timing, texts, when
 from music_librarian.web.history import shown, stoppable, to_check
 from music_librarian.web.i18n import TRANSLATIONS, pick_lang
@@ -62,8 +63,7 @@ def inbox_state(inbox: Path):
         items = [it.name for it in list_items(inbox)]
     except OSError:
         return None
-    failed = inbox / ERRORS
-    return items, sorted(p.name for p in failed.iterdir()) if failed.is_dir() else []
+    return items, failed.entries(inbox)
 
 
 def without_login(url):
@@ -107,6 +107,7 @@ def create_app(ctx: Context, build_now=False):
     history.register(app, ctx)
     albums.register(app, ctx, index, later)
     uploads.register(app, ctx)
+    failed.register(app, ctx)
     deezer.register(app, ctx)
     deezer.register_extension(app, ctx)
     orphans_waiting, orphans = playcounts.register(app, ctx)
