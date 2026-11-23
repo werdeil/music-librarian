@@ -13,6 +13,7 @@ them. Like the terminal review, it takes no lock.
 """
 import json
 import os
+import re
 import threading
 import time
 from collections import Counter, defaultdict
@@ -31,8 +32,8 @@ from music_librarian.lyrics import awaited
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import credit_tags, metadata_cache
 from music_librarian.split import decisions
-from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SPLIT, decided_names, fragments, key,
-                                         names_of, resolve, suggest)
+from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SEPARATOR, SPLIT, decided_names,
+                                         fragments, key, names_of, resolve, suggest)
 from music_librarian.web.common import timed
 from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_files, part, with_dates,
                                          with_mixed, without_lyrics)
@@ -103,6 +104,30 @@ class Postponed:
         return ordered[start], total - len(left) + (seen + start) % len(ordered) + 1
 
 
+def pieces(credit):
+    """[(separator before it, fragment)] of a credit, the first separator empty: a fragment joined to
+    the one before it with its separator reads as in the credit."""
+    found, joint = [], ""
+    for i, bit in enumerate(re.split(f"({SEPARATOR.pattern})", credit.strip())):
+        if i % 2:
+            joint += bit
+        elif bit:
+            found.append((joint if found else "", bit))
+            joint = ""
+    return found
+
+
+def fields_of(tracks):
+    """{credit's key: the fields it is read from, in split's order}."""
+    found = defaultdict(set)
+    for _, tags in tracks:
+        for field in split.FIELDS:
+            if len(tags[field]) == 1 and (field != "artist" or tags["albumartist"]):
+                for credit in names_of(tags[field][0]):
+                    found[key(credit)].add(field)
+    return {k: [f for f in split.FIELDS if f in fields] for k, fields in found.items()}
+
+
 def dedupe_key(names):
     return json.dumps(sorted(names), ensure_ascii=False)
 
@@ -136,7 +161,8 @@ class Reviews:
                     folder = str(path.parent.relative_to(self.root))
                     for name in names:
                         examples.setdefault(name, folder)
-        return SimpleNamespace(known=known, credits=asked, groups=find_groups(counts, mbids, different),
+        return SimpleNamespace(known=known, credits=asked, fields=fields_of(tracks),
+                               groups=find_groups(counts, mbids, different),
                                names={name: (n, examples.get(name)) for name, n in counts.items()})
 
     def credit(self, start=0):
@@ -159,7 +185,8 @@ class Reviews:
             parts = fragments(credit)
             return dict(number=number, total=len(queues.credits), later=key(credit), credit=credit,
                         tracks=tracks, example=example, folder=str(Path(example).parent),
-                        protected=status == PROTECTED, parts=parts,
+                        protected=status == PROTECTED, parts=parts, pieces=pieces(credit),
+                        fields=queues.fields.get(key(credit), []),
                         known=[p for p in parts if key(p) in current],
                         suggested=KEEP if status == PROTECTED else suggest(credit, current)), len(left)
 
@@ -433,7 +460,12 @@ def register(app, ctx, index, later):
     @app.get("/reviews/split")
     def review_split():
         item, left = reviews.credit(request.args.get("from", 0, type=int))
-        return render_template("review_split.html", item=item, left=left, done=done_of(request.args),
+        done = done_of(request.args)
+        if isinstance(done, dict):
+            decision = done.get("decision", "")
+            done["names"] = {SPLIT: fragments(done.get("credit", "")), KEEP: [done.get("credit", "")]}.get(
+                decision) or names_of(decision)
+        return render_template("review_split.html", item=item, left=left, done=done,
                                rules=len(decisions.entries(reviews.decisions)))
 
     @app.post("/reviews/split")

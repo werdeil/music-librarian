@@ -2,6 +2,14 @@
 {% import "_apply_answers.html" as a %}
 {% from "_macros.html" import icon %}
 {% block title %}{{ t.split_review }} · music-librarian{% endblock %}
+{% macro hidden(item) %}
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="credit" value="{{ item.credit }}">
+{%- endmacro %}
+{% macro badge(item, choice) %}{% if item.suggested == choice %} <span class="badge">{{ t.suggested }}</span>{% endif %}{% endmacro %}
+{% macro submit(item, choice, label) -%}
+<button type="submit" name="choice" value="{{ choice }}"{% if item.suggested == choice %} class="primary" autofocus{% endif %}>{{ label }}</button>
+{%- endmacro %}
 {% block content %}
 <p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
@@ -11,7 +19,8 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="credit" value="{{ done.credit }}">
         <input type="hidden" name="before" value="{{ done.before or '' }}">
-        <span class="muted">{{ t.recorded }}</span> <code>{{ done.credit }} =&gt; {{ done.decision }}</code>
+        <span class="muted">{{ t.recorded }}</span>
+        <span class="parts" title="{{ done.credit }} =&gt; {{ done.decision }}"><span class="part">{{ done.credit }}</span><span class="arrow">→</span>{% for name in done.names %}<span class="part known">{{ name }}</span>{% endfor %}</span>
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
@@ -19,26 +28,48 @@
     {% include "_building.html" %}
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
-    <div class="question">
-        <p class="credit">{{ item.credit }}</p>
-        <p class="muted">{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
-        <p>{{ t.split_into }}
-            {% for part in item.parts %}<span class="part{{ ' known' if part in item.known }}">{{ part }}</span>{% endfor %}
-            {% if item.known %}<span class="muted">({{ t.known_names }} — {{ item.known | join(', ') }})</span>{% endif %}
-        </p>
+    <div class="review-now">
+        <p class="step">{{ t.split_now }}</p>
+        <p class="parts"><span class="part whole">{{ item.credit }}</span></p>
+        <p class="muted">{% for field in item.fields %}{{ t['field_' ~ field] }} · {% endfor %}{{ t.tracks_count.format(n=item.tracks) }} · {{ t.example }} <a href="{{ url_for('album_page', folder=item.folder) }}"><code>{{ item.example }}</code></a></p>
         {% if item.protected %}<p class="warning">{{ t.protected_note }}</p>{% endif %}
     </div>
-    <form method="post" action="{{ url_for('answer_split') }}" class="answer">
+    <p class="step">{{ t.split_becomes }}</p>
+    <div class="review-choices">
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice{{ ' suggested' if item.suggested == 'split' }}" data-joints>
+            {{ hidden(item) }}
+            <input type="hidden" name="names" value="{{ item.parts | join('; ') }}">
+            <h3>{{ t.split_button }}{{ badge(item, 'split') }}</h3>
+            <p class="parts">
+                {%- for joint, part in item.pieces -%}
+                {%- if joint %}<button type="button" class="joint" data-joint="{{ joint }}" aria-pressed="false" title="{{ t.join_title }}" disabled>{{ joint | trim }}</button>{% endif -%}
+                <span class="part{{ ' known' if part in item.known }}">{{ part }}</span>
+                {%- endfor -%}
+            </p>
+            <p class="muted"><span data-count="{{ t.names_count }}">{{ t.names_count.format(n=item.parts | length) }}</span>{% if item.known %} · <span class="known">{{ t.known_names }}</span>{% endif %}</p>
+            <p class="muted hint" data-hint hidden>{{ t.join_hint }}</p>
+            {{ submit(item, 'split', t.split_button) }}
+        </form>
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice{{ ' suggested' if item.suggested == 'keep' }}">
+            {{ hidden(item) }}
+            <h3>{{ t.keep_button }}{{ badge(item, 'keep') }}</h3>
+            <p class="parts"><span class="part">{{ item.credit }}</span></p>
+            <p class="muted">{{ t.names_count.format(n=1) }}</p>
+            {{ submit(item, 'keep', t.keep_button) }}
+        </form>
+        <form method="post" action="{{ url_for('answer_split') }}" class="review-choice" data-typed-names>
+            {{ hidden(item) }}
+            <h3>{{ t.names_button }}</h3>
+            <input name="names" value="{{ item.parts | join('; ') }}" placeholder="{{ t.names_placeholder }}" aria-label="{{ t.names_button }}" required>
+            <p class="parts" data-preview hidden></p>
+            <p class="muted">{{ t.names_hint }}</p>
+            {{ submit(item, 'names', t.names_button) }}
+        </form>
+    </div>
+    <form method="post" action="{{ url_for('review_later', review='split') }}" class="review-later">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="credit" value="{{ item.credit }}">
         <input type="hidden" name="later" value="{{ item.later }}">
-        <button type="submit" name="choice" value="split"{% if item.suggested == 'split' %} class="primary" autofocus{% endif %}>{{ t.split_button }}{% if item.suggested == 'split' %} ({{ t.suggested }}){% endif %}</button>
-        <button type="submit" name="choice" value="keep"{% if item.suggested == 'keep' %} class="primary" autofocus{% endif %}>{{ t.keep_button }}{% if item.suggested == 'keep' %} ({{ t.suggested }}){% endif %}</button>
-        <span class="names">
-            <input name="names" placeholder="{{ t.names_placeholder }}" aria-label="{{ t.names_button }}">
-            <button type="submit" name="choice" value="names">{{ t.names_button }}</button>
-        </span>
-        <button type="submit" formaction="{{ url_for('review_later', review='split') }}" formnovalidate>{{ t.later }}</button>
+        <button type="submit">{{ t.later }}</button>
     </form>
     {% else %}
     <p>{{ t.review_done }}</p>
