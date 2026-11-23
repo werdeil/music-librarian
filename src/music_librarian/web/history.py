@@ -11,8 +11,8 @@ from flask import abort, jsonify, redirect, render_template, request, send_file,
 
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, stop_pass
-from music_librarian.web import library
-from music_librarian.web.common import from_review, paged, place, submit, when
+from music_librarian.web import failed, library
+from music_librarian.web.common import from_review, paged, place, refused, submit, when
 from music_librarian.web.passes import CANCELLED, DONE, FORMS, OPTIONS, box, boxes_ticked, journal_path
 
 ERROR_TAGS = {"ERROR", "FAILED", "CONFLICT"}
@@ -230,9 +230,19 @@ def register(app, ctx):
 
     @app.post("/runs/<int:run_id>/checked")
     def check_run(run_id):
-        if not runs.check(ctx.state_dir, [run_id], request.form.get("checked") != "0"):
+        """Mark the run checked, or no longer with `checked=0`; refused while it left items in _failed/."""
+        checked = request.form.get("checked") != "0"
+        if checked and held_in_failed(run_id):
+            return refused("failed_held_refused", 409)
+        if not runs.check(ctx.state_dir, [run_id], checked):
             abort(404)
         return redirect(url_for("run_page", run_id=run_id, **history_filters(request.form)))
+
+    def held_in_failed(run_id):
+        run = runs.get(ctx.state_dir, run_id)
+        if run is None or run["command"] != "import" or not run["apply"]:
+            return []
+        return failed.held(ctx.state_dir, ctx.inbox, run_id)
 
     @app.get("/runs/<int:run_id>")
     def run_page(run_id):
@@ -256,6 +266,7 @@ def register(app, ctx):
             if run["options"] is not None and FORMS.get(run["command"]) else None,
             can_apply=bool(ctx.requests and ctx.apply and run["options"] is not None and not run["apply"]),
             can_stop=stoppable(ctx, run), journal=journal, back=back,
+            held=held_in_failed(run_id) if runs.status(run) in PROBLEMS and not run["checked"] else [],
             filters=filters, history_url=url_for("history", **filters))
 
     @app.get("/runs/<int:run_id>/log.json")

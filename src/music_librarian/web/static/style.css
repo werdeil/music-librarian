@@ -1945,3 +1945,31 @@ table.tracks .lyrics-row input[type="checkbox"] {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
+.failed-rows {
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border-color);
+}
+
+.failed-rows li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.8rem;
+    padding: 0.5rem 0.3rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.failed-item {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.failed-rows .actions {
+    margin: 0;
+}

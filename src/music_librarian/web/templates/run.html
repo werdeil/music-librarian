@@ -48,8 +48,9 @@
                 <input type="hidden" name="csrf" value="{{ csrf }}">
                 {% if run.checked %}<input type="hidden" name="checked" value="0">{% endif %}
                 {{ m.place_fields(filters) }}
-                <button type="submit">{{ m.icon('unchecked' if run.checked else 'checked') }}{{ t.uncheck_button if run.checked else t.check_button }}</button>
+                <button type="submit"{% if held %} disabled{% endif %}>{{ m.icon('unchecked' if run.checked else 'checked') }}{{ t.uncheck_button if run.checked else t.check_button }}</button>
             </form>
+            {% if held %}<span class="muted">{{ t.failed_held.format(n=held | length) }} · <a href="{{ url_for('failed_imports') }}">{{ t.see }}</a></span>{% endif %}
             {% endif %}
         </div>
         {% endif %}
