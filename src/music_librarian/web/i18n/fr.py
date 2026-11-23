@@ -97,6 +97,9 @@ FR = {
     "failed_retried": "Remis dans l'Inbox : {name}. watch l'importe dans la minute.",
     "failed_dismissed": "Écarté dans _done/ : {name}.",
     "failed_none": "Aucun import en échec.",
+    "failed_held": "Encore dans _failed/, à réessayer ou écarter avant de vérifier : {n}",
+    "failed_held_refused": "Ce passage a encore des éléments dans _failed/ : réessayez-les ou "
+                           "écartez-les d'abord.",
     "upload_button": "Ajouter à l'Inbox",
     "upload_help": "Un dossier par album, ou des morceaux isolés (FLAC, ALAC, MP3), avec leurs "
                    "pochettes, livrets et paroles : watch les importe comme toute copie dans l'Inbox.",

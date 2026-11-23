@@ -1,5 +1,6 @@
 """The items the import left in the Inbox's _failed/: why each failed, read from the import runs,
-put back into the Inbox for watch to import again, or set aside into _done/, which the import purges."""
+put back into the Inbox for watch to import again, or set aside into _done/, which the import purges.
+A run is marked checked once the last item it left there is gone, and not before."""
 import shutil
 from datetime import date
 from pathlib import Path
@@ -44,6 +45,12 @@ def reasons(state_dir: Path, names):
     return found
 
 
+def held(state_dir: Path, inbox: Path, run_id):
+    """The names in _failed/ the run of that id was the latest to send there."""
+    found = reasons(state_dir, entries(inbox))
+    return sorted(name for name, (_, sent_by) in found.items() if sent_by == run_id)
+
+
 def register(app, ctx):
     """Add the page of the failed imports and its two actions, refused while watch runs without --apply."""
 
@@ -54,6 +61,13 @@ def register(app, ctx):
         if name not in entries(ctx.inbox):
             abort(404)
         return ctx.inbox / ERRORS / name
+
+    def sent_by(item):
+        return reasons(ctx.state_dir, [item.name]).get(item.name, (None, None))[1]
+
+    def check_when_cleared(run_id):
+        if run_id is not None and not held(ctx.state_dir, ctx.inbox, run_id):
+            runs.check(ctx.state_dir, [run_id])
 
     @app.get("/inbox/failed")
     def failed_imports():
@@ -68,15 +82,19 @@ def register(app, ctx):
     def failed_retry():
         """Move the item back to the Inbox's root, renamed `name (2)` when one is already there."""
         item = chosen()
+        run_id = sent_by(item)
         target = free_name(ctx.inbox, item.name, item.is_dir())
         item.rename(target)
+        check_when_cleared(run_id)
         return redirect(url_for("failed_imports", retried=target.name))
 
     @app.post("/inbox/failed/dismiss")
     def failed_dismiss():
         """Move the item to today's folder of _done/, purged with the originals of that day."""
         item = chosen()
+        run_id = sent_by(item)
         day = ctx.inbox / DONE / date.today().isoformat()
         day.mkdir(parents=True, exist_ok=True)
         shutil.move(str(item), str(free_name(day, item.name, item.is_dir())))
+        check_when_cleared(run_id)
         return redirect(url_for("failed_imports", dismissed=item.name))

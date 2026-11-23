@@ -96,6 +96,8 @@ EN = {
     "failed_retried": "Back in the Inbox: {name}. watch imports it within a minute.",
     "failed_dismissed": "Set aside in _done/: {name}.",
     "failed_none": "No failed import.",
+    "failed_held": "Still in _failed/, to retry or set aside before checking: {n}",
+    "failed_held_refused": "This run still has items in _failed/: retry or set them aside first.",
     "upload_button": "Add to the Inbox",
     "upload_help": "A folder per album, or loose tracks (FLAC, ALAC, MP3), with their covers, booklets "
                    "and lyrics: watch imports them as any copy into the Inbox.",

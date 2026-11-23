@@ -41,7 +41,7 @@ def failed_import(ctx, name, reason, folder=True):
     """An import run that sends the Inbox item `name` to _failed/, its id."""
     path = ctx.inbox / name
     if folder:
-        path.mkdir()
+        path.mkdir(exist_ok=True)
     else:
         path.write_bytes(b"audio")
     opts = importer.Options(inbox=ctx.inbox, root=ctx.root, apply=True, state_dir=ctx.state_dir)
@@ -131,3 +131,42 @@ def test_the_dry_run_of_an_import_gives_no_reason(client, ctx):
     runs.recorded(fn, log, ctx.state_dir, "import", False)
     page = client.get("/inbox/failed", headers=EN).get_data(as_text=True)
     assert "would go to" not in page and "folder</span>" in page
+
+
+def test_a_run_cannot_be_checked_while_it_holds_items(ctx, client):
+    run_id = failed_import(ctx, "One", "no title")
+    page = client.get(f"/runs/{run_id}", headers=EN).get_data(as_text=True)
+    assert "disabled>" in page and "Still in _failed/, to retry or set aside before checking: 1" in page
+    token = re.search(r'name="csrf" value="([^"]+)"', page)[1]
+    response = client.post(f"/runs/{run_id}/checked", data={"csrf": token}, headers=EN)
+    assert response.status_code == 409 and not runs.get(ctx.state_dir, run_id)["checked"]
+
+
+def test_a_run_is_checked_once_its_last_item_is_gone(ctx, post):
+    path = ctx.inbox / "Two"
+    path.mkdir()
+    (ctx.inbox / "One").mkdir()
+    opts = importer.Options(inbox=ctx.inbox, root=ctx.root, apply=True, state_dir=ctx.state_dir)
+    log = Log()
+
+    def fn():
+        importer.to_errors(opts, importer.Item(ctx.inbox / "One"), "no title", log)
+        importer.to_errors(opts, importer.Item(path), "no title", log)
+        return 2
+
+    runs.recorded(fn, log, ctx.state_dir, "import", True)
+    run_id = runs.recent(ctx.state_dir, 1)[0]["id"]
+    post("retry", "One")
+    assert not runs.get(ctx.state_dir, run_id)["checked"]
+    post("dismiss", "Two")
+    assert runs.get(ctx.state_dir, run_id)["checked"]
+
+
+def test_an_item_failed_again_belongs_to_its_latest_run(ctx, client, post):
+    first = failed_import(ctx, "One", "no title")
+    post("retry", "One")
+    assert runs.get(ctx.state_dir, first)["checked"]
+    second = failed_import(ctx, "One", "no title again")
+    assert "disabled>" not in client.get(f"/runs/{first}", headers=EN).get_data(as_text=True)
+    page = client.get(f"/runs/{second}", headers=EN).get_data(as_text=True)
+    assert "before checking: 1" in page
