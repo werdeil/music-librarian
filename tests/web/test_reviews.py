@@ -82,6 +82,20 @@ def test_split_question_then_an_answer_that_settles_another(d):
     assert "No question left." in text                                  # its names settle the other
 
 
+def test_split_question_shows_the_tags_today_and_each_answer(d):
+    text = page(d, "/reviews/split")
+    now = text[text.index("In the tags today"):text.index("Becomes")]
+    assert '<span class="part whole">Brian May/Roger Taylor</span>' in now and "Composer · Tracks: 3" in now
+    assert 'data-joint="/" aria-pressed="false"' in text and "Names: 2" in text and "Names: 1" in text
+    assert 'name="names" value="Brian May; Roger Taylor" placeholder' in text
+    assert 'class="split-choice suggested" data-joints' in text
+
+
+def test_pieces_keep_each_separator():
+    assert reviews.pieces("Jon Secada, Emilio Estefan, Jr./Randall Barlow") == [
+        ("", "Jon Secada"), (", ", "Emilio Estefan"), (", ", "Jr."), ("/", "Randall Barlow")]
+
+
 def test_split_answer_with_names_then_undo(d):
     d.client.post("/reviews/split", data={"csrf": d.token, "credit": "Brian May/Roger Taylor",
                                           "choice": "names", "names": "Brian May ; Roger Taylor",

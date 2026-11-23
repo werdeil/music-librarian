@@ -62,7 +62,7 @@ The Reviews page shows a card per review (the credits holding several names, the
 
 The reviews ask the questions of `split --review` and `dedupe --review` (see [splitting.md](splitting.md) and [dedupe.md](dedupe.md)) one at a time, in the same order and with the same suggestion, highlighted:
 
-- a credit holding several names, with an album that carries it: **Split**, **Keep whole**, or the names to write separated by `;`;
+- a credit holding several names, as the tags hold it today (the field, the tracks, an album that carries it), then what each answer makes of it: **Split** into its fragments, a click on a separator joining the two on each side of it (`Emilio Estefan, Jr.`), **Keep whole**, or **Write these names**, typed separated by `;` from the split's names and shown as they will be written;
 - a group of likely duplicates, each spelling with an album that carries it: the spelling to write them all as, picked among them or typed (typing it picks it), or **Different artists**;
 - a genre the validated list does not know, the one most tracks carry first, with an album that carries it: a name of a validated genre, added to its line of the list (the one iTunes suggests is picked, when `enrich.genres` looked the album up with `GENRE_LOOKUP=itunes`; without a suggestion none is, and the genre has to be chosen), or a validated genre of its own;
 

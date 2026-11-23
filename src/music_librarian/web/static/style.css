@@ -999,8 +999,136 @@ form.inline {
     background: var(--surface);
 }
 
-.part.known {
+.part.known,
+.known {
     color: var(--ok);
+}
+
+.step {
+    margin: 1.2rem 0 0.5rem;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.split-now {
+    padding: 0.2rem 1rem 0.4rem;
+    border-left: 3px solid var(--border-color);
+}
+
+.split-now .step {
+    margin-top: 0.6rem;
+}
+
+.parts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0;
+    font-size: 1.05rem;
+    color: var(--text-bright);
+}
+
+.parts .part {
+    margin: 0 0.15rem;
+    padding: 0.2rem 0.7rem;
+    overflow-wrap: anywhere;
+}
+
+.parts .part.whole {
+    border-radius: 6px;
+    font-size: 1.15rem;
+}
+
+.split-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: 1rem;
+}
+
+.split-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.8rem 1rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.split-choice.suggested {
+    border-color: var(--accent);
+}
+
+.split-choice h3,
+.split-choice p {
+    margin: 0;
+}
+
+.split-choice .parts {
+    flex: 1;
+    align-content: flex-start;
+}
+
+.split-choice > button[type="submit"] {
+    align-self: flex-start;
+}
+
+.badge {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: var(--fs-sm);
+    font-weight: normal;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.joint {
+    min-width: 1.4rem;
+    padding: 0.1rem 0.3rem;
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.joint:disabled {
+    cursor: default;
+}
+
+.joint:enabled:hover {
+    border-color: var(--accent);
+    color: var(--text-bright);
+}
+
+.joint[aria-pressed="true"],
+.joint[aria-pressed="true"]:enabled:hover {
+    align-self: stretch;
+    margin: 0 -0.15rem;
+    padding: 0 0.1rem 0 0;
+    border-color: var(--surface);
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--text-bright);
+}
+
+.parts .part:has(+ .joint[aria-pressed="true"]) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.joint[aria-pressed="true"] + .part {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.split-choice input[name="names"] {
+    width: 100%;
+}
+
+.split-later {
+    margin-top: 1rem;
 }
 
 .answer {
