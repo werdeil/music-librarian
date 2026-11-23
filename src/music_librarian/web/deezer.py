@@ -140,10 +140,13 @@ def register_extension(app, ctx):
         body = request.get_json(silent=True)
         value = str(body.get("id", "")) if isinstance(body, dict) else ""
         kind = deezer.kind_of(value) or "album"
+        if deezer.SHORT_URL.match(value.strip()):
+            return jsonify(error="short links are not followed: give the deezer.com address"), 400
         try:
             item = deezer.item_id(kind, value)
-        except ValueError as exc:
-            return jsonify(error=str(exc)), 400
+        except ValueError:
+            return jsonify(error="expected an album id, or the deezer.com address of an album or a "
+                                 "playlist"), 400
         asked = ctx.requests.submit("deezer", {"kind": kind, "ids": [item]}, True)
         return jsonify(id=asked.id), 201
 

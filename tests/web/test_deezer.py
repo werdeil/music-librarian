@@ -201,7 +201,10 @@ def test_the_extension_queues_a_download_and_follows_it(ctx):
 @pytest.mark.usefixtures("extension")
 def test_the_extension_is_refused_what_the_dashboard_is(ctx):
     client = web.create_app(ctx).test_client()
-    assert ext(client, "POST", "/deezer/ext/request", json={"id": "x"}).status_code == 400
+    refused = ext(client, "POST", "/deezer/ext/request", json={"id": "x"})
+    assert refused.status_code == 400 and "expected an album id" in refused.json["error"]
+    refused = ext(client, "POST", "/deezer/ext/request", json={"id": "https://link.deezer.com/s/abc"})
+    assert refused.status_code == 400 and "short links" in refused.json["error"]
     assert ext(client, "POST", "/deezer/ext/request", json=["302127"]).status_code == 400
     ctx.apply = False
     refused = ext(client, "POST", "/deezer/ext/request", json={"kind": "album", "id": "1"})
