@@ -99,8 +99,7 @@ EN = {
     "upload_twice": "File sent twice: {name}",
     "upload_added": "Added to the Inbox: {n}. watch imports them within a minute.",
     "deezer_title": "Download from Deezer",
-    "deezer_help": "An album by its deezer.com address or its id, or a playlist by its deezer.com address: "
-                   "its tracks reach the Inbox once downloaded, and watch imports them.",
+    "deezer_help": "Album: address or id. Playlist: address.",
     "deezer_item": "Address or id",
     "deezer_button": "Download",
     "deezer_refused": "Not a Deezer album or playlist: {value}",

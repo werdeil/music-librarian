@@ -100,9 +100,7 @@ FR = {
     "upload_twice": "Fichier envoyé deux fois : {name}",
     "upload_added": "Ajoutés à l'Inbox : {n}. watch les importe dans la minute.",
     "deezer_title": "Télécharger depuis Deezer",
-    "deezer_help": "Un album par son adresse deezer.com ou son identifiant, ou une playlist par son "
-                   "adresse deezer.com : ses pistes arrivent dans l'Inbox une fois téléchargées, et watch "
-                   "les importe.",
+    "deezer_help": "Album : adresse ou identifiant. Playlist : adresse.",
     "deezer_item": "Adresse ou identifiant",
     "deezer_button": "Télécharger",
     "deezer_refused": "Ni un album ni une playlist Deezer : {value}",
