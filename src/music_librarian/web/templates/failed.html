@@ -9,7 +9,7 @@
     {% if dismissed %}<p class="status-ok">{{ t.failed_dismissed.format(name=dismissed) }}</p>{% endif %}
     {% if not ctx.apply %}<p class="muted">{{ t.upload_read_only }}</p>{% endif %}
     {% if items %}
-    <p class="review-count"><span class="tile-value">{{ items | length }}</span> <span>{{ t.failed_unit }}</span></p>
+    <p class="review-count"><span class="tile-value">{{ items | length }}</span> <span>{{ t.failed_unit_one if items | length == 1 else t.failed_unit_many }}</span></p>
     <ul class="failed-rows">
     {% for item in items %}
         <li>

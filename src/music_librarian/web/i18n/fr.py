@@ -87,11 +87,9 @@ FR = {
     "inbox_waiting": "En attente d'import :",
     "inbox_empty": "L'Inbox est vide.",
     "failed_title": "Imports en échec",
-    "failed_intro": "Ce que l'import a laissé dans _failed/ de l'Inbox, avec la raison donnée par son "
-                    "passage. Réessayer le remet dans l'Inbox, où watch l'importe de nouveau dans la "
-                    "minute, une fois la cause corrigée ; écarter le range dans le dossier du jour de "
-                    "_done/, que l'import purge au bout de quelques jours.",
-    "failed_unit": "éléments dans _failed/",
+    "failed_intro": "Corrigez la cause avant de réessayer.",
+    "failed_unit_one": "élément dans _failed/",
+    "failed_unit_many": "éléments dans _failed/",
     "failed_folder": "dossier",
     "failed_file": "fichier",
     "failed_retry": "Réessayer",

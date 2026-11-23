@@ -86,11 +86,9 @@ EN = {
     "inbox_waiting": "Waiting to be imported:",
     "inbox_empty": "The Inbox is empty.",
     "failed_title": "Failed imports",
-    "failed_intro": "What the import left in _failed/ of the Inbox, with the reason its run gave. Retry "
-                    "puts it back in the Inbox, where watch imports it again within a minute, once the "
-                    "cause is fixed; set aside moves it to today's folder of _done/, which the import "
-                    "purges after a few days.",
-    "failed_unit": "items in _failed/",
+    "failed_intro": "Fix the cause before retrying.",
+    "failed_unit_one": "item in _failed/",
+    "failed_unit_many": "items in _failed/",
     "failed_folder": "folder",
     "failed_file": "file",
     "failed_retry": "Retry",

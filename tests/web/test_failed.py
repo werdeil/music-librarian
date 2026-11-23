@@ -95,6 +95,12 @@ def test_dismiss_sets_it_aside_in_done(ctx, post, client):
     assert "Set aside in _done/: song.mp3." in page and "No failed import." in page
 
 
+def test_one_item(client, ctx):
+    failed_import(ctx, "Broken", "no title")
+    page = client.get("/inbox/failed", headers=EN).get_data(as_text=True)
+    assert "<span>item in _failed/</span>" in page and "Fix the cause before retrying." in page
+
+
 def test_only_an_item_of_failed(ctx, post, tmp_path):
     (tmp_path / "outside").mkdir()
     (ctx.inbox / "Waiting").mkdir()
