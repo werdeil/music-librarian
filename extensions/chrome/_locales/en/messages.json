@@ -15,42 +15,10 @@
     "message": "Download"
   },
   "labelDeezerUrl": {
-    "message": "Deezer URL (album or playlist)"
-  },
-  "labelContentId": {
-    "message": "ID (album or playlist)"
+    "message": "Album (address or id) or playlist (address)"
   },
   "btnDownload": {
     "message": "Download"
-  },
-  "sectionLicenseToken": {
-    "message": "License Token"
-  },
-  "tokenNone": {
-    "message": "No token detected locally"
-  },
-  "tokenFound": {
-    "message": "Token detected: $token$",
-    "placeholders": {
-      "token": {
-        "content": "$1"
-      }
-    }
-  },
-  "tokenNoneFallback": {
-    "message": "No local token (the server's DEEZER_LICENSE_TOKEN will be used)"
-  },
-  "btnRefresh": {
-    "message": "Refresh"
-  },
-  "btnRefreshing": {
-    "message": "Refreshing..."
-  },
-  "tokenRefreshed": {
-    "message": "Token refreshed successfully!"
-  },
-  "tokenCaptureError": {
-    "message": "Error: Unable to capture the token. Make sure you are on Deezer."
   },
   "sectionServer": {
     "message": "Server"
@@ -68,7 +36,7 @@
     "message": "Please enter the server URL"
   },
   "idExtracted": {
-    "message": "ID extracted: $type$ $id$",
+    "message": "To download: $type$ $id$",
     "placeholders": {
       "type": {
         "content": "$1"
@@ -79,10 +47,10 @@
     }
   },
   "errorInvalidUrl": {
-    "message": "Invalid URL. Expected format: /album/ID or /playlist/ID"
+    "message": "Expected an album id, or the deezer.com address of an album or a playlist"
   },
   "errorMissingId": {
-    "message": "Please enter a valid ID"
+    "message": "Enter an album id, or the deezer.com address of an album or a playlist"
   },
   "btnDownloading": {
     "message": "Downloading..."
@@ -123,10 +91,10 @@
     }
   },
   "labelServerKey": {
-    "message": "Key (DEEZER_EXTENSION_KEY)"
+    "message": "Key (from the dashboard's Deezer settings)"
   },
   "errorMissingKey": {
-    "message": "Please enter the key set in DEEZER_EXTENSION_KEY"
+    "message": "Please enter the key shown on the dashboard's Deezer settings"
   },
   "errorPermission": {
     "message": "Access to the dashboard was not allowed"
@@ -151,13 +119,16 @@
   "errorDashboardOff": {
     "message": "The dashboard cannot download: watch runs without --apply, or the Deezer download is off"
   },
-  "labelContentKind": {
-    "message": "The ID names"
-  },
   "kindAlbum": {
-    "message": "an album"
+    "message": "album"
   },
   "kindPlaylist": {
-    "message": "a playlist"
+    "message": "playlist"
+  },
+  "permissionNeeded": {
+    "message": "Chrome does not allow access to the dashboard yet: open the settings and click Save."
+  },
+  "badgeWrongKey": {
+    "message": "Key refused"
   }
 }

@@ -12,9 +12,8 @@ from music_librarian import deezer, importer
 from music_librarian.core import runs
 from music_librarian.core.lock import STOP
 from music_librarian.core.log import Buffer
-from music_librarian.deezer import download, staging, tags
-from music_librarian.deezer.config import Config
-from music_librarian.deezer.api import GET_URL
+from music_librarian.deezer import download, kept, staging, tags
+from music_librarian.deezer.api import GET_URL, GW
 from music_librarian.deezer.crypto import CHUNK, blowfish_key
 
 ALBUM_API = "https://api.deezer.com/album/302127"
@@ -44,12 +43,17 @@ def tree(folder):
 @pytest.fixture
 def site(deezer, http, cfg, templates, image):
     """A Deezer serving the album of fixtures/album.html; `unavailable` holds the track tokens
-    get_url has no stream for. site() -> the client."""
+    get_url has no stream for, `expired` the license tokens it calls expired, `user` the account's
+    data the arl gives. site() -> the client."""
     flac = templates[".flac"].read_bytes()
     jpeg = image("cover.jpg", 16, 16)
     unavailable = {"dummy-track-token-3"}    # the third track streams through its fallback
+    expired = set()
+    user = {"USER_ID": 42, "OPTIONS": {"license_token": "dummy-fresh-token"}}
 
     def get_url(json=None, **_kwargs):  # pylint: disable=redefined-outer-name
+        if json["license_token"] in expired:
+            return http.answer({"errors": [{"code": 1001, "message": "License token is expired."}]}, 403)
         token = json["track_tokens"][0]
         if token in unavailable:
             return http.answer({"data": [{"media": []}]})
@@ -61,11 +65,12 @@ def site(deezer, http, cfg, templates, image):
 
     def make(extra=None):
         routes = {ALBUM_API: http.answer(ALBUM), ALBUM_PAGE: http.fixture("album.html"), GET_URL: get_url,
+                  GW: lambda **_kwargs: http.answer({"results": {"USER": user}}),
                   COVER: http.Response(body=jpeg), "https://stream/dummy-fallback-token": stream_of("999")}
         routes.update({f"https://stream/dummy-track-token-{i}": stream_of(str(100 + i)) for i in (1, 2, 3)})
         routes.update(extra or {})
         return deezer(routes)
-    make.unavailable = unavailable
+    make.unavailable, make.expired, make.user = unavailable, expired, user
     return make
 
 
@@ -96,6 +101,19 @@ def test_item_ids():
                            ("https://example.com/album/1", "neither an id")):
         with pytest.raises(ValueError, match=message):
             deezer.item_id("album", value)
+
+
+def test_an_id_names_an_album_and_a_playlist_needs_its_address():
+    assert deezer.items(["302127", "https://www.deezer.com/fr/album/1"]) == ("album", ["302127", "1"])
+    playlists = ["https://www.deezer.com/playlist/9", "deezer.com/playlist/8"]
+    assert deezer.items(playlists) == ("playlist", ["9", "8"])
+    for values, message in ((["https://link.deezer.com/s/abc"], "short links are not followed"),
+                            (["302127", "deezer.com/playlist/2"], "separate passes"),
+                            ([], "no id nor address")):
+        with pytest.raises(ValueError, match=message):
+            deezer.items(values)
+    with pytest.raises(ValueError, match="an id alone names an album"):
+        deezer.item_id("playlist", "908622995")
 
 
 def test_a_dry_run_reads_the_metadata_only(inbox, cfg, site):
@@ -280,23 +298,86 @@ def test_a_playlist_files_each_track_in_its_album(inbox, cfg, site, http, templa
 
 
 def test_without_configuration_a_clear_error(inbox, monkeypatch):
-    for name in ("DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV", "DEEZER_LICENSE_TOKEN"):
+    for name in ("DEEZER_ARL", "DEEZER_PRE_KEY", "DEEZER_IV"):
         monkeypatch.delenv(name, raising=False)
     state = inbox.parent / "state"
-    code = deezer.main(["album", "302127", "--inbox", str(inbox), "--state-dir", str(state)])
+    code = deezer.main(["302127", "--inbox", str(inbox), "--state-dir", str(state)])
     assert code == 1
     run_row = runs.recent(state)[0]
     assert run_row["command"] == "deezer" and run_row["code"] == 1
-    assert "the Deezer download is off: set DEEZER_ARL, DEEZER_PRE_KEY, DEEZER_IV" in \
+    assert "the Deezer download is off: set DEEZER_PRE_KEY and DEEZER_IV, and an arl" in \
         "\n".join(runs.read_log(state, run_row["id"])[0])
 
 
-def test_no_download_without_a_license_token(inbox, cfg, site):
+def sent_tokens(client):
+    return [s["json"]["license_token"] for s in client.session.sent if s["url"] == GET_URL]
+
+
+def test_without_a_license_token_one_is_read_from_the_arl_and_kept(inbox, cfg, site):
     client = site()
-    code, out = run(inbox, Config(cfg.arl, cfg.pre_key, cfg.iv), client, apply=True)
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 0, out
+    assert "TOKEN    license token renewed from the arl" in out and "dummy-fresh-token" not in out
+    assert set(sent_tokens(client)) == {"dummy-fresh-token"}
+    state = inbox.parent / "state"
+    assert kept.token(state, "dummy-arl") == "dummy-fresh-token"
+    assert (state / kept.TOKEN).stat().st_mode & 0o777 == 0o600
+    assert b"dummy-arl" not in (state / kept.TOKEN).read_bytes()
+    assert kept.token(state, "another-dummy-arl") == ""      # set aside once the arl changes
+    again = site()
+    assert run(inbox, cfg, again, "302127", apply=True)[0] == 0
+    assert not [s for s in again.session.sent if s["url"] == GW]     # the kept token is used
+
+
+def test_an_expired_token_is_renewed_once(inbox, cfg, site):
+    client = site()
+    kept.save_token(inbox.parent / "state", "dummy-arl", "dummy-token")
+    site.expired.add("dummy-token")
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 0, out
+    assert out.count("TOKEN    license token renewed from the arl") == 1
+    assert sent_tokens(client)[:2] == ["dummy-token", "dummy-fresh-token"]
+    assert set(sent_tokens(client)[1:]) == {"dummy-fresh-token"}
+
+
+def test_an_expired_token_and_a_refused_arl_end_in_one_try(inbox, cfg, site):
+    client = site()
+    kept.save_token(inbox.parent / "state", "dummy-arl", "dummy-token")
+    site.expired.add("dummy-token")
+    site.user["USER_ID"] = 0
+    code, out = run(inbox, cfg, client, apply=True)
     assert code == 1
-    assert "ERROR    no license token to download with: set DEEZER_LICENSE_TOKEN" in out
-    assert not client.session.sent
+    assert len([s for s in client.session.sent if s["url"] == GW]) == 1
+    assert out.count("the arl is refused by Deezer") == 1
+
+
+def test_a_token_that_cannot_be_kept_still_serves(inbox, cfg, site, monkeypatch):
+    def full(*_args):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(kept, "save_token", full)
+    code, out = run(inbox, cfg, site(), apply=True)
+    assert code == 0, out
+    assert "WARNING  license token not kept in the state folder (No space left on device)" in out
+
+
+def test_a_refused_arl_is_said_once(inbox, cfg, site):
+    client = site()
+    site.user["USER_ID"] = 0
+    code, out = run(inbox, cfg, client, apply=True)
+    assert code == 1
+    assert "ERROR    the arl is refused by Deezer: take the arl cookie of a logged-in session again" in out
+    assert not sent_tokens(client)
+    state = inbox.parent / "state"
+    assert kept.refused(state, "dummy-arl") and not kept.refused(state, "another-dummy-arl")
+    site.user["USER_ID"] = 42
+    assert run(inbox, cfg, site(), apply=True)[0] == 0
+    assert kept.refused(state, "dummy-arl") is None       # forgotten once Deezer takes it again
+
+
+def test_a_dry_run_reads_no_token(inbox, cfg, site):
+    client = site()
+    assert run(inbox, cfg, client)[0] == 0
+    assert not [s for s in client.session.sent if s["url"] == GW]
 
 
 def test_no_download_without_pycryptodome(inbox, cfg, site, monkeypatch):

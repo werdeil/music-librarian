@@ -326,46 +326,40 @@ form.filters {
     margin-top: 0.8rem;
 }
 
-.deezer {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-    max-width: 36rem;
-    margin-top: 1.2rem;
-}
-
-.deezer h3 {
-    margin: 0;
-}
-
-.deezer input[type="text"] {
-    width: min(100%, 28rem);
-}
-
-.deezer fieldset {
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.deezer-fields {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-    width: 100%;
-}
-
-.deezer-kind {
+.inbox-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
 }
 
-.deezer-kind legend {
-    float: left;
-    color: var(--text-muted);
+.inbox-actions .upload {
+    margin-top: 0;
+}
+
+.deezer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.deezer-settings input[type="password"],
+.deezer-settings input[type="text"] {
+    display: block;
+    width: min(100%, 36rem);
+    margin-top: 0.3rem;
+}
+
+.deezer-settings input[readonly] {
+    font-family: monospace;
+}
+
+.deezer-dialog input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-top: 0.3rem;
 }
 
 .drop-zone {

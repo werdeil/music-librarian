@@ -31,7 +31,7 @@ def no_network(monkeypatch):
 
 @pytest.fixture
 def cfg():
-    return Config(arl="dummy-arl", pre_key=PRE_KEY, iv=IV, license_token="dummy-token")
+    return Config(arl="dummy-arl", pre_key=PRE_KEY, iv=IV)
 
 
 class Response:
