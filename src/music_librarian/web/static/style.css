@@ -134,12 +134,12 @@ section {
     margin-left: auto;
 }
 
-.top-search:not(.search-slot) + .top-right {
+.top-search + .top-right {
     margin-left: 0;
 }
 
 .search-slot {
-    display: none;
+    visibility: hidden;
 }
 
 .search .search-pill {
@@ -1732,7 +1732,7 @@ table.found-tracks td.number {
     }
 
     .search-slot {
-        display: block;
+        visibility: visible;
     }
 
     .search [data-header-search] {
