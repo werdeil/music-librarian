@@ -670,6 +670,11 @@
             soon();
         }
     });
+    form.elements.namedItem("q").addEventListener("input", function () {
+        if (!form.contains(this)) {
+            soon();
+        }
+    });
     form.addEventListener("change", function (event) {
         var row = event.target.closest("[data-condition]");
         if (row && event.target.matches("[data-field]")) {
@@ -685,6 +690,32 @@
         event.preventDefault();
         now();
     });
+}());
+
+// On a phone, the library's search box sits where the header's stands on the other pages.
+(function () {
+    "use strict";
+
+    var pill = document.querySelector("[data-header-search]");
+    var nav = document.querySelector(".top nav");
+    if (!pill || !nav) {
+        return;
+    }
+    var spot = document.createComment("search");
+    var phone = window.matchMedia("(max-width: 640px)");
+    pill.before(spot);
+
+    function place() {
+        pill.classList.toggle("top-search", phone.matches);
+        if (phone.matches) {
+            nav.after(pill);
+        } else {
+            spot.after(pill);
+        }
+    }
+
+    place();
+    phone.addEventListener("change", place);
 }());
 
 // A split question's answers: a separator clicked joins the names on each side of it, and the

@@ -229,7 +229,6 @@ EN = {
     "request_waiting": "Waiting for the current pass to end…",
     "request_locked": "Another pass held the lock (run by hand): try again once it ends.",
     "search_library": "Search the library…",
-    "search_placeholder": "Artist, album or title",
     "search_button": "Search",
     "albums_found": "Albums: {n}",
     "sort_by": "Sort by",

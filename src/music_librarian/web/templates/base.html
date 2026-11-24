@@ -23,7 +23,7 @@
             {% if ctx.lyrion %}<a href="{{ url_for('lyrion_page') }}"{% if request.endpoint in ('lyrion_page', 'lyrion_orphan') %} aria-current="page"{% endif %}>Lyrion{% set orphans = orphans_waiting() %}{% if orphans %} <span class="count" title="{{ t.orphans_awaiting }}">{{ orphans }}</span>{% endif %}</a>{% endif %}
         </nav>
         {% if request.endpoint != 'library_page' %}
-        <form class="top-search" method="get" action="{{ url_for('library_page') }}" role="search">
+        <form class="top-search search-pill" method="get" action="{{ url_for('library_page') }}" role="search">
             {{ m.icon('search') }}<input type="search" name="q" placeholder="{{ t.search_library }}" aria-label="{{ t.search_library }}">
         </form>
         {% endif %}

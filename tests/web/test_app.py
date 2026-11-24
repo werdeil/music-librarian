@@ -137,8 +137,10 @@ def test_header_searches_the_library_and_follows_the_overview(client):
     nav = page[page.index("<nav>"):page.index("</nav>")]
     assert [nav.index(name) for name in ("Overview", "Reviews", "Library", "History")] == sorted(
         nav.index(name) for name in ("Overview", "Reviews", "Library", "History"))
-    assert '<form class="top-search" method="get" action="/library"' in page
-    assert 'class="top-search"' not in client.get("/library", headers=EN).get_data(as_text=True)
+    assert '<form class="top-search search-pill" method="get" action="/library"' in page
+    library = client.get("/library?q=daft", headers=EN).get_data(as_text=True)
+    assert 'class="top-search' not in library and '<div class="search-pill" data-header-search>' in library
+    assert 'name="q" form="library-search" value="daft"' in library and 'id="library-search"' in library
 
 
 def test_missing_inbox(client, ctx):

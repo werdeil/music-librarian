@@ -235,7 +235,6 @@ FR = {
     "request_locked": ("Un autre passage tenait le verrou (lancé à la main) : "
                        "relancez une fois qu'il est fini."),
     "search_library": "Rechercher dans la bibliothèque…",
-    "search_placeholder": "Artiste, album ou titre",
     "search_button": "Chercher",
     "albums_found": "Albums : {n}",
     "sort_by": "Trier par",

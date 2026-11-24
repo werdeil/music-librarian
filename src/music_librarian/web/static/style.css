@@ -107,14 +107,43 @@ section {
     border-bottom: 2px solid var(--accent);
 }
 
-.top-search {
+.search-pill {
     position: relative;
+}
+
+.search-pill .icon {
+    position: absolute;
+    top: 50%;
+    left: 0.65rem;
+    margin: 0;
+    color: var(--text-muted);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.search-pill input {
+    width: 100%;
+    max-width: none;
+    padding: 0.35rem 0.8rem 0.35rem 2.1rem;
+    border-radius: 999px;
+}
+
+.top-search {
     flex: 1 1 9rem;
     max-width: 16rem;
     margin-left: auto;
 }
 
 .top-search + .top-right {
+    margin-left: 0;
+}
+
+.search .search-pill {
+    flex: 1 1 16rem;
+    max-width: 28rem;
+}
+
+.top-right {
     margin-left: 0;
 }
 
@@ -854,11 +883,6 @@ td.cell-link a:hover,
 td.cell-link a:focus-visible {
     background: var(--surface);
     color: var(--text-bright);
-}
-
-.search input {
-    flex: 1;
-    max-width: 28rem;
 }
 
 .albums {
@@ -1845,7 +1869,7 @@ table.found-tracks td.number {
         width: 100%;
     }
 
-    .search input[type="search"] {
+    .search .search-pill {
         flex: 1 1 100%;
         max-width: none;
     }
