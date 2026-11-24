@@ -278,6 +278,7 @@ def test_a_review_switched_off_leaves_every_count(d):
     badge = '<span class="count" title="Questions awaiting an answer">{n}</span>'
     text = page(d, "/reviews")
     assert badge.format(n=11) in text and 'aria-checked="true"' in text
+    assert re.search(r'<section class="review-card review-todo">\s*<header>\s*<h2>Credits holding', text)
     response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
     assert response.location.endswith("/reviews")
     text = page(d, "/reviews")

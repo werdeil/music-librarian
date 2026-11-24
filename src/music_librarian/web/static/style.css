@@ -1368,9 +1368,18 @@ form.inline {
     color: var(--warning);
 }
 
-.review-off {
-    background: none;
-    border-style: dashed;
+.review-todo {
+    border-color: var(--warning);
+    background: linear-gradient(rgb(255 210 127 / 7%), rgb(255 210 127 / 7%)), var(--surface);
+}
+
+.review-ok {
+    border-color: var(--ok);
+    background: linear-gradient(rgb(143 209 158 / 7%), rgb(143 209 158 / 7%)), var(--surface);
+}
+
+.review-ok .review-clear {
+    color: var(--ok);
 }
 
 .review-off h2,

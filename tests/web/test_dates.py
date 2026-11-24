@@ -59,8 +59,11 @@ def test_every_year_alone(tmp_path, make_track, serve):
     client = serve(root, tmp_path / "state", tmp_path / "Inbox").client
     page = client.get("/library/dates", headers=EN).get_data(as_text=True)
     assert "Every track holds a year alone." in page
-    card = client.get("/reviews", headers=EN).get_data(as_text=True).split("years to fix</h2>")[1]
+    reviews_page = client.get("/reviews", headers=EN).get_data(as_text=True)
+    before, card = reviews_page.split("years to fix</h2>")
     assert "No question left." in card.split("</section>")[0]
+    opening = '<section class="review-card review-ok">\n    <header>\n        <h2>Albums with'
+    assert before.rstrip().endswith(opening)
 
 
 def test_switched_off(d):
