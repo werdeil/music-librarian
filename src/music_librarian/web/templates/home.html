@@ -3,7 +3,7 @@
 
 {% block content %}
 <section>
-    <h2>{{ t.to_do }}</h2>
+    <h2>{{ t.checks }}</h2>
     <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 

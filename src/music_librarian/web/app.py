@@ -188,7 +188,7 @@ def create_app(ctx: Context, build_now=False):
                         max_file=uploads.MAX_FILE))
 
     def to_do(inbox):
-        """What the To do tiles show, `inbox` as inbox_state() returns it."""
+        """What the Checks chips show, `inbox` as inbox_state() returns it."""
         everything = index.get()
         downloads = deezer_state(ctx)
         todo = dict(waiting(), failed=len(inbox or ()), orphans=orphans_waiting(),

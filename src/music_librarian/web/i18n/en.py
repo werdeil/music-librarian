@@ -3,7 +3,7 @@
 EN = {
     "overview": "Overview",
     "overview_short": "Home",
-    "to_do": "To do",
+    "checks": "Checks",
     "tile_split": "Credits to split",
     "tile_dedupe": "Artists to unify",
     "tile_genres": "Genres outside the list",

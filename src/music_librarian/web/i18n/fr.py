@@ -3,7 +3,7 @@
 FR = {
     "overview": "Vue d'ensemble",
     "overview_short": "Accueil",
-    "to_do": "À traiter",
+    "checks": "Contrôles",
     "tile_split": "Crédits à découper",
     "tile_dedupe": "Artistes à unifier",
     "tile_genres": "Genres hors de la liste",

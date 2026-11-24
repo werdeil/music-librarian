@@ -59,7 +59,7 @@ Exit codes: 0 OK, 1 failed (not configured, an album or a playlist not found, no
 
 Once `DEEZER_PRE_KEY` and `DEEZER_IV` are set, the overview's Operations show a **Download from Deezer** button beside **Add to the Inbox**. Its dialog takes an album, by its deezer.com address or its id, or a playlist, by its address. **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview, and an incomplete album is dropped with its unavailable tracks listed. The button is disabled while `watch` runs without `--apply` or no arl is given. A short link is refused with a word on what to give instead.
 
-The overview's environment, folded at the bottom, holds a Deezer line: where the arl comes from, whether Deezer refused it, whether the extension has its key, and a link to the **Deezer settings**. That page takes a new arl, checks it with Deezer and keeps it; it also makes the extension's key. A missing or refused arl raises a To do chip that opens it. Details of the routes in [web.md](web.md#downloading-from-deezer).
+The overview's environment, folded at the bottom, holds a Deezer line: where the arl comes from, whether Deezer refused it, whether the extension has its key, and a link to the **Deezer settings**. That page takes a new arl, checks it with Deezer and keeps it; it also makes the extension's key. A missing or refused arl raises a Checks chip that opens it. Details of the routes in [web.md](web.md#downloading-from-deezer).
 
 ## The Chrome extension
 
@@ -74,7 +74,7 @@ The badge then reads **Connected**, **Connected, downloads off** when `watch` ru
 ## Troubleshooting
 
 - **`the Deezer download is off`**: `DEEZER_PRE_KEY` or `DEEZER_IV` is empty in the container, or no arl is given (`docker compose exec music-librarian env | grep -c DEEZER_` counts the variables without showing them).
-- **`the arl is refused by Deezer`**: the arl expired or its session was logged out. The overview shows a To do chip: take the `arl` cookie of a logged-in session again and paste it on the Deezer settings.
+- **`the arl is refused by Deezer`**: the arl expired or its session was logged out. The overview shows a Checks chip: take the `arl` cookie of a logged-in session again and paste it on the Deezer settings.
 - **`pycryptodome is not installed`**: the image was built before the download joined; rebuild it (`docker compose build`). The other commands run meanwhile.
 - **`TOKEN    license token renewed from the arl`**: Deezer called the license token expired, and a fresh one was read from the arl; the download goes on. When every track still fails with `error 1001`, the arl itself is no longer valid: give a new one.
 - **`SKIPPED  <title>: no playable format among FLAC/MP3_320/MP3_128 (…)`**: `get_url` gave no stream for the track. Between the brackets, `error <code>: <message>` is Deezer's own refusal (a track not streamable in your country or with your subscription), `HTTP <status>` an answer without a reason, `empty data` or `no media available` a track offered in none of the formats asked. The track is counted unavailable; the album is still dropped, unless `--complete-only`.
