@@ -139,7 +139,9 @@ def test_header_searches_the_library_and_follows_the_overview(client):
         nav.index(name) for name in ("Overview", "Reviews", "Library", "History"))
     assert '<form class="top-search search-pill" method="get" action="/library"' in page
     library = client.get("/library?q=daft", headers=EN).get_data(as_text=True)
-    assert 'class="top-search' not in library and '<div class="search-pill" data-header-search>' in library
+    assert '<form class="top-search' not in library
+    assert '<div class="search-pill" data-header-search>' in library
+    assert 'data-search-slot aria-hidden="true">' in library and 'value="daft" placeholder' in library
     assert 'name="q" form="library-search" value="daft"' in library and 'id="library-search"' in library
 
 

@@ -692,13 +692,14 @@
     });
 }());
 
-// On a phone, the library's search box sits where the header's stands on the other pages.
+// On a phone, the library's search box takes the place of its stand-in in the header, rendered
+// at the same size so that the swap moves nothing.
 (function () {
     "use strict";
 
     var pill = document.querySelector("[data-header-search]");
-    var nav = document.querySelector(".top nav");
-    if (!pill || !nav) {
+    var slot = document.querySelector("[data-search-slot]");
+    if (!pill || !slot) {
         return;
     }
     var spot = document.createComment("search");
@@ -707,9 +708,10 @@
 
     function place() {
         pill.classList.toggle("top-search", phone.matches);
-        if (phone.matches) {
-            nav.after(pill);
-        } else {
+        if (phone.matches && slot.isConnected) {
+            slot.replaceWith(pill);
+        } else if (!phone.matches && !slot.isConnected) {
+            pill.replaceWith(slot);
             spot.after(pill);
         }
     }

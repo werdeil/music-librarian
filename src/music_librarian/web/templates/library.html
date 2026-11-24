@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
 {% block title %}{{ t.library }} · music-librarian{% endblock %}
+{% block header_search %}
+<div class="top-search search-pill search-slot" data-search-slot aria-hidden="true">
+    {{ m.icon('search') }}<input type="search" value="{{ query }}" placeholder="{{ t.search_library }}" readonly tabindex="-1">
+</div>
+{% endblock %}
 {% block content %}
 <section>
     <h1 class="visually-hidden">{{ t.library }}</h1>

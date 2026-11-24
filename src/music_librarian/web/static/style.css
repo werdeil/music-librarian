@@ -134,8 +134,12 @@ section {
     margin-left: auto;
 }
 
-.top-search + .top-right {
+.top-search:not(.search-slot) + .top-right {
     margin-left: 0;
+}
+
+.search-slot {
+    display: none;
 }
 
 .search .search-pill {
@@ -1738,6 +1742,14 @@ table.found-tracks td.number {
 
     .top-search + .top-right {
         margin-left: auto;
+    }
+
+    .search-slot {
+        display: block;
+    }
+
+    .search [data-header-search] {
+        display: none;
     }
 
 
