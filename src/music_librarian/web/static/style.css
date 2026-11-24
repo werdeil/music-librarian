@@ -723,9 +723,10 @@ table.schedule td.row-chevron {
     color: var(--warning);
 }
 
-.chip-off {
-    background: none;
-    border-style: dashed;
+.chip-ok {
+    border-color: var(--ok);
+    background: rgb(143 209 158 / 16%);
+    color: var(--text-bright);
 }
 
 .chip-ok .chip-mark {
