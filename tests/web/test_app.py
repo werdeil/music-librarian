@@ -116,7 +116,8 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert "Nothing to handle" in page and 'class="chip chip-todo' not in page and 'class="chip chip-ok"' in page
+    assert "Nothing to handle" in page and 'class="chip chip-todo' not in page
+    assert 'class="chip chip-ok"' in page
     assert 'Genres outside the list <span class="muted">(no validated list)</span></a>' in page
     assert "chip-building" not in page
 
