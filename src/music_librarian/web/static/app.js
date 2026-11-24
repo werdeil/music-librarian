@@ -91,6 +91,16 @@
     });
 }());
 
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-shows-dialog]").forEach(function (opener) {
+        opener.addEventListener("click", function () {
+            opener.nextElementSibling.showModal();
+        });
+    });
+}());
+
 // A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
 // without script, the card submits the options as ticked by default.
 (function () {
@@ -99,6 +109,9 @@
     document.querySelectorAll("[data-opens-dialog]").forEach(function (opener) {
         var form = opener.form;
         var dialog = form.querySelector("dialog");
+        if (!dialog) {
+            return;
+        }
         var warnings = dialog.querySelectorAll("[data-long]");
 
         function update() {
@@ -660,6 +673,11 @@
             soon();
         }
     });
+    form.elements.namedItem("q").addEventListener("input", function () {
+        if (!form.contains(this)) {
+            soon();
+        }
+    });
     form.addEventListener("change", function (event) {
         var row = event.target.closest("[data-condition]");
         if (row && event.target.matches("[data-field]")) {
@@ -675,6 +693,34 @@
         event.preventDefault();
         now();
     });
+}());
+
+// On a phone, the library's search box takes the place of its stand-in in the header, rendered
+// at the same size so that the swap moves nothing.
+(function () {
+    "use strict";
+
+    var pill = document.querySelector("[data-header-search]");
+    var slot = document.querySelector("[data-search-slot]");
+    if (!pill || !slot) {
+        return;
+    }
+    var spot = document.createComment("search");
+    var phone = window.matchMedia("(max-width: 640px)");
+    pill.before(spot);
+
+    function place() {
+        pill.classList.toggle("top-search", phone.matches);
+        if (phone.matches && slot.isConnected) {
+            slot.replaceWith(pill);
+        } else if (!phone.matches && !slot.isConnected) {
+            pill.replaceWith(slot);
+            spot.after(pill);
+        }
+    }
+
+    place();
+    phone.addEventListener("change", place);
 }());
 
 // A split question's answers: a separator clicked joins the names on each side of it, and the

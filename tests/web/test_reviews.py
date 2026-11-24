@@ -62,9 +62,9 @@ def test_overview(d):
 def test_home_counts_the_same_questions(d):
     text = page(d, "/")
     tile = lambda label: text[text.index(label) - 300:text.index(label)]
-    assert '<span class="tile-value">2' in tile("Credits to split")
+    assert '<span class="chip-count">2' in tile("Credits to split")
     assert '/reviews/split"' in tile("Credits to split")
-    assert '<span class="tile-value">1' in tile("Artists to unify")
+    assert '<span class="chip-count">1' in tile("Artists to unify")
     assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
     badge = '<span class="count" title="Questions awaiting an answer">11</span>'   # 8 tracks without lyrics
     assert badge in page(d, "/library")
@@ -236,8 +236,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         for kind in ("lyrics", "mixed"):
             client.post(f"/reviews/{kind}/switch", data={"csrf": token, "on": "0"})
         home = client.get("/", headers=EN).get_data(as_text=True)
-        assert 'class="tile tile-building"' in home and "tile-todo" not in home
-        assert "Nothing to handle" not in home
+        assert 'class="chip chip-building"' in home and "chip-todo" not in home
     finally:
         release.set()
 
@@ -279,15 +278,19 @@ def test_a_review_switched_off_leaves_every_count(d):
     badge = '<span class="count" title="Questions awaiting an answer">{n}</span>'
     text = page(d, "/reviews")
     assert badge.format(n=11) in text and 'aria-checked="true"' in text
+    assert re.search(r'<section class="review-card review-todo">\s*<header>\s*<h2>Credits holding', text)
     response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
     assert response.location.endswith("/reviews")
     text = page(d, "/reviews")
     assert badge.format(n=9) in text and 'class="review-card review-off"' in text
     assert '<span class="tile-value">2</span> <span>credits to settle</span>' in text      # still shown
     assert 'action="/reviews/split/switch"' in text and 'name="on" value="1"' in text
-    assert "Credits to split" not in page(d, "/")
+    home = page(d, "/")
+    off = 'title="review switched off"><span class="chip-mark" aria-hidden="true">–</span>Credits to split'
+    assert off in home
     d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "1"})
     assert badge.format(n=11) in page(d, "/reviews")
+    assert "chip-off" not in page(d, "/")
     assert d.client.post("/reviews/nothing/switch", data={"csrf": d.token, "on": "0"}).status_code == 404
 
 

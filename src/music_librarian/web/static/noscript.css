@@ -1,0 +1,7 @@
+.search-slot {
+    display: none !important;
+}
+
+.search [data-header-search] {
+    display: block !important;
+}
