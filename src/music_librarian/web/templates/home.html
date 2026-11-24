@@ -53,26 +53,70 @@
 </section>
 
 <section>
-    <h2>{{ t.scheduled_passes }}</h2>
+    <div class="section-head">
+        <h2>{{ t.passes_title }}</h2>
+        {% if ctx.requests %}
+        <button type="button" class="primary" data-shows-dialog>{{ m.icon('start') }}{{ t.run_a_pass }}…</button>
+        <dialog class="pass-dialog launch-dialog">
+            <h3>{{ t.run_a_pass }}</h3>
+            <div class="pass-cards">
+            {% for command, names in passes.items() %}
+                <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
+                    <input type="hidden" name="csrf" value="{{ csrf }}">
+                    <input type="hidden" name="command" value="{{ command }}">
+                    <button type="submit"{% if names %} data-opens-dialog{% endif %}>
+                        {{ m.icon(command, "pass-icon") }}
+                        <span class="pass-title">{{ t.passes[command] }}</span>
+                        <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
+                    </button>
+                    {% if names %}
+                    <dialog class="pass-dialog">
+                        <h3>{{ t.passes[command] }}</h3>
+                        <p class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</p>
+                        {% for name in names %}
+                        {% set box = name[3:] if name.startswith('no_') else name %}
+                        <label><input type="checkbox" name="{{ box }}" value="1"
+                            {%- if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
+                        {% if box in long_when %}
+                        <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
+                        {% endif %}
+                        {% endfor %}
+                        <div class="actions">
+                            <button type="submit" class="primary" autofocus>{{ m.icon('start' if command == 'scan' else 'preview') }}{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
+                            <button type="button" data-closes-dialog>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
+                        </div>
+                    </dialog>
+                    {% endif %}
+                </form>
+            {% endfor %}
+            </div>
+            <form method="dialog" class="actions">
+                <button>{{ m.icon('cancel') }}{{ t.close }}</button>
+            </form>
+        </dialog>
+        {% endif %}
+    </div>
     <div class="table-wrap">
     <table class="schedule">
         <thead>
-            <tr><th>{{ t.command }}</th><th></th><th>{{ t.last_run }}</th><th>{{ t.next_run }}</th></tr>
+            <tr><th>{{ t.command }}</th><th></th><th>{{ t.last_run }}</th><th>{{ t.next_run }}</th><th></th></tr>
         </thead>
         <tbody>
         {% for command, text, next in schedule %}
             {% set last = latest.get(command) %}
-            <tr>
-                <td><code>{{ command }}</code></td>
+            <tr{% if last %} class="row-link"{% endif %}>
+                <td>{% if last %}<a href="{{ url_for('run_page', run_id=last.id) }}"><code>{{ command }}</code></a>
+                    {%- else %}<code>{{ command }}</code>{% endif %}</td>
                 <td>{{ text }}</td>
                 <td>
                     {% if last %}
-                        <a href="{{ url_for('run_page', run_id=last.id) }}">{{ last.when }}</a> {{ m.status(t, last) }}
+                        {{ last.when }} {{ m.status(t, last) }}
                     {% else %}
                         <span class="muted">{{ t.never }}</span>
                     {% endif %}
                 </td>
                 <td data-label="{{ t.next_run_label }}">{{ next or '' }}</td>
+                <td class="row-chevron">{% if last %}<span aria-hidden="true">›</span>{% endif %}</td>
             </tr>
         {% endfor %}
         </tbody>
@@ -82,43 +126,6 @@
     <p class="warning">{{ t.recent_problems.format(n=problems) }} · <a href="{{ url_for('history', problems='1') }}">{{ t.see }}</a></p>
     {% endif %}
 </section>
-
-{% if ctx.requests %}
-<section>
-    <h2>{{ t.run_a_pass }}</h2>
-    <div class="pass-cards">
-    {% for command, names in passes.items() %}
-        <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
-            <input type="hidden" name="csrf" value="{{ csrf }}">
-            <input type="hidden" name="command" value="{{ command }}">
-            <button type="submit"{% if names %} data-opens-dialog{% endif %}>
-                {{ m.icon(command, "pass-icon") }}
-                <span class="pass-title">{{ t.passes[command] }}</span>
-                <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
-            </button>
-            {% if names %}
-            <dialog class="pass-dialog">
-                <h3>{{ t.passes[command] }}</h3>
-                <p class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</p>
-                {% for name in names %}
-                {% set box = name[3:] if name.startswith('no_') else name %}
-                <label><input type="checkbox" name="{{ box }}" value="1"
-                    {%- if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
-                {% if box in long_when %}
-                <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
-                {% endif %}
-                {% endfor %}
-                <div class="actions">
-                    <button type="submit" class="primary" autofocus>{{ m.icon('start' if command == 'scan' else 'preview') }}{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
-                    <button type="button" data-closes-dialog>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
-                </div>
-            </dialog>
-            {% endif %}
-        </form>
-    {% endfor %}
-    </div>
-</section>
-{% endif %}
 
 <details class="environment">
     <summary>{{ t.environment }}</summary>

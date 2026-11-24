@@ -91,6 +91,16 @@
     });
 }());
 
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-shows-dialog]").forEach(function (opener) {
+        opener.addEventListener("click", function () {
+            opener.nextElementSibling.showModal();
+        });
+    });
+}());
+
 // A pass card opens its options in a dialog, each warning shown while its box makes the pass long;
 // without script, the card submits the options as ticked by default.
 (function () {

@@ -42,11 +42,12 @@
 <p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
 {% endif %}
 
-{% for e in ns.aside if e.note %}
-<p class="tile-aside muted"><a class="tile-line" href="{{ e.href }}">{{ e.label }}</a> ({{ e.note }})</p>
+{% set aside = ns.aside | selectattr('note') | list %}
+{% if ns.ok or aside %}
+<div class="chips">
+{% for e in ns.ok %}<a class="chip chip-ok" href="{{ e.href }}"><span class="chip-mark" aria-hidden="true">✓</span>{{ e.label }}</a>
 {% endfor %}
-
-{% if ns.ok and ns.todo %}
-<p class="tile-ok-line muted"><span aria-hidden="true">✓</span> {{ t.tile_up_to_date }}
-{% for e in ns.ok %}<a class="tile-line tile-ok" href="{{ e.href }}">{{ e.label }}</a>{{ ', ' if not loop.last }}{% endfor %}</p>
+{% for e in aside %}<a class="chip" href="{{ e.href }}"><span class="chip-mark" aria-hidden="true">–</span>{{ e.label }} <span class="muted">({{ e.note }})</span></a>
+{% endfor %}
+</div>
 {% endif %}

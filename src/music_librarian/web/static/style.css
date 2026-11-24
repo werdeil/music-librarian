@@ -107,6 +107,33 @@ section {
     border-bottom: 2px solid var(--accent);
 }
 
+.top-search {
+    position: relative;
+    flex: 0 1 16rem;
+    min-width: 9rem;
+    margin-left: auto;
+}
+
+.top-search + .top-right {
+    margin-left: 0;
+}
+
+.top-search .icon {
+    position: absolute;
+    top: 50%;
+    left: 0.65rem;
+    margin: 0;
+    color: var(--text-muted);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.top-search input {
+    width: 100%;
+    padding: 0.35rem 0.8rem 0.35rem 2.1rem;
+    border-radius: 999px;
+}
+
 .top-right {
     display: flex;
     align-items: center;
@@ -525,6 +552,55 @@ footer {
     border-radius: 8px;
 }
 
+.launch-dialog {
+    width: min(44rem, calc(100vw - 2 * var(--page-pad)));
+}
+
+.launch-dialog .pass-cards {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    margin-top: 0.8rem;
+}
+
+.section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1rem;
+    margin-bottom: 0.6rem;
+}
+
+.section-head h2 {
+    margin: 0;
+}
+
+table.schedule tr.row-link {
+    position: relative;
+}
+
+table.schedule tr.row-link a {
+    color: inherit;
+    text-decoration: none;
+}
+
+table.schedule tr.row-link a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+table.schedule tr.row-link:hover,
+table.schedule tr.row-link:focus-within {
+    background: var(--surface);
+    color: var(--text-bright);
+}
+
+table.schedule td.row-chevron {
+    width: 1.5rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
 .pass-dialog::backdrop {
     background: rgb(0 0 0 / 60%);
 }
@@ -588,6 +664,35 @@ footer {
     color: var(--warning);
 }
 
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+}
+
+.chip:hover {
+    border-color: var(--accent);
+    color: var(--text-bright);
+}
+
+.chip-ok .chip-mark {
+    color: var(--ok);
+}
+
 .all-clear {
     font-size: 1.1rem;
     color: var(--ok);
@@ -602,24 +707,6 @@ footer {
 .tile-building .spinner {
     width: 1.1rem;
     height: 1.1rem;
-}
-
-.tile-aside {
-    margin: 0.8rem 0 0;
-    font-size: var(--fs-sm);
-}
-
-.tile-line {
-    color: var(--text-muted);
-    text-decoration: none;
-}
-
-.tile-line:hover {
-    color: var(--text-bright);
-}
-
-.tile-line.tile-ok {
-    color: var(--text-muted);
 }
 
 .actions {
@@ -1577,11 +1664,6 @@ table.found-tracks td.number {
     font-variant-numeric: tabular-nums;
 }
 
-.tile-ok-line {
-    margin: 0.6rem 0 0;
-    font-size: var(--fs-sm);
-}
-
 @media (max-width: 640px) {
     .top {
         gap: 0.5rem 0.8rem;
@@ -1602,6 +1684,17 @@ table.found-tracks td.number {
     .top-right {
         margin-left: auto;
     }
+
+    .top-search {
+        order: 4;
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+
+    .top-search + .top-right {
+        margin-left: auto;
+    }
+
 
     .nav-long {
         display: none;
@@ -1791,6 +1884,10 @@ table.found-tracks td.number {
         grid-column: 1 / -1;
         color: var(--text-muted);
         font-size: var(--fs-sm);
+    }
+
+    table.schedule td.row-chevron {
+        display: none;
     }
 
     table.schedule td:nth-child(4):empty {

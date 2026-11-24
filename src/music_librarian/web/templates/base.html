@@ -1,3 +1,4 @@
+{% import "_macros.html" as m %}
 <!doctype html>
 <html lang="{{ lang }}">
 <head>
@@ -16,11 +17,16 @@
         </a>
         <nav>
             <a href="{{ url_for('home') }}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}><span class="nav-long">{{ t.overview }}</span><span class="nav-short">{{ t.overview_short }}</span></a>
-            <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
-            <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
             <a href="{{ url_for('reviews_page') }}"{% if request.endpoint in ('reviews_page', 'review_split', 'review_dedupe', 'review_genres') %} aria-current="page"{% endif %}>{{ t.reviews }}{% set questions = waiting_total() %}{% if questions %} <span class="count" title="{{ t.questions_waiting }}">{{ questions }}</span>{% endif %}</a>
+            <a href="{{ url_for('library_page') }}"{% if request.endpoint in ('library_page', 'album_page') %} aria-current="page"{% endif %}>{{ t.library }}</a>
+            <a href="{{ url_for('history') }}"{% if request.endpoint in ('history', 'run_page') %} aria-current="page"{% endif %}>{{ t.history }}</a>
             {% if ctx.lyrion %}<a href="{{ url_for('lyrion_page') }}"{% if request.endpoint in ('lyrion_page', 'lyrion_orphan') %} aria-current="page"{% endif %}>Lyrion{% set orphans = orphans_waiting() %}{% if orphans %} <span class="count" title="{{ t.orphans_awaiting }}">{{ orphans }}</span>{% endif %}</a>{% endif %}
         </nav>
+        {% if request.endpoint != 'library_page' %}
+        <form class="top-search" method="get" action="{{ url_for('library_page') }}" role="search">
+            {{ m.icon('search') }}<input type="search" name="q" placeholder="{{ t.search_library }}" aria-label="{{ t.search_library }}">
+        </form>
+        {% endif %}
         <div class="top-right">
             <div id="activity" data-refresh="{{ url_for('activity_fragment') }}">{% include "_activity.html" %}</div>
             {% if not ctx.apply %}<span class="mode" title="{{ t.watch_dry_run }}">{{ t.mode_dry_run }}</span>{% endif %}
