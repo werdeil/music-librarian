@@ -12,12 +12,13 @@
     dict(key='lyrics', value=todo.lyrics, label=t.tile_lyrics, href=url_for('album_page', folder=first_bare, list='lyrics', at=0)
          if first_bare else url_for('missed_lyrics')),
 ] %}
-{% set entries = entries + [dict(key='deezer_arl', value=todo.deezer_arl, label=t.tile_deezer_arl_missing if deezer_arl_missing else t.tile_deezer_arl,
-                                 href=url_for('deezer_settings_page'))] %}
+{% if todo.deezer_arl %}{% set entries = entries + [dict(value=todo.deezer_arl, label=t.tile_deezer_arl_missing if deezer_arl_missing else t.tile_deezer_arl,
+                                                         href=url_for('deezer_settings_page'))] %}{% endif %}
 {% if ctx.lyrion %}{% set entries = entries + [dict(value=todo.orphans, label=t.tile_orphans, href=url_for('lyrion_page'))] %}{% endif %}
-{% set ns = namespace(todo=[], ok=[], aside=[]) %}
-{% for e in entries if e.key not in switched_off %}
-    {% if e.value is none %}{% set ns.aside = ns.aside + [e] %}
+{% set ns = namespace(todo=[], ok=[], aside=[], off=[]) %}
+{% for e in entries %}
+    {% if e.key in switched_off %}{% set ns.off = ns.off + [e] %}
+    {% elif e.value is none %}{% set ns.aside = ns.aside + [e] %}
     {% elif e.value %}{% set ns.todo = ns.todo + [e] %}
     {% else %}{% set ns.ok = ns.ok + [e] %}{% endif %}
 {% endfor %}
@@ -33,9 +34,11 @@
 {% endif %}
 
 {% set aside = ns.aside | selectattr('note') | list %}
-{% if ns.ok or aside %}
+{% if ns.ok or aside or ns.off %}
 <div class="chips">
 {% for e in ns.ok %}<a class="chip chip-ok" href="{{ e.href }}"><span class="chip-mark" aria-hidden="true">✓</span>{{ e.label }}</a>
+{% endfor %}
+{% for e in ns.off %}<a class="chip chip-off" href="{{ e.href }}" title="{{ t.tile_off }}"><span class="chip-mark" aria-hidden="true">–</span>{{ e.label }}<span class="visually-hidden"> ({{ t.tile_off }})</span></a>
 {% endfor %}
 {% for e in aside %}<a class="chip" href="{{ e.href }}"><span class="chip-mark" aria-hidden="true">–</span>{{ e.label }} <span class="muted">({{ e.note }})</span></a>
 {% endfor %}

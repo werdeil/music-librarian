@@ -7,6 +7,7 @@ FR = {
     "tile_split": "Crédits à découper",
     "tile_dedupe": "Artistes à unifier",
     "tile_genres": "Genres hors de la liste",
+    "tile_off": "revue désactivée",
     "tile_no_genre_list": "pas de liste validée",
     "tile_building": "calcul en cours",
     "environment": "Environnement",

@@ -723,6 +723,11 @@ table.schedule td.row-chevron {
     color: var(--warning);
 }
 
+.chip-off {
+    background: none;
+    border-style: dashed;
+}
+
 .chip-ok .chip-mark {
     color: var(--ok);
 }

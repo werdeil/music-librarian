@@ -200,10 +200,7 @@ def create_app(ctx: Context, build_now=False):
                     repeats=None if everything is None else sum(a.repeated for a in everything),
                     deezer_arl=int(bool(downloads and (downloads["refused"] or not downloads["arl"]))))
         bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
-        switched_off = set(reviews.KINDS) - set(todo)
-        if not todo["deezer_arl"]:
-            switched_off.add("deezer_arl")
-        return dict(todo=todo, switched_off=switched_off,
+        return dict(todo=todo, switched_off=set(reviews.KINDS) - set(todo),
                     deezer_arl_missing=bool(downloads and not downloads["arl"]),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,

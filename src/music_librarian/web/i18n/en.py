@@ -7,6 +7,7 @@ EN = {
     "tile_split": "Credits to split",
     "tile_dedupe": "Artists to unify",
     "tile_genres": "Genres outside the list",
+    "tile_off": "review switched off",
     "tile_no_genre_list": "no validated list",
     "tile_building": "being worked out",
     "environment": "Environment",

@@ -65,7 +65,10 @@ def test_every_year_alone(tmp_path, make_track, serve):
 
 def test_switched_off(d):
     d.client.post("/reviews/dates/switch", data={"csrf": d.token, "on": "0"})
-    assert "Albums with years to fix" not in d.client.get("/", headers=EN).get_data(as_text=True)
+    home = d.client.get("/", headers=EN).get_data(as_text=True)
+    chip = home[home.index("Albums with years to fix") - 200:home.index("Albums with years to fix")]
+    assert 'class="chip chip-off"' in chip and 'title="review switched off"' in chip
+    assert '<span class="chip-mark" aria-hidden="true">–</span>' in chip and "chip-count" not in chip
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
     assert 'class="review-card review-off"' in page and "albums with years to fix" in page
 
