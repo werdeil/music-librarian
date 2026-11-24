@@ -3,7 +3,7 @@
 {% block title %}{{ t.library }} · music-librarian{% endblock %}
 {% block header_search %}
 <div class="top-search search-pill search-slot" data-search-slot aria-hidden="true">
-    {{ m.icon('search') }}<input type="search" value="{{ query }}" placeholder="{{ t.search_library }}" readonly tabindex="-1">
+    {{ m.icon('search') }}<input type="search" value="{{ query }}" placeholder="{{ t.search_hint }}" readonly tabindex="-1">
 </div>
 {% endblock %}
 {% block content %}
@@ -15,7 +15,7 @@
         <div class="search">
             <div class="search-pill" data-header-search>
                 {{ m.icon('search') }}<input type="search" name="q" form="library-search" value="{{ query }}"
-                    placeholder="{{ t.search_library }}" aria-label="{{ t.search_library }}">
+                    placeholder="{{ t.search_hint }}" aria-label="{{ t.search_library }}">
             </div>
             <label class="sort">{{ t.sort_by }}
                 <select name="sort">

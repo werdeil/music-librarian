@@ -232,7 +232,8 @@ FR = {
     "request_waiting": "En attente de la fin du passage en cours…",
     "request_locked": ("Un autre passage tenait le verrou (lancé à la main) : "
                        "relancez une fois qu'il est fini."),
-    "search_library": "Rechercher dans la bibliothèque…",
+    "search_hint": "Artiste, album, titre…",
+    "search_library": "Rechercher dans la bibliothèque",
     "search_button": "Chercher",
     "albums_found": "Albums : {n}",
     "sort_by": "Trier par",

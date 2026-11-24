@@ -25,7 +25,7 @@
         </nav>
         {% block header_search %}
         <form class="top-search search-pill" method="get" action="{{ url_for('library_page') }}" role="search">
-            {{ m.icon('search') }}<input type="search" name="q" placeholder="{{ t.search_library }}" aria-label="{{ t.search_library }}">
+            {{ m.icon('search') }}<input type="search" name="q" placeholder="{{ t.search_hint }}" aria-label="{{ t.search_library }}">
         </form>
         {% endblock %}
         <div class="top-right">
