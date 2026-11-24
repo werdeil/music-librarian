@@ -109,8 +109,8 @@ section {
 
 .top-search {
     position: relative;
-    flex: 0 1 16rem;
-    min-width: 9rem;
+    flex: 1 1 9rem;
+    max-width: 16rem;
     margin-left: auto;
 }
 
@@ -558,7 +558,27 @@ footer {
 
 .launch-dialog .pass-cards {
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-    margin-top: 0.8rem;
+    margin: 0.8rem 0 0.2rem;
+}
+
+.dialog-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    padding: 0.3rem;
+    line-height: 0;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+}
+
+.dialog-close:hover {
+    color: var(--text-bright);
+    background: none;
+}
+
+.dialog-close .icon {
+    margin: 0;
 }
 
 .section-head {
@@ -1688,6 +1708,7 @@ table.found-tracks td.number {
     .top-search {
         order: 4;
         flex-basis: 100%;
+        max-width: none;
         margin-left: 0;
     }
 

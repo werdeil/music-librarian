@@ -90,8 +90,8 @@
                 </form>
             {% endfor %}
             </div>
-            <form method="dialog" class="actions">
-                <button>{{ m.icon('cancel') }}{{ t.close }}</button>
+            <form method="dialog">
+                <button class="dialog-close" title="{{ t.close }}" aria-label="{{ t.close }}">{{ m.icon('cancel') }}</button>
             </form>
         </dialog>
         {% endif %}
