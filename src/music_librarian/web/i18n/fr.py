@@ -9,7 +9,6 @@ FR = {
     "tile_genres": "Genres hors de la liste",
     "tile_no_genre_list": "pas de liste validée",
     "tile_building": "calcul en cours",
-    "tile_all_clear": "Rien à traiter",
     "environment": "Environnement",
     "env_mode": "Mode",
     "env_applies": "passes appliquées",

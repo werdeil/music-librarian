@@ -116,7 +116,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
 
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert "Nothing to handle" in page and 'class="chip chip-todo' not in page
+    assert 'class="chip chip-todo' not in page and page.count('<div class="chips">') == 1
     assert 'class="chip chip-ok"' in page
     assert 'Genres outside the list <span class="muted">(no validated list)</span></a>' in page
     assert "chip-building" not in page
@@ -127,7 +127,6 @@ def test_counts_to_handle_on_a_line_of_their_own(client, ctx):
         (ctx.inbox / "_failed" / name).mkdir(parents=True)
     page = client.get("/tiles", headers=EN).get_data(as_text=True)
     assert page.count('class="chip chip-todo"') == 1 and "Failed imports" in page
-    assert "Nothing to handle" not in page
     assert page.index('class="chip chip-todo"') < page.rindex('<div class="chips">')
     ok = page[page.rindex('<div class="chips">'):]
     assert ok.count('class="chip chip-ok"') == 6

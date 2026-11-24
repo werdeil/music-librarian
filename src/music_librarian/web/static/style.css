@@ -689,8 +689,7 @@ table.schedule td.row-chevron {
     gap: 0.5rem;
 }
 
-.chips + .chips,
-.all-clear + .chips {
+.chips + .chips {
     margin-top: 0.6rem;
 }
 
@@ -725,11 +724,6 @@ table.schedule td.row-chevron {
 }
 
 .chip-ok .chip-mark {
-    color: var(--ok);
-}
-
-.all-clear {
-    font-size: 1.1rem;
     color: var(--ok);
 }
 

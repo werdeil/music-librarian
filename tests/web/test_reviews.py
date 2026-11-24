@@ -236,8 +236,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         for kind in ("lyrics", "mixed"):
             client.post(f"/reviews/{kind}/switch", data={"csrf": token, "on": "0"})
         home = client.get("/", headers=EN).get_data(as_text=True)
-        assert 'class="chip chip-building"' in home and "tile-todo" not in home
-        assert "Nothing to handle" not in home
+        assert 'class="chip chip-building"' in home and "chip-todo" not in home
     finally:
         release.set()
 

@@ -9,7 +9,6 @@ EN = {
     "tile_genres": "Genres outside the list",
     "tile_no_genre_list": "no validated list",
     "tile_building": "being worked out",
-    "tile_all_clear": "Nothing to handle",
     "environment": "Environment",
     "env_mode": "Mode",
     "env_applies": "passes applied",

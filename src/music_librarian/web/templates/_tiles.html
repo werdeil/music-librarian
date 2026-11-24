@@ -30,8 +30,6 @@
 {% for e in building %}<a class="chip chip-building" href="{{ e.href }}"><span class="spinner" aria-hidden="true"></span><span class="visually-hidden">{{ t.tile_building }}</span>{{ e.label }}</a>
 {% endfor %}
 </div>
-{% else %}
-<p class="all-clear"><span aria-hidden="true">✓</span> {{ t.tile_all_clear }}</p>
 {% endif %}
 
 {% set aside = ns.aside | selectattr('note') | list %}
