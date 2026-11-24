@@ -28,7 +28,7 @@ def test_tile_and_list(d):
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     at = home.index("Albums with years to fix")
     tile = home[at - 300:at]
-    assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
+    assert 'class="chip chip-todo"' in tile and '<span class="chip-count">2' in tile
     assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0"' in tile
     page = d.client.get("/library/dates", headers=EN).get_data(as_text=True)
     assert TO_FIX.format(2) in page and "A/Good" not in page

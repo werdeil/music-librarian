@@ -111,23 +111,24 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     assert 'Unchecked runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
     assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
     failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
-    assert 'class="tile tile-todo"' in failed and '<span class="tile-value">1' in failed
+    assert 'class="chip chip-todo"' in failed and '<span class="chip-count">1' in failed
 
 
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert "Nothing to handle" in page and 'class="tile tile-' not in page and 'class="chip chip-ok"' in page
+    assert "Nothing to handle" in page and 'class="chip chip-todo' not in page and 'class="chip chip-ok"' in page
     assert 'Genres outside the list <span class="muted">(no validated list)</span></a>' in page
-    assert "tile-building" not in page
+    assert "chip-building" not in page
 
 
-def test_tiles_to_handle_first_the_rest_as_chips(client, ctx):
+def test_counts_to_handle_on_a_line_of_their_own(client, ctx):
     for name in ("One", "Two"):
         (ctx.inbox / "_failed" / name).mkdir(parents=True)
     page = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert page.count('class="tile tile-todo"') == 1 and "Failed imports" in page
+    assert page.count('class="chip chip-todo"') == 1 and "Failed imports" in page
     assert "Nothing to handle" not in page
-    ok = page[page.index('<div class="chips">'):]
+    assert page.index('class="chip chip-todo"') < page.rindex('<div class="chips">')
+    ok = page[page.rindex('<div class="chips">'):]
     assert ok.count('class="chip chip-ok"') == 6
     assert "Credits to split" in ok and "Tracks without lyrics" in ok and "Failed imports" not in ok
 

@@ -24,18 +24,10 @@
 
 {% set building = ns.aside | rejectattr('note') | list %}
 {% if ns.todo or building %}
-<div class="tiles">
-{% for e in ns.todo | sort(attribute='value', reverse=True) %}
-    <a class="tile tile-todo" href="{{ e.href }}">
-        <span class="tile-value">{{ e.value }}</span>
-        <span class="tile-label">{{ e.label }}</span>
-    </a>
+<div class="chips">
+{% for e in ns.todo | sort(attribute='value', reverse=True) %}<a class="chip chip-todo" href="{{ e.href }}"><span class="chip-count">{{ e.value }}</span>{{ e.label }}</a>
 {% endfor %}
-{% for e in building %}
-    <a class="tile tile-building" href="{{ e.href }}">
-        <span class="tile-value"><span class="spinner" aria-hidden="true"></span><span class="visually-hidden">{{ t.tile_building }}</span></span>
-        <span class="tile-label">{{ e.label }}</span>
-    </a>
+{% for e in building %}<a class="chip chip-building" href="{{ e.href }}"><span class="spinner" aria-hidden="true"></span><span class="visually-hidden">{{ t.tile_building }}</span>{{ e.label }}</a>
 {% endfor %}
 </div>
 {% else %}

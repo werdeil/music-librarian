@@ -198,8 +198,8 @@ def settled(d, address):
 def tile(d):
     """The overview's count of the tracks without lyrics, None when it has no tile."""
     home = settled(d, "/")
-    found = re.search(r'class="tile tile-todo" href="/library/album\?folder=[^"]*&amp;list=lyrics&amp;at=0">'
-                      r'\s*<span class="tile-value">(\d+)', home)
+    found = re.search(r'class="chip chip-todo" href="/library/album\?folder=[^"]*&amp;list=lyrics&amp;at=0">'
+                      r'<span class="chip-count">(\d+)', home)
     return int(found[1]) if found else None
 
 

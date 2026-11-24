@@ -28,7 +28,7 @@ def d(tmp_path, make_track, serve):
 def test_tile_and_list(d):
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     tile = home[home.index("Tracks with repeated values") - 300:home.index("Tracks with repeated values")]
-    assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
+    assert 'class="chip chip-todo"' in tile and '<span class="chip-count">2' in tile
     library_page = d.client.get("/library", headers=EN).get_data(as_text=True)
     assert 'href="/library?c=repeated:yes">Repeated values <span class="muted">(1)</span></a>' in library_page
     page = d.client.get("/library/repeats", headers=EN).get_data(as_text=True)

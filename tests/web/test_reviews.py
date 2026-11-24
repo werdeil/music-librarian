@@ -62,9 +62,9 @@ def test_overview(d):
 def test_home_counts_the_same_questions(d):
     text = page(d, "/")
     tile = lambda label: text[text.index(label) - 300:text.index(label)]
-    assert '<span class="tile-value">2' in tile("Credits to split")
+    assert '<span class="chip-count">2' in tile("Credits to split")
     assert '/reviews/split"' in tile("Credits to split")
-    assert '<span class="tile-value">1' in tile("Artists to unify")
+    assert '<span class="chip-count">1' in tile("Artists to unify")
     assert "Import the Inbox" in text and "Split the credits" not in text        # four passes only
     badge = '<span class="count" title="Questions awaiting an answer">11</span>'   # 8 tracks without lyrics
     assert badge in page(d, "/library")
@@ -236,7 +236,7 @@ def test_counts_while_the_first_build_runs(d, monkeypatch):
         for kind in ("lyrics", "mixed"):
             client.post(f"/reviews/{kind}/switch", data={"csrf": token, "on": "0"})
         home = client.get("/", headers=EN).get_data(as_text=True)
-        assert 'class="tile tile-building"' in home and "tile-todo" not in home
+        assert 'class="chip chip-building"' in home and "tile-todo" not in home
         assert "Nothing to handle" not in home
     finally:
         release.set()
