@@ -373,29 +373,12 @@ form.filters {
     margin-bottom: 0.8rem;
 }
 
-.inbox {
-    margin: 0;
-    padding-left: 1.2rem;
-}
-
 .upload {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.6rem;
     margin-top: 0.8rem;
-}
-
-.inbox-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-    margin-top: 0.8rem;
-}
-
-.inbox-actions .upload {
-    margin-top: 0;
 }
 
 .deezer {
@@ -625,6 +608,17 @@ footer {
 
 .section-head h2 {
     margin: 0;
+}
+
+.section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.section-actions .upload {
+    margin-top: 0;
 }
 
 table.schedule tr.row-link {

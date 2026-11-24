@@ -57,7 +57,7 @@ Exit codes: 0 OK, 1 failed (not configured, an album or a playlist not found, no
 
 ## On the dashboard
 
-Once `DEEZER_PRE_KEY` and `DEEZER_IV` are set, the overview's Inbox shows a **Download from Deezer** button beside **Add to the Inbox**. Its dialog takes an album, by its deezer.com address or its id, or a playlist, by its address. **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview, and an incomplete album is dropped with its unavailable tracks listed. The button is disabled while `watch` runs without `--apply` or no arl is given. A short link is refused with a word on what to give instead.
+Once `DEEZER_PRE_KEY` and `DEEZER_IV` are set, the overview's Operations show a **Download from Deezer** button beside **Add to the Inbox**. Its dialog takes an album, by its deezer.com address or its id, or a playlist, by its address. **Download** queues the pass applied at once, as **Add to the Inbox** does, and opens its run's page, which follows it live; there is no preview, and an incomplete album is dropped with its unavailable tracks listed. The button is disabled while `watch` runs without `--apply` or no arl is given. A short link is refused with a word on what to give instead.
 
 The overview's environment, folded at the bottom, holds a Deezer line: where the arl comes from, whether Deezer refused it, whether the extension has its key, and a link to the **Deezer settings**. That page takes a new arl, checks it with Deezer and keeps it; it also makes the extension's key. A missing or refused arl raises a To do chip that opens it. Details of the routes in [web.md](web.md#downloading-from-deezer).
 

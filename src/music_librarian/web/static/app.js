@@ -109,6 +109,9 @@
     document.querySelectorAll("[data-opens-dialog]").forEach(function (opener) {
         var form = opener.form;
         var dialog = form.querySelector("dialog");
+        if (!dialog) {
+            return;
+        }
         var warnings = dialog.querySelectorAll("[data-long]");
 
         function update() {

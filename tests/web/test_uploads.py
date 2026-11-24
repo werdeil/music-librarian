@@ -46,7 +46,7 @@ def d(ctx):
 
 def test_home_offers_the_upload(d):
     page = d.client.get("/", headers=EN).get_data(as_text=True)
-    assert "The Inbox is empty." in page and "Add to the Inbox" in page
+    assert "Add to the Inbox" in page
     assert 'data-upload="/inbox/uploads"' in page and ".flac" in page and "Read-only" not in page
 
 
