@@ -766,6 +766,19 @@ button.primary {
     color: #111;
 }
 
+button:disabled:not(.joint) {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+button:disabled:not(.joint):hover {
+    border-color: var(--border-color);
+}
+
+button.primary:disabled:hover {
+    border-color: var(--accent);
+}
+
 .search {
     display: flex;
     gap: 0.5rem;
