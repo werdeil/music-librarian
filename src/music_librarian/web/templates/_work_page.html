@@ -1,9 +1,10 @@
 {#- A work list's page: its pages extend it, naming `list_name` and `endpoint` and filling the blocks. -#}
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}{{ self.heading() }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{% block heading %}{% endblock %}</h2>
+    <h2>{{ m.icon(list_name) }}{% block heading %}{% endblock %}</h2>
     <p class="muted">{% block intro %}{% endblock %}</p>
     {% if building %}
     {% include "_building.html" %}

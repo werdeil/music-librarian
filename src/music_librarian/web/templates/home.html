@@ -3,12 +3,12 @@
 
 {% block content %}
 <section>
-    <h2>{{ t.to_do }}</h2>
+    <h2>{{ m.icon('todo') }}{{ t.to_do }}</h2>
     <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 
 <section>
-    <h2>{{ t.inbox }}</h2>
+    <h2>{{ m.icon('inbox') }}{{ t.inbox }}</h2>
     {% if inbox is none %}
         <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
     {% elif waiting_items %}
@@ -53,7 +53,7 @@
 </section>
 
 <section>
-    <h2>{{ t.scheduled_passes }}</h2>
+    <h2>{{ m.icon('clock') }}{{ t.scheduled_passes }}</h2>
     <div class="table-wrap">
     <table class="schedule">
         <thead>
@@ -85,7 +85,7 @@
 
 {% if ctx.requests %}
 <section>
-    <h2>{{ t.run_a_pass }}</h2>
+    <h2>{{ m.icon('start') }}{{ t.run_a_pass }}</h2>
     <div class="pass-cards">
     {% for command, names in passes.items() %}
         <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">

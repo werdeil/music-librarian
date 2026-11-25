@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
+{% import "_macros.html" as m %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
 {% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
 {% set on = kind not in off %}
 {% set n = left.get(kind) %}
 <section class="review-card{% if not on %} review-off{% endif %}">
     <header>
-        <h2>{{ title }}</h2>
+        <h2>{{ m.icon(kind) }}{{ title }}</h2>
         <form method="post" action="{{ url_for('switch_review', kind=kind) }}" class="review-switch">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="on" value="{{ '0' if on else '1' }}">
