@@ -42,9 +42,9 @@ def dashboard(ctx, headers=None):
 def test_a_button_beside_the_upload_opens_the_form(ctx):
     _client, page, _token = dashboard(ctx)
     assert "Download from Deezer" in page and 'action="/deezer"' in page
-    actions = page[page.index('<div class="inbox-actions">'):]
+    actions = page[page.index('<div class="section-actions">'):]
     assert actions.index("data-upload-open") < actions.index("data-opens-dialog>") \
-        < actions.index('class="pass-dialog deezer-dialog"')
+        < actions.index('class="pass-dialog deezer-dialog"') < actions.index("data-shows-dialog")
     assert 'class="pass-dialog deezer-dialog"' in page and 'name="item"' in page
     _client, page, _token = dashboard(ctx, FR)
     assert "Télécharger depuis Deezer" in page
@@ -315,7 +315,7 @@ def test_the_environment_tells_the_deezer_state(ctx):
     environment = page[page.index('class="environment"'):]
     assert "arl from DEEZER_ARL" in environment and "no extension key" in environment
     assert 'href="/deezer/settings"' in environment
-    inbox = page[page.index('<div class="inbox-actions">'):page.index('class="environment"')]
+    inbox = page[page.index('<div class="section-actions">'):page.index('class="environment"')]
     assert "/deezer/settings" not in inbox
     kept.new_extension_key(ctx.state_dir)
     kept.mark_refused(ctx.state_dir, "dummy-arl-value")

@@ -16,11 +16,11 @@ from flask import Flask, g, jsonify, render_template, request, url_for
 from music_librarian import __version__
 from music_librarian.core import runs
 from music_librarian.core.files import JUNK_NAMES
-from music_librarian.importer import list_items
 from music_librarian.integrations import itunes
 from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
 from music_librarian.deezer import config as deezer_config, kept as deezer_kept
+from music_librarian.physical import collection as physical_collection
 from music_librarian.web import (albums, deezer, failed, history, library, playcounts, reviews, security,
                                  uploads)
 from music_librarian.web.common import place, server_timing, texts, when
@@ -59,12 +59,8 @@ def next_weekly(now, day, at):
 
 
 def inbox_state(inbox: Path):
-    """(names of the Inbox items, names of the entries in _failed/), or None for a missing Inbox."""
-    try:
-        items = [it.name for it in list_items(inbox)]
-    except OSError:
-        return None
-    return items, failed.entries(inbox)
+    """The names of the entries in the Inbox's _failed/, or None for a missing Inbox."""
+    return failed.entries(inbox) if inbox.is_dir() else None
 
 
 def without_login(url):
@@ -190,7 +186,7 @@ def create_app(ctx: Context, build_now=False):
         inbox = inbox_state(ctx.inbox)
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
-            inbox=inbox, waiting_items=inbox[0] if inbox else [],
+            inbox=inbox,
             passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
             env=environment(ctx), deezer_keys=deezer_config.keys_set(),
             deezer_ready=deezer_config.enabled(state_dir=ctx.state_dir),
@@ -198,19 +194,15 @@ def create_app(ctx: Context, build_now=False):
                         max_file=uploads.MAX_FILE))
 
     def to_do(inbox):
-        """What the To do tiles show, `inbox` as inbox_state() returns it."""
+        """What the Checks chips show, `inbox` as inbox_state() returns it."""
         everything = index.get()
         downloads = deezer_state(ctx)
-        todo = dict(waiting(), failed=len(inbox[1]) if inbox else 0, orphans=orphans_waiting(),
+        todo = dict(waiting(), failed=len(inbox or ()), orphans=orphans_waiting(),
                     repeats=None if everything is None else sum(a.repeated for a in everything),
                     deezer_arl=int(bool(downloads and (downloads["refused"] or not downloads["arl"]))))
         bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
-        switched_off = set(reviews.KINDS) - set(todo)
-        if not todo["deezer_arl"]:
-            switched_off.add("deezer_arl")
-        if not todo.get("physical"):
-            switched_off.add("physical")
-        return dict(todo=todo, switched_off=switched_off,
+        return dict(todo=todo, switched_off=set(reviews.KINDS) - set(todo),
+                    physical_kept=physical_collection.kept(ctx.state_dir) is not None,
                     deezer_arl_missing=bool(downloads and not downloads["arl"]),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,

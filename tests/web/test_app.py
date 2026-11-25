@@ -83,7 +83,7 @@ def test_home_without_history(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert 'class="activity"' not in page and "Never" in page
     assert "Every day at 02:00" in page and "Every Sunday at 03:00" in page
-    assert "The Inbox is empty." in page and "Read-only (dry run)" in page
+    assert "Read-only (dry run)" in page
 
 
 def test_no_mode_badge_when_watch_applies(client, ctx):
@@ -96,7 +96,7 @@ def test_home_in_french(client, ctx):
     page = client.get("/", headers=FR).get_data(as_text=True)
     assert '<html lang="fr">' in page
     assert "Tous les jours à 02:00" in page and "Chaque dimanche à 03:00" in page
-    assert "Passages programmés" in page and "À traiter" in page
+    assert "<h2>Opérations</h2>" in page and "<h2>Contrôles</h2>" in page
 
 
 def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
@@ -106,27 +106,44 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     (ctx.inbox / "_failed" / "Broken").mkdir(parents=True)
     page = client.get("/", headers=EN).get_data(as_text=True)
     assert f"/runs/{last}" in page and f"/runs/{first}" not in page        # the latest of each command
+    row = page[page.index(f"/runs/{last}") - 200:page.index(f"/runs/{last}")]
+    assert '<tr class="row-link">' in row
     assert 'Unchecked runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
-    assert "Waiting to be imported:" in page and "<li>New Album</li>" in page
+    assert "New Album" not in page and "<h2>Operations</h2>" in page
     failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
-    assert 'class="tile tile-todo"' in failed and '<span class="tile-value">1' in failed
+    assert 'class="chip chip-todo"' in failed and '<span class="chip-count">1' in failed
 
 
 def test_tiles_at_zero_and_without_a_genre_list(client):
     page = client.get("/", headers=EN).get_data(as_text=True)
-    assert "Nothing to handle" in page and 'class="tile tile-' not in page and "Up to date:" not in page
-    assert '>Genres outside the list</a> (no validated list)' in page and "tile-building" not in page
+    assert 'class="chip chip-todo' not in page and page.count('<div class="chips">') == 1
+    assert 'class="chip chip-ok"' in page
+    assert 'Genres outside the list <span class="muted">(no validated list)</span></a>' in page
+    assert "chip-building" not in page
 
 
-def test_tiles_to_handle_first_the_rest_on_a_line(client, ctx):
+def test_counts_to_handle_on_a_line_of_their_own(client, ctx):
     for name in ("One", "Two"):
         (ctx.inbox / "_failed" / name).mkdir(parents=True)
     page = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert page.count('class="tile tile-todo"') == 1 and "Failed imports" in page
-    assert "Nothing to handle" not in page
-    ok = page[page.index("Up to date:"):]
-    assert ok.count('class="tile-line tile-ok"') == 6
+    assert page.count('class="chip chip-todo"') == 1 and "Failed imports" in page
+    assert page.index('class="chip chip-todo"') < page.rindex('<div class="chips">')
+    ok = page[page.rindex('<div class="chips">'):]
+    assert ok.count('class="chip chip-ok"') == 6
     assert "Credits to split" in ok and "Tracks without lyrics" in ok and "Failed imports" not in ok
+
+
+def test_header_searches_the_library_and_follows_the_overview(client):
+    page = client.get("/", headers=EN).get_data(as_text=True)
+    nav = page[page.index("<nav>"):page.index("</nav>")]
+    assert [nav.index(name) for name in ("Overview", "Reviews", "Library", "History")] == sorted(
+        nav.index(name) for name in ("Overview", "Reviews", "Library", "History"))
+    assert '<form class="top-search search-pill" method="get" action="/library"' in page
+    library = client.get("/library?q=daft", headers=EN).get_data(as_text=True)
+    assert '<form class="top-search' not in library
+    assert '<div class="search-pill" data-header-search>' in library
+    assert 'data-search-slot aria-hidden="true">' in library and 'value="daft" placeholder' in library
+    assert 'name="q" form="library-search" value="daft"' in library and 'id="library-search"' in library
 
 
 def test_missing_inbox(client, ctx):
