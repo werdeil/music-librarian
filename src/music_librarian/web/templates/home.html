@@ -3,76 +3,110 @@
 
 {% block content %}
 <section>
-    <h2>{{ m.icon('todo') }}{{ t.to_do }}</h2>
+    <h2>{{ m.icon('todo') }}{{ t.checks }}</h2>
     <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 
 <section>
-    <h2>{{ m.icon('inbox') }}{{ t.inbox }}</h2>
+    <div class="section-head">
+        <h2>{{ m.icon('clock') }}{{ t.operations }}</h2>
+        {% if ctx.requests %}
+        <div class="section-actions">
+        {% if inbox is not none %}
+            <div class="upload" data-upload="{{ url_for('inbox_upload_start') }}" data-csrf="{{ csrf }}"
+                 data-extensions="{{ upload.extensions | join(' ') }}" data-junk="{{ upload.junk | join('/') }}"
+                 data-max-file="{{ upload.max_file }}" data-texts="{{ t.upload_js | tojson | forceescape }}">
+                <button type="button" data-upload-open{% if not ctx.apply %} disabled{% endif %}>{{ m.icon('upload') }}{{ t.upload_button }}</button>
+                <dialog class="pass-dialog upload-dialog">
+                    <h3>{{ t.upload_button }}</h3>
+                    <p class="pass-sub">{{ t.upload_help }}</p>
+                    <div class="drop-zone" data-drop-zone>{{ t.upload_drop }}</div>
+                    <input type="file" multiple hidden data-pick-files>
+                    <input type="file" multiple hidden webkitdirectory data-pick-folder>
+                    <div class="actions">
+                        <button type="button" data-picks="files">{{ t.upload_pick_files }}</button>
+                        <button type="button" data-picks="folder">{{ t.upload_pick_folder }}</button>
+                    </div>
+                    <ul class="upload-items" data-upload-items></ul>
+                    <p class="pass-sub" data-upload-summary></p>
+                    <progress max="1" value="0" hidden data-upload-progress></progress>
+                    <p data-upload-status aria-live="polite"></p>
+                    <div class="actions">
+                        <button type="button" class="primary" disabled data-upload-send>{{ m.icon('upload') }}{{ t.upload_send }}</button>
+                        <button type="button" data-upload-cancel>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
+                        <button type="button" hidden data-upload-close>{{ t.close }}</button>
+                    </div>
+                </dialog>
+            </div>
+        {% if deezer_keys %}{% include "_deezer.html" %}{% endif %}
+        {% endif %}
+            <button type="button" class="primary" data-shows-dialog>{{ m.icon('start') }}{{ t.run_a_pass }}…</button>
+            <dialog class="pass-dialog launch-dialog">
+                <h3>{{ t.run_a_pass }}</h3>
+                <div class="pass-cards">
+                {% for command, names in passes.items() %}
+                    <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
+                        <input type="hidden" name="csrf" value="{{ csrf }}">
+                        <input type="hidden" name="command" value="{{ command }}">
+                        <button type="submit"{% if names %} data-opens-dialog{% endif %}>
+                            {{ m.icon(command, "pass-icon") }}
+                            <span class="pass-title">{{ t.passes[command] }}</span>
+                            <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
+                        </button>
+                        {% if names %}
+                        <dialog class="pass-dialog">
+                            <h3>{{ t.passes[command] }}</h3>
+                            <p class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</p>
+                            {% for name in names %}
+                            {% set box = name[3:] if name.startswith('no_') else name %}
+                            <label><input type="checkbox" name="{{ box }}" value="1"
+                                {%- if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
+                            {% if box in long_when %}
+                            <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
+                            {% endif %}
+                            {% endfor %}
+                            <div class="actions">
+                                <button type="submit" class="primary" autofocus>{{ m.icon('start' if command == 'scan' else 'preview') }}{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
+                                <button type="button" data-closes-dialog>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
+                            </div>
+                        </dialog>
+                        {% endif %}
+                    </form>
+                {% endfor %}
+                </div>
+                <form method="dialog">
+                    <button class="dialog-close" title="{{ t.close }}" aria-label="{{ t.close }}">{{ m.icon('cancel') }}</button>
+                </form>
+            </dialog>
+        </div>
+        {% endif %}
+    </div>
     {% if inbox is none %}
-        <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
-    {% elif waiting_items %}
-        <p>{{ t.inbox_waiting }}</p>
-        <ul class="inbox">
-        {% for name in waiting_items %}<li>{{ name }}</li>{% endfor %}
-        </ul>
-    {% else %}
-        <p class="muted">{{ t.inbox_empty }}</p>
+    <p class="warning">{{ t.inbox_missing.format(path=ctx.inbox) }}</p>
+    {% elif ctx.requests and not ctx.apply %}
+    <p class="muted">{{ t.upload_read_only }}</p>
     {% endif %}
-    {% if ctx.requests and inbox is not none %}
-    <div class="inbox-actions">
-    <div class="upload" data-upload="{{ url_for('inbox_upload_start') }}" data-csrf="{{ csrf }}"
-         data-extensions="{{ upload.extensions | join(' ') }}" data-junk="{{ upload.junk | join('/') }}"
-         data-max-file="{{ upload.max_file }}" data-texts="{{ t.upload_js | tojson | forceescape }}">
-        <button type="button" data-upload-open{% if not ctx.apply %} disabled{% endif %}>{{ m.icon('upload') }}{{ t.upload_button }}</button>
-        {% if not ctx.apply %}<span class="muted">{{ t.upload_read_only }}</span>{% endif %}
-        <dialog class="pass-dialog upload-dialog">
-            <h3>{{ t.upload_button }}</h3>
-            <p class="pass-sub">{{ t.upload_help }}</p>
-            <div class="drop-zone" data-drop-zone>{{ t.upload_drop }}</div>
-            <input type="file" multiple hidden data-pick-files>
-            <input type="file" multiple hidden webkitdirectory data-pick-folder>
-            <div class="actions">
-                <button type="button" data-picks="files">{{ t.upload_pick_files }}</button>
-                <button type="button" data-picks="folder">{{ t.upload_pick_folder }}</button>
-            </div>
-            <ul class="upload-items" data-upload-items></ul>
-            <p class="pass-sub" data-upload-summary></p>
-            <progress max="1" value="0" hidden data-upload-progress></progress>
-            <p data-upload-status aria-live="polite"></p>
-            <div class="actions">
-                <button type="button" class="primary" disabled data-upload-send>{{ m.icon('upload') }}{{ t.upload_send }}</button>
-                <button type="button" data-upload-cancel>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
-                <button type="button" hidden data-upload-close>{{ t.close }}</button>
-            </div>
-        </dialog>
-    </div>
-    {% if deezer_keys %}{% include "_deezer.html" %}{% endif %}
-    </div>
-    {% endif %}
-</section>
-
-<section>
-    <h2>{{ m.icon('clock') }}{{ t.scheduled_passes }}</h2>
     <div class="table-wrap">
     <table class="schedule">
         <thead>
-            <tr><th>{{ t.command }}</th><th></th><th>{{ t.last_run }}</th><th>{{ t.next_run }}</th></tr>
+            <tr><th>{{ t.command }}</th><th></th><th>{{ t.last_run }}</th><th>{{ t.next_run }}</th><th></th></tr>
         </thead>
         <tbody>
         {% for command, text, next in schedule %}
             {% set last = latest.get(command) %}
-            <tr>
-                <td><code>{{ command }}</code></td>
+            <tr{% if last %} class="row-link"{% endif %}>
+                <td>{% if last %}<a href="{{ url_for('run_page', run_id=last.id) }}"><code>{{ command }}</code></a>
+                    {%- else %}<code>{{ command }}</code>{% endif %}</td>
                 <td>{{ text }}</td>
                 <td>
                     {% if last %}
-                        <a href="{{ url_for('run_page', run_id=last.id) }}">{{ last.when }}</a> {{ m.status(t, last) }}
+                        {{ last.when }} {{ m.status(t, last) }}
                     {% else %}
                         <span class="muted">{{ t.never }}</span>
                     {% endif %}
                 </td>
                 <td data-label="{{ t.next_run_label }}">{{ next or '' }}</td>
+                <td class="row-chevron">{% if last %}<span aria-hidden="true">›</span>{% endif %}</td>
             </tr>
         {% endfor %}
         </tbody>
@@ -82,43 +116,6 @@
     <p class="warning">{{ t.recent_problems.format(n=problems) }} · <a href="{{ url_for('history', problems='1') }}">{{ t.see }}</a></p>
     {% endif %}
 </section>
-
-{% if ctx.requests %}
-<section>
-    <h2>{{ m.icon('start') }}{{ t.run_a_pass }}</h2>
-    <div class="pass-cards">
-    {% for command, names in passes.items() %}
-        <form method="post" action="{{ url_for('new_pass') }}" class="pass-card">
-            <input type="hidden" name="csrf" value="{{ csrf }}">
-            <input type="hidden" name="command" value="{{ command }}">
-            <button type="submit"{% if names %} data-opens-dialog{% endif %}>
-                {{ m.icon(command, "pass-icon") }}
-                <span class="pass-title">{{ t.passes[command] }}</span>
-                <span class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</span>
-            </button>
-            {% if names %}
-            <dialog class="pass-dialog">
-                <h3>{{ t.passes[command] }}</h3>
-                <p class="pass-sub"><code>{{ command }}</code> · {{ t.card_scan if command == 'scan' else t.card_preview }}</p>
-                {% for name in names %}
-                {% set box = name[3:] if name.startswith('no_') else name %}
-                <label><input type="checkbox" name="{{ box }}" value="1"
-                    {%- if name == 'since' or box != name %} checked{% endif %}> {{ t['opt_' ~ box] }}</label>
-                {% if box in long_when %}
-                <p class="pass-warning" data-long="{{ box }}" data-long-when="{{ 'checked' if long_when[box] else 'unchecked' }}" hidden>{{ t['long_' ~ box] }}</p>
-                {% endif %}
-                {% endfor %}
-                <div class="actions">
-                    <button type="submit" class="primary" autofocus>{{ m.icon('start' if command == 'scan' else 'preview') }}{{ t.start_button if command == 'scan' else t.start_dry_run }}</button>
-                    <button type="button" data-closes-dialog>{{ m.icon('cancel') }}{{ t.cancel_button }}</button>
-                </div>
-            </dialog>
-            {% endif %}
-        </form>
-    {% endfor %}
-    </div>
-</section>
-{% endif %}
 
 <details class="environment">
     <summary>{{ t.environment }}</summary>

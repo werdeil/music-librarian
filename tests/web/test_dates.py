@@ -1,5 +1,7 @@
 """The albums whose tracks' years break the rule of dates, on the dashboard."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import re
+
 import pytest
 
 from music_librarian import scan
@@ -28,7 +30,7 @@ def test_tile_and_list(d):
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     at = home.index("Albums with years to fix")
     tile = home[at - 300:at]
-    assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
+    assert 'class="chip chip-todo"' in tile and '<span class="chip-count">2' in tile
     assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0"' in tile
     page = d.client.get("/library/dates", headers=EN).get_data(as_text=True)
     assert TO_FIX.format(2) in page and "A/Good" not in page
@@ -59,13 +61,19 @@ def test_every_year_alone(tmp_path, make_track, serve):
     client = serve(root, tmp_path / "state", tmp_path / "Inbox").client
     page = client.get("/library/dates", headers=EN).get_data(as_text=True)
     assert "Every track holds a year alone." in page
-    card = client.get("/reviews", headers=EN).get_data(as_text=True).split("years to fix</h2>")[1]
+    reviews_page = client.get("/reviews", headers=EN).get_data(as_text=True)
+    before, card = reviews_page.split("years to fix</h2>")
     assert "No question left." in card.split("</section>")[0]
+    opening = r'<section class="review-card review-ok">\s*<header>\s*<h2><svg.*?</svg>Albums with\s*$'
+    assert re.search(opening, before)
 
 
 def test_switched_off(d):
     d.client.post("/reviews/dates/switch", data={"csrf": d.token, "on": "0"})
-    assert "Albums with years to fix" not in d.client.get("/", headers=EN).get_data(as_text=True)
+    home = d.client.get("/", headers=EN).get_data(as_text=True)
+    chip = home[home.index("Albums with years to fix") - 200:home.index("Albums with years to fix")]
+    assert 'class="chip chip-off"' in chip and 'title="review switched off"' in chip
+    assert '<span class="chip-mark" aria-hidden="true">–</span>' in chip and "chip-count" not in chip
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
     assert 'class="review-card review-off"' in page and "albums with years to fix" in page
 

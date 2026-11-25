@@ -5,7 +5,8 @@
 {% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
 {% set on = kind not in off %}
 {% set n = left.get(kind) %}
-<section class="review-card{% if not on %} review-off{% endif %}">
+{% set state = 'off' if not on else ('todo' if n else ('ok' if unit is not none and n is not none else none)) %}
+<section class="review-card{% if state %} review-{{ state }}{% endif %}">
     <header>
         <h2>{{ m.icon(kind) }}{{ title }}</h2>
         <form method="post" action="{{ url_for('switch_review', kind=kind) }}" class="review-switch">

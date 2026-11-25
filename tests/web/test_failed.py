@@ -74,7 +74,7 @@ def test_each_item_with_its_reason_and_run(client, ctx):
     assert "file · no title" in page and "Copied by hand</span>" in page
     assert page.count("Retry</button>") == 4
     home = client.get("/tiles", headers=EN).get_data(as_text=True)
-    assert '<span class="tile-value">4</span>' in home
+    assert '<span class="chip-count">4</span>' in home
 
 
 def test_retry_puts_it_back_in_the_inbox(ctx, post):

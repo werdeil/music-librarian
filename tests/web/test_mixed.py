@@ -44,7 +44,7 @@ def test_tile_and_list(d):
     home = d.client.get("/", headers=EN).get_data(as_text=True)
     at = home.index("Albums with inconsistent fields")
     tile = home[at - 300:at]
-    assert 'class="tile tile-todo"' in tile and '<span class="tile-value">2' in tile
+    assert 'class="chip chip-todo"' in tile and '<span class="chip-count">2' in tile
     assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0"' in tile
     page = d.client.get("/library/mixed", headers=EN).get_data(as_text=True)
     assert '<span class="tile-value">2</span> <span>albums to fix</span>' in page
