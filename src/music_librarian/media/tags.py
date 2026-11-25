@@ -515,8 +515,9 @@ def _untranslated(path):
 
 
 def _raw_tags(path, audio):
-    """{name: [values]} of the freeform MP4 atoms and the MP3 TXXX and TRDA frames the easy view
-    leaves out, each under its name in lower case, TRDA as "trda"."""
+    """{name: [values]} of the freeform MP4 atoms and the MP3 TXXX, TRDA and COMM frames the easy
+    view leaves out, each under its name in lower case, TRDA as "trda", COMM without a description as
+    "comment"."""
     found = []
     if isinstance(audio, MP4) and audio.tags:
         found = [(key.split(":", 2)[2], _freeform_text(values)) for key, values in audio.tags.items()
@@ -524,6 +525,7 @@ def _raw_tags(path, audio):
     elif isinstance(audio, MP3) and audio.tags:
         found = [(frame.desc, [str(v) for v in frame.text]) for key, frame in audio.tags.items()
                  if key.startswith("TXXX:") and key not in _EASY_FRAMES]
+        found += [("comment", [str(v) for v in f.text]) for f in audio.tags.getall("COMM") if not f.desc]
         if audio.tags.version < (2, 4, 0):   # mutagen drops TRDA when it reads a tag as ID3v2.4
             found += [("trda", [str(v) for v in f.text]) for f in _untranslated(path).getall("TRDA")]
     out = {}

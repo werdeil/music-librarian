@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import pytest
 from mutagen.flac import FLAC
-from mutagen.id3 import TIT1
+from mutagen.id3 import COMM, TIT1
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
@@ -34,7 +34,8 @@ def test_read(track, ext):
 @pytest.mark.parametrize("name, value", [
     ("title", "Single Ladies"), ("artist", "Beyoncé & Jay-Z"), ("albumartist", "Various"),
     ("album", "4"), ("year", "2011"), ("genre", "R&B"), ("composer", "The-Dream"),
-    ("albumartist_mbid", "859d0860-d480-4efd-970c-c05d5f1776b8"),
+    ("albumartist_mbid", "859d0860-d480-4efd-970c-c05d5f1776b8"), ("comment", "PHYSICAL"),
+    ("discogs_release", "1234567"),
 ])
 def test_text_fields_round_trip(track, ext, name, value):
     p = track(ext)
@@ -179,3 +180,26 @@ def test_the_snapshot_takes_the_mp3_grouping_from_grp1(track):
     f.tags.add(TIT1(encoding=3, text=["Symphony No. 41"]))
     f.save()
     assert tags.read_snapshot(p)["tags"]["grouping"] == ["Jupiter"]
+
+
+def test_mp3_comment_is_the_frame_without_a_description(track):
+    p = track(".mp3")
+    audio = MP3(p)
+    audio.tags.add(COMM(encoding=3, lang="eng", desc="iTunNORM", text=["00000A"]))
+    audio.save()
+    assert fields.read(p)["comment"] == []
+    fields.write(p, "comment", ["PHYSICAL"])
+    fields.write(p, "comment", ["Bought in 2004 PHYSICAL"])
+    audio = MP3(p)
+    assert [(f.desc, list(f.text)) for f in audio.tags.getall("COMM")] == \
+        [("iTunNORM", ["00000A"]), ("", ["Bought in 2004 PHYSICAL"])]
+    assert tags.read_snapshot(p)["tags"]["comment"] == ["Bought in 2004 PHYSICAL"]
+
+
+@pytest.mark.parametrize("ext", FORMATS)
+def test_comment_and_discogs_release_in_the_snapshot(track, ext):
+    p = track(ext)
+    fields.write(p, "comment", ["PHYSICAL"])
+    fields.write(p, "discogs_release", ["1234567"])
+    found = tags.read_snapshot(p)["tags"]
+    assert found["comment"] == ["PHYSICAL"] and found["discogs_release_id"] == ["1234567"]

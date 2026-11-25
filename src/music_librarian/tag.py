@@ -7,7 +7,8 @@ tag — rewrites tag fields of tracks, then files them again where their new tag
 
 PATH is a track or a folder (every track under it) of the library. FIELD is one of title,
 artist, albumartist, album, track, tracktotal, disc, disctotal, discsubtitle (the disc's name),
-grouping, year, genre, composer and compilation (1 or 0); an empty VALUE removes the field. A genre takes
+grouping, year, genre, composer, compilation (1 or 0), comment and discogs_release (the album's
+Discogs release id); an empty VALUE removes the field. A genre takes
 the spelling of the validated list (state/genres.txt) when the list knows it. replaygain only
 takes an empty VALUE: it removes every REPLAYGAIN_* tag, which the next pass of
 enrich.replaygain measures again.
