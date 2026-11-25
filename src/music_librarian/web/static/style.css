@@ -13,6 +13,7 @@
     --border-color: #3a3a3a;
     --control-bg: #383838;
     --control-border: #4a4a4a;
+    --input-bg: rgba(0, 0, 0, 0.2);
     --text-bright: #f5f5f5;
     --text: #e0e0e0;
     --text-muted: #aaaaaa;
@@ -735,7 +736,7 @@ textarea {
     font: inherit;
     line-height: 1.3;
     color: var(--text-bright);
-    background: #181818;
+    background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.3rem 0.5rem;
@@ -745,7 +746,7 @@ textarea {
 select {
     appearance: none;
     padding-right: 1.8rem;
-    background: #181818 url("chevron.svg") no-repeat right 0.5rem center / 0.75rem;
+    background: var(--input-bg) url("chevron.svg") no-repeat right 0.5rem center / 0.75rem;
     cursor: pointer;
 }
 
@@ -1553,7 +1554,7 @@ form.inline {
     display: block;
     padding: 0.2rem 0.8rem;
     color: var(--text-muted);
-    background: #181818;
+    background: var(--input-bg);
 }
 
 .filters .toggle a[aria-current] {
