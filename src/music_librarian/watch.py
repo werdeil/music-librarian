@@ -23,6 +23,9 @@ slot, unless it already ran since (state/enrich_last_run). It first reads every
 file again into the metadata cache (enrich --rescan). Without a known
 pass, the first one runs at the next slot, not at startup.
 
+With --physical-at "DAY HH:MM", the albums of the Discogs collection are marked (physical) every
+week from that slot, unless a pass already did since (state/physical_last_run), the same way.
+
 With --listen [HOST:]PORT, the dashboard (web/) is served on that address
 (every interface without a host): the recent runs and their output, the
 schedule and the Inbox. The passes it asks for are queued and run by this
@@ -42,7 +45,7 @@ import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from music_librarian import enrich, importer, organize
+from music_librarian import enrich, importer, organize, physical
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals, resume
 from music_librarian.core.log import Log
 from music_librarian.core import runs
@@ -172,21 +175,23 @@ class NightlyOrganize:
             log("")
 
 
-class WeeklyEnrich:
-    """enrich every week from the (day, time) slot `at`, unless it already ran since."""
+class Weekly:
+    """The pass `module.run` every week from the (day, time) slot `at`, unless `module.last_run`
+    says it already ran since."""
 
-    def __init__(self, at, opts, started):
-        self.at, self.opts, self.started = at, opts, started
+    def __init__(self, module, command, at, opts, started):
+        self.module, self.command, self.at, self.opts, self.started = module, command, at, opts, started
         self.slot = None
 
     def tick(self, log):
         slot = last_slot(now(), *self.at)
         # no known pass: the first one runs at the next slot
-        last = enrich.last_run(self.opts.state_dir) or self.started
+        last = self.module.last_run(self.opts.state_dir) or self.started
         if last < slot.timestamp() and self.slot != slot:
-            log(f"ENRICH   weekly (slot of {slot:%Y-%m-%d %H:%M})")
-            if safe(lambda: watched(lambda: enrich.run(self.opts, log), log, "enrich", self.opts, "schedule"),
-                    log, "enrich") != EXIT_LOCKED:
+            log(f"{self.command.upper():<8} weekly (slot of {slot:%Y-%m-%d %H:%M})")
+            run = lambda: self.module.run(self.opts, log)
+            if safe(lambda: watched(run, log, self.command, self.opts, "schedule"),
+                    log, self.command) != EXIT_LOCKED:
                 self.slot = slot
             log("")
 
@@ -195,7 +200,8 @@ def start_dashboard(args, import_opts, requests, log):
     from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
     ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
                          apply=args.apply, interval=args.interval, organize_at=args.organize_at,
-                         enrich_at=args.enrich_at, requests=requests, hosts=frozenset(args.web_hosts),
+                         enrich_at=args.enrich_at, physical_at=args.physical_at, requests=requests,
+                         hosts=frozenset(args.web_hosts),
                          lyrion=import_opts.lyrion)
     return server.serve(ctx, args.listen, log)
 
@@ -217,6 +223,8 @@ def main(argv=None):
                     help="run organize --since every day from this time")
     ap.add_argument("--enrich-at", type=weekly, metavar="DAY HH:MM",
                     help="enrich the whole library every week from this slot (e.g. 'sun 03:00')")
+    ap.add_argument("--physical-at", type=weekly, metavar="DAY HH:MM",
+                    help="mark the albums of the Discogs collection every week from this slot")
     ap.add_argument("--listen", type=address, metavar="[HOST:]PORT",
                     default=os.environ.get("MUSIC_LIBRARIAN_LISTEN"),
                     help="serve the dashboard on this address (default: $MUSIC_LIBRARIAN_LISTEN)")
@@ -232,14 +240,19 @@ def main(argv=None):
                                      state_dir=state_dir, lyrion=import_opts.lyrion)
     enrich_opts = enrich.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
                                  rescan=True)
+    physical_opts = physical.Options(root=import_opts.root, apply=args.apply, state_dir=state_dir,
+                                     lyrion=import_opts.lyrion)
     import_log = importer.new_log(import_opts)
     jobs = [Imports(args.inbox, lambda trigger: watched(lambda: importer.run(import_opts, import_log),
                                                         import_log, "import", import_opts, trigger))]
     if args.organize_at:
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:
-        jobs.append(WeeklyEnrich(args.enrich_at, enrich_opts, now().timestamp()))
-    requests = Requests(passes(import_opts, organize_opts, enrich_opts, import_log), safe)
+        jobs.append(Weekly(enrich, "enrich", args.enrich_at, enrich_opts, now().timestamp()))
+    if args.physical_at:
+        jobs.append(Weekly(physical, "physical", args.physical_at, physical_opts, now().timestamp()))
+    runners = passes(import_opts, organize_opts, enrich_opts, import_log, physical_opts)
+    requests = Requests(runners, safe)
     if args.listen:
         jobs.insert(0, requests)
 
@@ -250,7 +263,9 @@ def main(argv=None):
         f"every {args.interval:g} s"
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
         + (f", enrich every {DAYS[args.enrich_at[0]]} at {args.enrich_at[1]:%H:%M}"
-           if args.enrich_at else ""))
+           if args.enrich_at else "")
+        + (f", physical every {DAYS[args.physical_at[0]]} at {args.physical_at[1]:%H:%M}"
+           if args.physical_at else ""))
     while True:
         resume()
         if STOP.is_set():

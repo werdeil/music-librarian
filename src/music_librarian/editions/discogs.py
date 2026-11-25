@@ -7,7 +7,7 @@ from music_librarian.editions.common import edition as an_edition, get_json
 SEARCH = "https://api.discogs.com/database/search"
 SITE = "https://www.discogs.com"
 INTERVAL = 1.0   # Discogs allows 60 requests a minute with a token
-_last = [0.0]
+LAST = [0.0]   # when Discogs was last asked, by any module
 
 
 def token():
@@ -27,7 +27,7 @@ def edition(result, exact=False):
 
 def _search(params):
     headers = {"Authorization": f"Discogs token={token()}"}
-    found = get_json(SEARCH, {**params, "type": "release", "per_page": 50}, _last, INTERVAL, headers)
+    found = get_json(SEARCH, {**params, "type": "release", "per_page": 50}, LAST, INTERVAL, headers)
     return (found or {}).get("results") or []
 
 

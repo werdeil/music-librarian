@@ -33,7 +33,7 @@ POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_co
 
 
 @dataclass
-class Context:
+class Context:  # pylint: disable=too-many-instance-attributes  # one per setting of watch shown
     """What the dashboard shows of the watch that serves it."""
     root: Path
     inbox: Path
@@ -42,6 +42,7 @@ class Context:
     interval: float = 30
     organize_at: time | None = None
     enrich_at: tuple | None = None   # (weekday, time), as watch.weekly parses it
+    physical_at: tuple | None = None
     requests: object = None          # web.passes.Requests; None shows no form
     hosts: frozenset = frozenset()   # the names it answers to besides security.local_host's
     lyrion: object = None            # integrations.lyrion.Lyrion; None shows no Lyrion page
@@ -182,6 +183,10 @@ def create_app(ctx: Context, build_now=False):
                              when(next_weekly(now, day, at).timestamp())))
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
+        if ctx.physical_at:
+            day, at = ctx.physical_at
+            schedule.append(("physical", t["weekly_at"].format(day=t["days"][day], at=f"{at:%H:%M}"),
+                             when(next_weekly(now, day, at).timestamp())))
         inbox = inbox_state(ctx.inbox)
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
