@@ -878,6 +878,13 @@ td.cell-link a:focus-visible {
     letter-spacing: 0;
 }
 
+h2.title {
+    font-size: var(--fs-lg);
+    color: var(--text-bright);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 .album-head {
     display: flex;
     gap: 1rem;
