@@ -208,6 +208,8 @@ def create_app(ctx: Context, build_now=False):
         switched_off = set(reviews.KINDS) - set(todo)
         if not todo["deezer_arl"]:
             switched_off.add("deezer_arl")
+        if not todo.get("physical"):
+            switched_off.add("physical")
         return dict(todo=todo, switched_off=switched_off,
                     deezer_arl_missing=bool(downloads and not downloads["arl"]),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,

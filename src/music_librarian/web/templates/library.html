@@ -117,6 +117,7 @@
                     <span class="cover">
                         <img src="{{ cover_url(album.folder) }}" alt="" loading="lazy" width="160" height="160">
                         <span class="track-count" title="{{ count }}" aria-label="{{ count }}">{{ corner }}</span>
+                        {% if album.physical %}<span class="physical-badge" title="{{ t.physical_badge_title }}">{{ t.physical_badge }}</span>{% endif %}
                     </span>
                     <span class="album-title">{{ album.title or album.folder }}</span>
                     {% if album.compilation %}<span class="muted compilation">{{ t.field_compilation }}</span>

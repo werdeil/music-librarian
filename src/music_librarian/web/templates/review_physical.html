@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "_apply_answers.html" as a %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ t.physical_review }} · music-librarian{% endblock %}
+{% macro hidden(item) %}
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="key" value="{{ item.key }}">
+        <input type="hidden" name="release" value="{{ item.release.artist }} – {{ item.release.title }}">
+        <input type="hidden" name="album" value="{{ item.album.folder }}">
+{%- endmacro %}
+{% block content %}
+<p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
+<section>
+    <h2>{{ t.physical_review }}</h2>
+    {% if done %}
+    <form method="post" action="{{ url_for('undo_physical') }}" class="recorded">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="key" value="{{ done.key }}">
+        <span class="muted">{{ t.recorded }}</span>
+        <span class="parts"><span class="part">{{ done.release }}</span><span class="arrow">{{ '=' if done.choice == 'yes' else '≠' }}</span><span class="part">{{ done.album }}</span></span>
+        <button type="submit">{{ t.undo_answer }}</button>
+    </form>
+    {% endif %}
+    {% if left is none %}
+    {% include "_building.html" %}
+    {% elif not kept %}
+    <p class="muted">{{ t.physical_no_collection }}</p>
+    {% elif item %}
+    <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
+    <div class="review-now">
+        <p class="step">{{ t.physical_question }}</p>
+        <ul class="spellings">
+            <li><span class="part whole">{{ item.release.artist }} – {{ item.release.title }}</span>
+                <span class="muted">{{ t.physical_in_discogs }}{% if item.release.formats %} · {{ item.release.formats | join(', ') }}{% endif %}{% if item.release.year %} · {{ item.release.year }}{% endif %}
+                · <a href="{{ item.url }}" rel="noreferrer" target="_blank">Discogs</a></span></li>
+            <li><span class="part whole">{{ item.album.artist }} – {{ item.album.title }}</span>
+                <span class="muted">{{ t.physical_in_library }} · <a href="{{ url_for('album_page', folder=item.album.folder) }}"><code>{{ item.album.folder }}</code></a></span></li>
+        </ul>
+    </div>
+    <div class="review-choices">
+        <form method="post" action="{{ url_for('answer_physical') }}" class="review-choice suggested">
+            {{ hidden(item) }}
+            <h3>{{ t.physical_same }}</h3>
+            <p class="muted">{{ t.physical_same_note }}</p>
+            <button type="submit" name="choice" value="yes" class="primary" autofocus>{{ t.physical_same }}</button>
+        </form>
+        <form method="post" action="{{ url_for('answer_physical') }}" class="review-choice">
+            {{ hidden(item) }}
+            <h3>{{ t.physical_other }}</h3>
+            <p class="muted">{{ t.physical_other_note }}</p>
+            <button type="submit" name="choice" value="no">{{ t.physical_other }}</button>
+        </form>
+    </div>
+    <form method="post" action="{{ url_for('review_later', review='physical') }}" class="review-later">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="later" value="{{ item.later }}">
+        <button type="submit">{{ t.later }}</button>
+    </form>
+    {% else %}
+    <p>{{ t.review_done }}</p>
+    {% endif %}
+    {% if left is not none %}<div class="actions review-tools">{{ a.apply_form(t, ctx, csrf, 'physical', review=true) }}</div>{% endif %}
+</section>
+{% endblock %}

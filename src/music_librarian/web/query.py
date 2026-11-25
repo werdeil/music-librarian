@@ -13,13 +13,13 @@ FIELDS = {"any": TEXT, "title": TEXT, "artist": TEXT, "albumartist": TEXT, "albu
           "genre": TEXT, "grouping": TEXT, "folder": TEXT, "tag": TEXT,
           "year": NUMBER, "track": NUMBER, "disc": NUMBER, "duration": NUMBER,
           "lyrics": FLAG, "awaited": FLAG, "cover": FLAG, "replaygain": FLAG, "repeated": FLAG,
-          "compilation": FLAG,
+          "compilation": FLAG, "physical": FLAG,
           "format": FORMAT}
 GROUPS = (("text", ("any", "title", "artist", "albumartist", "album", "composer", "genre", "grouping",
                     "folder", "tag")),
           ("number", ("year", "track", "disc", "duration")),
           ("file", ("lyrics", "awaited", "cover", "replaygain", "format")),
-          ("state", ("repeated", "compilation")))
+          ("state", ("repeated", "compilation", "physical")))
 OPERATORS = {TEXT: ("contains", "lacks", "is", "isnot", "starts", "filled", "empty", "several"),
              NUMBER: ("eq", "lt", "gt", "between", "filled", "empty"),
              FLAG: ("yes", "no"),
@@ -33,7 +33,7 @@ ANY_FIELDS = ("title", "artist", "albumartist", "album", "composer", "genre", "g
 PRESETS = {"lyrics": ("lyrics:no",), "repeats": ("repeated:yes",),
            "compilations": ("compilation:yes",),
            "composer": ("composer:empty",), "genre": ("genre:empty",), "cover": ("cover:no",),
-           "replaygain": ("replaygain:no",)}
+           "replaygain": ("replaygain:no",), "physical": ("physical:yes",)}
 SHOWN_ALWAYS = ("any", "title", "artist", "album")   # the track list's own columns
 
 
@@ -53,7 +53,7 @@ class Track:
     name: str                # the file's name in it
     values: dict             # {field of SNAPSHOT_KEYS: [values]}
     tags: dict               # every tag of the snapshot, {lowercase key: [values]}
-    flags: frozenset         # of lyrics, awaited, cover, replaygain, repeated, compilation
+    flags: frozenset         # of lyrics, awaited, cover, replaygain, repeated, compilation, physical
     duration: float | None = None
     folded: dict = dataclass_field(default_factory=dict)
     text: str = ""           # what the search box matches, folded

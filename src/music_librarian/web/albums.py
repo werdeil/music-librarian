@@ -16,7 +16,7 @@ from music_librarian.lyrics import INSTRUMENTAL, awaited
 from music_librarian.media import artwork, fields, metadata_cache, tags
 from music_librarian.split.rules import names_of
 from music_librarian.tag import genre_list
-from music_librarian.web import history, library, query
+from music_librarian.web import history, library, physical, query
 from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, timed
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
@@ -195,7 +195,9 @@ def register(app, ctx, index, later):
                                total=None if total is None else history.duration(total),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
-                               followed=followed(rel), work=work, **shown)
+                               followed=followed(rel), work=work,
+                               physical=physical.album_state(ctx.state_dir, tracks),
+                               physical_saved=request.args.get("physical"), **shown)
         return page, status
 
     @app.get("/library/album")

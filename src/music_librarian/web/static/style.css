@@ -794,6 +794,26 @@ td.cell-link a:focus-visible {
     text-align: center;
 }
 
+.physical-badge {
+    position: absolute;
+    left: 0.4rem;
+    bottom: 0.4rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 70%);
+    color: #fff;
+    font-size: 0.75rem;
+}
+
+.physical-choice fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    border: none;
+    padding: 0;
+    margin: 0 0 0.6rem;
+}
+
 .albums img,
 .album-head img {
     width: 100%;

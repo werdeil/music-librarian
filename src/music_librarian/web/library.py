@@ -18,6 +18,7 @@ from music_librarian.core.files import AUDIO_EXT, is_junk, relative
 from music_librarian.lyrics import INSTRUMENTAL, awaited, is_instrumental
 from music_librarian.media import fields, metadata_cache, tags
 from music_librarian.media.metadata_cache import MetadataCache
+from music_librarian.physical import marks
 from music_librarian.web import query
 from music_librarian.web.query import fold
 
@@ -48,6 +49,7 @@ class Album:  # pylint: disable=too-many-instance-attributes  # one per column t
     awaited: int = 0
     mixed: tuple = ()   # the album fields whose tracks differ
     dates: tuple = ()   # what is wrong with its tracks' years, as dates.problems() tells
+    physical: bool = False   # every track holds the marker of physical
 
 
 SORTS = {
@@ -367,6 +369,7 @@ class Index:
         if cache_stamp(self.state_dir)[0] is None:
             return Catalog([], [], started=started)
         folders, bare, repeated = defaultdict(list), defaultdict(int), defaultdict(int)
+        physical = defaultdict(int)
         tracks, rels, without = [], {}, []
         with part(0, 0.5):
             files = cached_files(self.root, self.state_dir)
@@ -377,9 +380,12 @@ class Index:
             bare[folder] += not snap.get("lyrics")
             twice = bool(repeats.findings(repeats.from_snapshot(snap)))
             repeated[folder] += twice
+            owned = marks.marked(snap["tags"].get("comment", []))
+            physical[folder] += owned
             flags = [name for name, held in (("lyrics", snap.get("lyrics")), ("cover", snap.get("cover")),
                                               ("replaygain", snap.get("replaygain")), ("repeated", twice),
-                                              ("compilation", first(snap["tags"], "compilation") == "1"))
+                                              ("compilation", first(snap["tags"], "compilation") == "1"),
+                                              ("physical", owned))
                      if held]
             tracks.append(query.track_of(rel, path.name, snap, flags))
             if not snap.get("lyrics"):
@@ -394,7 +400,8 @@ class Index:
             albums.append(Album(rels[folder], artist, title, len(held), bare[folder],
                                 all(first(t, "compilation") == "1" for t in held), repeated[folder],
                                 year, folder_changed(folder), mixed=mixed_fields(held),
-                                dates=dates.problems([first(t, "date", "year") for t in held])))
+                                dates=dates.problems([first(t, "date", "year") for t in held]),
+                                physical=physical[folder] == len(held)))
         albums.sort(key=lambda a: (fold(a.artist), fold(a.title), a.folder))
         order = {a.folder: i for i, a in enumerate(albums)}
         tracks.sort(key=lambda t: (order[t.folder], query.number_of(t, "disc") or 0,
