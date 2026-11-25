@@ -42,6 +42,10 @@ deezer:
   - changed-files:
       - any-glob-to-any-file: ["src/music_librarian/deezer/**", "src/music_librarian/web/deezer.py"]
 
+physical:
+  - changed-files:
+      - any-glob-to-any-file: ["src/music_librarian/physical/**", "src/music_librarian/web/physical.py"]
+
 extension:
   - changed-files:
       - any-glob-to-any-file: ["extensions/**"]
