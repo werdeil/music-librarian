@@ -20,7 +20,7 @@ from music_librarian.web.common import submit
 
 DISCOGS_RELEASE = "https://www.discogs.com/release/"
 DISCOGS_SEARCH = "https://www.discogs.com/search/"
-RELEASE_ID = re.compile(r"(?:/release/)?(\d+)(?:-[^/]*)?/?$")
+NUMBER = re.compile(r"\d+")
 KINDS = ("match", EDITION, CONFLICT)
 
 
@@ -54,8 +54,12 @@ def collection_stamp(state_dir):
 
 def release_id(text):
     """The release id of what was typed: the id itself or the address of its page; None for neither."""
-    found = RELEASE_ID.search((text or "").strip())
-    return found[1] if found else None
+    text = (text or "").strip()
+    if text.isdigit():
+        return text
+    _, page, rest = text.partition("/release/")
+    found = NUMBER.match(rest) if page else None
+    return found[0] if found else None
 
 
 class Questions:

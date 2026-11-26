@@ -9,6 +9,7 @@ from music_librarian.core.log import Log
 from music_librarian.media import fields
 from music_librarian.physical import collection, marks
 from music_librarian.physical.matching import album_key, pair_key
+from music_librarian.web import physical
 
 EN = {"Accept-Language": "en"}
 RELEASES = [dict(id="11", artist="Air", artists=["Air"], title="Moon Safari", year="1998", formats=["Vinyl"]),
@@ -117,3 +118,11 @@ def test_without_a_collection_the_review_says_so(d, settled):
     text = page(d, "/reviews")
     assert text.count("No physical pass has read the Discogs collection yet") == 1
     assert 'name="command" value="physical"' in text
+
+
+@pytest.mark.parametrize("typed, found", [
+    ("77", "77"), (" 77 ", "77"), ("https://www.discogs.com/release/78-Bjork-Debut", "78"),
+    ("https://www.discogs.com/fr/release/79", "79"), ("Debut", None), ("", None),
+    ("https://www.discogs.com/master/80", None), ("9" * 50000 + "x", None)])
+def test_a_release_id_is_read_from_what_is_typed(typed, found):
+    assert physical.release_id(typed) == found
