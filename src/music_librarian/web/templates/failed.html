@@ -3,7 +3,7 @@
 {% block title %}{{ t.failed_title }} · music-librarian{% endblock %}
 {% block content %}
 <section>
-    <h2>{{ t.failed_title }}</h2>
+    <h2>{{ m.icon('warning') }}{{ t.failed_title }}</h2>
     <p class="muted">{{ t.failed_intro }}</p>
     {% if retried %}<p class="status-ok">{{ t.failed_retried.format(name=retried) }}</p>{% endif %}
     {% if dismissed %}<p class="status-ok">{{ t.failed_dismissed.format(name=dismissed) }}</p>{% endif %}

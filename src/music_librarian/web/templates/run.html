@@ -8,7 +8,7 @@
     <a class="button" href="{{ history_url }}">{{ m.icon('back') }}{{ t.back_to_history }}</a>
 </p>
 <section>
-    <h2><code>{{ run.command }}</code> {{ run.when }} <span id="run-status">{{ m.status(t, run) }}</span></h2>
+    <h2 class="title"><code>{{ run.command }}</code> {{ run.when }} <span id="run-status">{{ m.status(t, run) }}</span></h2>
     {% if not done and can_stop %}
     <div class="actions run-actions">{{ m.stop_form(t, csrf, run) }}</div>
     {% endif %}

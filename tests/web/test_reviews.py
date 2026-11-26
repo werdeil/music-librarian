@@ -278,7 +278,8 @@ def test_a_review_switched_off_leaves_every_count(d):
     badge = '<span class="count" title="Questions awaiting an answer">{n}</span>'
     text = page(d, "/reviews")
     assert badge.format(n=11) in text and 'aria-checked="true"' in text
-    assert re.search(r'<section class="review-card review-todo">\s*<header>\s*<h2>Credits holding', text)
+    card = r'<section class="review-card review-todo">\s*<header>\s*<h2><svg.*?</svg>Credits holding'
+    assert re.search(card, text)
     response = d.client.post("/reviews/split/switch", data={"csrf": d.token, "on": "0"})
     assert response.location.endswith("/reviews")
     text = page(d, "/reviews")
@@ -296,7 +297,7 @@ def test_a_review_switched_off_leaves_every_count(d):
 
 def test_cards_with_the_most_left_first_and_those_switched_off_last(d):
     def titles():
-        return re.findall(r'<section class="review-card[^"]*">\s*<header>\s*<h2>([^<]+)</h2>',
+        return re.findall(r'<section class="review-card[^"]*">\s*<header>\s*<h2><svg.*?</svg>([^<]+)</h2>',
                           page(d, "/reviews"))
     assert titles()[:3] == ["Tracks without lyrics", "Credits holding several names",
                             "One artist spelled several ways"]

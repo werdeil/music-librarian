@@ -74,9 +74,9 @@ def test_no_album_inconsistent(tmp_path, make_track, serve):
 
 def test_card_on_the_reviews_page(d):
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
-    at = page.index("<h2>Albums with inconsistent fields</h2>")
+    at = page.index("Albums with inconsistent fields</h2>")
     card = page[at:]
-    assert page.index("<h2>Tracks without lyrics</h2>") < at
+    assert page.index("Tracks without lyrics</h2>") < at
     assert '<span class="tile-value">2</span> <span>albums to fix</span>' in card
     assert 'href="/library/mixed">See the list</a>' in card
     assert 'href="/library/album?folder=A/B&amp;list=mixed&amp;at=0">Fix</a>' in card
@@ -87,7 +87,7 @@ def test_card_cleared(tmp_path, make_track, serve):
     make_track(root / "A/B/01 T.m4a", title="T", artist="A", albumartist="A", album="B", track=1)
     scan.run(root, tmp_path / "state", Log())
     page = serve(root, tmp_path / "state", tmp_path / "Inbox").client.get("/reviews", headers=EN)
-    card = page.get_data(as_text=True).split("<h2>Albums with inconsistent fields</h2>")[1]
+    card = page.get_data(as_text=True).split("Albums with inconsistent fields</h2>")[1]
     card = card.split("</section>")[0]
     assert "No question left." in card and "See the list" not in card
 

@@ -3,13 +3,13 @@
 
 {% block content %}
 <section>
-    <h2>{{ t.checks }}</h2>
+    <h2>{{ m.icon('todo') }}{{ t.checks }}</h2>
     <div id="tiles" data-refresh="{{ url_for('tiles_fragment') }}">{% include "_tiles.html" %}</div>
 </section>
 
 <section>
     <div class="section-head">
-        <h2>{{ t.operations }}</h2>
+        <h2>{{ m.icon('clock') }}{{ t.operations }}</h2>
         {% if ctx.requests %}
         <div class="section-actions">
         {% if inbox is not none %}

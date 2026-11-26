@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_apply_answers.html" as a %}
+{% import "_macros.html" as m %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
 {% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
 {% set on = kind not in off %}
@@ -7,7 +8,7 @@
 {% set state = 'off' if not on else ('todo' if n else ('ok' if unit is not none and n is not none else none)) %}
 <section class="review-card{% if state %} review-{{ state }}{% endif %}">
     <header>
-        <h2>{{ title }}</h2>
+        <h2>{{ m.icon(kind) }}{{ title }}</h2>
         <form method="post" action="{{ url_for('switch_review', kind=kind) }}" class="review-switch">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="on" value="{{ '0' if on else '1' }}">
@@ -36,7 +37,7 @@
 {% endmacro %}
 {% block content %}
 <h1 class="visually-hidden">{{ t.reviews }}</h1>
-{% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}{% include "_building.html" %}{% endif %}
+{% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}<div class="review-building">{% include "_building.html" %}</div>{% endif %}
 <div class="review-grid">
 {% for kind in order %}
 {% if kind == 'split' %}

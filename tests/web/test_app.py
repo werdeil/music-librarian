@@ -96,7 +96,7 @@ def test_home_in_french(client, ctx):
     page = client.get("/", headers=FR).get_data(as_text=True)
     assert '<html lang="fr">' in page
     assert "Tous les jours à 02:00" in page and "Chaque dimanche à 03:00" in page
-    assert "<h2>Opérations</h2>" in page and "<h2>Contrôles</h2>" in page
+    assert "Opérations</h2>" in page and "Contrôles</h2>" in page
 
 
 def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
@@ -109,7 +109,7 @@ def test_home_shows_latest_runs_problems_and_inbox(client, ctx):
     row = page[page.index(f"/runs/{last}") - 200:page.index(f"/runs/{last}")]
     assert '<tr class="row-link">' in row
     assert 'Unchecked runs with problems over the last 7 days: 1 · <a href="/runs?problems=1">see</a>' in page
-    assert "New Album" not in page and "<h2>Operations</h2>" in page
+    assert "New Album" not in page and "Operations</h2>" in page
     failed = page[page.index("Failed imports") - 400:page.index("Failed imports")]
     assert 'class="chip chip-todo"' in failed and '<span class="chip-count">1' in failed
 

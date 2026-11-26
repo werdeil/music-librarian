@@ -12,7 +12,7 @@
 {% endif %}
 {% if counts is defined %}
 <section class="review-card">
-    <header><h2>{{ t.orphans_title }}</h2></header>
+    <header><h2>{{ m.icon('headphones') }}{{ t.orphans_title }}</h2></header>
     <p class="muted">{{ t.orphans_hint }}</p>
     {% include "_orphan_recorded.html" %}
     <p class="filters">
@@ -58,7 +58,7 @@
 <div class="review-grid lyrion-grid">
 {% if counts is defined %}
 <section class="review-card">
-    <header><h2>{{ t.lyrion_write_title }}</h2></header>
+    <header><h2>{{ m.icon('write') }}{{ t.lyrion_write_title }}</h2></header>
     <p>{{ t.orphans_to_write.format(n=counts.settled) }}</p>
     {% if ctx.requests %}
     <form method="post" action="{{ url_for('new_pass') }}" class="answer">
@@ -76,7 +76,7 @@
 </section>
 {% endif %}
 <section class="review-card">
-    <header><h2>{{ t.lyrion_scan_title }}</h2></header>
+    <header><h2>{{ m.icon('scan') }}{{ t.lyrion_scan_title }}</h2></header>
     {% if ctx.lyrion.scan %}
     <p class="muted">{{ t.lyrion_scan_auto if ctx.lyrion.rescans else t.lyrion_scan_manual }}</p>
     {% if scan_asked == 'unreachable' %}

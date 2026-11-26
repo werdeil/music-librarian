@@ -3,7 +3,7 @@
 {% block head %}{% if not locked and not cancelled %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
 {% block content %}
 <section>
-    <h2><code>{{ asked.command }}</code> {{ t.apply if asked.apply else t.dry_run }}</h2>
+    <h2 class="title"><code>{{ asked.command }}</code> {{ t.apply if asked.apply else t.dry_run }}</h2>
     {% if locked %}
         <p class="warning">{{ t.request_locked }}</p>
     {% elif cancelled %}
