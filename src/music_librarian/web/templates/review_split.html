@@ -13,7 +13,7 @@
 {% block content %}
 <p class="back"><a class="button" href="{{ url_for('reviews_page') }}">{{ icon('back') }}{{ t.reviews }}</a></p>
 <section>
-    <h2>{{ t.split_review }}</h2>
+    <h2>{{ icon('split') }}{{ t.split_review }}</h2>
     {% if done %}
     <form method="post" action="{{ url_for('undo_split') }}" class="recorded">
         <input type="hidden" name="csrf" value="{{ csrf }}">

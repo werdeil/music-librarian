@@ -253,7 +253,7 @@ def test_album_marked_awaited_leaves_the_review(d):
 
 def test_tracks_without_lyrics_on_the_reviews_page(d):
     page = settled(d, "/reviews")
-    card = page[page.index("<h2>Tracks without lyrics</h2>"):]
+    card = page[page.index("Tracks without lyrics</h2>"):]
     assert '<span class="tile-value">2</span> <span>tracks to sort out, across 1 albums</span>' in card
     assert "/library/album?folder=Beyonce/4&amp;list=lyrics&amp;at=0" in card
     assert 'href="/reviews/lyrics/awaited">Lyrics awaited (0)</a>' in card

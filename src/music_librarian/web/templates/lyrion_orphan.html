@@ -4,7 +4,7 @@
 {% block content %}
 <p class="back"><a class="button" href="{{ url_for('lyrion_page') }}">{{ m.icon('back') }}Lyrion</a></p>
 <section>
-    <h2>{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>
+    <h2>{{ m.icon('headphones') }}{{ t.orphans_title }} <code class="aside">playcounts --review</code></h2>
     {% include "_orphan_recorded.html" %}
     {% if building %}
     {% include "_building.html" %}

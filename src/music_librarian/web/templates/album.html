@@ -89,7 +89,7 @@
 
 {% if preview %}
 <section class="panel" aria-live="polite">
-    <h2>{{ t.album_preview }}</h2>
+    <h2>{{ m.icon('preview') }}{{ t.album_preview }}</h2>
     {% set changed = preview.fields or preview.cover %}
     {% if changed %}
     <ul class="changes">
@@ -139,7 +139,7 @@
     {{ m.place_fields(place) }}
 
     <section>
-        <h2>{{ t.album_fields }}</h2>
+        <h2>{{ m.icon('tag') }}{{ t.album_fields }}</h2>
         <div class="album-fields">
         {% for name in ('albumartist', 'album', 'year', 'genre', 'disctotal') %}
             {% set flag = repeated_album.get(name) %}
@@ -181,7 +181,7 @@
     </section>
 
     <section>
-        <h2>{{ t.tracks }}</h2>
+        <h2>{{ m.icon('tracks') }}{{ t.tracks }}</h2>
         {% if not (discs and groupings) %}
         <button type="button" data-shows-discs="tracks" hidden>
             {{- t.show_grouping if discs else t.show_discs if groupings else t.show_discs_grouping }}</button>

@@ -1,5 +1,7 @@
 """The albums whose tracks' years break the rule of dates, on the dashboard."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
+import re
+
 import pytest
 
 from music_librarian import scan
@@ -45,7 +47,7 @@ def test_album_page_in_the_list(d):
 
 def test_card_on_the_reviews_page(d):
     page = d.client.get("/reviews", headers=EN).get_data(as_text=True)
-    card = page[page.index("<h2>Albums with years to fix</h2>"):].split("</section>")[0]
+    card = page[page.index("Albums with years to fix</h2>"):].split("</section>")[0]
     assert TO_FIX.format(2) in card
     assert 'href="/library/dates">See the list</a>' in card
     assert 'href="/library/album?folder=B/Whole&amp;list=dates&amp;at=0">Fix</a>' in card
@@ -62,8 +64,8 @@ def test_every_year_alone(tmp_path, make_track, serve):
     reviews_page = client.get("/reviews", headers=EN).get_data(as_text=True)
     before, card = reviews_page.split("years to fix</h2>")
     assert "No question left." in card.split("</section>")[0]
-    opening = '<section class="review-card review-ok">\n    <header>\n        <h2>Albums with'
-    assert before.rstrip().endswith(opening)
+    opening = r'<section class="review-card review-ok">\s*<header>\s*<h2><svg.*?</svg>Albums with\s*$'
+    assert re.search(opening, before)
 
 
 def test_switched_off(d):

@@ -10,7 +10,7 @@
 <p class="back">{% if request.args.get('review') %}<a class="button" href="{{ url_for(review[0]) }}">{{ m.icon('back') }}{{ review[1] }}</a>
 {%- else %}<a class="button" href="{{ url_for('reviews_page') }}">{{ m.icon('back') }}{{ t.reviews }}</a>{% endif %}</p>
 <section>
-    <h2>{{ title }} <code class="aside">{{ path.name }}</code></h2>
+    <h2>{{ m.icon({'genres': 'genres', 'aliases': 'dedupe', 'decisions': 'split', 'awaited': 'lyrics'}[kind]) }}{{ title }} <code class="aside">{{ path.name }}</code></h2>
     <p class="muted">{{ t['rules_' ~ kind ~ '_intro'] }}</p>
 
     {% if kind == 'genres' %}

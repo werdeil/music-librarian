@@ -3,7 +3,7 @@
 {% block title %}{{ t.deezer_settings_title }} · music-librarian{% endblock %}
 {% block content %}
 <section class="deezer-settings">
-    <h2>{{ t.deezer_settings_title }}</h2>
+    <h2>{{ m.icon('key') }}{{ t.deezer_settings_title }}</h2>
     <h3>{{ t.deezer_arl_title }}</h3>
     {% if saved %}<p class="status-ok">{{ t.deezer_arl_saved }}</p>{% endif %}
     {% if error %}<p class="warning">{{ t[error] }}</p>{% endif %}
