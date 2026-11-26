@@ -61,7 +61,7 @@
 {% if followed %}{{ m.followed_pass(t, ctx, csrf, followed, folder, place) }}{% endif %}
 
 <section class="physical-medium" aria-labelledby="physical-title">
-    <h2 id="physical-title">{{ t.physical_title }}</h2>
+    <h2 id="physical-title">{{ m.icon('physical') }}{{ t.physical_title }}</h2>
     <p>{% if physical.tracks and physical.marked == physical.tracks %}{{ t.physical_is }}
        {%- elif physical.marked %}{{ t.physical_partly.format(m=physical.marked, n=physical.tracks) }}
        {%- else %}{{ t.physical_is_not }}{% endif %}
