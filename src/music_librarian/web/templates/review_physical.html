@@ -106,6 +106,6 @@
     {% else %}
     <p>{{ t.review_done }}</p>
     {% endif %}
-    {% if left is not none %}<div class="actions review-tools">{{ a.apply_form(t, ctx, csrf, 'physical', review=true) }}</div>{% endif %}
+    {% if left is not none %}<div class="actions review-tools">{{ a.apply_form(t, ctx, csrf, 'physical', review=true, label=none if kept else t.physical_first_run) }}</div>{% endif %}
 </section>
 {% endblock %}

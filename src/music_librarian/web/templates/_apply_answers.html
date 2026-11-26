@@ -1,11 +1,11 @@
 {% from "_macros.html" import icon %}
-{% macro apply_form(t, ctx, csrf, command, review=false) -%}
+{% macro apply_form(t, ctx, csrf, command, review=false, label=none) -%}
 {% if ctx.requests %}
 <form method="post" action="{{ url_for('new_pass') }}" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="command" value="{{ command }}">
     {% if review %}<input type="hidden" name="review" value="1">{% endif %}
-    <button type="submit">{{ icon('preview') }}{{ t.apply_answers }}</button>
+    <button type="submit">{{ icon('preview') }}{{ label or t.apply_answers }}</button>
 </form>
 {% endif %}
 {%- endmacro %}

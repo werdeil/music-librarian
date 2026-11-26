@@ -534,8 +534,8 @@ EN = {
     "physical_in_library": "library",
     "physical_same": "Same album",
     "physical_other": "Another album",
-    "physical_no_collection": ("No physical pass has read the Discogs collection yet: run one, with "
-                               "DISCOGS_TOKEN set."),
+    "physical_no_collection": "The Discogs collection has not been read yet.",
+    "physical_first_run": "Read the Discogs collection",
     "start_review": "Answer",
     "apply_answers": "Preview these answers",
     "review_done": "No question left.",

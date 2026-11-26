@@ -377,13 +377,17 @@ def register(app, ctx, index, later):
         dated = with_dates(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         off = switched_off.get()
-        order = sorted(KINDS, key=lambda kind: (kind in off, not left.get(kind), -(left.get(kind) or 0)))
+        kept = collection.kept(ctx.state_dir)
+        unset = {kind for kind, ready in (("genres", genre_review.mapping() is not None), ("physical", kept))
+                 if not ready}
+        order = sorted(KINDS, key=lambda kind: (kind in off, kind in unset, not left.get(kind),
+                                                -(left.get(kind) or 0)))
         return render_template("reviews.html", left=left, off=off, order=order,
                                genre_list=genre_review.mapping() is not None,
                                lyrics_albums=len(bare), first_bare=bare[0].folder if bare else None,
                                mixed_albums=len(mixed), first_mixed=mixed[0].folder if mixed else None,
                                dated_albums=len(dated), first_dated=dated[0].folder if dated else None,
-                               list_path=genre_review.path, physical_kept=collection.kept(ctx.state_dir),
+                               list_path=genre_review.path, physical_kept=kept,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
                                           genres=len(genres.entries(genre_review.path)),

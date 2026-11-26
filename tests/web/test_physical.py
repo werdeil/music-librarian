@@ -113,11 +113,12 @@ def test_an_album_marked_asks_its_edition_then_whether_to_add_it(d, settled, mon
 def test_without_a_collection_the_review_says_so(d, settled):
     (d.state / collection.FILE).unlink()
     settled(lambda: page(d, "/reviews/physical"))
-    assert "No physical pass has read the Discogs collection yet" in page(d, "/reviews/physical")
+    assert "The Discogs collection has not been read yet." in page(d, "/reviews/physical")
     assert "Albums to sync with Discogs" not in page(d, "/")
     text = page(d, "/reviews")
-    assert text.count("No physical pass has read the Discogs collection yet") == 1
-    assert 'name="command" value="physical"' in text
+    assert text.count("The Discogs collection has not been read yet.") == 1
+    assert 'name="command" value="physical"' in text and "Read the Discogs collection</button>" in text
+    assert text.index("One artist spelled several ways") < text.index("Albums to sync with Discogs")
 
 
 @pytest.mark.parametrize("typed, found", [

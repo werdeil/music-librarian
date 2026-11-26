@@ -2,7 +2,7 @@
 {% import "_apply_answers.html" as a %}
 {% import "_macros.html" as m %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
-{% macro card(kind, title, unit, start=none, start_label=none, command=none, links=(), note=none) %}
+{% macro card(kind, title, unit, start=none, start_label=none, command=none, links=(), note=none, command_label=none) %}
 {% set on = kind not in off %}
 {% set n = left.get(kind) %}
 {% set state = 'off' if not on else ('todo' if n else ('ok' if unit is not none and n is not none else none)) %}
@@ -29,7 +29,7 @@
     {% if unit is not none or note %}
     <div class="actions">
         {% if n and start %}<a class="button primary" href="{{ start }}">{{ start_label or t.start_review }}</a>{% endif %}
-        {% if command %}{{ a.apply_form(t, ctx, csrf, command) }}{% endif %}
+        {% if command %}{{ a.apply_form(t, ctx, csrf, command, label=command_label) }}{% endif %}
         {% for href, label in links %}<a class="button" href="{{ href }}">{{ label }}</a>{% endfor %}
     </div>
     {% endif %}
@@ -51,7 +51,8 @@
         command='genres', links=[(url_for('genre_list_page'), t.rules_genres_link.format(n=rules.genres))]) }}
 {% elif kind == 'physical' %}
 {{ card('physical', t.physical_review, t.unit_physical if physical_kept else none, url_for('review_physical'),
-        command='physical', note=none if physical_kept else t.physical_no_collection) }}
+        command='physical', note=none if physical_kept else t.physical_no_collection,
+        command_label=none if physical_kept else t.physical_first_run) }}
 {% elif kind == 'lyrics' %}
 {{ card('lyrics', t.tracks_without_lyrics_title, t.unit_lyrics.format(albums=lyrics_albums),
         url_for('album_page', folder=first_bare, list='lyrics', at=0) if first_bare else none, t.start_fixing,

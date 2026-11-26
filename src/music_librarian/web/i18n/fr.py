@@ -544,8 +544,8 @@ FR = {
     "physical_in_library": "bibliothèque",
     "physical_same": "Même album",
     "physical_other": "Un autre album",
-    "physical_no_collection": ("Aucun passage de physical n'a encore lu la collection Discogs : "
-                               "lancez-en un, avec DISCOGS_TOKEN renseigné."),
+    "physical_no_collection": "La collection Discogs n'a pas encore été lue.",
+    "physical_first_run": "Lire la collection Discogs",
     "start_review": "Répondre",
     "apply_answers": "Aperçu de ces réponses",
     "review_done": "Plus aucune question.",
