@@ -10,6 +10,7 @@ from music_librarian.physical import collection, marks
 from music_librarian.physical.matching import album_key, pair_key
 
 AIR, DEBUT = album_key("Air", "Moon Safari (Remastered)"), album_key("Björk", "Debut")
+RADIOHEAD = album_key("Radiohead", "OK Computer OKNOTOK 1997 2017")
 
 
 @pytest.fixture
@@ -106,6 +107,7 @@ def test_an_album_marked_in_the_library_joins_the_collection(lib, tmp_path, disc
     _, asked = discogs
     state = tmp_path / "state"
     marks.update(state, "conflicts", {DEBUT: "add"})
+    marks.update(state, "answers", {pair_key("22", RADIOHEAD): False})
     assert run(lib, tmp_path, "--apply") == 0
     assert "EDITION  Björk/Debut  (marked PHYSICAL, no Discogs id" in capsys.readouterr().out and asked == []
 
@@ -232,3 +234,14 @@ def test_fetch_without_a_token_or_refused(monkeypatch):
     monkeypatch.setattr("requests.get", lambda *a, **k: Answer({}, 401))
     with pytest.raises(collection.CollectionError, match="refused the token"):
         collection.fetch()
+
+
+@pytest.mark.usefixtures("discogs")
+def test_an_album_asked_about_keeps_its_mark_until_answered(lib, tmp_path, capsys):
+    for p in (lib / "Radiohead/OK Computer OKNOTOK").iterdir():
+        fields.write(p, "comment", ["PHYSICAL"])
+    marks.update(tmp_path / "state", "synced", {RADIOHEAD: True})
+    assert run(lib, tmp_path, "--apply") == 0
+    out = capsys.readouterr().out
+    assert "REVIEW   Radiohead/OK Computer OKNOTOK" in out and "UNMARK   Radiohead" not in out
+    assert comments(lib / "Radiohead/OK Computer OKNOTOK") == {"01 T.mp3": ["PHYSICAL"]}

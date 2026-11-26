@@ -1,7 +1,9 @@
 """Which album of the library each release of the collection is: the one holding its Discogs id,
 else the one of the same artist and title once case, accents, punctuation, a leading "The" and
-what the titles hold in brackets (edition, remaster) are set aside. An album that is only close
-(one of the two the same, the other similar) is a question for the dashboard."""
+what the titles hold in brackets (edition, remaster) are set aside, a compilation's title alone
+for a release of Various. An album only close (one of the two the same, the other similar, or
+both the same but for spaces, letters such as ø or a bracket naming a remix or a live) is a
+question for the dashboard, its tags perhaps to correct."""
 import difflib
 import re
 import unicodedata
@@ -11,6 +13,9 @@ from music_librarian.physical.collection import NUMBERED
 
 SIMILAR = 0.8
 BRACKETS = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+OTHER_RECORD = re.compile(r"remix|\bmix|live|acoustic|unplugged|instrumental|demo|karaoke|\bep\b|\be p\b"
+                          r"|single|\bdub\b|session|rarit|b side|cover")
+LETTERS = str.maketrans({"ø": "o", "æ": "ae", "œ": "oe", "ß": "ss", "ł": "l", "đ": "d", "þ": "th"})
 ID, NAME, ANSWER = "id", "name", "answer"
 
 
@@ -31,8 +36,15 @@ def artist_key(name):
 
 
 def title_key(title):
+    """The title's words, but those of a bracket that names an edition (not a remix, a live…)."""
     title = (title or "").split(" = ")[0]
-    return words(BRACKETS.sub(" ", title)) or words(title)
+    kept = BRACKETS.sub(lambda m: m[0] if OTHER_RECORD.search(words(m[0])) else " ", title)
+    return words(kept) or words(title)
+
+
+def loose(key):
+    """A key as a close match compares it: its letters alone, ø as o."""
+    return words(BRACKETS.sub(" ", key)).translate(LETTERS).replace(" ", "") if key else ""
 
 
 def album_key(artist, title):
@@ -51,10 +63,15 @@ class LibraryAlbum:
     artist: str    # the album artist, else the artist
     title: str
     ids: set = field(default_factory=set)   # the Discogs release ids its tracks hold
+    compilation: bool = False
 
     @property
     def key(self):
         return album_key(self.artist, self.title)
+
+
+def album_artists(album):
+    return {artist_key(album.artist)} | ({"various"} if album.compilation else set())
 
 
 def release_artists(release):
@@ -87,7 +104,8 @@ def match(releases, albums, answers):
             used.add(held[0])
     by_name = {}
     for album in albums:
-        by_name.setdefault((artist_key(album.artist), title_key(album.title)), []).append(album)
+        for artist in album_artists(album):
+            by_name.setdefault((artist, title_key(album.title)), []).append(album)
     for r in releases:
         for artist in release_artists(r):
             for album in by_name.get((artist, title_key(r["title"])), ()):
@@ -97,15 +115,17 @@ def match(releases, albums, answers):
     by_artist, by_title = {}, {}
     for album in albums:
         if album.folder not in found:
-            by_artist.setdefault(artist_key(album.artist), []).append(album)
-            by_title.setdefault(title_key(album.title), []).append(album)
+            for artist in album_artists(album):
+                by_artist.setdefault(loose(artist), []).append(album)
+            by_title.setdefault(loose(album.title), []).append(album)
     doubtful, absent = [], []
     for r in releases:
         if r["id"] in used:
             continue
-        artists, title = release_artists(r), title_key(r["title"])
-        near = [a for k in artists for a in by_artist.get(k, ()) if close(title_key(a.title), title)]
-        near += [a for a in by_title.get(title, ()) if any(close(artist_key(a.artist), k) for k in artists)]
+        artists, title = {loose(k) for k in release_artists(r)}, loose(r["title"])
+        near = [a for k in artists for a in by_artist.get(k, ()) if close(loose(a.title), title)]
+        near += [a for a in by_title.get(title, ())
+                 if any(close(loose(k), artist) for k in album_artists(a) for artist in artists)]
         asked = False
         for album in {a.folder: a for a in near if a.folder not in found}.values():
             answer = answers.get(pair_key(r["id"], album.key))

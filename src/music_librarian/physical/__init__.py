@@ -70,6 +70,7 @@ class Track:
     path: Path
     comment: list
     ids: list
+    compilation: bool = False
 
 
 def first(tags, *names):
@@ -81,7 +82,7 @@ def from_snapshot(path, snap):
     tags = {k.lower(): v for k, v in snap["tags"].items()}
     values = lambda name: [v for v in tags.get(name, []) if v.strip()]
     return (first(tags, "albumartist", "album artist", "artist"), first(tags, "album"),
-            Track(path, values("comment"), values("discogs_release_id")))
+            Track(path, values("comment"), values("discogs_release_id"), first(tags, "compilation") == "1"))
 
 
 def albums_of(tracks, root):
@@ -93,7 +94,9 @@ def albums_of(tracks, root):
     for folder, found in held.items():
         artist = next((a for a, _, _ in found if a), "")
         title = next((t for _, t, _ in found if t), "")
-        albums.append(LibraryAlbum(folder, artist, title, {i for _, _, track in found for i in track.ids}))
+        ids = {i for _, _, track in found for i in track.ids}
+        compilation = all(track.compilation for _, _, track in found)
+        albums.append(LibraryAlbum(folder, artist, title, ids, compilation))
     return albums, {folder: [track for _, _, track in found] for folder, found in held.items()}
 
 
@@ -113,9 +116,9 @@ def library(opts, log, stats):
     return albums_of(found, opts.root)
 
 
-AGREE, MARK, UNMARK, ADD, REMOVE, EDITION, CONFLICT = (
-    "agree", "mark", "unmark", "add", "remove", "edition", "conflict")
-PENDING = (EDITION, CONFLICT)
+AGREE, MARK, UNMARK, ADD, REMOVE, EDITION, CONFLICT, ASKED = (
+    "agree", "mark", "unmark", "add", "remove", "edition", "conflict", "asked")
+PENDING = (EDITION, CONFLICT, ASKED)
 DONE = {MARK: "marked", UNMARK: "unmarked", ADD: "added to Discogs", REMOVE: "taken out of Discogs"}
 
 
@@ -148,9 +151,14 @@ def decide(marked, release, synced, conflict):
 def plan(albums, tracks, releases, held):
     """([Change] of every album, Matches), `held` the file of marks.load()."""
     matches = match(releases, albums, held["answers"])
+    asked = {album.folder for _, album in matches.doubtful}
     changes = []
     for album in albums:
         release, how = matches.found.get(album.folder, (None, None))
+        if release is None and album.folder in asked:
+            marked = any(marks.marked(t.comment) for t in tracks[album.folder])
+            changes.append(Change(album, ASKED, marked, None, None))
+            continue
         mine = tracks[album.folder]
         marked = any(marks.marked(t.comment) for t in mine)
         synced = held["synced"].get(album.key)

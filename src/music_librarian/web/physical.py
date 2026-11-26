@@ -40,7 +40,10 @@ def library_of(catalog):
         album.title = album.title or first(t.tags, "album")
         ids = [v for v in t.tags.get("discogs_release_id", []) if v.strip()]
         album.ids |= set(ids)
-        tracks[t.folder].append(Track(Path(t.folder) / t.name, t.tags.get("comment", []), ids))
+        tracks[t.folder].append(Track(Path(t.folder) / t.name, t.tags.get("comment", []), ids,
+                                      "compilation" in t.flags))
+    for folder, album in albums.items():
+        album.compilation = all(t.compilation for t in tracks[folder])
     return list(albums.values()), tracks
 
 

@@ -20,7 +20,7 @@ def test_keys_set_aside_what_editions_add():
 
 
 def test_by_id_then_by_name_whatever_the_edition():
-    albums = [LibraryAlbum("Beatles/Abbey Road", "The Beatles", "Abbey Road (2019 Mix)"),
+    albums = [LibraryAlbum("Beatles/Abbey Road", "The Beatles", "Abbey Road (Remastered 2009)"),
               LibraryAlbum("Daft Punk/Discovery", "Daft Punk", "Discovery", {"9"}),
               LibraryAlbum("Daft Punk/Homework", "Daft Punk", "Homework")]
     found = match([release("1", "Beatles, The", "Abbey Road", artists=["The Beatles"]),
@@ -45,3 +45,27 @@ def test_a_release_of_no_album_is_absent():
     air = LibraryAlbum("Air/Moon Safari", "Air", "Moon Safari")
     found = match([release("7", "Björk", "Debut")], [air], {})
     assert [r["id"] for r in found.absent] == ["7"] and not found.found
+
+
+def test_a_remix_a_live_or_another_spelling_is_only_asked():
+    rid = "6311701"
+    for title in ("Origin of Symmetry (XX Anniversary RemiXX)", "Origin of Symmetry [Live]"):
+        album = LibraryAlbum("Muse/x", "Muse", title)
+        found = match([release(rid, "Muse", "Origin Of Symmetry")], [album], {})
+        assert not found.found and found.doubtful == [(found.doubtful[0][0], album)]
+    for artist, title, album_title in (("Zebra", "Mambo Punk", "Mambopunk"),
+                                       ("Julien Doré", "Løve Live", "Love Live"),
+                                       ("Aston Villa", "Aston Villa", "Aston Villa")):
+        album = LibraryAlbum("x/y", "Astonvilla" if artist == "Aston Villa" else artist, album_title)
+        found = match([release("1", artist, title)], [album], {})
+        assert not found.found and len(found.doubtful) == 1, (artist, title)
+
+
+def test_a_release_of_various_is_the_compilation_of_its_title():
+    hits = LibraryAlbum("Compilations/Hôtel Costes 8", "Stéphane Pompougnac", "Hôtel Costes 8",
+                        compilation=True)
+    vintage = LibraryAlbum("Compilations/Vintage FG", "Daft Punk", "Vintage FG", compilation=True)
+    other = LibraryAlbum("Moby/Vintage FG", "Moby", "Vintage FG")
+    owned = [release("1", "Stéphane Pompougnac", "Hôtel Costes 8"), release("2", "Various", "Vintage FG")]
+    found = match(owned, [hits, vintage, other], {})
+    assert set(found.found) == {hits.folder, vintage.folder} and found.found[vintage.folder][1] == NAME

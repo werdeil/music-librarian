@@ -23,8 +23,10 @@ To run it every week, add `--physical-at "sun 04:00"` (a day and a time, as `--e
 Each release of the collection is matched to an album of the library (one album per folder, its album artist, else its artist, and its album title):
 
 1. **by its id**: the album whose tracks hold the release's id;
-2. **by its name**: the album of the same artist and title once case, accents, punctuation, `&` / `+` / `and`, a leading `The`, Discogs' numbers of homonyms (`Prince (2)`), a translated title after ` = ` and whatever the titles hold in brackets are set aside. `Abbey Road (2019 Mix)` is `Abbey Road`: any edition of an album owned counts. `Various` and `Various Artists` are the same artist;
-3. **by an answer**: an album only close to a release, one of the artist or the title the same and the other similar (`OK Computer` and `OK Computer OKNOTOK 1997 2017`), is a question for the dashboard's review, answered "same album" or "another album". Until it is answered, the album counts as not in the collection.
+2. **by its name**: the album of the same artist and title once case, accents, punctuation, `&` / `+` / `and`, a leading `The`, Discogs' numbers of homonyms (`Prince (2)`), a translated title after ` = ` and the brackets of an edition (`(Remastered 2009)`, `(Deluxe Edition)`, `(Bonus CD)`) are set aside: any edition of an album owned counts. A release of `Various` is the compilation of its title, whatever the album artist of its tracks;
+3. **by an answer**: an album only close to a release is a question for the dashboard's review, answered "same album" or "another album". It is close when one of the artist or the title is the same and the other similar (`OK Computer` and `OK Computer OKNOTOK 1997 2017`), when both are the same but for spaces or letters such as `ø` (`Mambopunk` and `Mambo Punk`, `Love Live` and `Løve Live`), which may be a spelling to correct in the tags, or when only a bracket naming another record tells them apart (`(Remix)`, `[Live]`, `(Acoustic)`, `EP`…: `Origin of Symmetry (XX Anniversary RemiXX)` is not `Origin of Symmetry`). Until it is answered, the album is left as it is, marked or not.
+
+A release several albums match marks each of them (an album and its deluxe edition, both in the library).
 
 ## Both ways
 
