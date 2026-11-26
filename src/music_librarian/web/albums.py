@@ -196,8 +196,7 @@ def register(app, ctx, index, later):
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
                                followed=followed(rel), work=work,
-                               physical=physical.album_state(ctx.state_dir, tracks),
-                               physical_saved=request.args.get("physical"), **shown)
+                               physical=physical.album_state(ctx.state_dir, tracks), **shown)
         return page, status
 
     @app.get("/library/album")

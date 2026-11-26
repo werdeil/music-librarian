@@ -55,37 +55,25 @@
         <p class="muted">{{ common.albumartist or '' }}</p>
         <p class="muted">{{ (t.track_one if tracks | length == 1 else t.track_many).format(n=tracks | length) }}
             {%- if total is not none %} · {{ total }}{% endif %}</p>
+        {% set owned = physical.tracks and physical.marked == physical.tracks %}
+        <div class="physical-toggle">
+            {% if ctx.requests %}
+            <form method="post" action="{{ url_for('album_physical') }}">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <input type="hidden" name="folder" value="{{ folder }}">
+                {{ m.place_fields(place) }}
+                <input type="hidden" name="physical" value="{{ '0' if owned else '1' }}">
+                <button type="submit" class="chip{% if owned %} chip-on{% endif %}" aria-pressed="{{ 'true' if owned else 'false' }}"
+                        title="{{ t.physical_toggle_off if owned else t.physical_toggle_on }}">{{ m.icon('physical') }}{{ t.physical_badge }}
+                    {%- if physical.marked and not owned %} {{ physical.marked }}/{{ physical.tracks }}{% endif %}</button>
+            </form>
+            {% elif owned %}<span class="chip chip-on">{{ m.icon('physical') }}{{ t.physical_badge }}</span>{% endif %}
+            {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>{% endif %}
+        </div>
     </div>
 </section>
 
 {% if followed %}{{ m.followed_pass(t, ctx, csrf, followed, folder, place) }}{% endif %}
-
-<section class="physical-medium" aria-labelledby="physical-title">
-    <h2 id="physical-title">{{ m.icon('physical') }}{{ t.physical_title }}</h2>
-    <p>{% if physical.tracks and physical.marked == physical.tracks %}{{ t.physical_is }}
-       {%- elif physical.marked %}{{ t.physical_partly.format(m=physical.marked, n=physical.tracks) }}
-       {%- else %}{{ t.physical_is_not }}{% endif %}
-       {%- if physical.release %} · <a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>
-           <span class="muted">{{ physical.release.artist }} – {{ physical.release.title }}{% if physical.release.formats %} ({{ physical.release.formats | join(', ') }}){% endif %}</span>
-       {%- elif physical.ids %} · <span class="muted">Discogs {{ physical.ids | join(', ') }}</span>{% endif %}</p>
-    {% if physical_saved == 'auto' %}<p class="muted">{{ t.physical_saved_auto }}</p>
-    {% elif physical_saved %}<p class="muted">{{ t.physical_saved_kept }}</p>{% endif %}
-    {% if ctx.requests %}
-    <form method="post" action="{{ url_for('album_physical') }}" class="physical-choice">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="folder" value="{{ folder }}">
-        {{ m.place_fields(place) }}
-        <fieldset>
-            <legend class="visually-hidden">{{ t.physical_title }}</legend>
-            {% for choice, held in (('auto', none), ('yes', true), ('no', false)) %}
-            <label><input type="radio" name="choice" value="{{ choice }}"{% if physical.manual is sameas held %} checked{% endif %}>
-                {{ t['physical_choice_' ~ choice] }}</label>
-            {% endfor %}
-        </fieldset>
-        <button type="submit">{{ t.physical_save }}</button>
-    </form>
-    {% endif %}
-</section>
 
 {% if preview %}
 <section class="panel" aria-live="polite">

@@ -982,13 +982,25 @@ td.cell-link a:focus-visible {
     font-size: 0.75rem;
 }
 
-.physical-choice fieldset {
+.physical-toggle {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem 1.2rem;
-    border: none;
-    padding: 0;
-    margin: 0 0 0.6rem;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--fs-sm);
+}
+
+.physical-toggle form {
+    margin: 0;
+}
+
+.physical-toggle button.chip {
+    cursor: pointer;
+}
+
+.chip-on {
+    border-color: var(--accent-color);
+    color: var(--text-bright);
 }
 
 .albums img,
