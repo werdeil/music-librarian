@@ -37,7 +37,7 @@
 {% endmacro %}
 {% block content %}
 <h1 class="visually-hidden">{{ t.reviews }}</h1>
-{% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}{% include "_building.html" %}{% endif %}
+{% if none in left.values() or (genre_list and 'genres' in left and left.genres is none) %}<div class="review-building">{% include "_building.html" %}</div>{% endif %}
 <div class="review-grid">
 {% for kind in order %}
 {% if kind == 'split' %}
