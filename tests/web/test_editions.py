@@ -62,8 +62,8 @@ def test_an_album_holding_its_discogs_id_shows_that_release(d, asked, monkeypatc
         fields.write(str(d.ctx.root / f"A/B/0{n} T{n}.m4a"), "discogs_release", ["11"])
     scan.run(d.ctx.root, d.state, Log())
     held = {"title": "B", "artist": "A", "date": "1998-01-16", "country": "FR", "label": "Source",
-            "catalog": "", "barcode": "", "tracks": 2, "format": "Vinyl", "url": "https://www.discogs.com/release/11",
-            "exact": True}
+            "catalog": "", "barcode": "", "tracks": 2, "format": "Vinyl",
+            "url": "https://www.discogs.com/release/11", "exact": True}
     monkeypatch.setattr(editions.discogs, "release", lambda rid: held if rid == "11" else None)
     found = look_up(d)
     assert "The Discogs release its tracks name." in found and "editions on" not in found
