@@ -59,8 +59,7 @@
         <p class="physical-toggle">
             {% if owned %}<span class="chip chip-on" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }}</span>
             {%- elif physical.marked %}<span class="chip" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }} {{ physical.marked }}/{{ physical.tracks }}</span>{% endif %}
-            {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>
-            {%- else %}<a href="{{ physical.search }}" rel="noreferrer" target="_blank">{{ t.physical_search_link }}</a>{% endif %}
+            {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>{% endif %}
         </p>
     </div>
 </section>

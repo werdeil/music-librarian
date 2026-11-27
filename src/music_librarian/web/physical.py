@@ -4,7 +4,6 @@ physical pass kept, never Discogs; the answers go to physical.json, for the next
 import json
 import os
 from pathlib import Path
-from urllib.parse import urlencode
 
 from flask import abort, redirect, render_template, request, url_for
 
@@ -12,7 +11,6 @@ from music_librarian.physical import Track, collection, marks, plan
 from music_librarian.physical.matching import LibraryAlbum, pair_key
 
 DISCOGS_RELEASE = "https://www.discogs.com/release/"
-DISCOGS_SEARCH = "https://www.discogs.com/search/"
 
 
 def first(tags, *names):
@@ -44,12 +42,6 @@ def stamp_of(path):
     except OSError:
         return None
     return st.st_mtime_ns, st.st_size
-
-
-def search_url(artist, title):
-    """Discogs' search for the releases of an album, by its title alone for a compilation (no artist)."""
-    words = " ".join(x for x in (artist, title) if x)
-    return DISCOGS_SEARCH + "?" + urlencode({"type": "release", "q": words})
 
 
 class Doubts:
@@ -88,17 +80,14 @@ class Doubts:
                     url=DISCOGS_RELEASE + release["id"], album=album), len(left)
 
 
-def album_state(state_dir, tracks, compilation):
+def album_state(state_dir, tracks):
     """What an album's head shows of its mark, from its tracks as library.tracks_of() reads them."""
     readable = [values for _, values in tracks if values]
     ids = sorted({v for values in readable for v in values["discogs_release"]})
     kept = collection.kept(state_dir)
     release = next((r for r in kept["releases"] if r["id"] in ids), None) if kept else None
-    artist = next((v for values in readable for v in values["albumartist"] or values["artist"]), "")
-    title = next((v for values in readable for v in values["album"]), "")
     return dict(marked=sum(marks.marked(values["comment"]) for values in readable), tracks=len(readable),
-                release=release, url=DISCOGS_RELEASE + ids[0] if ids else None,
-                search=search_url("" if compilation else artist, title))
+                release=release, url=DISCOGS_RELEASE + ids[0] if ids else None)
 
 
 def register(app, ctx, index, later):

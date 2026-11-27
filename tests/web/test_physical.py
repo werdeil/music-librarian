@@ -54,7 +54,7 @@ def test_an_album_shows_its_mark_and_its_release(d):
     assert 'class="chip chip-on"' in text and "https://www.discogs.com/release/11" in text
     assert 'name="album.physical"' not in text
     text = page(d, "/library/album?folder=Björk/Debut")
-    assert "chip-on" not in text and "https://www.discogs.com/search/?type=release&q=Bj%C3%B6rk+Debut" in text
+    assert "chip-on" not in text and "discogs.com" not in text
 
 
 def test_the_review_asks_about_the_close_release_then_undoes(d, settled):

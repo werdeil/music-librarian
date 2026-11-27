@@ -52,7 +52,7 @@ Exit codes: 0 = OK, 2 = collection unreadable (no token, a token refused, Discog
 ## On the dashboard
 
 - **The library** badges the albums whose every track holds `PHYSICAL`, and its **Physical** filter keeps them; the advanced search tests it as **Physical**, under State.
-- **An album's page** shows **Physical** in its head when every track holds the word (with how many do when only some do), and links the release its tracks name on Discogs, else a search of Discogs for the album, to add it to the collection.
+- **An album's page** shows **Physical** in its head when every track holds the word (with how many do when only some do), and links the release its tracks name on Discogs. To find an album's release, to add it to the collection, **Look the edition up** lists its editions, each linking its page on the provider that answered.
 - **Reviews** asks about the releases only close to an album, one page at a time: **Same album**, which the next pass marks, or **Another album**, never asked again. Each answer is kept in `state/physical.json`; the review's button queues the pass.
 
 The dashboard reads the collection the last pass kept, and never asks Discogs for it.

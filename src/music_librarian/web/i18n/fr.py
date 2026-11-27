@@ -511,7 +511,6 @@ FR = {
     "physical_same_note": ("Le prochain passage de physical marque l'album PHYSICAL et écrit l'id de la "
                            "sortie dans ses pistes."),
     "physical_other_note": "Plus jamais demandé.",
-    "physical_search_link": "Chercher sur Discogs",
     "physical_review": "Sorties Discogs proches d'un album",
     "unit_physical": "sorties à rapprocher",
     "physical_in_discogs": "collection Discogs",

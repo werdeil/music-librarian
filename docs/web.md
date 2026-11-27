@@ -43,7 +43,7 @@ The album's page follows a pass queued from it, refreshed every 2 s: waiting in 
 
 Each edit carries the values the page showed: a track whose field changed in between, by another pass or another tagger, is refused (`REFUSED`) rather than overwritten.
 
-In the album's head, **Physical** shows when every track holds `PHYSICAL` in its comment, with how many do when only some do, beside a link to the release its tracks name on Discogs, else to a search of Discogs for the album (by its title alone for a compilation), to add it to the collection: the next `physical` pass then marks it. See [physical.md](physical.md).
+In the album's head, **Physical** shows when every track holds `PHYSICAL` in its comment, with how many do when only some do, beside a link to the release its tracks name on Discogs; the next `physical` pass marks an album once its release is in the collection. See [physical.md](physical.md).
 
 ### Lyrics
 

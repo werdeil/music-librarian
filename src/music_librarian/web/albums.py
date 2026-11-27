@@ -180,7 +180,7 @@ def register(app, ctx, index, later):
             if counted and any(getattr(counted, name) != value for name, value in found.items()):
                 index.note(rel, found)
             work = in_work_list(rel, sorted_out)
-        owned = physical.album_state(ctx.state_dir, tracks, library.common(tracks)["compilation"] == "1")
+        owned = physical.album_state(ctx.state_dir, tracks)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                spread=library.spread(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
