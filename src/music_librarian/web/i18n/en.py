@@ -506,7 +506,12 @@ EN = {
     "physical_same_note": ("The next physical pass marks the album PHYSICAL and writes the release's id in "
                            "its tracks."),
     "physical_other_note": "Never asked again.",
-    "physical_review": "Discogs releases close to an album",
+    "physical_review": "Discogs releases to match to an album",
+    "physical_link_question": "No album of the library matched this release. Which one is it?",
+    "physical_search": "Artist, album, folder…",
+    "physical_link": "Link to this album",
+    "physical_none": "Not in the library",
+    "physical_found_none": "No album holds these words.",
     "unit_physical": "releases to match",
     "physical_in_discogs": "Discogs collection",
     "physical_in_library": "library",

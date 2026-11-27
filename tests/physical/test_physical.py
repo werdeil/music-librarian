@@ -92,6 +92,19 @@ def test_an_answer_marks_the_close_album(lib, tmp_path, capsys):
     assert comments(lib / "Radiohead/OK Computer OKNOTOK") == {"01 T.mp3": ["PHYSICAL"]}
 
 
+@pytest.mark.usefixtures("discogs")
+def test_a_link_marks_the_album_and_writes_its_id(lib, tmp_path, capsys, make_track):
+    make_track(lib / "Daft Punk/Early Tracks/01 T.m4a", title="T", artist="Daft Punk", album="Early Tracks")
+    assert run(lib, tmp_path) == 0
+    assert "ABSENT   Discogs 33" in capsys.readouterr().out
+    marks.update(tmp_path / "state", "links", {"33": "Daft Punk/Early Tracks"})
+    assert run(lib, tmp_path, "--apply") == 0
+    out = capsys.readouterr().out
+    assert "PHYSICAL Daft Punk/Early Tracks\n         ← Discogs 33" in out
+    assert "[linked on the dashboard]" in out
+    assert fields.read_field(lib / "Daft Punk/Early Tracks/01 T.m4a", "discogs_release") == ["33"]
+
+
 def test_an_empty_collection_unmarks_nothing(lib, tmp_path, discogs, capsys):
     assert run(lib, tmp_path, "--apply") == 0
     discogs.clear()

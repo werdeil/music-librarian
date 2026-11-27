@@ -20,8 +20,13 @@
     <form method="post" action="{{ url_for('undo_physical') }}" class="recorded">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="key" value="{{ done.key }}">
+        <input type="hidden" name="kind" value="{{ done.kind }}">
         <span class="muted">{{ t.recorded }}</span>
+        {% if done.kind == 'links' %}
+        <span class="parts"><span class="part">{{ done.album }}</span><span class="arrow">→</span><span class="part">{% if done.folder %}<code>{{ done.folder }}</code>{% else %}{{ t.physical_none }}{% endif %}</span></span>
+        {% else %}
         <span class="parts"><span class="part">{{ done.album }}</span><span class="arrow">→</span><span class="part">{{ t.physical_same if done.choice == 'yes' else t.physical_other }}</span></span>
+        {% endif %}
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
@@ -31,12 +36,45 @@
     <p class="muted">{{ t.physical_no_collection }}</p>
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
+    {% set release %}<li><span class="part whole">{{ item.release.artist }} – {{ item.release.title }}</span>
+                <span class="muted">{{ t.physical_in_discogs }}{% if item.release.formats %} · {{ item.release.formats | join(', ') }}{% endif %}{% if item.release.year %} · {{ item.release.year }}{% endif %}
+                · <a href="{{ item.url }}" rel="noreferrer" target="_blank">Discogs</a></span></li>{% endset %}
+    {% if item.album is none %}
+    <div class="review-now">
+        <p class="step">{{ t.physical_link_question }}</p>
+        <ul class="spellings">{{ release }}</ul>
+    </div>
+    <form method="get" action="{{ url_for('review_physical') }}" class="filters">
+        <input type="hidden" name="from" value="{{ item.start }}">
+        <input type="search" name="q" value="{{ item.text }}" placeholder="{{ t.physical_search }}" aria-label="{{ t.physical_search }}">
+        <button type="submit">{{ t.search_button }}</button>
+    </form>
+    <form method="post" action="{{ url_for('link_physical') }}" class="answer">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="key" value="{{ item.key }}">
+        <input type="hidden" name="release" value="{{ item.release.artist }} – {{ item.release.title }}">
+        {% if item.found %}
+        <fieldset class="names-choice">
+        {% for album in item.found %}
+            <label><input type="radio" name="folder" value="{{ album.folder }}"{% if loop.first %} checked{% endif %} required>
+                <span>{{ t.field_compilation if album.compilation else album.artist }} – {{ album.title }}</span>
+                <span class="muted"><code>{{ album.folder }}</code> · <a href="{{ url_for('album_page', folder=album.folder) }}">{{ t.see }}</a></span></label>
+        {% endfor %}
+        </fieldset>
+        {% else %}
+        <p class="muted">{{ t.physical_found_none }}</p>
+        {% endif %}
+        <p class="muted">{{ t.physical_same_note }}</p>
+        <div class="actions">
+            {% if item.found %}<button type="submit" class="primary">{{ t.physical_link }}</button>{% endif %}
+            <button type="submit" name="none" value="1" formnovalidate>{{ t.physical_none }}</button>
+        </div>
+    </form>
+    {% else %}
     <div class="review-now">
         <p class="step">{{ t.physical_question }}</p>
         <ul class="spellings">
-            <li><span class="part whole">{{ item.release.artist }} – {{ item.release.title }}</span>
-                <span class="muted">{{ t.physical_in_discogs }}{% if item.release.formats %} · {{ item.release.formats | join(', ') }}{% endif %}{% if item.release.year %} · {{ item.release.year }}{% endif %}
-                · <a href="{{ item.url }}" rel="noreferrer" target="_blank">Discogs</a></span></li>
+            {{ release }}
             <li><span class="part whole">{{ t.field_compilation if item.album.compilation else item.album.artist }} – {{ item.album.title }}</span>
                 <span class="muted">{{ t.physical_in_library }} · <a href="{{ url_for('album_page', folder=item.album.folder) }}"><code>{{ item.album.folder }}</code></a></span></li>
         </ul>
@@ -45,6 +83,7 @@
         {{ choice(item, 'yes', t.physical_same, t.physical_same_note, primary=true) }}
         {{ choice(item, 'no', t.physical_other, t.physical_other_note) }}
     </div>
+    {% endif %}
     <form method="post" action="{{ url_for('review_later', review='physical') }}" class="review-later">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="later" value="{{ item.later }}">

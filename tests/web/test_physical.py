@@ -81,7 +81,7 @@ def test_without_a_collection_the_review_says_so(d, settled):
     text = page(d, "/reviews")
     assert text.count("The Discogs collection has not been read yet.") == 1
     assert 'name="command" value="physical"' in text and "Read the Discogs collection</button>" in text
-    assert text.index("One artist spelled several ways") < text.index("Discogs releases close to an album")
+    assert text.index("One artist spelled several ways") < text.index("Discogs releases to match to an album")
 
 
 def test_a_compilation_is_shown_as_one(d, settled, make_track):
@@ -101,3 +101,31 @@ def test_the_overview_offers_the_pass_with_a_token(d, monkeypatch):
     monkeypatch.setenv("DISCOGS_TOKEN", "t0k")
     text = page(d, "/")
     assert 'name="command" value="physical"' in text and "Mark the albums of the Discogs collection" in text
+
+
+def test_a_release_of_no_album_is_linked_then_undone(d, settled, make_track):
+    make_track(d.ctx.root / "Compilations/Hotel Costes 8/01 T.m4a", title="T", artist="A",
+               album="Hôtel Costes 8", compilation=True)
+    scan.run(d.ctx.root, d.state, Log())
+    collection.keep(d.state, "me", RELEASES + [dict(id="55", artist="Stéphane Pompougnac",
+                                                    artists=["Stéphane Pompougnac"], title="Hôtel Costes 8",
+                                                    year="2005", formats=["CD"])])
+    settled(lambda: page(d, "/reviews/physical"))
+    text = page(d, "/reviews/physical?from=1")
+    assert "No album of the library matched this release." in text and 'value="Hôtel Costes 8"' in text
+    assert 'value="Compilations/Hotel Costes 8" checked' in text and "Radiohead/OKNOTOK" not in text
+    assert "No album holds these words." in page(d, "/reviews/physical?from=1&q=zzz")
+    assert "Air/Moon Safari" not in page(d, "/reviews/physical?from=1&q=safari")
+    assert d.client.post("/reviews/physical/link", data={"csrf": d.token, "key": "55",
+                                                         "folder": "Nowhere"}).status_code == 400
+    response = d.client.post("/reviews/physical/link", data={"csrf": d.token, "key": "55",
+                                                             "release": "Pompougnac – Costes",
+                                                             "folder": "Compilations/Hotel Costes 8"})
+    assert marks.load(d.state)["links"] == {"55": "Compilations/Hotel Costes 8"}
+    text = page(d, response.location)
+    assert "Question 2 of 2" in text and "Pompougnac – Costes</span>" in text
+    assert "Compilations/Hotel Costes 8</code>" in text
+    d.client.post("/reviews/physical/undo", data={"csrf": d.token, "key": "55", "kind": "links"})
+    assert marks.load(d.state)["links"] == {}
+    d.client.post("/reviews/physical/link", data={"csrf": d.token, "key": "55", "none": "1"})
+    assert marks.load(d.state)["links"] == {"55": ""}

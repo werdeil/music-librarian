@@ -25,6 +25,7 @@ Each release of the collection is matched to an album of the library (one album 
 1. **by its id**: the album whose tracks hold the release's id;
 2. **by its name**: the album of the same artist and title once case, accents, punctuation, `&` / `+` / `and`, a leading `The`, Discogs' numbers of homonyms (`Prince (2)`), a translated title after ` = ` and the brackets of an edition (`(Remastered 2009)`, `(Deluxe Edition)`, `(Bonus CD)`) are set aside: any edition of an album owned counts. A release of `Various` is the compilation of its title, whatever the album artist of its tracks;
 3. **by an answer**: an album only close to a release is a question for the dashboard's review, answered "same album" or "another album". It is close when one of the artist or the title is the same and the other similar (`OK Computer` and `OK Computer OKNOTOK 1997 2017`), when both are the same but for spaces or letters such as `ø` (`Mambopunk` and `Mambo Punk`, `Love Live` and `Løve Live`), which may be a spelling to correct in the tags, or when only a bracket naming another record tells them apart (`(Remix)`, `[Live]`, `(Acoustic)`, `EP`…: `Origin of Symmetry (XX Anniversary RemiXX)` is not `Origin of Symmetry`). Until it is answered, the album is left as it is, marked or not.
+4. **by a link**: a release no album matches, none close to it or every close one answered "another album", is a question of the dashboard too, which searches the library for the album it is (see [On the dashboard](#on-the-dashboard)). The album linked is matched as by its id, which the pass then writes in its tracks.
 
 A release several albums match marks each of them (an album and its deluxe edition, both in the library).
 
@@ -43,7 +44,7 @@ REVIEW   Radiohead/OK Computer OKNOTOK
 ABSENT   Discogs 33: Daft Punk – Homework (CD, 1997)
 ```
 
-`PHYSICAL` is an album to mark, with the release that makes it physical and, in brackets, how it was matched when it is not the name; `UNMARK` one to unmark; `DISCOGS` an album already marked whose tracks are to hold the id; `REVIEW` a release only close to an album, a question of the dashboard; `ABSENT` a release no album of the library is. The summary counts each of them.
+`PHYSICAL` is an album to mark, with the release that makes it physical and, in brackets, how it was matched when it is not the name; `UNMARK` one to unmark; `DISCOGS` an album already marked whose tracks are to hold the id; `REVIEW` a release only close to an album, a question of the dashboard; `ABSENT` a release no album of the library is, until it is linked to one. The summary counts each of them.
 
 The dry run reads the collection and changes nothing in the library; it keeps the collection read in `state/physical-collection.json`, which the dashboard reads instead of asking Discogs. Every tag written goes through the journal: `music-librarian undo` restores it.
 
@@ -53,7 +54,7 @@ Exit codes: 0 = OK, 2 = collection unreadable (no token, a token refused, Discog
 
 - **The library** badges the cover of the albums whose every track holds `PHYSICAL` (a round disc in its top right corner, **Physical** on hover), and its **Physical** filter keeps them; the advanced search tests it as **Physical**, under State.
 - **An album's page** shows the same disc on its cover when every track holds the word, darkened when only some do, how many on hover. **Look the edition up** shows the release its tracks name on Discogs, alone; for an album without one, it lists the editions Discogs has of it (first, with a token), each linking its page, to add it to the collection.
-- **Reviews** asks about the releases only close to an album, one page at a time: **Same album**, which the next pass marks, or **Another album**, never asked again. Each answer is kept in `state/physical.json`; the review's button queues the pass.
+- **Reviews** asks about the releases only close to an album, one page at a time: **Same album**, which the next pass marks, or **Another album**, never asked again. Then about the releases no album matches: the albums no release matches yet whose artist, title or folder hold the words searched, the release's title at first, or whose title is like them, to pick one and **Link to this album**, which the next pass marks; or **Not in the library**, never asked again. Each answer is kept in `state/physical.json`; the review's button queues the pass.
 
 The dashboard reads the collection the last pass kept, and never asks Discogs for it.
 

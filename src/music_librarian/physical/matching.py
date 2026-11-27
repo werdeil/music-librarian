@@ -16,7 +16,7 @@ BRACKETS = re.compile(r"\([^)]*\)|\[[^\]]*\]")
 OTHER_RECORD = re.compile(r"remix|\bmix|live|acoustic|unplugged|instrumental|demo|karaoke|\bep\b|\be p\b"
                           r"|single|\bdub\b|session|rarit|b side|cover")
 LETTERS = str.maketrans({"ø": "o", "æ": "ae", "œ": "oe", "ß": "ss", "ł": "l", "đ": "d", "þ": "th"})
-ID, NAME, ANSWER = "id", "name", "answer"
+ID, NAME, ANSWER, LINK = "id", "name", "answer", "link"
 
 
 def fold(text):
@@ -87,14 +87,15 @@ def close(a, b):
 
 @dataclass
 class Matches:
-    found: dict      # {folder: (release, ID, NAME or ANSWER)}
+    found: dict      # {folder: (release, ID, LINK, NAME or ANSWER)}
     doubtful: list   # [(release, Album)] not answered yet
     absent: list     # the releases no album is, nor may be
 
 
-def match(releases, albums, answers):
+def match(releases, albums, answers, links=None):
     """The Matches of the collection's releases among the library's LibraryAlbum, `answers`
-    holding {pair_key: True or False} of the dashboard's answers about the doubtful ones."""
+    holding {pair_key: True or False} of the dashboard's answers about the doubtful ones, `links`
+    {release id: folder, or "" for none} the albums the dashboard picked for the absent ones."""
     found, used = {}, set()
     by_id = {r["id"]: r for r in releases}
     for album in albums:
@@ -102,6 +103,12 @@ def match(releases, albums, answers):
         if held:
             found[album.folder] = (by_id[held[0]], ID)
             used.add(held[0])
+    folders = {album.folder for album in albums}
+    for r in releases:
+        folder = (links or {}).get(r["id"])
+        if r["id"] not in used and folder in folders and folder not in found:
+            found[folder] = (r, LINK)
+            used.add(r["id"])
     by_name = {}
     for album in albums:
         for artist in album_artists(album):

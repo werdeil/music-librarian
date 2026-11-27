@@ -13,8 +13,10 @@ def test_marker_added_and_removed_as_a_word():
 
 
 def test_answers_kept_and_taken_back(tmp_path):
-    assert marks.load(tmp_path) == {"answers": {}}
+    assert marks.load(tmp_path) == {"answers": {}, "links": {}}
     marks.update(tmp_path, "answers", {"5\tradiohead\tok computer": False, "x": "not a bool"})
     assert marks.load(tmp_path)["answers"] == {"5\tradiohead\tok computer": False}
     marks.update(tmp_path, "answers", {"5\tradiohead\tok computer": None})
     assert marks.load(tmp_path)["answers"] == {}
+    marks.update(tmp_path, "links", {"7": "Daft Punk/Homework", "8": "", "9": 3})
+    assert marks.load(tmp_path)["links"] == {"7": "Daft Punk/Homework", "8": ""}

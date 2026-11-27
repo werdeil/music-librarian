@@ -1,6 +1,7 @@
 """The PHYSICAL word of a comment, and the dashboard's answers about the doubtful releases, kept
 in physical.json in the state folder: {"answers": {pair key: true or false}} whether a release
-only close to an album is that album."""
+only close to an album is that album, {"links": {release id: folder, or "" for none}} the album a
+release no album matched is."""
 import json
 import os
 import re
@@ -10,7 +11,7 @@ from pathlib import Path
 FILE = "physical.json"
 MARKER = "PHYSICAL"
 WORD = re.compile(rf"(?<!\S){MARKER}(?!\S)")
-KINDS = {"answers": bool}
+KINDS = {"answers": bool, "links": str}
 _lock = threading.Lock()
 
 

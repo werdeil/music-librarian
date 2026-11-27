@@ -513,7 +513,12 @@ FR = {
     "physical_same_note": ("Le prochain passage de physical marque l'album PHYSICAL et écrit l'id de la "
                            "sortie dans ses pistes."),
     "physical_other_note": "Plus jamais demandé.",
-    "physical_review": "Sorties Discogs proches d'un album",
+    "physical_review": "Sorties Discogs à rapprocher d'un album",
+    "physical_link_question": "Aucun album de la bibliothèque ne correspond à cette sortie. Lequel est-ce ?",
+    "physical_search": "Artiste, album, dossier…",
+    "physical_link": "Lier à cet album",
+    "physical_none": "Pas dans la bibliothèque",
+    "physical_found_none": "Aucun album ne contient ces mots.",
     "unit_physical": "sorties à rapprocher",
     "physical_in_discogs": "collection Discogs",
     "physical_in_library": "bibliothèque",

@@ -5,7 +5,7 @@ The collection of the owner of $DISCOGS_TOKEN is read, every folder (physical/co
 and each release is matched to an album of the library (physical/matching.py): the album whose
 tracks hold its Discogs release id, else the album of the same artist and title, whatever the
 edition. An album only close to a release is a question for the dashboard (Reviews), left as it
-is until answered.
+is until answered; a release no album matches is linked there to the album picked, if any.
 
 A physical album holds the word PHYSICAL in the comment of each of its tracks, the field Virtual
 Library Creator filters on in Lyrion, and the id of its release (DISCOGS_RELEASE_ID) where none
@@ -43,7 +43,7 @@ from music_librarian.media import fields
 from music_librarian.media.metadata_cache import MetadataCache
 from music_librarian.organize.scan import collect
 from music_librarian.physical import collection, marks
-from music_librarian.physical.matching import ANSWER, ID, LibraryAlbum, match
+from music_librarian.physical.matching import ANSWER, ID, LINK, LibraryAlbum, match
 from music_librarian.split.library import run_locked
 
 LAST_RUN = "physical_last_run"
@@ -127,9 +127,9 @@ class Change:
     ids: list = field(default_factory=list)      # the tracks to hold the release's id
 
 
-def plan(albums, tracks, releases, answers):
-    """([Change] of every album, Matches), `answers` the dashboard's of marks.load()."""
-    matches = match(releases, albums, answers)
+def plan(albums, tracks, releases, answers, links=None):
+    """([Change] of every album, Matches), `answers` and `links` the dashboard's of marks.load()."""
+    matches = match(releases, albums, answers, links)
     asked = {album.folder for _, album in matches.doubtful}
     changes = []
     for album in albums:
@@ -154,7 +154,7 @@ def shown(release):
     return f"{found} ({detail})" if detail else found
 
 
-REASONS = {ID: "its Discogs id", ANSWER: "answered on the dashboard"}
+REASONS = {ID: "its Discogs id", ANSWER: "answered on the dashboard", LINK: "linked on the dashboard"}
 
 
 def describe(change, log):
@@ -198,7 +198,7 @@ def write(changes, journal, log, stats):
     return False
 
 
-def summary(stats, changes, matches, apply, log):
+def summary(stats, changes, matches, apply, log, links):
     if not apply:
         stats["to mark"] = sum(1 for c in changes if c.action == MARK)
         stats["to unmark"] = sum(1 for c in changes if c.action == UNMARK)
@@ -210,7 +210,7 @@ def summary(stats, changes, matches, apply, log):
               "tags written", "ids written", "to review", "not in the library", "skipped", "errors"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
-    if matches.doubtful:
+    if matches.doubtful or any(r["id"] not in links for r in matches.absent):
         log(f"{'answer':>20}: on the dashboard, Reviews")
 
 
@@ -227,7 +227,8 @@ def physical_pass(opts: Options, log):
     collection.keep(opts.state_dir, user, releases)
     log(f"DISCOGS  collection of {user}: {count(len(releases), 'release')}")
     albums, tracks = library(opts, log, stats)
-    changes, matches = plan(albums, tracks, releases, marks.load(opts.state_dir)["answers"])
+    held = marks.load(opts.state_dir)
+    changes, matches = plan(albums, tracks, releases, held["answers"], held["links"])
     if not releases and any(c.action == UNMARK for c in changes):
         kept = sum(1 for c in changes if c.action == UNMARK)
         log(f"WARNING  empty collection: {count(kept, 'album')} left marked")
@@ -254,7 +255,7 @@ def physical_pass(opts: Options, log):
         write_stamp(opts.state_dir, LAST_RUN, started)
     stats["releases"], stats["albums"] = len(releases), len(albums)
     stats["physical"] = sum(c.physical for c in changes)
-    summary(stats, changes, matches, opts.apply, log)
+    summary(stats, changes, matches, opts.apply, log, held["links"])
     return finish(journal, opts.root, log, stats, stopped)
 
 

@@ -1,6 +1,6 @@
 """The collection's releases matched to the library's albums (physical/matching.py)."""
 from music_librarian.physical import matching
-from music_librarian.physical.matching import ANSWER, ID, NAME, LibraryAlbum, match, pair_key
+from music_librarian.physical.matching import ANSWER, ID, LINK, NAME, LibraryAlbum, match, pair_key
 
 
 def release(rid, artist, title, artists=None, year="", formats=("CD",)):
@@ -69,3 +69,16 @@ def test_a_release_of_various_is_the_compilation_of_its_title():
     owned = [release("1", "Stéphane Pompougnac", "Hôtel Costes 8"), release("2", "Various", "Vintage FG")]
     found = match(owned, [hits, vintage, other], {})
     assert set(found.found) == {hits.folder, vintage.folder} and found.found[vintage.folder][1] == NAME
+
+
+def test_a_release_linked_on_the_dashboard_is_its_album():
+    albums = [LibraryAlbum("Compilations/Hotel Costes 8", "Various Artists", "Hôtel Costes 8",
+                           compilation=True),
+              LibraryAlbum("Daft Punk/Homework", "Daft Punk", "Homework")]
+    costes = release("3", "Stéphane Pompougnac", "Hôtel Costes 8")
+    assert match([costes], albums, {}).absent == [costes]
+    found = match([costes, release("4", "Daft Punk", "Homework")], albums, {},
+                  {"3": "Compilations/Hotel Costes 8", "4": "Daft Punk/Gone"})
+    assert found.found["Compilations/Hotel Costes 8"] == (costes, LINK) and not found.absent
+    assert found.found["Daft Punk/Homework"][1] == NAME
+    assert match([costes], albums, {}, {"3": ""}).absent == [costes]
