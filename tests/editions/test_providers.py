@@ -78,5 +78,8 @@ def test_providers_in_their_order(monkeypatch):
     monkeypatch.delenv("EDITION_PROVIDERS")
     assert [name for name, _ in editions.enabled_providers()] == \
         ["musicbrainz", "discogs", "itunes"]
+    monkeypatch.setenv("DISCOGS_TOKEN", "t0k")
+    assert [name for name, _ in editions.enabled_providers()] == \
+        ["discogs", "musicbrainz", "itunes"]
     monkeypatch.setenv("EDITION_PROVIDERS", "itunes, deezer")
     assert [name for name, _ in editions.enabled_providers()] == ["itunes"]

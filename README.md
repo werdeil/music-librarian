@@ -73,7 +73,7 @@ Without Docker: Python 3.12, ffmpeg on `PATH` and `pip install .` (`pip install 
 | `LYRION_SCAN_POLL`, `LYRION_SCAN_TIMEOUT` | Seconds between two looks at a scan (default `5`, `--scan-poll`) and seconds a scan is waited for (default `900`, `--scan-timeout`) |
 | `LYRICS_PROVIDERS` | Lyrics providers tried in order (default `lrclib,netease`, see below; empty to look up no lyrics) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Optional provider settings |
-| `EDITION_PROVIDERS` | Providers of an album's editions, looked up from its page on the dashboard, the first that finds some answering (default `musicbrainz,discogs,itunes`; empty to look up none) |
+| `EDITION_PROVIDERS` | Providers of an album's editions, looked up from its page on the dashboard, the first that finds some answering (default `musicbrainz,discogs,itunes`, `discogs,musicbrainz,itunes` once `DISCOGS_TOKEN` is set; empty to look up none) |
 | `DISCOGS_TOKEN` | A Discogs personal access token (Settings, Developers, on discogs.com), for the edition lookup and for `physical`, which reads the collection of its owner: without one, Discogs is not asked |
 | `MUSIC_LIBRARIAN_GENRES` | Validated genre list (default `genres.txt` in the state folder, see below) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` to look up the genres the list cannot align (on in the compose file), and the store asked (default `us`) |

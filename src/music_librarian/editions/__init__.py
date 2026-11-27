@@ -15,11 +15,13 @@ log = logging.getLogger(__name__)
 PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "itunes": itunes.fetch}
 NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "itunes": "iTunes"}
 DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,itunes"
+WITH_DISCOGS_TOKEN = "discogs,musicbrainz,itunes"
 
 
 def enabled_providers():
-    """The ordered provider list of `EDITION_PROVIDERS`; unknown names are ignored."""
-    raw = os.getenv("EDITION_PROVIDERS", DEFAULT_PROVIDER_ORDER)
+    """The ordered provider list of `EDITION_PROVIDERS`, by default Discogs first once it has a
+    token; unknown names are ignored."""
+    raw = os.getenv("EDITION_PROVIDERS", WITH_DISCOGS_TOKEN if discogs.token() else DEFAULT_PROVIDER_ORDER)
     names = [n.strip().lower() for n in raw.split(",") if n.strip()]
     return [(n, PROVIDERS[n]) for n in names if n in PROVIDERS]
 

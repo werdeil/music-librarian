@@ -73,7 +73,7 @@ Sans Docker : Python 3.12, ffmpeg dans le `PATH` et `pip install .` (`pip instal
 | `LYRION_SCAN_POLL`, `LYRION_SCAN_TIMEOUT` | Secondes entre deux interrogations pendant un scan (`5` par défaut, `--scan-poll`) et secondes d'attente d'un scan au plus (`900` par défaut, `--scan-timeout`) |
 | `LYRICS_PROVIDERS` | Fournisseurs de paroles essayés dans l'ordre (défaut `lrclib,netease`, voir ci-dessous ; vide pour ne chercher aucunes paroles) |
 | `MUSIXMATCH_TOKEN`, `LRCLIB_TIMEOUT` | Réglages facultatifs des fournisseurs |
-| `EDITION_PROVIDERS` | Fournisseurs des éditions d'un album, cherchées depuis sa page du tableau de bord, le premier qui en trouve répondant (défaut `musicbrainz,discogs,itunes` ; vide pour n'en chercher aucune) |
+| `EDITION_PROVIDERS` | Fournisseurs des éditions d'un album, cherchées depuis sa page du tableau de bord, le premier qui en trouve répondant (défaut `musicbrainz,discogs,itunes`, `discogs,musicbrainz,itunes` une fois `DISCOGS_TOKEN` renseigné ; vide pour n'en chercher aucune) |
 | `DISCOGS_TOKEN` | Un jeton d'accès personnel Discogs (Settings, Developers, sur discogs.com), pour la recherche d'éditions et pour `physical`, qui lit la collection de son propriétaire : sans lui, Discogs n'est pas interrogé |
 | `MUSIC_LIBRARIAN_GENRES` | Liste des genres validés (défaut `genres.txt` dans le dossier d'état, voir ci-dessous) |
 | `GENRE_LOOKUP`, `ITUNES_COUNTRY` | `itunes` pour chercher les genres que la liste ne sait pas aligner (activé dans le fichier compose), et le magasin interrogé (défaut `us`) |
