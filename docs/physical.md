@@ -51,8 +51,8 @@ Exit codes: 0 = OK, 2 = collection unreadable (no token, a token refused, Discog
 
 ## On the dashboard
 
-- **The library** badges the cover of the albums whose every track holds `PHYSICAL` (**Physical**, in its top left corner), and its **Physical** filter keeps them; the advanced search tests it as **Physical**, under State.
-- **An album's page** shows the same **Physical** on its cover when every track holds the word (with how many do when only some do). **Look the edition up** shows the release its tracks name on Discogs, alone; for an album without one, it lists the editions Discogs has of it (first, with a token), each linking its page, to add it to the collection.
+- **The library** badges the cover of the albums whose every track holds `PHYSICAL` (a round disc in its top right corner, **Physical** on hover), and its **Physical** filter keeps them; the advanced search tests it as **Physical**, under State.
+- **An album's page** shows the same disc on its cover when every track holds the word, darkened when only some do, how many on hover. **Look the edition up** shows the release its tracks name on Discogs, alone; for an album without one, it lists the editions Discogs has of it (first, with a token), each linking its page, to add it to the collection.
 - **Reviews** asks about the releases only close to an album, one page at a time: **Same album**, which the next pass marks, or **Another album**, never asked again. Each answer is kept in `state/physical.json`; the review's button queues the pass.
 
 The dashboard reads the collection the last pass kept, and never asks Discogs for it.

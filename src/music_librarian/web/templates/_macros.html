@@ -130,6 +130,7 @@
 {%- endmacro %}
 
 {% macro physical_badge(t, partly=none) -%}
-<span class="physical-badge" title="{{ t.physical_badge_title }}">{{ icon('physical') }}{{ t.physical_badge }}
-    {%- if partly %} {{ partly }}{% endif %}</span>
+<span class="physical-badge{% if partly %} physical-partly{% endif %}"
+      title="{{ t.physical_badge_title }}{% if partly %} ({{ partly }}){% endif %}">{{ icon('physical') }}
+    <span class="visually-hidden">{{ t.physical_badge }}{% if partly %} {{ partly }}{% endif %}</span></span>
 {%- endmacro %}

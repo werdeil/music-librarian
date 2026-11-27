@@ -974,17 +974,38 @@ td.cell-link a:focus-visible {
 .physical-badge {
     position: absolute;
     top: 0.4rem;
-    left: 0.4rem;
-    pointer-events: none;
-    padding: 0.1rem 0.45rem;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 70%);
+    right: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    background: var(--accent-color);
     color: #fff;
-    font-size: 0.75rem;
+    pointer-events: none;
 }
 
 .physical-badge .icon {
-    margin-right: 0.3em;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+}
+
+.physical-partly {
+    background: rgb(0 0 0 / 70%);
+}
+
+.album-head .physical-badge {
+    top: 0.3rem;
+    right: 0.3rem;
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.album-head .physical-badge .icon {
+    width: 0.95rem;
+    height: 0.95rem;
 }
 
 .albums img,
