@@ -410,6 +410,8 @@ FR = {
     "lookup_no_metadata": "Il faut un artiste et un titre pour chercher.",
     "editions_button": "Chercher l'édition",
     "editions_found": "{n} éditions sur {source}, celles de ce nombre de morceaux d'abord, surlignées.",
+    "editions_found_one": "1 édition sur {source}.",
+    "editions_held": "La sortie Discogs que désignent ses pistes.",
     "editions_partly_unavailable": "Rien trouvé ; sans réponse de {names}, réessayez plus tard.",
     "editions_no_metadata": "Il faut un artiste de l'album et un album pour chercher.",
     "editions_release": "Édition",

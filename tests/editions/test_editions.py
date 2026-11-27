@@ -63,7 +63,7 @@ def test_an_album_holding_its_discogs_id_is_that_release_alone(monkeypatch):
     monkeypatch.setattr(editions.discogs, "release", lambda rid: asked.append(rid) or held)
     monkeypatch.setattr(editions, "PROVIDERS", {"musicbrainz": lambda album: asked.append("brainz") or []})
     found, source, unreachable = editions.look_up({"artist": "A", "title": "B", "tracks": 2, "discogs": "11"})
-    assert [e["year"] for e in found] == ["2009"] and (source, unreachable) == ("discogs", [])
+    assert [e["year"] for e in found] == ["2009"] and (source, unreachable) == (editions.HELD, [])
     assert asked == ["11"]
 
     def down(_rid):

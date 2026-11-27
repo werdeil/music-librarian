@@ -354,7 +354,8 @@ def register(app, ctx, index, later):
         album = editions.album_of(snapshots, {"artist": request.form.get("albumartist", ""),
                                               "title": request.form.get("album", "")})
         found, source, unreachable = editions.look_up(album)
-        return render_template("_editions.html", editions=found, source=editions.NAMES.get(source),
+        return render_template("_editions.html", editions=found, held=source == editions.HELD,
+                               source=editions.NAMES.get(source),
                                why=None if found else source.replace(" ", "_"),
                                unreachable=", ".join(editions.NAMES[n] for n in unreachable))
 

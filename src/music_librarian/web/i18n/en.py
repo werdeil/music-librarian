@@ -404,6 +404,8 @@ EN = {
     "lookup_no_metadata": "An artist and a title are needed to look up.",
     "editions_button": "Look the edition up",
     "editions_found": "{n} editions on {source}, those of this number of tracks first, highlighted.",
+    "editions_found_one": "1 edition on {source}.",
+    "editions_held": "The Discogs release its tracks name.",
     "editions_partly_unavailable": "Nothing found; no answer from {names}, try again later.",
     "editions_no_metadata": "An album artist and an album are needed to look up.",
     "editions_release": "Edition",

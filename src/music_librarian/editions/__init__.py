@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 # "exact"}, exact when the album's MBID or barcode named it.
 PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "itunes": itunes.fetch}
 NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "itunes": "iTunes"}
+HELD = "held"   # the source of the release an album's tracks name by their Discogs id
 DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,itunes"
 WITH_DISCOGS_TOKEN = "discogs,musicbrainz,itunes"
 
@@ -57,7 +58,7 @@ def look_up(album):
     """(the editions of `album` ranked; the provider that answered, or why none did: "no metadata",
     "none" when every provider answered without any, "partly unavailable" when the others did, or
     "unavailable"; the names of the providers that did not answer, in order). An album holding
-    its Discogs release id is that release alone, asked of Discogs only while it answers."""
+    its Discogs release id is that release alone, its source HELD, while Discogs answers."""
     if album.get("discogs") and album["discogs"].isdigit():
         try:
             held = discogs.release(album["discogs"])
@@ -65,7 +66,7 @@ def look_up(album):
             log.warning("editions: discogs unreachable (%s)", exc)
             held = None
         if held:
-            return ranked([held], album), "discogs", []
+            return ranked([held], album), HELD, []
     if not (album.get("mbid") or album.get("barcode") or (album.get("artist") and album.get("title"))):
         return [], "no metadata", []
     providers = enabled_providers()
