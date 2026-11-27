@@ -973,8 +973,9 @@ td.cell-link a:focus-visible {
 
 .physical-badge {
     position: absolute;
+    top: 0.4rem;
     left: 0.4rem;
-    bottom: 0.4rem;
+    pointer-events: none;
     padding: 0.1rem 0.45rem;
     border-radius: 999px;
     background: rgb(0 0 0 / 70%);
@@ -982,8 +983,8 @@ td.cell-link a:focus-visible {
     font-size: 0.75rem;
 }
 
-.physical-mark {
-    white-space: nowrap;
+.physical-badge .icon {
+    margin-right: 0.3em;
 }
 
 .albums img,
