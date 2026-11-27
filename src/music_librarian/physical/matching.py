@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from music_librarian.physical.collection import NUMBERED
 
 SIMILAR = 0.8
-BRACKETS = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+BRACKETS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
 OTHER_RECORD = re.compile(r"remix|\bmix|live|acoustic|unplugged|instrumental|demo|karaoke|\bep\b|\be p\b"
                           r"|single|\bdub\b|session|rarit|b side|cover")
 LETTERS = str.maketrans({"ø": "o", "æ": "ae", "œ": "oe", "ß": "ss", "ł": "l", "đ": "d", "þ": "th"})
