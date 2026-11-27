@@ -80,14 +80,10 @@ class Doubts:
                     url=DISCOGS_RELEASE + release["id"], album=album), len(left)
 
 
-def album_state(state_dir, tracks):
+def album_state(tracks):
     """What an album's head shows of its mark, from its tracks as library.tracks_of() reads them."""
     readable = [values for _, values in tracks if values]
-    ids = sorted({v for values in readable for v in values["discogs_release"]})
-    kept = collection.kept(state_dir)
-    release = next((r for r in kept["releases"] if r["id"] in ids), None) if kept else None
-    return dict(marked=sum(marks.marked(values["comment"]) for values in readable), tracks=len(readable),
-                release=release, url=DISCOGS_RELEASE + ids[0] if ids else None)
+    return dict(marked=sum(marks.marked(values["comment"]) for values in readable), tracks=len(readable))
 
 
 def register(app, ctx, index, later):
