@@ -48,7 +48,8 @@ def test_button_on_the_album_page(d):
 
 def test_editions_listed_and_nothing_written(d, asked):
     found = look_up(d, albumartist="", album="B typed")
-    assert asked == [{"artist": "A", "title": "B typed", "mbid": "", "barcode": "", "tracks": 2}]
+    assert asked == [{"artist": "A", "title": "B typed", "mbid": "", "barcode": "", "tracks": 2,
+                     "discogs": ""}]
     assert "2 editions on MusicBrainz" in found
     assert '<tr class="edition-match">' in found and found.index("2011-05-02") < found.index("GB")
     assert '<button type="button" data-pick-year="2011">Take 2011</button>' in found

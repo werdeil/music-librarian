@@ -5,6 +5,7 @@ import os
 from music_librarian.editions.common import edition as an_edition, get_json
 
 SEARCH = "https://api.discogs.com/database/search"
+RELEASE = "https://api.discogs.com/releases/"
 SITE = "https://www.discogs.com"
 INTERVAL = 1.0   # Discogs allows 60 requests a minute with a token
 LAST = [0.0]   # when Discogs was last asked, by any module
@@ -23,6 +24,30 @@ def edition(result, exact=False):
                       label="; ".join(dict.fromkeys(result.get("label") or [])), catalog=result.get("catno"),
                       barcode=next(iter(result.get("barcode") or []), ""),
                       format="; ".join(dict.fromkeys(result.get("format") or [])))
+
+
+def of_release(found):
+    """The edition of a Discogs release as /releases/<id> gives it, the one its id named."""
+    labels = found.get("labels") or []
+    named = lambda key: [x.get("name") for x in found.get(key) or [] if x.get("name")]
+    barcode = next((i.get("value") for i in found.get("identifiers") or [] if i.get("type") == "Barcode"), "")
+    tracks = sum(1 for t in found.get("tracklist") or [] if t.get("type_", "track") == "track")
+    return an_edition(found.get("uri") or f"{SITE}/release/{found.get('id')}", True,
+                      title=found.get("title"), artist=" & ".join(named("artists")),
+                      date=found.get("released") or str(found.get("year") or ""),
+                      country=found.get("country"), label="; ".join(dict.fromkeys(named("labels"))),
+                      catalog=next((lb.get("catno") for lb in labels if lb.get("catno")), ""),
+                      barcode=barcode, tracks=tracks or None,
+                      format="; ".join(dict.fromkeys(named("formats"))))
+
+
+def release(release_id):
+    """The edition of the release `release_id`, None when Discogs knows none or without a token.
+    Raises ProviderUnavailable."""
+    if not token():
+        return None
+    found = get_json(RELEASE + release_id, {}, LAST, INTERVAL, {"Authorization": f"Discogs token={token()}"})
+    return of_release(found) if found else None
 
 
 def _search(params):

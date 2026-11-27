@@ -37,7 +37,8 @@ def album_of(snapshots, typed=None):
                 return value
         return ""
     album = {"artist": first("albumartist", "album artist", "artist"), "title": first("album"),
-             "mbid": first("musicbrainz_albumid"), "barcode": first("barcode"), "tracks": len(snapshots)}
+             "mbid": first("musicbrainz_albumid"), "barcode": first("barcode"), "tracks": len(snapshots),
+             "discogs": first("discogs_release_id")}
     album.update({k: v.strip() for k, v in (typed or {}).items() if v and v.strip()})
     return album
 
@@ -55,7 +56,16 @@ def ranked(editions, album):
 def look_up(album):
     """(the editions of `album` ranked; the provider that answered, or why none did: "no metadata",
     "none" when every provider answered without any, "partly unavailable" when the others did, or
-    "unavailable"; the names of the providers that did not answer, in order)."""
+    "unavailable"; the names of the providers that did not answer, in order). An album holding
+    its Discogs release id is that release alone, asked of Discogs only while it answers."""
+    if album.get("discogs") and album["discogs"].isdigit():
+        try:
+            held = discogs.release(album["discogs"])
+        except ProviderUnavailable as exc:
+            log.warning("editions: discogs unreachable (%s)", exc)
+            held = None
+        if held:
+            return ranked([held], album), "discogs", []
     if not (album.get("mbid") or album.get("barcode") or (album.get("artist") and album.get("title"))):
         return [], "no metadata", []
     providers = enabled_providers()
