@@ -127,3 +127,15 @@ def test_without_a_collection_the_review_says_so(d, settled):
     ("https://www.discogs.com/master/80", None), ("9" * 50000 + "x", None)])
 def test_a_release_id_is_read_from_what_is_typed(typed, found):
     assert physical.release_id(typed) == found
+
+
+def test_a_compilation_is_shown_as_one(d, settled, make_track):
+    for i in (1, 2):
+        make_track(d.ctx.root / f"Compilations/Vintage FG/0{i} T.m4a", title="T", artist=f"Artist {i}",
+                   album="Vintage FG Mix", compilation=True)
+    collection.keep(d.state, "me", RELEASES + [dict(id="44", artist="Various", artists=["Various"],
+                                                    title="Vintage FG", year="2006", formats=["CD"])])
+    scan.run(d.ctx.root, d.state, Log())
+    settled(lambda: page(d, "/reviews/physical"))
+    text = page(d, "/reviews/physical?from=1")
+    assert "Compilation – Vintage FG Mix" in text and "Artist 1 – Vintage FG Mix" not in text

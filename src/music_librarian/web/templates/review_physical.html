@@ -44,7 +44,7 @@
                 <span class="muted">{{ t.physical_in_discogs }}{% if item.release.formats %} · {{ item.release.formats | join(', ') }}{% endif %}{% if item.release.year %} · {{ item.release.year }}{% endif %}
                 · <a href="{{ item.url }}" rel="noreferrer" target="_blank">Discogs</a></span></li>
             {% endif %}
-            <li><span class="part whole">{{ item.album.artist }} – {{ item.album.title }}</span>
+            <li><span class="part whole">{{ t.field_compilation if item.album.compilation else item.album.artist }} – {{ item.album.title }}</span>
                 <span class="muted">{{ t.physical_in_library }} · <a href="{{ url_for('album_page', folder=item.album.folder) }}"><code>{{ item.album.folder }}</code></a></span></li>
         </ul>
     </div>

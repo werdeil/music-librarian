@@ -112,9 +112,10 @@ class Questions:
         kind, key, what = queue[i]
         album = what["album"]
         release = what["release"]
+        query = " ".join(x for x in (artist_of(album), album.title) if x)
         return dict(number=number, total=len(queue), later=later(i), kind=kind, key=key, album=album,
                     release=release, url=DISCOGS_RELEASE + release["id"] if release else None,
-                    search=f"{DISCOGS_SEARCH}?type=release&q={album.artist} {album.title}"), len(left)
+                    search=f"{DISCOGS_SEARCH}?type=release&q={query}"), len(left)
 
 
 def marks_stamp(state_dir):
@@ -145,10 +146,15 @@ def marker_edits(rel, tracks, wanted):
     return out
 
 
+def artist_of(album):
+    """The artist Discogs is asked about an album under: none for a compilation."""
+    return "" if album.compilation else album.artist
+
+
 def editions_of(album):
     """[edition, with its "id"] Discogs lists of the album, None when it cannot be reached. Writes nothing."""
     try:
-        found = discogs.fetch({"artist": album.artist, "title": album.title})
+        found = discogs.fetch({"artist": artist_of(album) or "Various", "title": album.title})
     except ProviderUnavailable:
         return None
     return [dict(e, id=release_id(e["url"])) for e in found if release_id(e["url"])][:20]
