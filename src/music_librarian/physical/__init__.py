@@ -1,28 +1,24 @@
 """
-physical — keeps the albums marked PHYSICAL and the Discogs collection in step, both ways.
+physical — marks PHYSICAL the albums of the Discogs collection, the collection the one truth.
 
 The collection of the owner of $DISCOGS_TOKEN is read, every folder (physical/collection.py),
 and each release is matched to an album of the library (physical/matching.py): the album whose
 tracks hold its Discogs release id, else the album of the same artist and title, whatever the
-edition. An album only close to a release is a question for the dashboard (Reviews).
+edition. An album only close to a release is a question for the dashboard (Reviews), left as it
+is until answered.
 
-An album of the library is physical when one of its tracks holds the word PHYSICAL in its
-comment, however it got there; the pass writes it into every track, the field Virtual Library
-Creator filters on in Lyrion, with the id of its release (DISCOGS_RELEASE_ID) where none is.
-Each applied pass keeps what both sides agreed on (physical.json), so that the next one tells
-which side changed and carries the change over to the other:
-  - a release added to the collection marks its album, one taken out unmarks it;
-  - an album marked adds its release to the collection (its id, else the edition picked on
-    the dashboard), one unmarked takes its release out.
-An album never seen agreeing, marked but not in the collection, is a question for the dashboard.
-The id, once written, is never removed by a pass.
+A physical album holds the word PHYSICAL in the comment of each of its tracks, the field Virtual
+Library Creator filters on in Lyrion, and the id of its release (DISCOGS_RELEASE_ID) where none
+is; any other album loses PHYSICAL, but an empty collection unmarks nothing. Discogs is never
+written to: an album is made physical by adding its release to the collection. The id, once
+written, is never removed by a pass.
 
-  music-librarian physical            # dry run: reads Discogs, shows what each side would get
-  music-librarian physical --apply    # write the tags, add to and take out of the collection
+  music-librarian physical            # dry run: reads Discogs, shows the tags to write
+  music-librarian physical --apply    # write them
 
 The dry run reads Discogs (the collection, nothing else) and keeps it in the state folder
-(physical-collection.json) for the dashboard. Every tag change goes through the journal, which
-`music-librarian undo` restores; the collection's changes are only logged.
+(physical-collection.json) for the dashboard. Every tag change goes through the journal:
+`music-librarian undo` restores it.
 
 Exit codes: 0 = OK, 2 = collection unreadable, unreadable files or failed writes, 3 = another
 pass is running, 4 = stopped before the end.
@@ -116,67 +112,38 @@ def library(opts, log, stats):
     return albums_of(found, opts.root)
 
 
-AGREE, MARK, UNMARK, ADD, REMOVE, EDITION, CONFLICT, ASKED = (
-    "agree", "mark", "unmark", "add", "remove", "edition", "conflict", "asked")
-PENDING = (EDITION, CONFLICT, ASKED)
-DONE = {MARK: "marked", UNMARK: "unmarked", ADD: "added to Discogs", REMOVE: "taken out of Discogs"}
+AGREE, MARK, UNMARK, ASKED = "agree", "mark", "unmark", "asked"
+DONE = {MARK: "marked", UNMARK: "unmarked"}
 
 
 @dataclass
-class Change:  # pylint: disable=too-many-instance-attributes  # one per part of what an album gets
+class Change:
     album: LibraryAlbum
-    action: str           # one of AGREE … CONFLICT
-    physical: bool        # what the album is once done; for a PENDING one, as it is now
+    action: str           # AGREE, MARK, UNMARK, or ASKED while a question about it waits
+    physical: bool        # what the album is once done; for an ASKED one, as it is now
     release: dict | None  # the release of the collection matched to it
     how: str | None       # how it was matched (matching.ID, NAME, ANSWER)
-    release_id: str = ""  # the release to add to the collection, or whose id the tracks get
     marker: list = field(default_factory=list)   # the tracks whose comment gains or loses PHYSICAL
-    ids: list = field(default_factory=list)      # the tracks to hold release_id
+    ids: list = field(default_factory=list)      # the tracks to hold the release's id
 
 
-def decide(marked, release, synced, conflict):
-    """What an album gets, `marked` whether the library holds it physical, `release` the one
-    matched in the collection, `synced` what the last pass left it (None: never seen agreeing)
-    and `conflict` the dashboard's answer about it."""
-    owned = release is not None
-    if marked == owned:
-        return AGREE
-    if synced is None:
-        return MARK if owned else {"add": ADD, "drop": UNMARK}.get(conflict, CONFLICT)
-    if synced == owned:
-        return ADD if marked else REMOVE
-    return MARK if owned else UNMARK
-
-
-def plan(albums, tracks, releases, held):
-    """([Change] of every album, Matches), `held` the file of marks.load()."""
-    matches = match(releases, albums, held["answers"])
+def plan(albums, tracks, releases, answers):
+    """([Change] of every album, Matches), `answers` the dashboard's of marks.load()."""
+    matches = match(releases, albums, answers)
     asked = {album.folder for _, album in matches.doubtful}
     changes = []
     for album in albums:
         release, how = matches.found.get(album.folder, (None, None))
-        if release is None and album.folder in asked:
-            marked = any(marks.marked(t.comment) for t in tracks[album.folder])
-            changes.append(Change(album, ASKED, marked, None, None))
-            continue
         mine = tracks[album.folder]
         marked = any(marks.marked(t.comment) for t in mine)
-        synced = held["synced"].get(album.key)
-        action = decide(marked, release, synced, held["conflicts"].get(album.key))
-        if action == UNMARK and synced is None:
-            how = ANSWER
-        release_id = release["id"] if release else ""
-        if action == ADD:
-            release_id = next((i for t in mine for i in t.ids), "") or held["editions"].get(album.key, "")
-            action = ADD if release_id else EDITION
-        if action in PENDING:
-            changes.append(Change(album, action, marked, release, how))
+        if release is None and album.folder in asked:
+            changes.append(Change(album, ASKED, marked, None, None))
             continue
-        physical = {AGREE: marked, MARK: True, ADD: True}.get(action, False)
-        change = Change(album, action, physical, release, how, release_id if physical else "",
-                        [t for t in mine if marks.marked(t.comment) != physical])
-        change.ids = [t for t in mine if not t.ids] if change.release_id else []
-        changes.append(change)
+        physical = release is not None
+        action = AGREE if marked == physical else MARK if physical else UNMARK
+        changes.append(Change(album, action, physical, release, how,
+                              [t for t in mine if marks.marked(t.comment) != physical],
+                              [t for t in mine if not t.ids] if release else []))
     return changes, matches
 
 
@@ -196,95 +163,61 @@ def describe(change, log):
         why = REASONS.get(change.how)
         log(f"PHYSICAL {rel}\n         ← {shown(change.release)}" + (f"  [{why}]" if why else ""))
     elif change.action == UNMARK:
-        why = "answered on the dashboard" if change.how == ANSWER else "not in the Discogs collection"
-        log(f"UNMARK   {rel}  ({why})")
-    elif change.action == ADD:
-        log(f"ADD      {rel}\n         → Discogs {change.release_id}, added to the collection")
-    elif change.action == REMOVE:
-        log(f"REMOVE   {rel}\n         → {shown(change.release)}, taken out of the collection")
-    elif change.action == EDITION:
-        log(f"EDITION  {rel}  (marked PHYSICAL, no Discogs id: pick its edition on the dashboard)")
-    elif change.action == CONFLICT:
-        log(f"CONFLICT {rel}  (marked PHYSICAL, not in the Discogs collection: answer on the dashboard)")
+        log(f"UNMARK   {rel}  (not in the Discogs collection)")
     elif change.marker and change.physical:
         log(f"PHYSICAL {rel}  ({count(len(change.marker), 'track')} more)")
-    if change.ids and change.action not in (MARK, ADD):
-        log(f"DISCOGS  {rel}  ← release {change.release_id} ({count(len(change.ids), 'track')})")
+    if change.ids and change.action != MARK:
+        log(f"DISCOGS  {rel}  ← release {change.release['id']} ({count(len(change.ids), 'track')})")
 
 
-def write_tags(change, journal, log, stats):
-    """Write the change's tags, each journaled; False when one failed."""
-    done = True
-    edits = [(t.path, COMMENT) for t in change.marker] + [(t.path, RELEASE) for t in change.ids]
-    for path, name in edits:
-        try:
-            old = fields.read_field(path, name)
-            if name == COMMENT:
-                new = marks.with_marker(old) if change.physical else marks.without_marker(old)
-            else:
-                new = old or [change.release_id]
-            if new == old:
-                continue
-            fields.write(path, name, new)
-        except Exception as e:
-            log(f"ERROR    ({e})  {path}")
-            stats["errors"] += 1
-            done = False
-            continue
-        journal.tag(path, name, old, new)
-        stats["ids written" if name == RELEASE else "tags written"] += 1
-    return done
-
-
-def write(changes, user, journal, log, stats):
-    """Carry each change over, the collection first, then the tags; ({album key: what it now is}
-    of the changes done, True if a stop request cut them short)."""
-    done = {}
+def write(changes, journal, log, stats):
+    """Write the changes' tags, each journaled; True if a stop request cut them short."""
     for i, change in enumerate(changes):
         if STOP.is_set():
             log(f"STOP     requested: {count(len(changes) - i, 'album')} left for the next pass")
-            return done, True
-        try:
-            if change.action == ADD:
-                collection.add(user, change.release_id)
-            elif change.action == REMOVE:
-                collection.remove(user, change.release)
-        except ProviderUnavailable as e:
-            log(f"ERROR    (Discogs: {e})  {change.album.folder}")
-            stats["errors"] += 1
-            continue
-        if write_tags(change, journal, log, stats):
-            done[change.album.key] = change.physical
-            if change.action in DONE:
-                stats[DONE[change.action]] += 1
-    return done, False
+            return True
+        edits = [(t.path, COMMENT) for t in change.marker] + [(t.path, RELEASE) for t in change.ids]
+        for path, name in edits:
+            try:
+                old = fields.read_field(path, name)
+                if name == COMMENT:
+                    new = marks.with_marker(old) if change.physical else marks.without_marker(old)
+                else:
+                    new = old or [change.release["id"]]
+                if new == old:
+                    continue
+                fields.write(path, name, new)
+            except Exception as e:
+                log(f"ERROR    ({e})  {path}")
+                stats["errors"] += 1
+                continue
+            journal.tag(path, name, old, new)
+            stats["ids written" if name == RELEASE else "tags written"] += 1
+        if change.action in DONE:
+            stats[DONE[change.action]] += 1
+    return False
 
 
 def summary(stats, changes, matches, apply, log):
-    acting = lambda action: sum(1 for c in changes if c.action == action)
     if not apply:
-        stats["to mark"], stats["to unmark"] = acting(MARK), acting(UNMARK)
-        stats["to add to Discogs"], stats["to take out"] = acting(ADD), acting(REMOVE)
+        stats["to mark"] = sum(1 for c in changes if c.action == MARK)
+        stats["to unmark"] = sum(1 for c in changes if c.action == UNMARK)
         stats["ids to write"] = sum(len(c.ids) for c in changes)
-    stats["editions to pick"], stats["conflicts"] = acting(EDITION), acting(CONFLICT)
     stats["to review"] = len(matches.doubtful)
     stats["not in the library"] = len(matches.absent)
     log("\n--- Physical summary ---")
-    for k in ("releases", "albums", "physical", "to mark", "marked", "to unmark", "unmarked",
-              "to add to Discogs", "added to Discogs", "to take out", "taken out of Discogs",
-              "ids to write", "tags written", "ids written", "editions to pick", "conflicts", "to review",
-              "not in the library", "skipped", "errors"):
+    for k in ("releases", "albums", "physical", "to mark", "marked", "to unmark", "unmarked", "ids to write",
+              "tags written", "ids written", "to review", "not in the library", "skipped", "errors"):
         if stats[k]:
             log(f"{k:>20}: {stats[k]}")
-    if stats["editions to pick"] or stats["conflicts"] or matches.doubtful:
+    if matches.doubtful:
         log(f"{'answer':>20}: on the dashboard, Reviews")
 
 
 def physical_pass(opts: Options, log):
     """A physical pass, without taking the lock: the caller holds it when `opts.apply`."""
     started = time.time()
-    mode = "APPLY" if opts.apply else "DRY-RUN"
-    log(f"[{mode}] syncing the physical albums under {opts.root} with Discogs")
+    log(f"[{'APPLY' if opts.apply else 'DRY-RUN'}] marking the physical albums under {opts.root}")
     stats = defaultdict(int)
     try:
         user, releases = collection.fetch()
@@ -294,13 +227,12 @@ def physical_pass(opts: Options, log):
     collection.keep(opts.state_dir, user, releases)
     log(f"DISCOGS  collection of {user}: {count(len(releases), 'release')}")
     albums, tracks = library(opts, log, stats)
-    held = marks.load(opts.state_dir)
-    changes, matches = plan(albums, tracks, releases, held)
+    changes, matches = plan(albums, tracks, releases, marks.load(opts.state_dir)["answers"])
     if not releases and any(c.action == UNMARK for c in changes):
         kept = sum(1 for c in changes if c.action == UNMARK)
         log(f"WARNING  empty collection: {count(kept, 'album')} left marked")
         changes = [c for c in changes if c.action != UNMARK]
-    acting = [c for c in changes if c.action not in PENDING and (c.action != AGREE or c.marker or c.ids)]
+    acting = [c for c in changes if c.marker or c.ids]
     for change in sorted(changes, key=lambda c: c.album.folder):
         describe(change, log)
     for release, album in matches.doubtful:
@@ -310,15 +242,9 @@ def physical_pass(opts: Options, log):
 
     journal = Journal(opts.state_dir, dict(root=str(opts.root), started=started, argv=sys.argv[1:]))
     stopped = False
-    if opts.apply:
-        if acting:
-            lyrion.await_scan(opts.lyrion, True, log)
-        done, stopped = write(acting, user, journal, log, stats)
-        busy = {id(c) for c in acting}
-        done.update({c.album.key: c.physical for c in changes if c.action == AGREE and id(c) not in busy})
-        marks.update(opts.state_dir, "synced", done)
-        marks.update(opts.state_dir, "editions", {key: None for key in done if key in held["editions"]})
-        marks.update(opts.state_dir, "conflicts", {key: None for key in done if key in held["conflicts"]})
+    if opts.apply and acting:
+        lyrion.await_scan(opts.lyrion, True, log)
+        stopped = write(acting, journal, log, stats)
         with MetadataCache(opts.state_dir) as cache:
             for change in acting:
                 for t in {t.path: t for t in change.marker + change.ids}.values():

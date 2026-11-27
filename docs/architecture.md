@@ -62,10 +62,10 @@ src/music_librarian/
 │   ├── download.py  a stream to a file, 10 attempts, and the cover
 │   ├── tags.py      the tags and cover deezer-music-download wrote
 │   └── staging.py   the hidden folder of the Inbox the albums wait in
-├── physical/        physical: the PHYSICAL albums and the Discogs collection kept in step, see physical.md
-│   ├── collection.py the collection read from Discogs, added to, taken out of, and the copy kept
+├── physical/        physical: the albums of the Discogs collection marked PHYSICAL, see physical.md
+│   ├── collection.py the collection read from Discogs, and the copy kept for the dashboard
 │   ├── matching.py  which album of the library each release is
-│   └── marks.py     the PHYSICAL word in a comment, and physical.json: what was synced, the answers
+│   └── marks.py     the PHYSICAL word in a comment, and the dashboard's answers (physical.json)
 ├── playcounts/      playcounts: Lyrion's orphan play counts given back to tracks, see lyrion.md
 │   ├── history.py   the orphans, the backfill and the DPSV, read and written in persist.db
 │   ├── matching.py  how much an orphan's path looks like a track's
@@ -81,7 +81,7 @@ src/music_librarian/
     ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
-    ├── physical.py  an album's PHYSICAL toggled, and the review of the questions of the next physical pass
+    ├── physical.py  what an album's page shows of its mark, and the review of the close Discogs releases
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
     ├── deezer.py    the Deezer dialog of the Inbox, the Deezer settings, and the Chrome extension's routes
@@ -97,7 +97,7 @@ src/music_librarian/
 | a drop in the Inbox has settled | `import` | files and enriches that drop, then splits and unifies its credits |
 | every night (`--organize-at`) | `organize --since` | refiles the folders changed since the last full pass |
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
-| every week (`--physical-at`), by hand, or the dashboard's Reviews page | `physical` | reads the Discogs collection, then carries each side's change over to the other: the albums its releases added or took out marked or unmarked, the albums marked or unmarked added to it or taken out |
+| every week (`--physical-at`), by hand, or the dashboard's Reviews page | `physical` | reads the Discogs collection, then marks the albums it holds and unmarks the others |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
 | by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics and removes the ReplayGain through it too |
@@ -184,8 +184,7 @@ A dry run reads only the metadata cache and the library's folders, never the net
 1. **Read the collection** of the owner of `DISCOGS_TOKEN` (`/oauth/identity`, then every page of folder 0, one request a second at most, the edition lookup's limit shared), and keep it in `state/physical-collection.json` for the dashboard, dry run included. A collection that cannot be read stops the pass before anything else.
 2. **Read the albums through the metadata cache**, one per folder: album artist, album, the comment and the Discogs id of each track.
 3. **Match each release to an album** (see [physical.md](physical.md)): by id, by name once normalized, else by the dashboard's answer about a close album; the close ones not answered are `REVIEW`, the releases of no album `ABSENT`.
-4. **Decide each album** (`decide`): an album is physical in the library when one of its tracks holds `PHYSICAL`, and in the collection when a release matches it. Where the two disagree, what `state/physical.json` keeps of the last time they agreed tells which side changed, and that change is carried over to the other; an album never seen agreeing, marked but not in the collection, waits for the dashboard (`CONFLICT`), and one to add without a release id for its edition (`EDITION`).
-5. **Write** with `--apply`, album by album: the collection first (a release added, or every copy of it taken out), then `PHYSICAL` added to or taken out of each track's comment that disagrees and the release's id in the tracks that hold none, each value read from the file again and each tag change journaled. What each album now is goes to `state/physical.json`, once both its sides are written; one Discogs refused stays as it was. An empty collection unmarks nothing.
+4. **Write** with `--apply`: `PHYSICAL` added to the comment of each track of an album a release matches and taken out of every other track's, and the release's id in the tracks that hold none, each value read from the file again and each change journaled. An album under question is left as it is; an empty collection unmarks nothing; Discogs is never written to.
 
 ### undo
 

@@ -1,9 +1,6 @@
-"""The PHYSICAL word of a comment, and what physical.json in the state folder keeps:
-  "synced":    {album key: whether it was physical} as the last applied pass left both sides;
-  "answers":   {pair key: true or false} whether a doubtful release is the album;
-  "editions":  {album key: release id} the edition chosen to add an album to the collection;
-  "conflicts": {album key: "add" or "drop"} for an album never synced, marked but not in the collection.
-The dashboard writes the last three, the pass the first."""
+"""The PHYSICAL word of a comment, and the dashboard's answers about the doubtful releases, kept
+in physical.json in the state folder: {"answers": {pair key: true or false}} whether a release
+only close to an album is that album."""
 import json
 import os
 import re
@@ -13,7 +10,7 @@ from pathlib import Path
 FILE = "physical.json"
 MARKER = "PHYSICAL"
 WORD = re.compile(rf"(?<!\S){MARKER}(?!\S)")
-KINDS = {"synced": bool, "answers": bool, "editions": str, "conflicts": str}
+KINDS = {"answers": bool}
 _lock = threading.Lock()
 
 

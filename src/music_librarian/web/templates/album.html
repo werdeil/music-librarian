@@ -56,17 +56,12 @@
         <p class="muted">{{ (t.track_one if tracks | length == 1 else t.track_many).format(n=tracks | length) }}
             {%- if total is not none %} · {{ total }}{% endif %}</p>
         {% set owned = physical.tracks and physical.marked == physical.tracks %}
-        <div class="physical-toggle">
-            {% if ctx.requests %}
-            {% set ticked = form.get('album.physical') == '1' if form else owned %}
-            <input type="hidden" name="album.physical_field" value="1" form="album-form">
-            <label class="chip physical-chip" title="{{ t.physical_toggle }}">
-                <input type="checkbox" name="album.physical" value="1" form="album-form"{% if ticked %} checked{% endif %}>
-                {{- m.icon('physical') }}{{ t.physical_badge }}
-                {%- if physical.marked and not owned %} {{ physical.marked }}/{{ physical.tracks }}{% endif %}</label>
-            {% elif owned %}<span class="chip chip-on">{{ m.icon('physical') }}{{ t.physical_badge }}</span>{% endif %}
-            {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>{% endif %}
-        </div>
+        <p class="physical-toggle">
+            {% if owned %}<span class="chip chip-on" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }}</span>
+            {%- elif physical.marked %}<span class="chip" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }} {{ physical.marked }}/{{ physical.tracks }}</span>{% endif %}
+            {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>
+            {%- else %}<a href="{{ physical.search }}" rel="noreferrer" target="_blank">{{ t.physical_search_link }}</a>{% endif %}
+        </p>
     </div>
 </section>
 

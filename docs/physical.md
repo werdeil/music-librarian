@@ -1,10 +1,10 @@
 # Physical albums
 
-`physical` keeps the albums of the library you also own on a physical medium (CD, vinyl, cassette…) and your [Discogs](https://www.discogs.com) collection in step, both ways: a release added to the collection marks its album in the tags, and an album marked in the library is added to the collection, at the next pass. The mark is a word in the tracks' comment, so that a virtual library of Lyrion can gather them (see [In Lyrion](#in-lyrion)). The code is in [`physical/`](../src/music_librarian/physical).
+`physical` marks the albums of the library you also own on a physical medium (CD, vinyl, cassette…): those of your [Discogs](https://www.discogs.com) collection, which is the one truth. A release added to the collection marks its album at the next pass, one taken out unmarks it; Discogs is only read, never written to. The mark is a word in the tracks' comment, so that a virtual library of Lyrion can gather them (see [In Lyrion](#in-lyrion)). The code is in [`physical/`](../src/music_librarian/physical).
 
 ## Setting it up
 
-Create a personal access token on discogs.com (Settings, Developers, **Generate new token**) and set it in `DISCOGS_TOKEN`, the variable the edition lookup of the dashboard already reads. The collection is the one of the token's owner, every folder of it, whether the profile is public or not: no user name is needed. The token also lets the pass add releases to the collection and take them out of it.
+Create a personal access token on discogs.com (Settings, Developers, **Generate new token**) and set it in `DISCOGS_TOKEN`, the variable the edition lookup of the dashboard already reads. The collection is the one of the token's owner, every folder of it, whether the profile is public or not: no user name is needed.
 
 ```bash
 docker compose run --rm music-librarian physical            # dry run
@@ -15,7 +15,7 @@ To run it every week, add `--physical-at "sun 04:00"` (a day and a time, as `--e
 
 ## What a physical album holds
 
-- **`PHYSICAL` in the comment of its tracks**, as a word of its own: a comment already there is kept, the word added after it (`Signed copy PHYSICAL`) and taken out of it alone. The comment is the `©cmt` atom of an M4A, the `COMMENT` of a FLAC, the `COMM` frame without a description of an MP3 (iTunes' own `COMM` frames are left alone). An album is physical as soon as one of its tracks holds the word, however it got there (the dashboard, Apple Music, `tag PATH --set comment=PHYSICAL`); the pass then writes it into every track.
+- **`PHYSICAL` in the comment of its tracks**, as a word of its own: a comment already there is kept, the word added after it (`Signed copy PHYSICAL`) and taken out of it alone. The comment is the `©cmt` atom of an M4A, the `COMMENT` of a FLAC, the `COMM` frame without a description of an MP3 (iTunes' own `COMM` frames are left alone). The pass writes it into every track of a physical album and takes it out of every other album's, whoever wrote it there: to make an album physical, add its release to the collection.
 - **The id of its release** (`DISCOGS_RELEASE_ID`, the name Mp3tag's Discogs source writes) in the tracks that hold none. A pass never removes it nor replaces it, since another tagger may have written it. `tag PATH --set discogs_release=…` sets it by hand.
 
 ## Which album a release is
@@ -28,20 +28,7 @@ Each release of the collection is matched to an album of the library (one album 
 
 A release several albums match marks each of them (an album and its deluxe edition, both in the library).
 
-## Both ways
-
-Each applied pass keeps, in `state/physical.json`, whether each album was physical once both sides agreed. The next pass compares each side with it, to tell which one changed, and carries that change over to the other:
-
-| The library | The collection | Last agreed | The pass |
-|---|---|---|---|
-| marked | holds it | | completes the marks and the id (`PHYSICAL` with "more" tracks, or `DISCOGS`) |
-| not marked | holds it | not physical, or never | marks the album: a release added to the collection (`PHYSICAL`) |
-| not marked | holds it | physical | takes the release out of the collection: the album unmarked in the library (`REMOVE`) |
-| marked | does not hold it | physical | unmarks the album: the release taken out of the collection (`UNMARK`) |
-| marked | does not hold it | not physical | adds the album's release to the collection: the album marked in the library (`ADD`) |
-| marked | does not hold it | never | asks the dashboard (`CONFLICT`): add it to Discogs, or take `PHYSICAL` away |
-
-To add an album, the pass needs its release: the id its tracks hold, else the edition picked on the dashboard (`EDITION` until then). It is added to the collection's Uncategorized folder. To take an album out, every copy of its release in the collection is taken out, whatever its folder. A change Discogs refuses is an `ERROR` that leaves the album as it was, to be tried again at the next pass. A collection Discogs answers empty unmarks nothing (`WARNING  empty collection`), in case it answered wrong.
+A collection Discogs answers empty unmarks nothing (`WARNING  empty collection`), in case it answered wrong, and an album under question is left as it is until answered.
 
 ## The output
 
@@ -50,30 +37,25 @@ DISCOGS  collection of me: 412 releases
 PHYSICAL Air/Moon Safari
          ← Discogs 11: Air – Moon Safari (Vinyl, 1998)
 UNMARK   Björk/Post  (not in the Discogs collection)
-ADD      Daft Punk/Discovery
-         → Discogs 9, added to the collection
-REMOVE   Portishead/Dummy
-         → Discogs 44: Portishead – Dummy (CD, 1994), taken out of the collection
-EDITION  Moby/Play  (marked PHYSICAL, no Discogs id: pick its edition on the dashboard)
-CONFLICT Björk/Debut  (marked PHYSICAL, not in the Discogs collection: answer on the dashboard)
+DISCOGS  Daft Punk/Discovery  ← release 9 (12 tracks)
 REVIEW   Radiohead/OK Computer OKNOTOK
          ~ Discogs 22: Radiohead – OK Computer (CD, 1997)
 ABSENT   Discogs 33: Daft Punk – Homework (CD, 1997)
 ```
 
-`PHYSICAL` is an album to mark, with the release that makes it physical and, in brackets, how it was matched when it is not the name; `UNMARK` one to unmark; `ADD` and `REMOVE` a release to add to the collection or take out of it; `DISCOGS` an album already marked whose tracks are to hold the id; `EDITION`, `CONFLICT` and `REVIEW` the questions of the dashboard; `ABSENT` a release no album of the library is. The summary counts each of them.
+`PHYSICAL` is an album to mark, with the release that makes it physical and, in brackets, how it was matched when it is not the name; `UNMARK` one to unmark; `DISCOGS` an album already marked whose tracks are to hold the id; `REVIEW` a release only close to an album, a question of the dashboard; `ABSENT` a release no album of the library is. The summary counts each of them.
 
-The dry run reads the collection and changes nothing, in the library nor on Discogs; it keeps the collection read in `state/physical-collection.json`, which the dashboard reads instead of asking Discogs. Every tag written goes through the journal, so `music-librarian undo` restores the tags; the collection's changes are only logged, and undone on Discogs itself.
+The dry run reads the collection and changes nothing in the library; it keeps the collection read in `state/physical-collection.json`, which the dashboard reads instead of asking Discogs. Every tag written goes through the journal: `music-librarian undo` restores it.
 
-Exit codes: 0 = OK, 2 = collection unreadable (no token, a token refused, Discogs out of reach), a change Discogs refused, unreadable files or failed writes, 3 = another pass is running, 4 = stopped before the end.
+Exit codes: 0 = OK, 2 = collection unreadable (no token, a token refused, Discogs out of reach), unreadable files or failed writes, 3 = another pass is running, 4 = stopped before the end.
 
 ## On the dashboard
 
 - **The library** badges the albums whose every track holds `PHYSICAL`, and its **Physical** filter keeps them; the advanced search tests it as **Physical**, under State.
-- **An album's page** holds a **Physical** box in its head, ticked when every track holds the word: a field of the album's form, which **Preview the changes** shows and **Apply** writes, giving the word to every track or taking it away; the next `physical` pass then carries it over to the collection. A link leads to the release its tracks name on Discogs.
-- **Reviews** asks the questions of the next pass, one page at a time: a release only close to an album (same album, or another), the edition of an album to add (one of those Discogs lists of it, shown on demand, or an id or the address of a release page typed in), and an album never synced, marked but not in the collection (add it to Discogs, or take `PHYSICAL` away). Each answer is kept in `state/physical.json` and applied by the next pass, which the review's button queues.
+- **An album's page** shows **Physical** in its head when every track holds the word (with how many do when only some do), and links the release its tracks name on Discogs, else a search of Discogs for the album, to add it to the collection.
+- **Reviews** asks about the releases only close to an album, one page at a time: **Same album**, which the next pass marks, or **Another album**, never asked again. Each answer is kept in `state/physical.json`; the review's button queues the pass.
 
-The dashboard reads the collection the last pass kept. The editions of an album, shown on demand on its question, are the one lookup that asks Discogs, and it writes nothing.
+The dashboard reads the collection the last pass kept, and never asks Discogs for it.
 
 ## In Lyrion
 

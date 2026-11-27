@@ -990,15 +990,6 @@ td.cell-link a:focus-visible {
     font-size: var(--fs-sm);
 }
 
-.physical-chip {
-    cursor: pointer;
-}
-
-.physical-chip input {
-    margin: 0;
-}
-
-.physical-chip:has(input:checked),
 .chip-on {
     border-color: var(--accent-color);
     color: var(--text-bright);

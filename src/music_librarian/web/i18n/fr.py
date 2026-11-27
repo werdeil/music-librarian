@@ -5,7 +5,7 @@ FR = {
     "overview_short": "Accueil",
     "checks": "Contrôles",
     "tile_split": "Crédits à découper",
-    "tile_physical": "Albums à synchroniser avec Discogs",
+    "tile_physical": "Sorties Discogs à rapprocher",
     "tile_dedupe": "Artistes à unifier",
     "tile_genres": "Genres hors de la liste",
     "tile_off": "revue désactivée",
@@ -506,38 +506,14 @@ FR = {
     "questions_waiting": "Questions en attente de réponse",
     "split_review": "Crédits à plusieurs noms",
     "dedupe_review": "Un artiste écrit de plusieurs façons",
-    "physical_toggle": "PHYSICAL dans le commentaire de chaque piste",
-    "physical_question_match": ("Cette sortie de la collection Discogs est-elle cet album de la "
+    "physical_question": ("Cette sortie de la collection Discogs est-elle cet album de la "
                                 "bibliothèque ?"),
-    "physical_question_edition": ("Cet album est marqué PHYSICAL mais n'a pas d'id Discogs : quelle "
-                                  "édition ajouter à la collection ?"),
-    "physical_question_conflict": ("Cet album est marqué PHYSICAL mais n'est pas dans la collection "
-                                   "Discogs, et n'a jamais été synchronisé : quel côté a raison ?"),
-    "physical_same_note": ("Le prochain passage de physical les traite comme un seul : PHYSICAL "
-                           "et l'id de la sortie dans les tags."),
+    "physical_same_note": ("Le prochain passage de physical marque l'album PHYSICAL et écrit l'id de la "
+                           "sortie dans ses pistes."),
     "physical_other_note": "Plus jamais demandé.",
-    "physical_add": "L'ajouter à Discogs",
-    "physical_add_note": ("Le prochain passage de physical l'ajoute à la collection, une fois "
-                          "son édition connue."),
-    "physical_drop": "Retirer PHYSICAL",
-    "physical_drop_note": "Le prochain passage de physical retire PHYSICAL de ses pistes.",
-    "physical_edition": "L'édition possédée",
-    "physical_edition_note": ("Le prochain passage de physical ajoute cette sortie à la collection "
-                              "et écrit son id dans les tags."),
-    "physical_edition_id": "Id ou adresse de la sortie Discogs",
-    "physical_edition_pick": "Ajouter cette édition",
-    "physical_editions_link": "Éditions sur Discogs",
     "physical_search_link": "Chercher sur Discogs",
-    "physical_edition_this": "Celle-ci",
-    "physical_editions_none": ("Discogs ne liste aucune édition de cet album : cherchez-la, puis "
-                               "collez son adresse."),
-    "physical_editions_unreachable": "Discogs n'a pas pu être joint, ou DISCOGS_TOKEN n'est pas renseigné.",
-    "physical_done_match_True": "même album",
-    "physical_done_match_False": "un autre album",
-    "physical_done_conflict_add": "ajouté à Discogs",
-    "physical_done_conflict_drop": "PHYSICAL retiré",
-    "physical_review": "Albums à synchroniser avec Discogs",
-    "unit_physical": "albums à régler",
+    "physical_review": "Sorties Discogs proches d'un album",
+    "unit_physical": "sorties à rapprocher",
     "physical_in_discogs": "collection Discogs",
     "physical_in_library": "bibliothèque",
     "physical_same": "Même album",

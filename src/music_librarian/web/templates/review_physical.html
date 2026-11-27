@@ -2,15 +2,11 @@
 {% import "_apply_answers.html" as a %}
 {% from "_macros.html" import icon %}
 {% block title %}{{ t.physical_review }} · music-librarian{% endblock %}
-{% macro hidden(item) %}
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="kind" value="{{ item.kind }}">
-        <input type="hidden" name="key" value="{{ item.key }}">
-        <input type="hidden" name="album" value="{{ item.album.folder }}">
-{%- endmacro %}
 {% macro choice(item, value, title, note, primary=false) %}
         <form method="post" action="{{ url_for('answer_physical') }}" class="review-choice{% if primary %} suggested{% endif %}">
-            {{ hidden(item) }}
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="key" value="{{ item.key }}">
+            <input type="hidden" name="album" value="{{ item.album.folder }}">
             <h3>{{ title }}</h3>
             <p class="muted">{{ note }}</p>
             <button type="submit" name="choice" value="{{ value }}"{% if primary %} class="primary" autofocus{% endif %}>{{ title }}</button>
@@ -23,10 +19,9 @@
     {% if done %}
     <form method="post" action="{{ url_for('undo_physical') }}" class="recorded">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input type="hidden" name="name" value="{{ done.name }}">
         <input type="hidden" name="key" value="{{ done.key }}">
         <span class="muted">{{ t.recorded }}</span>
-        <span class="parts"><span class="part">{{ done.album }}</span><span class="arrow">→</span><span class="part">{{ t['physical_done_' ~ done.kind ~ '_' ~ done.value] if done.kind != 'edition' else 'Discogs ' ~ done.value }}</span></span>
+        <span class="parts"><span class="part">{{ done.album }}</span><span class="arrow">→</span><span class="part">{{ t.physical_same if done.choice == 'yes' else t.physical_other }}</span></span>
         <button type="submit">{{ t.undo_answer }}</button>
     </form>
     {% endif %}
@@ -37,67 +32,19 @@
     {% elif item %}
     <p class="muted">{{ t.question_of.format(i=item.number, n=item.total) }}</p>
     <div class="review-now">
-        <p class="step">{{ t['physical_question_' ~ item.kind] }}</p>
+        <p class="step">{{ t.physical_question }}</p>
         <ul class="spellings">
-            {% if item.release %}
             <li><span class="part whole">{{ item.release.artist }} – {{ item.release.title }}</span>
                 <span class="muted">{{ t.physical_in_discogs }}{% if item.release.formats %} · {{ item.release.formats | join(', ') }}{% endif %}{% if item.release.year %} · {{ item.release.year }}{% endif %}
                 · <a href="{{ item.url }}" rel="noreferrer" target="_blank">Discogs</a></span></li>
-            {% endif %}
             <li><span class="part whole">{{ t.field_compilation if item.album.compilation else item.album.artist }} – {{ item.album.title }}</span>
                 <span class="muted">{{ t.physical_in_library }} · <a href="{{ url_for('album_page', folder=item.album.folder) }}"><code>{{ item.album.folder }}</code></a></span></li>
         </ul>
     </div>
-    {% if item.kind == 'match' %}
     <div class="review-choices">
         {{ choice(item, 'yes', t.physical_same, t.physical_same_note, primary=true) }}
         {{ choice(item, 'no', t.physical_other, t.physical_other_note) }}
     </div>
-    {% elif item.kind == 'conflict' %}
-    <div class="review-choices">
-        {{ choice(item, 'add', t.physical_add, t.physical_add_note, primary=true) }}
-        {{ choice(item, 'drop', t.physical_drop, t.physical_drop_note) }}
-    </div>
-    {% else %}
-    <form method="post" action="{{ url_for('answer_physical') }}" class="review-choice suggested">
-        {{ hidden(item) }}
-        <h3>{{ t.physical_edition }}</h3>
-        <p class="muted">{{ t.physical_edition_note }}</p>
-        <label>{{ t.physical_edition_id }} <input name="choice" required autofocus></label>
-        <button type="submit" class="primary">{{ t.physical_edition_pick }}</button>
-        <p class="actions">
-            <a class="button" href="{{ url_for('review_physical', editions=1) }}">{{ icon('search') }}{{ t.physical_editions_link }}</a>
-            <a class="button" href="{{ item.search }}" rel="noreferrer" target="_blank">{{ t.physical_search_link }}</a>
-        </p>
-    </form>
-    {% if editions is not none %}
-    {% if editions %}
-    <div class="table-wrap">
-    <table class="editions">
-        <thead><tr><th>{{ t.editions_release }}</th><th>{{ t.editions_date }}</th><th>{{ t.editions_country }}</th>
-            <th>{{ t.editions_label }}</th><th>{{ t.format }}</th><th></th></tr></thead>
-        <tbody>
-        {% for e in editions %}
-            <tr>
-                <td><a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title }}</a> <span class="muted">{{ e.artist }}</span></td>
-                <td>{{ e.date }}</td>
-                <td>{{ e.country }}</td>
-                <td>{{ e.label }}{% if e.catalog %} <span class="muted">{{ e.catalog }}</span>{% endif %}</td>
-                <td>{{ e.format }}</td>
-                <td><form method="post" action="{{ url_for('answer_physical') }}">{{ hidden(item) }}
-                    <button type="submit" name="choice" value="{{ e.id }}">{{ t.physical_edition_this }}</button></form></td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    </div>
-    {% else %}
-    <p class="muted">{{ t.physical_editions_none }}</p>
-    {% endif %}
-    {% elif request.args.get('editions') %}
-    <p class="muted">{{ t.physical_editions_unreachable }}</p>
-    {% endif %}
-    {% endif %}
     <form method="post" action="{{ url_for('review_later', review='physical') }}" class="review-later">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="later" value="{{ item.later }}">

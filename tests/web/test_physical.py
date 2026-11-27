@@ -1,7 +1,6 @@
 """The physical albums on the dashboard (web/physical.py): the filter, an album's mark, the review."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
-import re
 
 import pytest
 
@@ -10,7 +9,6 @@ from music_librarian.core.log import Log
 from music_librarian.media import fields
 from music_librarian.physical import collection, marks
 from music_librarian.physical.matching import album_key, pair_key
-from music_librarian.web import physical
 
 EN = {"Accept-Language": "en"}
 RELEASES = [dict(id="11", artist="Air", artists=["Air"], title="Moon Safari", year="1998", formats=["Vinyl"]),
@@ -39,18 +37,6 @@ def d(lib, tmp_path, serve):
     return serve(lib, tmp_path / "state", tmp_path / "Inbox")
 
 
-def album_form(d, folder, **changes):
-    """The album page's form as a browser would post it, its ticked boxes only."""
-    text = d.client.get(f"/library/album?folder={folder}", headers=EN).get_data(as_text=True)
-    form = {"csrf": d.token, "folder": folder}
-    for tag, name, value in re.findall(r'(<input[^>]* name="([^"]+)" value="([^"]*)"[^>]*>)', text):
-        if 'type="checkbox"' not in tag or " checked" in tag:
-            form[name] = value
-    form["seen"] = html.unescape(re.search(r'name="seen" value="([^"]*)"', text)[1])
-    form["album.compilation"] = re.search(r'<option value="([^"]*)"[^>]* selected', text)[1]
-    return {**form, **changes}
-
-
 def page(d, url):
     return html.unescape(d.client.get(url, headers=EN).get_data(as_text=True))
 
@@ -63,95 +49,39 @@ def test_the_library_filters_and_badges_the_physical_albums(d, settled):
     assert "Moon Safari" in text and "Debut" not in text
 
 
-def test_the_album_form_ticks_its_mark_then_previews_and_applies(d):
+def test_an_album_shows_its_mark_and_its_release(d):
     text = page(d, "/library/album?folder=Air/Moon Safari")
-    assert 'name="album.physical" value="1" form="album-form" checked' in text
-    assert "https://www.discogs.com/release/11" in text
+    assert 'class="chip chip-on"' in text and "https://www.discogs.com/release/11" in text
+    assert 'name="album.physical"' not in text
     text = page(d, "/library/album?folder=Björk/Debut")
-    assert 'name="album.physical" value="1" form="album-form">' in text
-    form = album_form(d, "Björk/Debut", **{"album.physical": "1"})
-    text = html.unescape(d.client.post("/library/album", data=form, headers=EN).get_data(as_text=True))
-    assert "<strong>Comment</strong>" in text and "<ins>PHYSICAL</ins>" in text and not d.requests.pending()
-    assert 'name="album.physical" value="1" form="album-form" checked' in text
-    assert fields.read_field(d.ctx.root / "Björk/Debut/01 T.flac", "comment") == []
-    d.client.post("/library/album", data={**form, "apply": "1"}, headers=EN)
-    asked = d.requests.pending()[0]
-    assert (asked.command, asked.apply) == ("tag", True)
-    assert asked.options["edits"] == [["Björk/Debut/01 T.flac", "comment", "PHYSICAL", []]]
-    d.requests.tick(Log())
-    filed = next(d.ctx.root.rglob("*.flac"))   # tag files the album again as it writes
-    assert fields.read_field(filed, "comment") == ["PHYSICAL"]
+    assert "chip-on" not in text and "https://www.discogs.com/search/?type=release&q=Bj%C3%B6rk+Debut" in text
 
-
-def test_an_untouched_box_writes_nothing(d):
-    form = album_form(d, "Air/Moon Safari")
-    assert "album.physical" in form
-    response = d.client.post("/library/album", data=form, headers=EN)
-    assert "unchanged=1" in response.location
-    form.pop("album.physical")
-    text = html.unescape(d.client.post("/library/album", data=form, headers=EN).get_data(as_text=True))
-    assert "<del>PHYSICAL</del>" in text
 
 def test_the_review_asks_about_the_close_release_then_undoes(d, settled):
     settled(lambda: page(d, "/reviews/physical"))
     text = page(d, "/reviews")
-    assert '<span class="tile-value">1</span> <span>albums to settle</span>' in text
+    assert '<span class="tile-value">1</span> <span>releases to match</span>' in text
     text = page(d, "/reviews/physical")
     assert "Question 1 of 1" in text and "Radiohead – OK Computer" in text and "Radiohead/OKNOTOK" in text
     key = pair_key("22", album_key("Radiohead", "OK Computer OKNOTOK 1997 2017"))
-    response = d.client.post("/reviews/physical", data={"csrf": d.token, "kind": "match", "key": key,
-                                                        "choice": "yes", "album": "Radiohead/OKNOTOK"})
+    response = d.client.post("/reviews/physical", data={"csrf": d.token, "key": key, "choice": "yes",
+                                                        "album": "Radiohead/OKNOTOK"})
     assert marks.load(d.state)["answers"] == {key: True}
     text = page(d, response.location)
-    assert "No question left." in text and "same album" in text and "Undo this answer" in text
-    d.client.post("/reviews/physical/undo", data={"csrf": d.token, "name": "answers", "key": key})
+    assert "No question left." in text and "Same album" in text and "Undo this answer" in text
+    d.client.post("/reviews/physical/undo", data={"csrf": d.token, "key": key})
     assert marks.load(d.state)["answers"] == {}
-
-
-def test_an_album_marked_asks_its_edition_then_whether_to_add_it(d, settled, monkeypatch):
-    debut = d.ctx.root / "Björk/Debut/01 T.flac"
-    fields.write(debut, "comment", ["PHYSICAL"])
-    scan.run(d.ctx.root, d.state, Log())
-    settled(lambda: page(d, "/reviews/physical"))
-    key = album_key("Björk", "Debut")
-    text = page(d, "/reviews/physical?from=1")
-    assert "never synced" in text and "Add it to Discogs" in text
-    d.client.post("/reviews/physical", data={"csrf": d.token, "kind": "conflict", "key": key,
-                                             "choice": "add"})
-    assert marks.load(d.state)["conflicts"] == {key: "add"}
-
-    settled(lambda: page(d, "/reviews/physical"))
-    text = page(d, "/reviews/physical?from=1")
-    assert "holds no Discogs id" in text and "Editions on Discogs" in text
-    monkeypatch.setattr("music_librarian.editions.discogs.fetch", lambda album: [
-        dict(url="https://www.discogs.com/release/77-Bjork-Debut", title=album["title"], artist="Björk",
-             date="1993", country="UK", label="One Little Indian", catalog="TPLP31", format="CD")])
-    text = page(d, "/reviews/physical?from=1&editions=1")
-    assert 'name="choice" value="77"' in text and "One Little Indian" in text
-    d.client.post("/reviews/physical", data={"csrf": d.token, "kind": "edition", "key": key,
-                                             "choice": "https://www.discogs.com/release/78-Bjork-Debut"})
-    assert marks.load(d.state)["editions"] == {key: "78"}
-    assert d.client.post("/reviews/physical", data={"csrf": d.token, "kind": "edition", "key": key,
-                                                    "choice": "Debut"}).status_code == 400
 
 
 def test_without_a_collection_the_review_says_so(d, settled):
     (d.state / collection.FILE).unlink()
     settled(lambda: page(d, "/reviews/physical"))
     assert "The Discogs collection has not been read yet." in page(d, "/reviews/physical")
-    assert "Albums to sync with Discogs" not in page(d, "/")
+    assert "Discogs releases to match" not in page(d, "/")
     text = page(d, "/reviews")
     assert text.count("The Discogs collection has not been read yet.") == 1
     assert 'name="command" value="physical"' in text and "Read the Discogs collection</button>" in text
-    assert text.index("One artist spelled several ways") < text.index("Albums to sync with Discogs")
-
-
-@pytest.mark.parametrize("typed, found", [
-    ("77", "77"), (" 77 ", "77"), ("https://www.discogs.com/release/78-Bjork-Debut", "78"),
-    ("https://www.discogs.com/fr/release/79", "79"), ("Debut", None), ("", None),
-    ("https://www.discogs.com/master/80", None), ("9" * 50000 + "x", None)])
-def test_a_release_id_is_read_from_what_is_typed(typed, found):
-    assert physical.release_id(typed) == found
+    assert text.index("One artist spelled several ways") < text.index("Discogs releases close to an album")
 
 
 def test_a_compilation_is_shown_as_one(d, settled, make_track):

@@ -1,25 +1,18 @@
-"""The physical albums on the dashboard: what an album's page shows of its mark, which its form
-edits, and the questions of the next physical pass, one per page: a release only close to
-an album, the edition to add an album marked but without a Discogs id, and an album never synced
-marked but not in the collection. They read the collection the last pass kept; the answers go to
-physical.json. An album's editions, asked for on its question, are the one lookup of Discogs, and
-write nothing."""
+"""The physical albums on the dashboard: what an album's page shows of its mark, and the releases of
+the collection only close to an album, one question per page. They read the collection the last
+physical pass kept, never Discogs; the answers go to physical.json, for the next pass."""
 import json
 import os
-import re
 from pathlib import Path
+from urllib.parse import urlencode
 
 from flask import abort, redirect, render_template, request, url_for
 
-from music_librarian.editions import discogs
-from music_librarian.editions.common import ProviderUnavailable
-from music_librarian.physical import CONFLICT, EDITION, Track, collection, marks, plan
+from music_librarian.physical import Track, collection, marks, plan
 from music_librarian.physical.matching import LibraryAlbum, pair_key
 
 DISCOGS_RELEASE = "https://www.discogs.com/release/"
 DISCOGS_SEARCH = "https://www.discogs.com/search/"
-NUMBER = re.compile(r"\d+")
-KINDS = ("match", EDITION, CONFLICT)
 
 
 def first(tags, *names):
@@ -45,56 +38,38 @@ def library_of(catalog):
     return list(albums.values()), tracks
 
 
-def collection_stamp(state_dir):
+def stamp_of(path):
     try:
-        st = os.stat(state_dir / collection.FILE)
+        st = os.stat(path)
     except OSError:
         return None
     return st.st_mtime_ns, st.st_size
 
 
-def release_id(text):
-    """The release id of what was typed: the id itself or the address of its page; None for neither."""
-    text = (text or "").strip()
-    if text.isdigit():
-        return text
-    _, page, rest = text.partition("/release/")
-    found = NUMBER.match(rest) if page else None
-    return found[0] if found else None
+def search_url(artist, title):
+    """Discogs' search for the releases of an album, by its title alone for a compilation (no artist)."""
+    words = " ".join(x for x in (artist, title) if x)
+    return DISCOGS_SEARCH + "?" + urlencode({"type": "release", "q": words})
 
 
-class Questions:
-    """The questions of the next pass, as it would ask them from the kept collection."""
+class Doubts:
+    """The releases of the kept collection only close to an album, as the next pass asks about them."""
 
     def __init__(self, ctx, index, later):
         self.ctx, self.index, self.later = ctx, index, later
-        self.built = None   # (catalog, collection stamp, physical.json stamp, [(kind, key, what)])
+        self.built = None   # (catalog, stamps of the collection and of physical.json, [(release, album)])
 
     def queue(self):
-        """[(kind, key, {release, album})] in KINDS' order, None until the album list is built,
-        [] without a collection kept."""
+        """[(release, LibraryAlbum)], None until the album list is built, [] without a collection kept."""
         catalog = self.index.catalog()
         if catalog is None:
             return None
-        stamp = collection_stamp(self.ctx.state_dir), marks_stamp(self.ctx.state_dir)
+        stamp = stamp_of(self.ctx.state_dir / collection.FILE), stamp_of(self.ctx.state_dir / marks.FILE)
         if self.built is None or self.built[0] is not catalog or self.built[1] != stamp:
-            self.built = catalog, stamp, self._questions(catalog)
+            kept = collection.kept(self.ctx.state_dir)
+            found = plan(*library_of(catalog), kept["releases"], {})[1].doubtful if kept else []
+            self.built = catalog, stamp, found
         return self.built[2]
-
-    def _questions(self, catalog):
-        kept = collection.kept(self.ctx.state_dir)
-        if not kept:
-            return []
-        changes, matches = plan(*library_of(catalog), kept["releases"], marks.load(self.ctx.state_dir))
-        out = [("match", pair_key(r["id"], a.key), dict(release=r, album=a)) for r, a in matches.doubtful]
-        for kind in (EDITION, CONFLICT):
-            out += [(kind, c.album.key, dict(release=None, album=c.album))
-                    for c in changes if c.action == kind]
-        return out
-
-    def settled(self, kind, key):
-        held = marks.load(self.ctx.state_dir)
-        return key in held[{"match": "answers", EDITION: "editions", CONFLICT: "conflicts"}[kind]]
 
     def item(self, start=0):
         """The question `start` places after the first still awaiting an answer, as a dict for the
@@ -102,94 +77,60 @@ class Questions:
         queue = self.queue()
         if queue is None:
             return None, None
-        left = [i for i, (kind, key, _) in enumerate(queue) if not self.settled(kind, key)]
-        later = lambda i: f"{queue[i][0]}\t{queue[i][1]}"
-        i, number = self.later.pick("physical", left, later, start, len(queue))
+        answers = marks.load(self.ctx.state_dir)["answers"]
+        keys = [pair_key(r["id"], a.key) for r, a in queue]
+        left = [i for i, k in enumerate(keys) if k not in answers]
+        i, number = self.later.pick("physical", left, lambda i: keys[i], start, len(queue))
         if i is None:
             return None, len(left)
-        kind, key, what = queue[i]
-        album = what["album"]
-        release = what["release"]
-        query = " ".join(x for x in (artist_of(album), album.title) if x)
-        return dict(number=number, total=len(queue), later=later(i), kind=kind, key=key, album=album,
-                    release=release, url=DISCOGS_RELEASE + release["id"] if release else None,
-                    search=f"{DISCOGS_SEARCH}?type=release&q={query}"), len(left)
+        release, album = queue[i]
+        return dict(number=number, total=len(queue), later=keys[i], key=keys[i], release=release,
+                    url=DISCOGS_RELEASE + release["id"], album=album), len(left)
 
 
-def marks_stamp(state_dir):
-    try:
-        st = os.stat(state_dir / marks.FILE)
-    except OSError:
-        return None
-    return st.st_mtime_ns, st.st_size
-
-
-def album_state(state_dir, tracks):
+def album_state(state_dir, tracks, compilation):
     """What an album's head shows of its mark, from its tracks as library.tracks_of() reads them."""
     readable = [values for _, values in tracks if values]
     ids = sorted({v for values in readable for v in values["discogs_release"]})
     kept = collection.kept(state_dir)
     release = next((r for r in kept["releases"] if r["id"] in ids), None) if kept else None
+    artist = next((v for values in readable for v in values["albumartist"] or values["artist"]), "")
+    title = next((v for values in readable for v in values["album"]), "")
     return dict(marked=sum(marks.marked(values["comment"]) for values in readable), tracks=len(readable),
-                ids=ids, release=release, url=DISCOGS_RELEASE + ids[0] if ids else None)
-
-
-def artist_of(album):
-    """The artist Discogs is asked about an album under: none for a compilation."""
-    return "" if album.compilation else album.artist
-
-
-def editions_of(album):
-    """[edition, with its "id"] Discogs lists of the album, None when it cannot be reached. Writes nothing."""
-    try:
-        found = discogs.fetch({"artist": artist_of(album) or "Various", "title": album.title})
-    except ProviderUnavailable:
-        return None
-    return [dict(e, id=release_id(e["url"])) for e in found if release_id(e["url"])][:20]
+                release=release, url=DISCOGS_RELEASE + ids[0] if ids else None,
+                search=search_url("" if compilation else artist, title))
 
 
 def register(app, ctx, index, later):
-    """Add the review of the next pass's questions to the app; return the Questions, `later` the
+    """Add the review of the doubtful releases to the app; return the Doubts, `later` the
     reviews.Postponed the questions put off are kept in."""
-    questions = Questions(ctx, index, later)
+    doubts = Doubts(ctx, index, later)
 
     @app.get("/reviews/physical")
     def review_physical():
-        item, left = questions.item(request.args.get("from", 0, type=int))
+        item, left = doubts.item(request.args.get("from", 0, type=int))
         try:
             done = json.loads(request.args["done"]) if "done" in request.args else None
         except ValueError:
             done = None
-        editions = None
-        if item and item["kind"] == EDITION and request.args.get("editions") and ctx.requests is not None:
-            editions = editions_of(item["album"])
-        return render_template("review_physical.html", item=item, left=left, done=done, editions=editions,
+        return render_template("review_physical.html", item=item, left=left, done=done,
                                kept=collection.kept(ctx.state_dir))
 
     @app.post("/reviews/physical")
     def answer_physical():
-        form = request.form
-        kind, key, choice = form.get("kind"), form.get("key", ""), form.get("choice", "")
-        if kind == "match" and choice in ("yes", "no"):
-            name, value = "answers", choice == "yes"
-        elif kind == CONFLICT and choice in ("add", "drop"):
-            name, value = "conflicts", choice
-        elif kind == EDITION and release_id(choice):
-            name, value = "editions", release_id(choice)
-        else:
+        key, choice = request.form.get("key", ""), request.form.get("choice")
+        if not key or choice not in ("yes", "no"):
             abort(400)
-        if not key:
-            abort(400)
-        marks.update(ctx.state_dir, name, {key: value})
-        done = json.dumps(dict(kind=kind, name=name, key=key, value=value, album=form.get("album", "")))
+        marks.update(ctx.state_dir, "answers", {key: choice == "yes"})
+        done = json.dumps(dict(key=key, choice=choice, album=request.form.get("album", "")))
         return redirect(url_for("review_physical", done=done))
 
     @app.post("/reviews/physical/undo")
     def undo_physical():
-        name, key = request.form.get("name"), request.form.get("key", "")
-        if name not in ("answers", "editions", "conflicts") or not key:
+        key = request.form.get("key", "")
+        if not key:
             abort(400)
-        marks.update(ctx.state_dir, name, {key: None})
+        marks.update(ctx.state_dir, "answers", {key: None})
         return redirect(url_for("review_physical"))
 
-    return questions
+    return doubts

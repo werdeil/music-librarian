@@ -180,6 +180,7 @@ def register(app, ctx, index, later):
             if counted and any(getattr(counted, name) != value for name, value in found.items()):
                 index.note(rel, found)
             work = in_work_list(rel, sorted_out)
+        owned = physical.album_state(ctx.state_dir, tracks, library.common(tracks)["compilation"] == "1")
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                spread=library.spread(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
@@ -195,8 +196,7 @@ def register(app, ctx, index, later):
                                total=None if total is None else history.duration(total),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
-                               followed=followed(rel), work=work,
-                               physical=physical.album_state(ctx.state_dir, tracks), **shown)
+                               followed=followed(rel), work=work, physical=owned, **shown)
         return page, status
 
     @app.get("/library/album")
