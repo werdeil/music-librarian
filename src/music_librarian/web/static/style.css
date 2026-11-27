@@ -982,17 +982,8 @@ td.cell-link a:focus-visible {
     font-size: 0.75rem;
 }
 
-.physical-toggle {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: var(--fs-sm);
-}
-
-.chip-on {
-    border-color: var(--accent-color);
-    color: var(--text-bright);
+.physical-mark {
+    white-space: nowrap;
 }
 
 .albums img,

@@ -51,10 +51,10 @@ def test_the_library_filters_and_badges_the_physical_albums(d, settled):
 
 def test_an_album_shows_its_mark_and_its_release(d):
     text = page(d, "/library/album?folder=Air/Moon Safari")
-    assert 'class="chip chip-on"' in text and "discogs.com" not in text
+    assert 'class="physical-mark"' in text and "discogs.com" not in text
     assert 'name="album.physical"' not in text
     text = page(d, "/library/album?folder=Björk/Debut")
-    assert "chip-on" not in text and "discogs.com" not in text
+    assert "physical-mark" not in text and "discogs.com" not in text
 
 
 def test_the_review_asks_about_the_close_release_then_undoes(d, settled):

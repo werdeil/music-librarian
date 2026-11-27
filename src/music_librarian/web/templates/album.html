@@ -54,12 +54,9 @@
         <h2>{{ common.album or folder }}</h2>
         <p class="muted">{{ common.albumartist or '' }}</p>
         <p class="muted">{{ (t.track_one if tracks | length == 1 else t.track_many).format(n=tracks | length) }}
-            {%- if total is not none %} · {{ total }}{% endif %}</p>
-        {% set owned = physical.tracks and physical.marked == physical.tracks %}
-        <p class="physical-toggle">
-            {% if owned %}<span class="chip chip-on" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }}</span>
-            {%- elif physical.marked %}<span class="chip" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }} {{ physical.marked }}/{{ physical.tracks }}</span>{% endif %}
-        </p>
+            {%- if total is not none %} · {{ total }}{% endif %}
+            {%- if physical.marked %} · <span class="physical-mark" title="{{ t.physical_badge_title }}">{{ m.icon('physical') }}{{ t.physical_badge }}
+                {%- if physical.marked < physical.tracks %} {{ physical.marked }}/{{ physical.tracks }}{% endif %}</span>{% endif %}</p>
     </div>
 </section>
 
