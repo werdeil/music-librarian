@@ -20,6 +20,7 @@ from music_librarian.integrations import itunes
 from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
 from music_librarian.deezer import config as deezer_config, kept as deezer_kept
+from music_librarian.editions import discogs
 from music_librarian.physical import collection as physical_collection
 from music_librarian.web import (albums, deezer, failed, history, library, playcounts, reviews, security,
                                  uploads)
@@ -29,6 +30,11 @@ from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS
 
 HOME_PASSES = ("import", "organize", "enrich", "scan")
+
+
+def home_passes():
+    """The passes the overview offers: physical too once Discogs can be asked."""
+    return HOME_PASSES + (("physical",) if discogs.token() else ())
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover", "request_state"}
 
 
@@ -187,7 +193,7 @@ def create_app(ctx: Context, build_now=False):
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox,
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
+            passes={command: OPTIONS[command] for command in home_passes()}, long_when=LONG_WHEN,
             env=environment(ctx), deezer_keys=deezer_config.keys_set(),
             deezer_ready=deezer_config.enabled(state_dir=ctx.state_dir),
             upload=dict(extensions=sorted(uploads.SENT_EXT), junk=sorted(JUNK_NAMES),

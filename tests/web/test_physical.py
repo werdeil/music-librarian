@@ -94,3 +94,10 @@ def test_a_compilation_is_shown_as_one(d, settled, make_track):
     settled(lambda: page(d, "/reviews/physical"))
     text = page(d, "/reviews/physical?from=1")
     assert "Compilation – Vintage FG Mix" in text and "Artist 1 – Vintage FG Mix" not in text
+
+
+def test_the_overview_offers_the_pass_with_a_token(d, monkeypatch):
+    assert 'name="command" value="physical"' not in page(d, "/")
+    monkeypatch.setenv("DISCOGS_TOKEN", "t0k")
+    text = page(d, "/")
+    assert 'name="command" value="physical"' in text and "Mark the albums of the Discogs collection" in text
