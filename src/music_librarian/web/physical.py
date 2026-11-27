@@ -1,5 +1,5 @@
-"""The physical albums on the dashboard: an album's PHYSICAL marks toggled from its page, written at
-once through tag, and the questions of the next physical pass, one per page: a release only close to
+"""The physical albums on the dashboard: what an album's page shows of its mark, which its form
+edits, and the questions of the next physical pass, one per page: a release only close to
 an album, the edition to add an album marked but without a Discogs id, and an album never synced
 marked but not in the collection. They read the collection the last pass kept; the answers go to
 physical.json. An album's editions, asked for on its question, are the one lookup of Discogs, and
@@ -15,8 +15,6 @@ from music_librarian.editions import discogs
 from music_librarian.editions.common import ProviderUnavailable
 from music_librarian.physical import CONFLICT, EDITION, Track, collection, marks, plan
 from music_librarian.physical.matching import LibraryAlbum, pair_key
-from music_librarian.web import library
-from music_librarian.web.common import submit
 
 DISCOGS_RELEASE = "https://www.discogs.com/release/"
 DISCOGS_SEARCH = "https://www.discogs.com/search/"
@@ -136,16 +134,6 @@ def album_state(state_dir, tracks):
                 ids=ids, release=release, url=DISCOGS_RELEASE + ids[0] if ids else None)
 
 
-def marker_edits(rel, tracks, wanted):
-    """tag's dashboard edits that give every readable track the marker, or take it away."""
-    out = []
-    for name, values in tracks:
-        if values and marks.marked(values["comment"]) != wanted:
-            new = marks.with_marker(values["comment"]) if wanted else marks.without_marker(values["comment"])
-            out.append([f"{rel}/{name}", "comment", "\n".join(new), values["comment"]])
-    return out
-
-
 def artist_of(album):
     """The artist Discogs is asked about an album under: none for a compilation."""
     return "" if album.compilation else album.artist
@@ -161,21 +149,9 @@ def editions_of(album):
 
 
 def register(app, ctx, index, later):
-    """Add the album's toggle and the review of the next pass's questions to the app; return the
-    Questions, `later` the reviews.Postponed the questions put off are kept in."""
+    """Add the review of the next pass's questions to the app; return the Questions, `later` the
+    reviews.Postponed the questions put off are kept in."""
     questions = Questions(ctx, index, later)
-
-    @app.post("/library/album/physical")
-    def album_physical():
-        """Give every track of the album PHYSICAL, or with physical=0 take it away, through tag."""
-        rel = request.form.get("folder", "")
-        folder = library.album_folder(ctx.root, rel)
-        if folder is None:
-            abort(404)
-        edits = marker_edits(rel, library.tracks_of(folder), request.form.get("physical") != "0")
-        if not edits:
-            return redirect(url_for("album_page", folder=rel))
-        return submit(ctx, "tag", {"edits": edits, "cover": None}, False, rel)
 
     @app.get("/reviews/physical")
     def review_physical():

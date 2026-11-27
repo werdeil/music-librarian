@@ -324,6 +324,7 @@ EN = {
     "field_year": "Year",
     "field_genre": "Genre",
     "field_disctotal": "Discs",
+    "field_comment": "Comment",
     "field_compilation": "Compilation",
     "field_disc": "Disc",
     "field_discsubtitle": "Disc name",
@@ -499,9 +500,7 @@ EN = {
     "questions_waiting": "Questions awaiting an answer",
     "split_review": "Credits holding several names",
     "dedupe_review": "One artist spelled several ways",
-    "physical_toggle_on": "Mark PHYSICAL: the next physical pass adds it to the Discogs collection",
-    "physical_toggle_off": ("Take PHYSICAL away: the next physical pass takes it out of the "
-                            "Discogs collection"),
+    "physical_toggle": "PHYSICAL in the comment of every track",
     "physical_question_match": "Is this release of the Discogs collection this album of the library?",
     "physical_question_edition": ("This album is marked PHYSICAL but holds no Discogs id: which edition "
                                   "goes into the collection?"),

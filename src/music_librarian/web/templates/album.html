@@ -58,15 +58,12 @@
         {% set owned = physical.tracks and physical.marked == physical.tracks %}
         <div class="physical-toggle">
             {% if ctx.requests %}
-            <form method="post" action="{{ url_for('album_physical') }}">
-                <input type="hidden" name="csrf" value="{{ csrf }}">
-                <input type="hidden" name="folder" value="{{ folder }}">
-                {{ m.place_fields(place) }}
-                <input type="hidden" name="physical" value="{{ '0' if owned else '1' }}">
-                <button type="submit" class="chip{% if owned %} chip-on{% endif %}" aria-pressed="{{ 'true' if owned else 'false' }}"
-                        title="{{ t.physical_toggle_off if owned else t.physical_toggle_on }}">{{ m.icon('physical') }}{{ t.physical_badge }}
-                    {%- if physical.marked and not owned %} {{ physical.marked }}/{{ physical.tracks }}{% endif %}</button>
-            </form>
+            {% set ticked = form.get('album.physical') == '1' if form else owned %}
+            <input type="hidden" name="album.physical_field" value="1" form="album-form">
+            <label class="chip physical-chip" title="{{ t.physical_toggle }}">
+                <input type="checkbox" name="album.physical" value="1" form="album-form"{% if ticked %} checked{% endif %}>
+                {{- m.icon('physical') }}{{ t.physical_badge }}
+                {%- if physical.marked and not owned %} {{ physical.marked }}/{{ physical.tracks }}{% endif %}</label>
             {% elif owned %}<span class="chip chip-on">{{ m.icon('physical') }}{{ t.physical_badge }}</span>{% endif %}
             {% if physical.url %}<a href="{{ physical.url }}" rel="noreferrer" target="_blank">Discogs</a>{% endif %}
         </div>

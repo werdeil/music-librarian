@@ -589,6 +589,7 @@ def edits(folder_rel, form, seen):
         if (not value and shown is None) or (shown is not None and same(name, value, shown)):
             continue
         out += [[str(Path(folder_rel) / file), name, value, values[name]] for file, values in tracks]
+    out += physical_edits(folder_rel, form, tracks)
     for disc, shown in seen["discs"].items():
         value = form.get(f"d{disc}.discsubtitle")
         if value is None or (not value.strip() and shown is None) or value.strip() == shown:
@@ -607,6 +608,22 @@ def edits(folder_rel, form, seen):
                 out.append([str(Path(folder_rel) / file), fields.LYRICS, value, values[fields.LYRICS]])
         if form.get(f"t{i}.replaygain_delete") and values.get(fields.REPLAYGAIN):
             out.append([str(Path(folder_rel) / file), fields.REPLAYGAIN, "", values[fields.REPLAYGAIN]])
+    return out
+
+
+def physical_edits(folder_rel, form, tracks):
+    """The comment edits that give every track PHYSICAL, or take it away, when the form's box no
+    longer says what the tracks hold: ticked when every one holds it."""
+    if not form.get("album.physical_field"):
+        return []
+    wanted = form.get("album.physical") == "1"
+    if wanted == all(marks.marked(values["comment"]) for _, values in tracks):
+        return []
+    out = []
+    for file, values in tracks:
+        if marks.marked(values["comment"]) != wanted:
+            new = marks.with_marker(values["comment"]) if wanted else marks.without_marker(values["comment"])
+            out.append([str(Path(folder_rel) / file), "comment", "\n".join(new), values["comment"]])
     return out
 
 

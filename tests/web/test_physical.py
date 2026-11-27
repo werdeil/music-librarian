@@ -1,6 +1,7 @@
 """The physical albums on the dashboard (web/physical.py): the filter, an album's mark, the review."""
 # pylint: disable=redefined-outer-name  # pytest fixtures
 import html
+import re
 
 import pytest
 
@@ -38,6 +39,18 @@ def d(lib, tmp_path, serve):
     return serve(lib, tmp_path / "state", tmp_path / "Inbox")
 
 
+def album_form(d, folder, **changes):
+    """The album page's form as a browser would post it, its ticked boxes only."""
+    text = d.client.get(f"/library/album?folder={folder}", headers=EN).get_data(as_text=True)
+    form = {"csrf": d.token, "folder": folder}
+    for tag, name, value in re.findall(r'(<input[^>]* name="([^"]+)" value="([^"]*)"[^>]*>)', text):
+        if 'type="checkbox"' not in tag or " checked" in tag:
+            form[name] = value
+    form["seen"] = html.unescape(re.search(r'name="seen" value="([^"]*)"', text)[1])
+    form["album.compilation"] = re.search(r'<option value="([^"]*)"[^>]* selected', text)[1]
+    return {**form, **changes}
+
+
 def page(d, url):
     return html.unescape(d.client.get(url, headers=EN).get_data(as_text=True))
 
@@ -50,27 +63,34 @@ def test_the_library_filters_and_badges_the_physical_albums(d, settled):
     assert "Moon Safari" in text and "Debut" not in text
 
 
-def test_an_album_toggles_its_mark_through_tag(d):
+def test_the_album_form_ticks_its_mark_then_previews_and_applies(d):
     text = page(d, "/library/album?folder=Air/Moon Safari")
-    assert 'aria-pressed="true"' in text and "https://www.discogs.com/release/11" in text
-    assert "Physical medium" not in text
+    assert 'name="album.physical" value="1" form="album-form" checked' in text
+    assert "https://www.discogs.com/release/11" in text
     text = page(d, "/library/album?folder=Björk/Debut")
-    assert 'aria-pressed="false"' in text and 'name="physical" value="1"' in text
-    response = d.client.post("/library/album/physical", data={"csrf": d.token, "folder": "Björk/Debut",
-                                                              "physical": "1"})
-    asked = d.requests.pending()[0]
-    assert (asked.command, asked.apply) == ("tag", False) and "request=" in response.location
-    assert asked.options["edits"] == [["Björk/Debut/01 T.flac", "comment", "PHYSICAL", []]]
-    d.requests.tick(Log())
+    assert 'name="album.physical" value="1" form="album-form">' in text
+    form = album_form(d, "Björk/Debut", **{"album.physical": "1"})
+    text = html.unescape(d.client.post("/library/album", data=form, headers=EN).get_data(as_text=True))
+    assert "<strong>Comment</strong>" in text and "<ins>PHYSICAL</ins>" in text and not d.requests.pending()
+    assert 'name="album.physical" value="1" form="album-form" checked' in text
     assert fields.read_field(d.ctx.root / "Björk/Debut/01 T.flac", "comment") == []
-    text = page(d, response.location)
-    assert f'action="/runs/{asked.run_id}/apply"' in text
-    d.client.post(f"/runs/{asked.run_id}/apply", data={"csrf": d.token, "album": "Björk/Debut"})
+    d.client.post("/library/album", data={**form, "apply": "1"}, headers=EN)
+    asked = d.requests.pending()[0]
+    assert (asked.command, asked.apply) == ("tag", True)
+    assert asked.options["edits"] == [["Björk/Debut/01 T.flac", "comment", "PHYSICAL", []]]
     d.requests.tick(Log())
     filed = next(d.ctx.root.rglob("*.flac"))   # tag files the album again as it writes
     assert fields.read_field(filed, "comment") == ["PHYSICAL"]
-    assert not (d.state / marks.FILE).exists()
 
+
+def test_an_untouched_box_writes_nothing(d):
+    form = album_form(d, "Air/Moon Safari")
+    assert "album.physical" in form
+    response = d.client.post("/library/album", data=form, headers=EN)
+    assert "unchanged=1" in response.location
+    form.pop("album.physical")
+    text = html.unescape(d.client.post("/library/album", data=form, headers=EN).get_data(as_text=True))
+    assert "<del>PHYSICAL</del>" in text
 
 def test_the_review_asks_about_the_close_release_then_undoes(d, settled):
     settled(lambda: page(d, "/reviews/physical"))

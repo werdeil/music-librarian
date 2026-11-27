@@ -330,6 +330,7 @@ FR = {
     "field_year": "Année",
     "field_genre": "Genre",
     "field_disctotal": "Disques",
+    "field_comment": "Commentaire",
     "field_compilation": "Compilation",
     "field_disc": "Disque",
     "field_discsubtitle": "Nom du disque",
@@ -505,10 +506,7 @@ FR = {
     "questions_waiting": "Questions en attente de réponse",
     "split_review": "Crédits à plusieurs noms",
     "dedupe_review": "Un artiste écrit de plusieurs façons",
-    "physical_toggle_on": ("Marquer PHYSICAL : le prochain passage de physical l'ajoute à la "
-                           "collection Discogs"),
-    "physical_toggle_off": ("Retirer PHYSICAL : le prochain passage de physical le retire de la "
-                            "collection Discogs"),
+    "physical_toggle": "PHYSICAL dans le commentaire de chaque piste",
     "physical_question_match": ("Cette sortie de la collection Discogs est-elle cet album de la "
                                 "bibliothèque ?"),
     "physical_question_edition": ("Cet album est marqué PHYSICAL mais n'a pas d'id Discogs : quelle "
