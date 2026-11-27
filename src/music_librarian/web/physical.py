@@ -175,7 +175,7 @@ def register(app, ctx, index, later):
         edits = marker_edits(rel, library.tracks_of(folder), request.form.get("physical") != "0")
         if not edits:
             return redirect(url_for("album_page", folder=rel))
-        return submit(ctx, "tag", {"edits": edits, "cover": None}, ctx.apply, rel)
+        return submit(ctx, "tag", {"edits": edits, "cover": None}, False, rel)
 
     @app.get("/reviews/physical")
     def review_physical():

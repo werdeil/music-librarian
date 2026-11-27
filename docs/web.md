@@ -43,7 +43,7 @@ The album's page follows a pass queued from it, refreshed every 2 s: waiting in 
 
 Each edit carries the values the page showed: a track whose field changed in between, by another pass or another tagger, is refused (`REFUSED`) rather than overwritten.
 
-In the album's head, the **Physical** chip is lit when every track holds `PHYSICAL` in its comment, and shows how many do when only some do: a click gives the word to every track, or takes it away, through a `tag` pass the page follows as any other, and the next `physical` pass carries the change over to the Discogs collection. Beside it, a link leads to the release its tracks name on Discogs. See [physical.md](physical.md).
+In the album's head, the **Physical** chip is lit when every track holds `PHYSICAL` in its comment, and shows how many do when only some do: a click queues the `tag` pass that gives the word to every track, or takes it away, as a dry run the page follows, whose **Apply** writes it; the next `physical` pass then carries the change over to the Discogs collection. Beside it, a link leads to the release its tracks name on Discogs. See [physical.md](physical.md).
 
 ### Lyrics
 
@@ -143,7 +143,7 @@ The dashboard has **no authentication**: it is meant for a trusted home network.
 | `POST /library/track/lyrics/lookup` | `{"text": …, "message": …}`: what the providers have for the track `file` of the album `folder` (its lyrics, `[Instrumental]` or `null`), and the sentence saying so; writes nothing |
 | `POST /library/track/lyrics/awaited` | `{"awaited": …}`: marks the track `file` of the album `folder` awaited, or with `awaited=0` no longer |
 | `POST /library/album/awaited` | marks every track of the album `folder` without lyrics awaited, then redirects to its page |
-| `POST /library/album/physical` | queues the `tag` pass that gives `PHYSICAL` to every track of the album `folder`, or with `physical=0` takes it away, applied when `watch` runs with `--apply`; back to its page when none is to be written |
+| `POST /library/album/physical` | queues, as a dry run, the `tag` pass that gives `PHYSICAL` to every track of the album `folder`, or with `physical=0` takes it away, and goes to the album's page following it; back to its page when none is to be written |
 | `/library/lyrics` | the albums with tracks without lyrics neither instrumental nor awaited |
 | `/library/repeats` | the albums with tracks whose fields hold a value twice or several values |
 | `/library/mixed` | the albums whose tracks disagree on an album field |

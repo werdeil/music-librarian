@@ -59,8 +59,13 @@ def test_an_album_toggles_its_mark_through_tag(d):
     response = d.client.post("/library/album/physical", data={"csrf": d.token, "folder": "Björk/Debut",
                                                               "physical": "1"})
     asked = d.requests.pending()[0]
-    assert (asked.command, asked.apply) == ("tag", True) and "request=" in response.location
+    assert (asked.command, asked.apply) == ("tag", False) and "request=" in response.location
     assert asked.options["edits"] == [["Björk/Debut/01 T.flac", "comment", "PHYSICAL", []]]
+    d.requests.tick(Log())
+    assert fields.read_field(d.ctx.root / "Björk/Debut/01 T.flac", "comment") == []
+    text = page(d, response.location)
+    assert f'action="/runs/{asked.run_id}/apply"' in text
+    d.client.post(f"/runs/{asked.run_id}/apply", data={"csrf": d.token, "album": "Björk/Debut"})
     d.requests.tick(Log())
     filed = next(d.ctx.root.rglob("*.flac"))   # tag files the album again as it writes
     assert fields.read_field(filed, "comment") == ["PHYSICAL"]
