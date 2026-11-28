@@ -96,7 +96,7 @@ Avec `GENRE_LOOKUP=itunes`, un album dont la liste ne sait pas aligner le genre,
 
 ### Albums physiques
 
-Avec `DISCOGS_TOKEN` renseigné, `docker compose run --rm music-librarian physical --apply` écrit `PHYSICAL` dans le commentaire des pistes de chaque album de votre collection Discogs, et le retire de celui des autres ; `--physical-at "sun 04:00"` ajouté à la commande `watch` de `docker-compose.yml` le fait chaque semaine. Dans Lyrion, le plugin [Virtual Library Creator](https://github.com/AF-1/lms-virtuallibrarycreator) en fait ensuite une bibliothèque virtuelle, avec son filtre Comment contenant `PHYSICAL`. Le rapprochement des sorties, les pages du dashboard et les réglages du plugin sont dans [docs/physical.md](docs/physical.md) (en anglais).
+Avec `DISCOGS_TOKEN` renseigné, `docker compose run --rm music-librarian physical --apply` écrit `PHYSICAL` dans le commentaire des pistes de chaque album de votre collection Discogs, et le retire de celui des autres ; la commande `watch` de `docker-compose.yml` le fait chaque dimanche à 4 h (`--physical-at "sun 04:00"`), créneau laissé de côté sans le token. Dans Lyrion, le plugin [Virtual Library Creator](https://github.com/AF-1/lms-virtuallibrarycreator) en fait ensuite une bibliothèque virtuelle, avec son filtre Comment contenant `PHYSICAL`. Le rapprochement des sorties, les pages du dashboard et les réglages du plugin sont dans [docs/physical.md](docs/physical.md) (en anglais).
 
 ### Télécharger depuis Deezer
 

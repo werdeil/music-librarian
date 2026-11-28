@@ -11,7 +11,7 @@ docker compose run --rm music-librarian physical            # dry run
 docker compose run --rm music-librarian physical --apply
 ```
 
-To run it every week, add `--physical-at "sun 04:00"` (a day and a time, as `--enrich-at` takes them) to the `watch` command of `docker-compose.yml`. Like the weekly `enrich`, the slot is skipped when an applied pass already ran since (`state/physical_last_run`), and the first slot comes after the container starts, not at its start.
+The `watch` command of `docker-compose.yml` runs it every week with `--physical-at "sun 04:00"` (a day and a time, as `--enrich-at` takes them); without `DISCOGS_TOKEN`, the slot is left out (`SKIPPED  weekly physical` when `watch` starts) and the dashboard shows none. Like the weekly `enrich`, the slot is skipped when an applied pass already ran since (`state/physical_last_run`), and the first slot comes after the container starts, not at its start.
 
 ## What a physical album holds
 

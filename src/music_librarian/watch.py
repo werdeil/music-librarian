@@ -24,7 +24,8 @@ file again into the metadata cache (enrich --rescan). Without a known
 pass, the first one runs at the next slot, not at startup.
 
 With --physical-at "DAY HH:MM", the albums of the Discogs collection are marked (physical) every
-week from that slot, unless a pass already did since (state/physical_last_run), the same way.
+week from that slot, unless a pass already did since (state/physical_last_run), the same way;
+without $DISCOGS_TOKEN the slot is left out.
 
 With --listen [HOST:]PORT, the dashboard (web/) is served on that address
 (every interface without a host): the recent runs and their output, the
@@ -46,6 +47,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from music_librarian import enrich, importer, organize, physical
+from music_librarian.editions import discogs
 from music_librarian.core.lock import EXIT_LOCKED, STOP, handle_stop_signals, resume
 from music_librarian.core.log import Log
 from music_librarian.core import runs
@@ -196,11 +198,11 @@ class Weekly:
             log("")
 
 
-def start_dashboard(args, import_opts, requests, log):
+def start_dashboard(args, physical_at, import_opts, requests, log):
     from music_librarian.web import server  # pylint: disable=import-outside-toplevel  # Flask only with --listen
     ctx = server.Context(root=import_opts.root, inbox=import_opts.inbox, state_dir=import_opts.state_dir,
                          apply=args.apply, interval=args.interval, organize_at=args.organize_at,
-                         enrich_at=args.enrich_at, physical_at=args.physical_at, requests=requests,
+                         enrich_at=args.enrich_at, physical_at=physical_at, requests=requests,
                          hosts=frozenset(args.web_hosts),
                          lyrion=import_opts.lyrion)
     return server.serve(ctx, args.listen, log)
@@ -249,8 +251,9 @@ def main(argv=None):
         jobs.append(NightlyOrganize(args.organize_at, organize_opts))
     if args.enrich_at:
         jobs.append(Weekly(enrich, "enrich", args.enrich_at, enrich_opts, now().timestamp()))
-    if args.physical_at:
-        jobs.append(Weekly(physical, "physical", args.physical_at, physical_opts, now().timestamp()))
+    physical_at = args.physical_at if discogs.token() else None
+    if physical_at:
+        jobs.append(Weekly(physical, "physical", physical_at, physical_opts, now().timestamp()))
     runners = passes(import_opts, organize_opts, enrich_opts, import_log, physical_opts)
     requests = Requests(runners, safe)
     if args.listen:
@@ -258,14 +261,15 @@ def main(argv=None):
 
     log = Log()
     runs.close_stale(state_dir)
-    server = start_dashboard(args, import_opts, requests, log) if args.listen else None
+    if args.physical_at and not physical_at:
+        log("SKIPPED  weekly physical: $DISCOGS_TOKEN is not set")
+    server = start_dashboard(args, physical_at, import_opts, requests, log) if args.listen else None
     log(f"[{'APPLY' if args.apply else 'DRY-RUN'}] watching {args.inbox} "
         f"every {args.interval:g} s"
         + (f", organize every day at {args.organize_at:%H:%M}" if args.organize_at else "")
         + (f", enrich every {DAYS[args.enrich_at[0]]} at {args.enrich_at[1]:%H:%M}"
            if args.enrich_at else "")
-        + (f", physical every {DAYS[args.physical_at[0]]} at {args.physical_at[1]:%H:%M}"
-           if args.physical_at else ""))
+        + (f", physical every {DAYS[physical_at[0]]} at {physical_at[1]:%H:%M}" if physical_at else ""))
     while True:
         resume()
         if STOP.is_set():
