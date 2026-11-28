@@ -78,5 +78,26 @@ def test_providers_in_their_order(monkeypatch):
     monkeypatch.delenv("EDITION_PROVIDERS")
     assert [name for name, _ in editions.enabled_providers()] == \
         ["musicbrainz", "discogs", "itunes"]
+    monkeypatch.setenv("DISCOGS_TOKEN", "t0k")
+    assert [name for name, _ in editions.enabled_providers()] == \
+        ["discogs", "musicbrainz", "itunes"]
     monkeypatch.setenv("EDITION_PROVIDERS", "itunes, deezer")
     assert [name for name, _ in editions.enabled_providers()] == ["itunes"]
+
+
+def test_discogs_release_by_its_id(web, monkeypatch):
+    asked, answers = web
+    monkeypatch.setenv("DISCOGS_TOKEN", "t0k")
+    answers["/releases/11"] = {"id": 11, "title": "Moon Safari", "artists": [{"name": "Air"}], "year": 1998,
+                               "released": "1998-01-16", "country": "France",
+                               "labels": [{"name": "Source", "catno": "7243 8 44978 1 7"}],
+                               "formats": [{"name": "Vinyl"}],
+                               "identifiers": [{"type": "Barcode", "value": "724"}],
+                               "tracklist": [{"type_": "track"}, {"type_": "heading"}, {"type_": "track"}],
+                               "uri": "https://www.discogs.com/release/11-Air-Moon-Safari"}
+    found = discogs.release("11")
+    assert (found["title"], found["artist"], found["date"], found["label"], found["catalog"], found["tracks"],
+            found["format"], found["barcode"], found["exact"]) == \
+        ("Moon Safari", "Air", "1998-01-16", "Source", "7243 8 44978 1 7", 2, "Vinyl", "724", True)
+    assert asked[0][0].endswith("/releases/11") and asked[0][2]["Authorization"] == "Discogs token=t0k"
+    assert discogs.release("12") is None

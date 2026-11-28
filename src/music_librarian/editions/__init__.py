@@ -14,12 +14,15 @@ log = logging.getLogger(__name__)
 # "exact"}, exact when the album's MBID or barcode named it.
 PROVIDERS = {"musicbrainz": musicbrainz.fetch, "discogs": discogs.fetch, "itunes": itunes.fetch}
 NAMES = {"musicbrainz": "MusicBrainz", "discogs": "Discogs", "itunes": "iTunes"}
+HELD = "held"   # the source of the release an album's tracks name by their Discogs id
 DEFAULT_PROVIDER_ORDER = "musicbrainz,discogs,itunes"
+WITH_DISCOGS_TOKEN = "discogs,musicbrainz,itunes"
 
 
 def enabled_providers():
-    """The ordered provider list of `EDITION_PROVIDERS`; unknown names are ignored."""
-    raw = os.getenv("EDITION_PROVIDERS", DEFAULT_PROVIDER_ORDER)
+    """The ordered provider list of `EDITION_PROVIDERS`, by default Discogs first once it has a
+    token; unknown names are ignored."""
+    raw = os.getenv("EDITION_PROVIDERS", WITH_DISCOGS_TOKEN if discogs.token() else DEFAULT_PROVIDER_ORDER)
     names = [n.strip().lower() for n in raw.split(",") if n.strip()]
     return [(n, PROVIDERS[n]) for n in names if n in PROVIDERS]
 
@@ -35,7 +38,8 @@ def album_of(snapshots, typed=None):
                 return value
         return ""
     album = {"artist": first("albumartist", "album artist", "artist"), "title": first("album"),
-             "mbid": first("musicbrainz_albumid"), "barcode": first("barcode"), "tracks": len(snapshots)}
+             "mbid": first("musicbrainz_albumid"), "barcode": first("barcode"), "tracks": len(snapshots),
+             "discogs": first("discogs_release_id")}
     album.update({k: v.strip() for k, v in (typed or {}).items() if v and v.strip()})
     return album
 
@@ -53,7 +57,16 @@ def ranked(editions, album):
 def look_up(album):
     """(the editions of `album` ranked; the provider that answered, or why none did: "no metadata",
     "none" when every provider answered without any, "partly unavailable" when the others did, or
-    "unavailable"; the names of the providers that did not answer, in order)."""
+    "unavailable"; the names of the providers that did not answer, in order). An album holding
+    its Discogs release id is that release alone, its source HELD, while Discogs answers."""
+    if album.get("discogs") and album["discogs"].isdigit():
+        try:
+            held = discogs.release(album["discogs"])
+        except ProviderUnavailable as exc:
+            log.warning("editions: discogs unreachable (%s)", exc)
+            held = None
+        if held:
+            return ranked([held], album), HELD, []
     if not (album.get("mbid") or album.get("barcode") or (album.get("artist") and album.get("title"))):
         return [], "no metadata", []
     providers = enabled_providers()

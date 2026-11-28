@@ -2,7 +2,7 @@
 {% import "_apply_answers.html" as a %}
 {% import "_macros.html" as m %}
 {% block title %}{{ t.reviews }} · music-librarian{% endblock %}
-{% macro card(kind, title, unit, start=none, start_label=none, command=none, links=()) %}
+{% macro card(kind, title, unit, start=none, start_label=none, command=none, links=(), note=none, command_label=none) %}
 {% set on = kind not in off %}
 {% set n = left.get(kind) %}
 {% set state = 'off' if not on else ('todo' if n else ('ok' if unit is not none and n is not none else none)) %}
@@ -18,7 +18,7 @@
         </form>
     </header>
     {% if unit is none %}
-    <p class="muted">{{ t.no_genre_list.format(path=list_path) }}</p>
+    <p class="muted">{{ note or t.no_genre_list.format(path=list_path) }}</p>
     {% elif n is none %}
     <p class="muted">{{ t.tile_building }}</p>
     {% elif n %}
@@ -26,10 +26,10 @@
     {% else %}
     <p class="review-clear"><span aria-hidden="true">✓</span> {{ t.review_done }}</p>
     {% endif %}
-    {% if unit is not none %}
+    {% if unit is not none or note %}
     <div class="actions">
         {% if n and start %}<a class="button primary" href="{{ start }}">{{ start_label or t.start_review }}</a>{% endif %}
-        {% if command %}{{ a.apply_form(t, ctx, csrf, command) }}{% endif %}
+        {% if command %}{{ a.apply_form(t, ctx, csrf, command, label=command_label) }}{% endif %}
         {% for href, label in links %}<a class="button" href="{{ href }}">{{ label }}</a>{% endfor %}
     </div>
     {% endif %}
@@ -49,6 +49,10 @@
 {% elif kind == 'genres' %}
 {{ card('genres', t.genre_review, t.unit_genres if genre_list else none, url_for('review_genres'),
         command='genres', links=[(url_for('genre_list_page'), t.rules_genres_link.format(n=rules.genres))]) }}
+{% elif kind == 'physical' %}
+{{ card('physical', t.physical_review, t.unit_physical if physical_kept else none, url_for('review_physical'),
+        command='physical', note=none if physical_kept else t.physical_no_collection,
+        command_label=none if physical_kept else t.physical_first_run) }}
 {% elif kind == 'lyrics' %}
 {{ card('lyrics', t.tracks_without_lyrics_title, t.unit_lyrics.format(albums=lyrics_albums),
         url_for('album_page', folder=first_bare, list='lyrics', at=0) if first_bare else none, t.start_fixing,

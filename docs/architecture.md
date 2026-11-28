@@ -62,6 +62,10 @@ src/music_librarian/
 │   ├── download.py  a stream to a file, 10 attempts, and the cover
 │   ├── tags.py      the tags and cover deezer-music-download wrote
 │   └── staging.py   the hidden folder of the Inbox the albums wait in
+├── physical/        physical: the albums of the Discogs collection marked PHYSICAL, see physical.md
+│   ├── collection.py the collection read from Discogs, and the copy kept for the dashboard
+│   ├── matching.py  which album of the library each release is
+│   └── marks.py     the PHYSICAL word in a comment, and the dashboard's answers (physical.json)
 ├── playcounts/      playcounts: Lyrion's orphan play counts given back to tracks, see lyrion.md
 │   ├── history.py   the orphans, the backfill and the DPSV, read and written in persist.db
 │   ├── matching.py  how much an orphan's path looks like a track's
@@ -77,6 +81,7 @@ src/music_librarian/
     ├── library.py   the albums and tracks from the metadata cache, an album's fields and the edits of its form
     ├── query.py     the library's search, condition by condition, over its tracks
     ├── reviews.py   the split, dedupe and genre reviews, one question per page
+    ├── physical.py  what an album's page shows of its mark, and the review of the close Discogs releases
     ├── playcounts.py Lyrion's orphan play counts, one orphan per page, and its scan started
     ├── uploads.py   the files sent to the Inbox, in a hidden batch moved into it once complete
     ├── deezer.py    the Deezer dialog of the Inbox, the Deezer settings, and the Chrome extension's routes
@@ -92,6 +97,7 @@ src/music_librarian/
 | a drop in the Inbox has settled | `import` | files and enriches that drop, then splits and unifies its credits |
 | every night (`--organize-at`) | `organize --since` | refiles the folders changed since the last full pass |
 | every week (`--enrich-at`) | `enrich --rescan` | reads the whole library again, then fills genres, gain, covers and lyrics, and applies the split decisions and artist aliases |
+| every week (`--physical-at`), by hand, or the dashboard's Reviews page | `physical` | reads the Discogs collection, then marks the albums it holds and unmarks the others |
 | by hand | `scan` | fills the metadata cache and prints the track count per genre |
 | by hand, or the dashboard's Reviews page | `split --review`, `dedupe --review` | asks about the credits and names the library cannot settle |
 | by hand, or an album's page of the dashboard | `tag PATH --set FIELD=VALUE` | rewrites tag fields of tracks, then files them where their new tags put them; the dashboard edits the lyrics and removes the ReplayGain through it too |
@@ -101,7 +107,7 @@ src/music_librarian/
 | by hand, the dashboard's Inbox or the Chrome extension | `deezer ID\|URL` | downloads into a hidden folder of the Inbox, then moves each album into it, for the next `import` |
 | `watch --listen` | the dashboard | shows the passes running and the recent ones, the schedule and the Inbox; queues the passes asked for, which `watch` runs between its jobs |
 
-The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its three jobs keeps its own state (`Imports`, `NightlyOrganize`, `WeeklyEnrich`) and the loop ticks them in turn. With `--listen`, a fourth job comes first, `Requests`: the passes asked for from the dashboard, which its thread only queues; a request cuts the pause between two ticks short, so it starts within half a second unless a pass is running. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
+The first three are run by **watch**, which reads the Inbox root every `--interval` seconds (30 by default). Each of its jobs keeps its own state (`Imports`, `NightlyOrganize`, and a `Weekly` for `enrich` and one for `physical`) and the loop ticks them in turn. With `--listen`, a fourth job comes first, `Requests`: the passes asked for from the dashboard, which its thread only queues; a request cuts the pause between two ticks short, so it starts within half a second unless a pass is running. A job that finds the lock taken (exit code 3) is not marked done and tries again on the next tick. The nightly and weekly jobs read their last pass date from the state folder, so a restart of the container does not run them twice.
 
 ## How a pass runs
 
@@ -173,13 +179,20 @@ A dry run reads only the metadata cache and the library's folders, never the net
 2. **Settle each one**: the track a journal's moves lead its file to, else the one whose path is its own but for case, else the track the matches file names, else it waits for `--review` or stays ignored; one answered "delete" has its entries deleted. A dry run shows the waiting ones with their best match.
 3. **Write** with `--apply`, in one transaction after a backup copy, only when there is something to write: each settled orphan merged into its track (see [lyrion.md](lyrion.md)), the plugin's counts kept at a carry-over and lost since given back, the plays copied where Lyrion or the plugin counts none while the other does, and with `--dpsv` the DPSV of every track. These writes are not journaled.
 
+### physical: the albums of the Discogs collection
+
+1. **Read the collection** of the owner of `DISCOGS_TOKEN` (`/oauth/identity`, then every page of folder 0, one request a second at most, the edition lookup's limit shared), and keep it in `state/physical-collection.json` for the dashboard, dry run included. A collection that cannot be read stops the pass before anything else.
+2. **Read the albums through the metadata cache**, one per folder: album artist, album, the comment and the Discogs id of each track.
+3. **Match each release to an album** (see [physical.md](physical.md)): by id, by name once normalized, else by the dashboard's answer about a close album; the close ones not answered are `REVIEW`, the releases of no album `ABSENT`.
+4. **Write** with `--apply`: `PHYSICAL` added to the comment of each track of an album a release matches and taken out of every other track's, and the release's id in the tracks that hold none, each value read from the file again and each change journaled. An album under question is left as it is; an empty collection unmarks nothing; Discogs is never written to.
+
 ### undo
 
 `undo JOURNAL` replays a journal backwards: moves, then tag changes. A tag change followed by a move of the same file, as `tag` journals them, is checked where the file went, and restored where the undone moves bring it back. A file that is missing, whose original place is taken, or whose tag changed since, is `REFUSED` rather than forced. The restores are journaled too, and carried over to Lyrion like any move.
 
 ### The metadata cache
 
-The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags (an MP4 freeform tag or an MP3 `TXXX` one under its name in lower case, unless it bears the name of a field of the library's own, and an ID3v2.3 `TRDA` as `trda`, which mutagen otherwise drops), duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
+The metadata cache (`media/metadata_cache.py`, `metadata.db` in the state folder) holds one snapshot per music file: its text tags (an MP4 freeform tag or an MP3 `TXXX` one under its name in lower case, unless it bears the name of a field of the library's own, an ID3v2.3 `TRDA` as `trda`, which mutagen otherwise drops, and an MP3's `COMM` frame without a description as `comment`, as the other formats name it), duration, whether it has lyrics and ReplayGain, the hash of its embedded cover, and for an MP4 file whether its `moov` atom comes after `mdat`. A snapshot is read again only when the file's size, mtime or ctime changed, so after one full read (`scan`, or any first pass) `organize` and the enrichment tools only open the files that changed. Files outside the library, such as an Inbox item being imported, are read directly and never cached. The tools run as separate processes, possibly at the same time as a manual run: SQLite serializes their writes. The cache is state, not the library, so dry runs fill it too. `scan --force` and `enrich --rescan` read every file again; the weekly `enrich` of `watch` runs with `--rescan`, so a stale snapshot never outlives a week.
 
 ### The run history
 
@@ -188,7 +201,7 @@ Each pass is kept in the state folder, whichever way it was started: one row in 
 ## Conventions
 
 - Everything is a dry run without `--apply`.
-- `organize`, `import`, `enrich`, `split`, `dedupe`, `playcounts` and `deezer` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
+- `organize`, `import`, `enrich`, `split`, `dedupe`, `playcounts`, `deezer` and `physical` each parse their arguments in `main(argv)` into an `Options` dataclass, then do the work in `run(opts, log)`. Commands call each other through these functions, never by building an argument list: `watch` builds the options of each pass once, at startup.
 - Only one `--apply` pass runs at a time, through a lock in the state folder that `run` takes. The lock is not reentrant: `import` files through `organize_pass`, the unlocked function under `organize.run`, while it holds the lock itself, and `import` and `enrich` call `split_pass` and `dedupe_pass` the same way. `deezer` takes no lock: it writes only to a hidden folder of the Inbox, then moves into it.
 - A stop request (SIGTERM from `docker stop`, or Ctrl-C) lets the current file operation finish, then stops. A second Ctrl-C stops at once.
 - Exit codes: 0 OK, 2 something was skipped or failed, 3 another pass holds the lock, 4 stopped before the end, 5 the Lyrion carry-over failed; `deezer` also gives 1 when it could not download at all.

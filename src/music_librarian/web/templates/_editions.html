@@ -1,5 +1,6 @@
 {% if editions %}
-<p class="muted">{{ t.editions_found.format(n=editions | length, source=source) }}</p>
+<p class="muted">{{ t.editions_held if held else (t.editions_found_one if editions | length == 1
+                    else t.editions_found).format(n=editions | length, source=source) }}</p>
 <div class="table-wrap">
 <table class="editions">
     <thead><tr><th>{{ t.field_year }}</th><th>{{ t.editions_release }}</th><th>{{ t.editions_date }}</th>

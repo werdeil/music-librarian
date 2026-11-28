@@ -10,7 +10,7 @@ read and written back the same way, as tags.other_dates() names them.
 """
 from mutagen import File as MFile
 from mutagen.flac import FLAC
-from mutagen.id3 import TXXX, Frames
+from mutagen.id3 import COMM, TXXX, Frames
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4, MP4FreeForm
 
@@ -18,8 +18,8 @@ from music_librarian.core.log import count
 from music_librarian.media import tags as media_tags
 
 FIELDS = ("title", "artist", "albumartist", "album", "track", "tracktotal", "disc", "disctotal",
-          "discsubtitle", "grouping", "year", "genre", "composer", "compilation", "albumartist_mbid",
-          "artist_mbid")
+          "discsubtitle", "grouping", "year", "genre", "composer", "compilation", "comment",
+          "discogs_release", "albumartist_mbid", "artist_mbid")
 LYRICS = "lyrics"
 REPLAYGAIN = "replaygain"
 DATES = "dates"
@@ -31,11 +31,13 @@ MB = "----:com.apple.iTunes:MusicBrainz "
 MP4_KEYS = {"title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART", "album": "\xa9alb",
             "year": "\xa9day", "genre": "\xa9gen", "composer": "\xa9wrt",
             "discsubtitle": "----:com.apple.iTunes:DISCSUBTITLE", "grouping": "\xa9grp",
+            "comment": "\xa9cmt", "discogs_release": "----:com.apple.iTunes:DISCOGS_RELEASE_ID",
             "albumartist_mbid": MB + "Album Artist Id", "artist_mbid": MB + "Artist Id"}
 MP4_PAIRS = {"track": "trkn", "disc": "disk"}
 MP3_KEYS = {"title": "TIT2", "artist": "TPE1", "albumartist": "TPE2", "album": "TALB",
             "year": "TDRC", "genre": "TCON", "composer": "TCOM", "compilation": "TCMP",
-            "discsubtitle": "TSST", "grouping": "GRP1",
+            "discsubtitle": "TSST", "grouping": "GRP1", "comment": "COMM",
+            "discogs_release": "TXXX:DISCOGS_RELEASE_ID",
             "albumartist_mbid": "TXXX:MusicBrainz Album Artist Id",
             "artist_mbid": "TXXX:MusicBrainz Artist Id"}
 MP3_PAIRS = {"track": "TRCK", "disc": "TPOS"}
@@ -46,6 +48,7 @@ FLAC_KEYS = {"title": ("title",), "artist": ("artist",), "albumartist": ("albuma
              "discsubtitle": ("discsubtitle", "setsubtitle"), "grouping": ("grouping",),
              "year": ("date", "year"),
              "genre": ("genre",), "composer": ("composer",), "compilation": ("compilation",),
+             "comment": ("comment",), "discogs_release": ("discogs_release_id",),
              "albumartist_mbid": ("musicbrainz_albumartistid",),
              "artist_mbid": ("musicbrainz_artistid",)}
 
@@ -110,6 +113,9 @@ def _values(f):
     elif isinstance(f, MP3):
         out = {}
         for name, key in MP3_KEYS.items():
+            if key == "COMM":
+                out[name] = _text(v for frame in _comments(t) for v in frame.text)
+                continue
             frame = t.get(key)
             values = [] if frame is None else frame.genres if key == "TCON" else frame.text
             out[name] = _text(values)
@@ -125,6 +131,10 @@ def _values(f):
             out[total] = out[total] or _number(embedded)
         out["compilation"] = ["1"] if out["compilation"] == ["1"] else []
     return out
+
+
+def _comments(t):
+    return [frame for frame in t.getall("COMM") if not frame.desc]
 
 
 def lyrics(path):
@@ -298,6 +308,12 @@ def _write_mp3(t, field, values):
             t.add(Frames[key](encoding=3, text=[text]))
         return
     key = MP3_KEYS[field]
+    if key == "COMM":
+        for frame in _comments(t):
+            del t[frame.HashKey]
+        if values:
+            t.add(COMM(encoding=3, lang="eng", desc="", text=values))
+        return
     t.delall(key)
     if not values:
         return

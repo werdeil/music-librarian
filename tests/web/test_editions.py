@@ -48,12 +48,33 @@ def test_button_on_the_album_page(d):
 
 def test_editions_listed_and_nothing_written(d, asked):
     found = look_up(d, albumartist="", album="B typed")
-    assert asked == [{"artist": "A", "title": "B typed", "mbid": "", "barcode": "", "tracks": 2}]
+    assert asked == [{"artist": "A", "title": "B typed", "mbid": "", "barcode": "", "tracks": 2,
+                     "discogs": ""}]
     assert "2 editions on MusicBrainz" in found
     assert '<tr class="edition-match">' in found and found.index("2011-05-02") < found.index("GB")
     assert '<button type="button" data-pick-year="2011">Take 2011</button>' in found
     assert '<a href="https://mb/r1" target="_blank" rel="noopener">B</a>' in found
     assert fields.read(str(d.ctx.root / "A/B/01 T1.m4a"))["year"] == ["1973"]
+
+
+def test_an_album_holding_its_discogs_id_shows_that_release(d, asked, monkeypatch):
+    for n in (1, 2):
+        fields.write(str(d.ctx.root / f"A/B/0{n} T{n}.m4a"), "discogs_release", ["11"])
+    scan.run(d.ctx.root, d.state, Log())
+    held = {"title": "B", "artist": "A", "date": "1998-01-16", "country": "FR", "label": "Source",
+            "catalog": "", "barcode": "", "tracks": 2, "format": "Vinyl",
+            "url": "https://www.discogs.com/release/11", "exact": True}
+    monkeypatch.setattr(editions.discogs, "release", lambda rid: held if rid == "11" else None)
+    found = look_up(d)
+    assert "The Discogs release its tracks name." in found and "editions on" not in found
+    assert "https://www.discogs.com/release/11" in found and asked == []
+
+
+def test_one_edition_is_said_so(d, monkeypatch):
+    monkeypatch.setitem(editions.PROVIDERS, "musicbrainz", lambda album: [
+        {"title": "B", "artist": "A", "date": "2011", "country": "", "label": "", "catalog": "",
+         "barcode": "", "tracks": 2, "format": "", "url": "https://mb/r1", "exact": False}])
+    assert "1 edition on MusicBrainz." in look_up(d)
 
 
 def test_nothing_found(d, monkeypatch):

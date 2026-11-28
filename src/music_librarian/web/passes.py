@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 
-from music_librarian import deezer, dedupe, enrich, importer, organize, playcounts, scan, split, tag
+from music_librarian import deezer, dedupe, enrich, importer, organize, physical, playcounts, scan, split, tag
 from music_librarian.core.lock import STOP, resume
 from music_librarian.core.runs import recorded
 
@@ -38,6 +38,7 @@ OPTIONS = {
     "genres": (),
     "playcounts": ("no_backfill", "dpsv"),
     "deezer": ("kind", "ids"),
+    "physical": (),
 }
 # the boxes of the forms that make a pass long, and whether ticked or unticked
 LONG_WHEN = {"since": False, "rescan": True, "force": True}
@@ -150,7 +151,7 @@ def keep_upload(state_dir, data):
     return name
 
 
-def passes(import_opts, organize_opts, enrich_opts, import_log):
+def passes(import_opts, organize_opts, enrich_opts, import_log, physical_opts=None):
     """{command: fn(request, log) -> exit code}, each pass built from the options of watch,
     kept in the run history as started from the dashboard."""
     state_dir, root = import_opts.state_dir, import_opts.root
@@ -228,7 +229,11 @@ def passes(import_opts, organize_opts, enrich_opts, import_log):
                               inbox=import_opts.inbox, apply=r.apply, state_dir=state_dir)
         return kept("deezer", lambda: deezer.run(opts, log), log, r)
 
+    def run_physical(r, log):
+        opts = replace(physical_opts or physical.Options(root=root, state_dir=state_dir), apply=r.apply)
+        return kept("physical", lambda: physical.run(opts, log), log, r)
+
     return {"import": run_import, "organize": run_organize, "enrich": run_enrich, "scan": run_scan,
             "split": credits_pass("split", split), "dedupe": credits_pass("dedupe", dedupe),
             "undo": run_undo, "tag": run_tag, "genres": run_genres,
-            "playcounts": run_playcounts, "deezer": run_deezer}
+            "playcounts": run_playcounts, "deezer": run_deezer, "physical": run_physical}

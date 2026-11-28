@@ -40,15 +40,18 @@
 {% endif %}
 <section class="album-head">
     {% set shown_cover = url_for('uploaded_cover', name=new_cover) if new_cover else cover_url(folder) %}
+    {% set badge = m.physical_badge(t, '%d/%d' % (physical.marked, physical.tracks) if physical.marked < physical.tracks else none)
+                   if physical.marked else '' %}
     {% if ctx.requests %}
     <label class="cover-pick" title="{{ t.cover_change }}">
         <input type="file" name="cover_image" form="album-form" accept="image/*" class="visually-hidden"
                aria-label="{{ t.cover_change }}" data-cover-file>
         <img src="{{ shown_cover }}" alt="" width="160" height="160" data-cover-shown>
         <span class="cover-hint" aria-hidden="true">{{ t.cover_change }}</span>
+        {{ badge }}
     </label>
     {% else %}
-    <img src="{{ shown_cover }}" alt="" width="160" height="160">
+    <span class="cover"><img src="{{ shown_cover }}" alt="" width="160" height="160">{{ badge }}</span>
     {% endif %}
     <div>
         <h2>{{ common.album or folder }}</h2>

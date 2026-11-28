@@ -20,6 +20,8 @@ from music_librarian.integrations import itunes
 from music_librarian.lyrics import enabled_providers
 from music_librarian.tag import genre_list
 from music_librarian.deezer import config as deezer_config, kept as deezer_kept
+from music_librarian.editions import discogs
+from music_librarian.physical import collection as physical_collection
 from music_librarian.web import (albums, deezer, failed, history, library, playcounts, reviews, security,
                                  uploads)
 from music_librarian.web.common import place, server_timing, texts, when
@@ -28,11 +30,16 @@ from music_librarian.web.i18n import TRANSLATIONS, pick_lang
 from music_librarian.web.passes import LONG_WHEN, OPTIONS
 
 HOME_PASSES = ("import", "organize", "enrich", "scan")
+
+
+def home_passes():
+    """The passes the overview offers: physical too once Discogs can be asked."""
+    return HOME_PASSES + (("physical",) if discogs.token() else ())
 POLLED = {"static", "health", "built", "activity_fragment", "run_log", "album_cover", "request_state"}
 
 
 @dataclass
-class Context:
+class Context:  # pylint: disable=too-many-instance-attributes  # one per setting of watch shown
     """What the dashboard shows of the watch that serves it."""
     root: Path
     inbox: Path
@@ -41,6 +48,7 @@ class Context:
     interval: float = 30
     organize_at: time | None = None
     enrich_at: tuple | None = None   # (weekday, time), as watch.weekly parses it
+    physical_at: tuple | None = None
     requests: object = None          # web.passes.Requests; None shows no form
     hosts: frozenset = frozenset()   # the names it answers to besides security.local_host's
     lyrion: object = None            # integrations.lyrion.Lyrion; None shows no Lyrion page
@@ -177,11 +185,15 @@ def create_app(ctx: Context, build_now=False):
                              when(next_weekly(now, day, at).timestamp())))
         else:
             schedule.append(("enrich", t["not_scheduled"], None))
+        if ctx.physical_at:
+            day, at = ctx.physical_at
+            schedule.append(("physical", t["weekly_at"].format(day=t["days"][day], at=f"{at:%H:%M}"),
+                             when(next_weekly(now, day, at).timestamp())))
         inbox = inbox_state(ctx.inbox)
         return render_template(
             "home.html", **to_do(inbox), latest=latest, schedule=schedule, problems=problems,
             inbox=inbox,
-            passes={command: OPTIONS[command] for command in HOME_PASSES}, long_when=LONG_WHEN,
+            passes={command: OPTIONS[command] for command in home_passes()}, long_when=LONG_WHEN,
             env=environment(ctx), deezer_keys=deezer_config.keys_set(),
             deezer_ready=deezer_config.enabled(state_dir=ctx.state_dir),
             upload=dict(extensions=sorted(uploads.SENT_EXT), junk=sorted(JUNK_NAMES),
@@ -196,6 +208,7 @@ def create_app(ctx: Context, build_now=False):
                     deezer_arl=int(bool(downloads and (downloads["refused"] or not downloads["arl"]))))
         bare = library.without_lyrics(everything, later.times("lyrics")) if everything else []
         return dict(todo=todo, switched_off=set(reviews.KINDS) - set(todo),
+                    physical_kept=physical_collection.kept(ctx.state_dir) is not None,
                     deezer_arl_missing=bool(downloads and not downloads["arl"]),
                     genre_list=genre_list(ctx.state_dir, lambda _msg: None) is not None,
                     first_bare=bare[0].folder if bare else None,

@@ -31,9 +31,11 @@ from music_librarian.enrich import genres
 from music_librarian.lyrics import awaited
 from music_librarian.lyrics.matching import fold_name
 from music_librarian.media import credit_tags, metadata_cache
+from music_librarian.physical import collection
 from music_librarian.split import decisions
 from music_librarian.split.rules import (KEEP, PENDING, PROTECTED, SEPARATOR, SPLIT, decided_names,
                                          fragments, key, names_of, resolve, suggest)
+from music_librarian.web import physical
 from music_librarian.web.common import timed
 from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_files, part, with_dates,
                                          with_mixed, without_lyrics)
@@ -41,7 +43,7 @@ from music_librarian.web.library import (WARMER, Refreshed, cache_stamp, cached_
 
 LATER = "review-later.json"
 SWITCHED_OFF = "reviews-off.json"
-REVIEWS = ("split", "dedupe", "genres")
+REVIEWS = ("split", "dedupe", "genres", "physical")
 KINDS = (*REVIEWS, "lyrics", "mixed", "dates")
 
 
@@ -346,9 +348,11 @@ def register(app, ctx, index, later):
     queues, Refreshed values. `later` is the Postponed the questions put off are kept in."""
     reviews = Reviews(ctx.root, ctx.state_dir, later)
     genre_review = GenreReview(ctx.root, ctx.state_dir, later)
+    doubts = physical.register(app, ctx, index, later)
     switched_off = SwitchedOff(ctx.state_dir)
     counts = dict(split=lambda _albums: reviews.credit()[1], dedupe=lambda _albums: reviews.group()[1],
                   genres=lambda _albums: genre_review.item()[1],
+                  physical=lambda _albums: doubts.item()[1],
                   lyrics=lambda albums: None if albums is None else sum(a.without_lyrics for a in albums),
                   mixed=lambda albums: None if albums is None else sum(bool(a.mixed) for a in albums),
                   dates=lambda albums: None if albums is None else sum(bool(a.dates) for a in albums))
@@ -373,13 +377,17 @@ def register(app, ctx, index, later):
         dated = with_dates(albums) if albums else []
         WARMER.ask(*[ctx.root / a.folder for a in bare[:2] if (ctx.root / a.folder).is_dir()])
         off = switched_off.get()
-        order = sorted(KINDS, key=lambda kind: (kind in off, not left.get(kind), -(left.get(kind) or 0)))
+        kept = collection.kept(ctx.state_dir)
+        unset = {kind for kind, ready in (("genres", genre_review.mapping() is not None), ("physical", kept))
+                 if not ready}
+        order = sorted(KINDS, key=lambda kind: (kind in off, kind in unset, not left.get(kind),
+                                                -(left.get(kind) or 0)))
         return render_template("reviews.html", left=left, off=off, order=order,
                                genre_list=genre_review.mapping() is not None,
                                lyrics_albums=len(bare), first_bare=bare[0].folder if bare else None,
                                mixed_albums=len(mixed), first_mixed=mixed[0].folder if mixed else None,
                                dated_albums=len(dated), first_dated=dated[0].folder if dated else None,
-                               list_path=genre_review.path,
+                               list_path=genre_review.path, physical_kept=kept,
                                rules=dict(decisions=len(decisions.entries(reviews.decisions)),
                                           aliases=len(aliases_file.entries(reviews.aliases)),
                                           genres=len(genres.entries(genre_review.path)),

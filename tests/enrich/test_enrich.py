@@ -7,7 +7,7 @@ from datetime import datetime, time
 
 import pytest
 
-from music_librarian import enrich, importer, watch
+from music_librarian import enrich, importer, physical, watch
 from music_librarian.core import runs
 from music_librarian.core.lock import EXIT_LOCKED, EXIT_STOPPED, LOCK, STOP
 from music_librarian.media.metadata_cache import MetadataCache
@@ -321,6 +321,22 @@ def test_retried_while_locked_then_once(weekly):
     weekly.codes += [EXIT_LOCKED]
     weekly.run([lambda: None, lambda: None, lambda: None])  # dry run: last_run does not move forward
     assert len(weekly.calls) == 2
+
+
+@pytest.mark.parametrize("token", ["t0k", ""])
+def test_physical_has_a_weekly_slot_of_its_own_with_a_token(tmp_path, monkeypatch, ticks, capsys, token):
+    inbox_dir, state = tmp_path / "Inbox", tmp_path / "state"
+    inbox_dir.mkdir()
+    state.mkdir()
+    (state / physical.LAST_RUN).write_text(f"{datetime(2026, 10, 11, 5, 0).timestamp()}\n")
+    calls = []
+    monkeypatch.setattr(importer, "run", lambda opts, log: 0)
+    monkeypatch.setattr(physical, "run", lambda opts, log: calls.append(opts) or 0)
+    monkeypatch.setattr(watch, "now", lambda: datetime(2026, 10, 19, 9, 0))
+    monkeypatch.setenv("DISCOGS_TOKEN", token)
+    ticks(inbox_dir, [lambda: None], "--state-dir", str(state), "--physical-at", "sun 04:00", "--apply")
+    assert [(c.apply, c.state_dir) for c in calls] == ([(True, state)] if token else [])
+    assert ("SKIPPED  weekly physical: $DISCOGS_TOKEN is not set" in capsys.readouterr().out) != bool(token)
 
 
 def test_a_stop_is_passed_on_to_the_tool(tmp_path):

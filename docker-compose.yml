@@ -35,8 +35,9 @@ services:
       network: ${BUILD_NETWORK:-default}
     image: music-librarian:local
     # import on every drop, nightly filing of the changed folders, Sunday
-    # enrichment of what is missing
-    command: [watch, --apply, --organize-at, "02:00", --enrich-at, "sun 03:00", --listen, "8080"]
+    # enrichment of what is missing, then the physical albums (with DISCOGS_TOKEN)
+    command: [watch, --apply, --organize-at, "02:00", --enrich-at, "sun 03:00", --physical-at, "sun 04:00",
+              --listen, "8080"]
     restart: unless-stopped
     # the dashboard has no authentication: keep this port on the home network
     ports:

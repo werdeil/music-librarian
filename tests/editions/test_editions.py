@@ -14,7 +14,7 @@ def test_album_of():
     snaps = [{"tags": {"ALBUM ARTIST": ["A"], "album": ["B"], "barcode": [" 1234 "]}},
              None, {"tags": {"musicbrainz_albumid": ["r1"]}}]
     assert editions.album_of(snaps) == {"artist": "A", "title": "B", "mbid": "r1", "barcode": "1234",
-                                        "tracks": 3}
+                                        "tracks": 3, "discogs": ""}
     assert editions.album_of(snaps, {"artist": " C ", "title": ""})["artist"] == "C"
 
 
@@ -55,3 +55,18 @@ def test_nothing_to_look_up_with(monkeypatch):
     monkeypatch.setenv("EDITION_PROVIDERS", "nobody")
     assert editions.look_up({"artist": "A", "title": "", "tracks": 1}) == ([], "no metadata", [])
     assert editions.look_up({"artist": "A", "title": "B", "tracks": 1}) == ([], "none", [])
+
+
+def test_an_album_holding_its_discogs_id_is_that_release_alone(monkeypatch):
+    asked = []
+    held = edition(date="2009", exact=True)
+    monkeypatch.setattr(editions.discogs, "release", lambda rid: asked.append(rid) or held)
+    monkeypatch.setattr(editions, "PROVIDERS", {"musicbrainz": lambda album: asked.append("brainz") or []})
+    found, source, unreachable = editions.look_up({"artist": "A", "title": "B", "tracks": 2, "discogs": "11"})
+    assert [e["year"] for e in found] == ["2009"] and (source, unreachable) == (editions.HELD, [])
+    assert asked == ["11"]
+
+    def down(_rid):
+        raise DOWN
+    monkeypatch.setattr(editions.discogs, "release", down)
+    assert editions.look_up({"artist": "A", "title": "B", "tracks": 2, "discogs": "11"})[1] == "none"

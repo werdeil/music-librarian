@@ -16,7 +16,7 @@ from music_librarian.lyrics import INSTRUMENTAL, awaited
 from music_librarian.media import artwork, fields, metadata_cache, tags
 from music_librarian.split.rules import names_of
 from music_librarian.tag import genre_list
-from music_librarian.web import history, library, query
+from music_librarian.web import history, library, physical, query
 from music_librarian.web.common import WORK_LISTS, paged, place, refused, submit, texts, timed
 from music_librarian.web.passes import CANCELLED, DONE, keep_upload, upload_path
 
@@ -180,6 +180,7 @@ def register(app, ctx, index, later):
             if counted and any(getattr(counted, name) != value for name, value in found.items()):
                 index.note(rel, found)
             work = in_work_list(rel, sorted_out)
+        owned = physical.album_state(tracks)
         page = render_template("album.html", folder=rel, tracks=tracks, common=library.common(tracks),
                                spread=library.spread(tracks),
                                discs=library.several_discs(tracks), groupings=library.has_groupings(tracks),
@@ -195,7 +196,7 @@ def register(app, ctx, index, later):
                                total=None if total is None else history.duration(total),
                                gains={n: fields.track_gain(v) or ("?" if v else None)
                                       for n, v in gains.items()},
-                               followed=followed(rel), work=work, **shown)
+                               followed=followed(rel), work=work, physical=owned, **shown)
         return page, status
 
     @app.get("/library/album")
@@ -353,7 +354,8 @@ def register(app, ctx, index, later):
         album = editions.album_of(snapshots, {"artist": request.form.get("albumartist", ""),
                                               "title": request.form.get("album", "")})
         found, source, unreachable = editions.look_up(album)
-        return render_template("_editions.html", editions=found, source=editions.NAMES.get(source),
+        return render_template("_editions.html", editions=found, held=source == editions.HELD,
+                               source=editions.NAMES.get(source),
                                why=None if found else source.replace(" ", "_"),
                                unreachable=", ".join(editions.NAMES[n] for n in unreachable))
 

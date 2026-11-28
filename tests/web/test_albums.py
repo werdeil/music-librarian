@@ -29,8 +29,9 @@ def album_form(d, folder, **changes):
     """The album page's form as a browser would post it, with `changes` ({input name: value})."""
     page = d.client.get(f"/library/album?folder={folder}", headers=EN).get_data(as_text=True)
     form = {"csrf": d.token, "folder": folder}
-    for name, value in re.findall(r'<input[^>]* name="([^"]+)" value="([^"]*)"', page):
-        form[name] = value
+    for tag, name, value in re.findall(r'(<input[^>]* name="([^"]+)" value="([^"]*)"[^>]*>)', page):
+        if 'type="checkbox"' not in tag or " checked" in tag:   # as a browser sends them
+            form[name] = value
     form["seen"] = html.unescape(re.search(r'name="seen" value="([^"]*)"', page)[1])
     form["album.compilation"] = re.search(r'<option value="([^"]*)"[^>]* selected', page)[1]
     form.update(changes)
